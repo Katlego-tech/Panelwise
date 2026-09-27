@@ -95,64 +95,59 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 ---
 
-## Phase 0 — Design
+## Phase 1 — Setup and foundations
 
-> Merged before Phase 2 implementation starts. Cheap, markdown-only, and the thing that decides
-> whether everything after it is built to a shape or to a guess.
+> One line per task for now. **Whoever claims a task expands it to the full
+> `Design/Files/Contract/Verify/Done` format in the same PR, before writing code.** "Port from"
+> names the FrameFlow source; the porter adds a row to the table in
+> [CHANGES-FROM-FRAMEFLOW.md](CHANGES-FROM-FRAMEFLOW.md).
 
-- [ ] T001 [DSN] `<docs/design/domain-model.md — class diagram for the core entities>`
-- [ ] T002 [P] [DSN] `<docs/design/<lane>.md — one design doc per non-trivial lane>`
+- [ ] T001 [FND] **Token Factory check.** Answer U1–U6 from the FrameFlow Nebius plan (json_schema enforced? thinking off? which host serves each model? rate limits? a vision model? sampling for grounded extraction) and write the answers to `docs/nebius-findings.md`. Lane `llm`.
+- [ ] T002 [P] [SET] **Versions + local stack.** Pin Python/Node, `services/api/pyproject.toml` (uv), Next.js app in `apps/web`, `docker-compose.yml` (postgres, redis, api, web). CI green on the gate. Lane `infra`.
+- [ ] T003 [P] [SET] **ComfyUI on a Nebius GPU.** Bring up ComfyUI on Nebius AI Cloud, record cost/hour and seconds per frame in `infra/nebius/README.md`. Lane `infra`.
+- [ ] T004 [FND] **Nebius provider with tiers.** Fast, reasoning and vision tiers, per-call `tier=`, `structured_chat` + repair retry, strip `<think>`. Port from `app/services/llm_provider.py`, `openai_compat.py`. Depends on T001. Lane `llm`.
+- [ ] T005 [P] [FND] **Script module.** Port from `screenplay_parser.py`, `scene_time.py`, `dialogue_linker.py`. Lane `script+grounding`.
+- [ ] T006 [FND] **Grounding module.** Port from `extraction_service.py`, `grounding.py`, `governance_service.py`; runs on Nemotron. Depends on T004, T005. Lane `script+grounding`.
 
-**Checkpoint:** every lane in Phase 2+ has a merged design doc; `docs/design/README.md` indexes them.
-
----
-
-## Phase 1 — Setup
-
-- [ ] T0xx [SET] `<repo skeleton>`
-- [ ] T0xx [P] [SET] `<lint/test config>`
-- [ ] T0xx [P] [SET] `<CI workflow>`
-- [ ] T0xx [SET] `<.githooks/pre-push + git config core.hooksPath .githooks>`
-- [ ] T0xx [SET] `<seed STATUS.md, AGENTS.md — the shared-state protocol>`
-
-**Checkpoint:** repo builds/boots, lint + an empty test run pass, CI is green.
+**Checkpoint:** a sample script parses and extracts on Nemotron with a faithfulness score.
 
 ---
 
-## Phase 2 — Foundational (blocking)
+## Phase 2 — US1: script → grounded storyboard
 
-- [ ] T0xx [FND] `<the thing every user story depends on>`
-      Design:  `<docs/design/...>`
-      Files:   `<...>`
-      Contract:`<...>`
-      Verify:  `<...>`
-      Done:    `<...>`
+- [ ] T007 [US1] **Shot planner.** Port from `shot_service.py`. Depends on T006. Lane `shots`.
+- [ ] T008 [US1] **Storyboard.** Port from `storyboard_service.py`, `storyboard_styles.py`, `storyboard_document.py`, `image_provider.py`, `image_cache.py`, `image_postprocess.py`. Style registry loads `styles/` plus optional `PANELWISE_PRIVATE_STYLES`. Depends on T003, T007. Lane `storyboard`.
+- [ ] T009 [US1] **Web: upload → shots → storyboard.** Lane `web` (UI goes to Claude users per AGENTS.md §1).
 
-**Checkpoint:** `<the thin end-to-end spine works, even if it does nothing useful yet>`
+**Checkpoint:** US1 demoable in the browser on Nemotron + Nebius GPU.
 
 ---
 
-## Phase 3 — US1 `<title>`
+## Phase 3 — Design for the new work (markdown only)
 
-- [ ] T0xx [US1] Write failing test for `<behavior>`.
-      Verify:  `<test command>` — fails with `<the specific expected failure>`
-      Done:    test exists, runs, and fails because the behaviour is absent (not because it errors)
-- [ ] T0xx [US1] Implement `<behavior>` until the test passes.
-      Design:  `<docs/design/... §n>`
-      Files:   `<...>`
-      Contract:`<...>`
-      Verify:  `<test command>` — green
-      Done:    `<observable outcome; no stubs, no hard-coded returns>`
-
-**Checkpoint:** US1 is independently demoable.
+- [ ] T010 [P] [DSN] `docs/design/verify.md` — audit sequence, verdict schema, re-render limit, audit log.
+- [ ] T011 [P] [DSN] `docs/design/comic.md` — page model, panel sizing by story beat, bubble placement, lettering, export.
+- [ ] T012 [P] [DSN] `docs/design/characters.md` — reference portraits and how they feed ComfyUI.
 
 ---
 
-<!-- Repeat the US-phase pattern for each user story in SPEC.md, then close with Polish. -->
+## Phase 4 — US2 frame audit · US3 comic · US4 consistent characters
 
-## Phase N — Polish
+- [ ] T020 [US2] Frame audit: vision model compares frame with shot spec, returns a verdict. Depends on T010. Lane `verify`.
+- [ ] T021 [US2] Re-render on mismatch, cap retries, log every verdict; show the log in the web app. Lane `verify`.
+- [ ] T022 [US3] Comic page layout + panel sizing from the shot list. Depends on T011. Lane `comic`.
+- [ ] T023 [US3] Speech bubbles from linked dialogue, placed in empty space; comic PDF export. Lane `comic`.
+- [ ] T024 [US3] Web comic reader. Lane `web`.
+- [ ] T025 [US4] Reference portraits used across panels. Port from `portrait_service.py`, `portrait_jobs.py`. Depends on T012. Lane `characters`.
 
-- [ ] T0xx [POL] `<docs, checklist, release>`
-- [ ] T0xx [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data
-      remain outside of tasks that explicitly declared them, and each declared one has an open
-      follow-up task ID.
+---
+
+## Phase 5 — Hardening and submission
+
+- [ ] T030 [POL] Hosted demo on Nebius, seeded judge account, LLM + image spend caps, upload limits. Stays up to 15 Dec. Lane `infra`.
+- [ ] T031 [P] [POL] Public-domain / self-written sample screenplays in `samples/`. Lane `eval+submission`.
+- [ ] T032 [P] [POL] `eval/`: faithfulness and frame-audit accuracy numbers for the README. Lane `eval+submission`.
+- [ ] T033 [POL] README: setup, how Nemotron and Token Factory are used, feedback section. Lane `eval+submission`.
+- [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
+- [ ] T035 [POL] gitleaks over history, make the repo public, submit on Devpost by 29 Oct. Lane `eval+submission`.
+- [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.

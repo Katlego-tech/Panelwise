@@ -29,38 +29,56 @@ _Last updated: 2026-09-27 — by Katlego (via Claude)_
 ## 🎯 Current focus — the taskboard (claim your lane here)
 
 > **WIP limit: one lane in `🟡 Doing` per contributor, human or AI. Finish before you start.**
-> Work parked in Doing while you work elsewhere makes this table a lie, and a board that lies is
-> worse than no board. Park it back to `⬜ To Do` with a Log note, or write a handoff.
-> Status values: `⬜ To Do` · `🟡 Doing` · `🔵 In review` · `✅ Done` · `🔴 Blocked`.
-> ("Lane" here means an *area of ownership*; the Status column is the *flow state*.
-> See [docs/iteration-rituals.md](docs/iteration-rituals.md).)
+> Claim a lane by putting your name in Owner and moving it to `🟡 Doing`, in the same PR as your
+> first commit on it. Status values: `⬜ To Do` · `🟡 Doing` · `🔵 In review` · `✅ Done` · `🔴 Blocked`.
 
-| Lane | Owner | AI | Status |
-|------|-------|----|--------|
-| | | | |
+| Lane | Covers | Tasks | Owner | AI | Status |
+|------|--------|-------|-------|----|--------|
+| `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ⬜ To Do |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030 | | | ⬜ To Do |
+| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | | | ⬜ To Do |
+| `shots` | Shot planner | T007 | | | ⬜ To Do |
+| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
+| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T024 | | | ⬜ To Do |
+| `verify` | Nemotron vision frame audit, re-render loop, audit log | T010, T020, T021 | | | ⬜ To Do |
+| `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | | | ⬜ To Do |
+| `characters` | Reference portraits for consistent characters | T012, T025 | | | ⬜ To Do |
+| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035 | | | ⬜ To Do |
 
 ## ⏭️ Next action
 
-1.
+1. **T001** — the Token Factory check. Everything in `llm`, `verify` and `comic` depends on its
+   answers (JSON enforcement, thinking toggle, which host serves which model, rate limits, whether a
+   vision model is served). `infra` (T002) can run in parallel.
 
-## 🗓️ Timeline to `2026-10-30 10:00 PDT (19:00 SAST) - Nebius x NVIDIA Global AI Hackathon`
+## 🗓️ Timeline to 2026-10-30 10:00 PDT (19:00 SAST)
 
-| Phase | What | Target window | Status |
+| Week | What | Target window | Status |
 |-------|------|---------------|--------|
-| Phase 0 | Setup & access | | ⬜ |
-| | | | ⬜ |
+| 1 | Token Factory check; versions + compose; ComfyUI on Nebius GPU; port llm, script, grounding | 28 Sep – 4 Oct | ⬜ |
+| 2 | **US1**: script → grounded storyboard on Nemotron, end to end in the web app. Design docs for verify + comic | 5 – 11 Oct | ⬜ |
+| 3 | **US2**: frame audit + re-render + audit log. **US4**: reference portraits | 12 – 18 Oct | ⬜ |
+| 4 | **US3**: comic pages + reader. Hosted demo live | 19 – 25 Oct | ⬜ |
+| 5 | Hardening, eval numbers, video, README, repo public, **submit by 29 Oct** (one day of buffer) | 26 – 30 Oct | ⬜ |
 
 ## 🧱 What's built so far
 
--
+- Scaffold only (Cultivation kit, folder structure, licence, disclosure note). No code yet.
 
 ## 🛠️ Environment & access
 
--
+- FrameFlow (private, `Katlego-tech/FrameFlow`) is the source for every ported module. Both of us have access.
+- Nebius Token Factory: $25 promo (`NEBIUS-DEVPOST-GLOBAL26`) + $25 from the AI Builder Program. Keys go in `.env`, never in the repo.
+- The original Nebius migration plan (unknowns U1–U6, model tiers, costs) is in
+  `~/Documents/projects/personal/frameflow-nebius-hackathon/PLAN.md` on Katlego's machine.
 
 ## ⚠️ Open decisions / risks
 
--
+- **Is a vision model served on Token Factory?** If not, `verify` needs another NVIDIA vision model on Nebius AI Cloud. T001 answers this.
+- **Which styles stay private?** Decide before T008 moves styles over. The demo may only use public styles.
+- **Repo is private.** It must be public before submission (T035).
+- **No copyrighted scripts** in the repo, demo or video. Only public-domain or self-written samples.
+- GPU cost: $50 of credit covers Token Factory calls, not a GPU VM. Check the cost of the ComfyUI box in T003.
 
 ## 🔄 Retrospectives (one per phase boundary)
 
@@ -81,4 +99,4 @@ _Last updated: 2026-09-27 — by Katlego (via Claude)_
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
-- YYYY-MM-DD — <name> (via <tool>) — <what changed>. Next: <what's next>. Blocked on: <or nothing>.
+- 2026-09-27 — Katlego (via Claude) — scaffold, disclosure note, lanes and Phase 1 task list. Next: T001 + T002. Blocked on: nothing.
