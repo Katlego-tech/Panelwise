@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-09-27 — by Tumo (via Claude)_
+_Last updated: 2026-09-27 — by Katlego (via Claude)_
 
 ---
 
