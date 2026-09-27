@@ -19,7 +19,7 @@ says "read AGENTS.md first." This file is the source of truth for *how we work*;
 
 | Person | Role | AI copilot(s) |
 |--------|------|----------------|
-| Katlego Thapelo Tlhapiso | Project leader | Gemini |
+| Katlego Thapelo Tlhapiso | Project leader | Claude, Gemini |
 | Tumo Olorato Mogame | Co-builder | Claude |
 
 > 📝 **Customize:** add a row per contributor. Solo project? One row, and "lanes" still matter — they're

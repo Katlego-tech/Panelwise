@@ -1,6 +1,6 @@
-# CLAUDE.md — `Tumo Olorato Mogame`'s entry point (Claude)
+# CLAUDE.md — `Katlego Thapelo Tlhapiso` and `Tumo Olorato Mogame`'s entry point (Claude)
 
-You are Claude, working with **`Tumo Olorato Mogame`** on **`Panelwise`**. You may be working alongside
+You are Claude, working with **`Katlego Thapelo Tlhapiso`** or **`Tumo Olorato Mogame`** on **`Panelwise`**. You may be working alongside
 other AI copilots (see [AGENTS.md](AGENTS.md) §1); coordinate only through the shared-state files.
 
 ## Before you do anything
