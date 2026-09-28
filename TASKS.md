@@ -121,7 +121,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:docs/design/llm.md §6, verbatim
       Verify:  bash scripts/gate.sh (tests use httpx.MockTransport, no network); uv run python -m app.llm.smoke answers on FAST and REASONING with FAST reasoning_tokens == 0
       Done:    T006 can call `await structured_chat(model, messages, Extraction, Tier.FAST)` and get a validated object plus the model that answered and its token usage, on the real account
-- [ ] T005 [P] [FND] **Script module.** Port from `screenplay_parser.py`, `scene_time.py`, `dialogue_linker.py`. Lane `script+grounding`.
+- [x] T005 [P] [FND] **Script module.** Port from `screenplay_parser.py`, `scene_time.py`, `dialogue_linker.py`. Lane `script+grounding`.
+      Design:  docs/design/script.md (all sections)
+      Files:   services/api/app/script/{__init__,model,parser,scene_time,speakers}.py; services/api/tests/script/*; services/api/pyproject.toml (pdfplumber; fpdf2 dev); CHANGES-FROM-FRAMEFLOW.md (ported rows)
+      Contract:docs/design/script.md §6, verbatim
+      Verify:  bash scripts/gate.sh; the end-to-end test parses a 2-page self-written PDF built with fpdf2 into the expected scenes, and every element's Span slices back to its own text
+      Done:    `parse_pdf(bytes)` returns ordered scenes whose every action and dialogue element names the page and lines it came from; `resolve_times` and `match_speaker` are ready for T006/T007
 - [ ] T006 [FND] **Grounding module.** Port from `extraction_service.py`, `grounding.py`, `governance_service.py`; runs on Nemotron. Depends on T004, T005. Lane `script+grounding`.
 
 **Checkpoint:** a sample script parses and extracts on Nemotron with a faithfulness score.
