@@ -34,7 +34,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
-| `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | Katlego | Claude | 🟡 Doing (T001) |
+| `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | Katlego | Claude | 🔵 In review (T001) |
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030 | | | ⬜ To Do |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | | | ⬜ To Do |
 | `shots` | Shot planner | T007 | | | ⬜ To Do |
@@ -47,9 +47,8 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 ## ⏭️ Next action
 
-1. **T001** — the Token Factory check. Everything in `llm`, `verify` and `comic` depends on its
-   answers (JSON enforcement, thinking toggle, which host serves which model, rate limits, whether a
-   vision model is served). `infra` (T002) can run in parallel.
+1. **T004** — Nebius provider with tiers, built to [docs/nebius-findings.md](docs/nebius-findings.md)
+   (T001 answers are in; no exploratory calls needed). `infra` (T002) can run in parallel.
 
 ## 🗓️ Timeline to 2026-10-30 10:00 PDT (19:00 SAST)
 
@@ -74,7 +73,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 ## ⚠️ Open decisions / risks
 
-- **Is a vision model served on Token Factory?** If not, `verify` needs another NVIDIA vision model on Nebius AI Cloud. T001 answers this.
+- **No NVIDIA vision model on Token Factory** (T001). Decided: a Token Factory VLM (GLM-5.3-Flash) *describes* each frame and Nemotron *judges* it; self-hosting an NVIDIA VLM on the Nebius GPU is a stretch. SPEC, README and the Devpost draft still say "Nemotron vision auditor" and must be corrected.
 - **Which styles stay private?** Decide before T008 moves styles over. The demo may only use public styles.
 - **Repo is private.** It must be public before submission (T035).
 - **No copyrighted scripts** in the repo, demo or video. Only public-domain or self-written samples.
@@ -100,3 +99,4 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
 - 2026-09-27 — Katlego (via Claude) — scaffold, disclosure note, lanes and Phase 1 task list. Next: T001 + T002. Blocked on: nothing.
+- 2026-09-28 — Katlego (via Claude) — T001 done: `docs/nebius-findings.md` (json_schema enforced, thinking off works, one host, no image gen, no NVIDIA vision → option A). ~$0.004 of trial credit. Next: T004. Blocked on: nothing.
