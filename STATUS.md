@@ -34,8 +34,8 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
-| `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | Katlego | Claude | ✅ T001 done · T004 next |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030 | Katlego | Claude | 🔵 In review (T002) |
+| `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | Katlego | Claude | 🔵 In review (T004) |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030 | | | ✅ T002 done · T003 next |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | | | ⬜ To Do |
 | `shots` | Shot planner | T007 | | | ⬜ To Do |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
@@ -47,8 +47,8 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 ## ⏭️ Next action
 
-1. **T004** — Nebius provider with tiers, built to [docs/nebius-findings.md](docs/nebius-findings.md)
-   (T001 answers are in; no exploratory calls needed). `infra` (T002) can run in parallel.
+1. **T005 / T006** — script module, then grounded extraction on `structured_chat` (the `llm` seam is ready).
+   **T003** — ComfyUI on a Nebius GPU, in parallel.
 
 ## 🗓️ Timeline to 2026-10-30 10:00 PDT (19:00 SAST)
 
@@ -67,6 +67,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - **Web** (`apps/web`, Next.js 16, pnpm): `GET /api/health` reports web + API health; 502 when the API is unreachable. No pages yet (T009).
 - **Gate:** 10 checks across 2 projects (ruff, pyright, pytest, eslint+tsc, vitest, next build, placeholder, secrets, osv-scanner, jscpd).
 - **Token Factory findings (T001):** [docs/nebius-findings.md](docs/nebius-findings.md).
+- **LLM seam (T004):** `app/llm` — `NebiusChatModel` (fast / reasoning / vision tiers, retries with `Retry-After`, thinking off on fast) and `structured_chat` (strict `json_schema`, one repair retry). Design: [docs/design/llm.md](docs/design/llm.md). Live check: `cd services/api && uv run python -m app.llm.smoke`.
 
 ## 🛠️ Environment & access
 
@@ -105,3 +106,4 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - 2026-09-27 — Katlego (via Claude) — scaffold, disclosure note, lanes and Phase 1 task list. Next: T001 + T002. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — T001 done: `docs/nebius-findings.md` (json_schema enforced, thinking off works, one host, no image gen, no NVIDIA vision → option A). ~$0.004 of trial credit. Next: T004. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — T002: pinned Python 3.14 / Node 24.21 / Next 16.3.6 / PG 18.6 / Redis 8.10.2; compose stack healthy; gate now runs 10 checks. Next: T004 (llm). Blocked on: nothing.
+- 2026-09-28 — Katlego (via Claude) — T002 merged (PR #5). T004: `app/llm` client + structured_chat, 32 tests, live smoke passes (fast 0 reasoning tokens, reasoning 62). Next: T005/T006. Blocked on: nothing.

@@ -55,4 +55,5 @@ Each ported module is listed here with the FrameFlow file it came from and wheth
 
 | Panelwise module | Ported from (FrameFlow) | Origin |
 | --- | --- | --- |
-| _(filled in as each module is ported)_ | | |
+| `services/api/app/llm/client.py` | `services/api/app/services/openai_compat.py` (retry on 429/5xx with backoff; the reasoning-but-no-content error) | 28 Aug 2026 (`dceba8d`, T257), during the submission period. Rewritten for Panelwise: async, Nebius-only, three tiers, `Retry-After`, thinking toggle, `<think>` stripping, usage with reasoning tokens |
+| `services/api/app/llm/structured.py` | `services/api/app/services/llm_provider.py::structured_chat` (strict `json_schema` + one repair retry) | 28 Aug 2026 (`dceba8d`, T261), during the submission period. Rewritten: async, schema inlined in the system prompt, returns the answering model and usage |

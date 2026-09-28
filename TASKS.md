@@ -115,7 +115,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Verify:  bash scripts/gate.sh (ruff, pyright, pytest, eslint, tsc, vitest, build, osv, jscpd all run); docker compose up --build --wait, then curl localhost:3000/api/health → 200 with both checks "ok"; docker compose stop redis → 503 with redis "error: …"
       Done:    `docker compose up` brings up all four services healthy on pinned versions, and the gate runs real checks on both projects (count > 2) locally and in CI
 - [ ] T003 [P] [SET] **ComfyUI on a Nebius GPU.** Bring up ComfyUI on Nebius AI Cloud, record cost/hour and seconds per frame in `infra/nebius/README.md`. Lane `infra`.
-- [ ] T004 [FND] **Nebius provider with tiers.** Fast, reasoning and vision tiers, per-call `tier=`, `structured_chat` + repair retry, strip `<think>`. Port from `app/services/llm_provider.py`, `openai_compat.py`. Depends on T001. Lane `llm`.
+- [x] T004 [FND] **Nebius provider with tiers.** Fast, reasoning and vision tiers, per-call `tier=`, `structured_chat` + repair retry, strip `<think>`. Port from `app/services/llm_provider.py`, `openai_compat.py`. Depends on T001. Lane `llm`.
+      Design:  docs/design/llm.md (all sections); measured behaviour in docs/nebius-findings.md
+      Files:   services/api/app/llm/{__init__,client,structured,smoke}.py; services/api/app/core/config.py; services/api/tests/llm/*; CHANGES-FROM-FRAMEFLOW.md (ported rows)
+      Contract:docs/design/llm.md §6, verbatim
+      Verify:  bash scripts/gate.sh (tests use httpx.MockTransport, no network); uv run python -m app.llm.smoke answers on FAST and REASONING with FAST reasoning_tokens == 0
+      Done:    T006 can call `await structured_chat(model, messages, Extraction, Tier.FAST)` and get a validated object plus the model that answered and its token usage, on the real account
 - [ ] T005 [P] [FND] **Script module.** Port from `screenplay_parser.py`, `scene_time.py`, `dialogue_linker.py`. Lane `script+grounding`.
 - [ ] T006 [FND] **Grounding module.** Port from `extraction_service.py`, `grounding.py`, `governance_service.py`; runs on Nemotron. Depends on T004, T005. Lane `script+grounding`.
 
