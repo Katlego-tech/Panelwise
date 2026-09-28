@@ -34,7 +34,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
-| `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | Katlego | Claude | 🔵 In review (T001) |
+| `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | Katlego | Claude | ✅ T001 done · T004 next |
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030 | | | ⬜ To Do |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | | | ⬜ To Do |
 | `shots` | Shot planner | T007 | | | ⬜ To Do |

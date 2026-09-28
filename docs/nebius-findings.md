@@ -206,7 +206,7 @@ as a base64 `data:` URL in an OpenAI-style content part:
 | `nvidia/Nemotron-3_5-Lightning` (control) | NVIDIA | 0.06 · 0.24 | 600 | **400** `"This model does not support image input"` |
 | `zai-org/GLM-5.3-Flash` | Z.ai | 0.15 · 0.50 | 600 | ✅ "Red square — top-left corner / Blue circle — bottom-right corner" |
 | `deepseek-ai/DeepSeek-V4.1-Flash` | DeepSeek | 0.30 · 1.20 | 3000 | ✅ "a red square in the top-left corner and a blue circle in the bottom-right corner" |
-| `openbmb/MiniCPM-V-4_5` | OpenBMB | 0.66 · 1.11 | 300 | ✅ correct, but the reply stopped mid-sentence with `finish_reason: stop`; 32K context |
+| `openbmb/MiniCPM-V-4_5` | OpenBMB | 0.66 · 1.11 | 300 | ✅ "A red square is positioned in the top-left corner. A blue circle is located in the bottom-right corner." Only 32K context |
 | `moonshotai/Kimi-K2.6` | Moonshot | 0.95 · 4.00 | 200 | ✅ "Red square: top-left. Blue circle: bottom-right." |
 | `moonshotai/Kimi-K3` | Moonshot | 3.00 · 15.00 | 1000 | ✅ correct ("bottom-right (right of center)") |
 
