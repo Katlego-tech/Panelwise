@@ -89,10 +89,11 @@ $$0.3 \times \$0.06 + 0.15 \times \$0.24 \approx \$0.05 .$$
 
 ⟨TBD: replace the estimate with the measured cost once T006 runs a full script, and say it finished.⟩
 
-**Errors that lied.** When one provider in our fallback chain hit its quota, the chain fell through
-to a local endpoint that wasn't running and reported only that last error — a 404 from
-`localhost:11434` — pointing us at Ollama when the cause was the quota. Now an exhausted chain
-reports every provider's failure.
+**Errors that lied.** In FrameFlow, when one provider in the fallback chain hit its quota, the chain
+fell through to a local endpoint that wasn't running and reported only that last error — a 404
+from `localhost:11434` — pointing us at Ollama when the cause was the quota. FrameFlow's chain now
+reports every provider's failure; Panelwise has no chain at all. It calls one provider, so the
+error names the model that failed.
 
 **Reading the catalog versus measuring the API.** Before writing any code we spent under half a cent
 probing Token Factory, and several answers contradicted what the documentation suggested:
