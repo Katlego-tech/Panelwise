@@ -30,9 +30,11 @@ locations with **NVIDIA Nemotron on Nebius Token Factory**, plans a shot list, r
 shot, and lays the frames out as storyboard pages or as comic pages with speech bubbles taken from
 the script's dialogue. Every panel links back to the verbatim lines it came from.
 
-A **Nemotron vision auditor** looks at every rendered frame and checks it against its shot spec — who
-is in frame, the framing, the time of day — and sends it back for a re-render when they disagree.
-Every verdict is logged, so you can see why a frame was accepted.
+Every rendered frame is audited. ⟨TBD: true once T020/T021 ship⟩ No Nemotron model on Token Factory
+accepts images, so the audit is split in two: a vision model describes the frame — who is in it,
+the framing, the time of day — and **Nemotron compares that description with the shot spec** and
+sends the frame back for a re-render when they disagree. The description and the verdict are both
+logged, so you can see why a frame was accepted.
 
 ## How we built it
 
@@ -40,7 +42,9 @@ Every verdict is logged, so you can see why a frame was accepted.
   Nemotron with a strict JSON schema. Every extracted entity must carry a verbatim quote from the
   script; a grounding filter drops anything whose quote can't be found in the source.
 - **Model tiers.** High-volume, schema-bound calls (extraction, shot planning) run on the fast tier,
-  ⟨TBD: model confirmed in T001⟩; judgement-heavy calls use ⟨TBD: reasoning model⟩.
+  **Nemotron 3.5 Lightning**, with thinking switched off; judgement calls use **Nemotron 3 Super**
+  with thinking on. Every result records which model answered and how many tokens it spent
+  thinking.
 - **Rendering.** ComfyUI on a **Nebius AI Cloud** GPU, with character reference portraits so the same
   person looks the same from panel to panel.
 - **The audit loop.** Each frame may be rendered at most \(k+1\) times. If a single render passes
@@ -86,7 +90,18 @@ $$0.3 \times \$0.06 + 0.15 \times \$0.24 \approx \$0.05 .$$
 the *last* provider's error, "connection refused on localhost" — pointing us at the wrong service
 entirely. Now an exhausted chain reports every provider's failure.
 
-⟨TBD: Nemotron-specific challenges from T001 — JSON enforcement, the reasoning toggle, vision.⟩
+**Reading the catalog versus measuring the API.** Before writing any code we spent about half a cent
+probing Token Factory, and several answers contradicted what the documentation suggested:
+
+- The model catalog lists no JSON mode for any Nemotron model, yet strict `json_schema` output
+  **was enforced**, even when the prompt never mentioned the schema. The looser `json_object` mode
+  returned JSON in the wrong shape, and in one run it added a detail the scene never gave — a
+  character "likely a lighthouse keeper". That is exactly the kind of invention our grounding
+  filter exists to catch.
+- Nemotron reasons by default. For a one-number answer, thinking took Lightning from 4 output
+  tokens to 271. Only two of the four switches we tried actually turned it off.
+- No Nemotron model on Token Factory accepts images, so the frame audit had to be redesigned
+  around a vision model that describes and a Nemotron model that judges.
 
 ## Accomplishments that we're proud of
 
