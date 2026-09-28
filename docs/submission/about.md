@@ -25,6 +25,7 @@ tells the crew something the writer never wrote. So Panelwise is built around on
 
 ## What it does
 
+⟨TBD: each step true once US1, T005–T009, ships; today the parser and the Nemotron client exist⟩
 Upload a screenplay. Panelwise parses it into scenes and dialogue, extracts the characters and
 locations with **NVIDIA Nemotron on Nebius Token Factory**, plans a shot list, renders one frame per
 shot, and lays the frames out as storyboard pages or as comic pages with speech bubbles taken from
@@ -41,18 +42,19 @@ logged, so you can see why a frame was accepted.
 - **Grounded extraction.** The screenplay is split on scene boundaries and each chunk goes to
   Nemotron with a strict JSON schema. Every extracted entity must carry a verbatim quote from the
   script; a grounding filter drops anything whose quote can't be found in the source.
+  ⟨TBD: true once T006 ships; the filter is ported from FrameFlow⟩
 - **Model tiers.** High-volume, schema-bound calls (extraction, shot planning) run on the fast tier,
   **Nemotron 3.5 Lightning**, with thinking switched off; judgement calls use **Nemotron 3 Super**
   with thinking on. Every result records which model answered and how many tokens it spent
   thinking.
 - **Rendering.** ComfyUI on a **Nebius AI Cloud** GPU, with character reference portraits so the same
-  person looks the same from panel to panel.
+  person looks the same from panel to panel. ⟨TBD: true once T003 and T025 ship⟩
 - **The audit loop.** Each frame may be rendered at most \(k+1\) times. If a single render passes
   the audit with probability \(p\), the expected number of renders per frame is
 
   $$\mathbb{E}[N] \;=\; \sum_{i=0}^{k} (1-p)^i \;=\; \frac{1-(1-p)^{k+1}}{p},$$
 
-  which is how we budget GPU time: at \(p = ⟨TBD⟩\) and \(k = ⟨TBD⟩\), a frame costs
+  which is how we plan to budget GPU time ⟨TBD: true once T020/T021 ship⟩: at \(p = ⟨TBD⟩\) and \(k = ⟨TBD⟩\), a frame costs
   \(⟨TBD⟩\) renders on average.
 - **Stack.** FastAPI + Postgres + Redis behind a Next.js app, all in Docker.
 
@@ -79,16 +81,17 @@ switched parsers.
 
 **Infrastructure walls.** Chunked extraction needs 17 requests per feature-length script. A free
 API tier capped at 20 requests a day died at chunk 7 of 17, and a local 3B model timed out on a
-single 20K-character chunk. Nebius Token Factory is what finally made a full-script run cheap enough
-to finish: roughly 0.3M tokens in and 0.15M out per screenplay comes to about
+single 20K-character chunk. On Nebius Token Factory a full-script run is finally cheap enough to
+finish: at catalog prices, an estimated 0.3M tokens in and 0.15M out per screenplay comes to about
 
 $$0.3 \times \$0.06 + 0.15 \times \$0.24 \approx \$0.05 .$$
 
-⟨TBD: replace with the measured cost from the trace report.⟩
+⟨TBD: replace the estimate with the measured cost once T006 runs a full script, and say it finished.⟩
 
-**Errors that lied.** When one provider in our fallback chain hit its quota, the chain reported only
-the *last* provider's error, "connection refused on localhost" — pointing us at the wrong service
-entirely. Now an exhausted chain reports every provider's failure.
+**Errors that lied.** When one provider in our fallback chain hit its quota, the chain fell through
+to a local endpoint that wasn't running and reported only that last error — a 404 from
+`localhost:11434` — pointing us at Ollama when the cause was the quota. Now an exhausted chain
+reports every provider's failure.
 
 **Reading the catalog versus measuring the API.** Before writing any code we spent under half a cent
 probing Token Factory, and several answers contradicted what the documentation suggested:
@@ -96,8 +99,8 @@ probing Token Factory, and several answers contradicted what the documentation s
 - The model catalog lists no JSON mode for any Nemotron model, yet strict `json_schema` output
   **was enforced**, even when the prompt never mentioned the schema. The looser `json_object` mode
   returned JSON in the wrong shape, and in one run it added a detail the scene never gave — a
-  character "likely a lighthouse keeper". That is exactly the kind of invention our grounding
-  filter exists to catch.
+  character "likely a lighthouse keeper". That is exactly the kind of invention grounding has to
+  catch.
 - Nemotron reasons by default. For a one-number answer, thinking took Lightning from 4 output
   tokens to 271. Only two of the four switches we tried actually turned it off.
 - No Nemotron model on Token Factory accepts images, so the frame audit had to be redesigned
