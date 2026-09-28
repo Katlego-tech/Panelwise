@@ -175,6 +175,25 @@ def test_a_dialogue_heavy_script_still_finds_the_action_margin() -> None:
 # --- spans -------------------------------------------------------------------------
 
 
+def test_a_line_that_starts_with_continued_keeps_every_word() -> None:
+    rows = [
+        heading("1", "INT. VALLEY - DAY"),
+        None,
+        (ACTION, "Continued gunfire echoes."),
+        None,
+        (ACTION, "CONTINUED: (2)"),
+        (ACTION, "CONTINUED: INT. VALLEY - DAY"),
+    ]
+    screenplay = parse_text(layout(rows))
+
+    assert len(screenplay.scenes) == 1  # a merged CONTINUED: heading is not a second scene
+    first = screenplay.scenes[0].elements[0]
+    assert first.text == "Continued gunfire echoes."
+    for e in screenplay.scenes[0].elements:
+        source = screenplay.text.split("\n")[e.span.line_start - 1 : e.span.line_end]
+        assert " ".join(line.strip() for line in source) == e.text
+
+
 def test_every_element_span_slices_back_to_exactly_its_text(screenplay: Screenplay) -> None:
     lines = screenplay.text.split("\n")
     for scene in screenplay.scenes:

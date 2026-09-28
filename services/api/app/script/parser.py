@@ -33,7 +33,6 @@ from app.script.model import (
 _FURNITURE = re.compile(
     r"^\(?\s*(CONTINUED|MORE)\s*\)?[.:]?\s*(\(\d+\))?$|^\d{1,4}[.:]?$", re.IGNORECASE
 )
-_CONTINUED_PREFIX = re.compile(r"^CONTINUED\s*:?\s*(\(\d+\))?\s*", re.IGNORECASE)
 
 # INT. / EXT. / INT/EXT. / EXT/INT. (dot optional), then the rest of the slug line.
 SCENE_HEADING_RE = re.compile(r"^((?:INT|EXT)(?:\s*/\s*(?:INT|EXT))?\.?)\s+(.+)$", re.IGNORECASE)
@@ -157,8 +156,10 @@ class _Parser:
             self.cue = self.parenthetical = None
             return
         indent = len(raw) - len(raw.lstrip())
-        line = _CONTINUED_PREFIX.sub("", raw.strip()).strip()
-        if not line or _FURNITURE.match(line):
+        # Never rewrite a line: an element's text must be exactly the lines its span names.
+        # A "CONTINUED: (2)" line is furniture and dropped whole; "Continued gunfire" is action.
+        line = raw.strip()
+        if _FURNITURE.match(line):
             return
 
         if self.start_scene(line_no, page, line):

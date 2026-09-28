@@ -106,8 +106,9 @@ sequenceDiagram
     T-->>U: Screenplay
 ```
 
-**Classification** (per non-blank line, after stripping page furniture — `(CONTINUED)`, `(MORE)`,
-bare page numbers — and a leading `CONTINUED:`):
+**Classification** (per non-blank line; page furniture — `(CONTINUED)`, `CONTINUED: (2)`, `(MORE)`,
+bare page numbers — is dropped whole. A line is never rewritten, so an element's text is always
+exactly the lines its span names):
 1. Scene heading (`INT`/`EXT`/`INT/EXT`/`EXT/INT`, dot optional; optional scene number on the
    left) → new scene. The number repeated at the right edge is dropped only when it sits after a
    layout gap of 2+ spaces, so `INT. ROOM 1` keeps its "1".
@@ -203,5 +204,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 
 ## 10. Open questions
 
+- [ ] A parenthetical that wraps onto two lines (`(quietly, almost` / `to herself)`) is read as
+  dialogue text. Spans stay exact; only the typing is wrong. Fix if a sample script needs it.
 - [ ] Dual dialogue (two speakers side by side) is not detected; both columns read as one speaker's
   lines or as action. Rare in the scripts we'll demo; revisit if a sample needs it.
