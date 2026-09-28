@@ -34,6 +34,18 @@ def test_normalisation_joins_line_break_hyphens_and_ignores_case_and_spacing() -
     assert normalize_for_grounding("a broad-\n   shouldered  Man") == "A BROAD-SHOULDERED MAN"
 
 
+def test_typographic_punctuation_matches_its_plain_form(screenplay: Screenplay) -> None:
+    # Models "prettify" punctuation: a curly apostrophe or an em dash is the same quote.
+    assert locate("The boat didn\u2019t.", screenplay) == (
+        0,
+        Span(page=1, line_start=17, line_end=18),
+    )
+    assert locate("LIGHTHOUSE GALLERY \u2014 CONTINUOUS", screenplay) is not None
+    assert (
+        normalize_for_grounding("\u201cSo\u2026\u201d \u2018he\u2019 said") == "\"SO...\" 'HE' SAID"
+    )
+
+
 def test_a_quote_across_a_wrapped_line_is_located_at_its_paragraph(screenplay: Screenplay) -> None:
     found = locate("nandi (60s, oilskin coat) pours tea", screenplay)
     assert found == (0, Span(page=1, line_start=7, line_end=8))

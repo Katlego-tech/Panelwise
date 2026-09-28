@@ -151,7 +151,7 @@ class Source(StrEnum): MODEL = "model"; CUE = "cue"; HEADING = "heading"
 class ExtractionError(RuntimeError): ...
 
 # app/grounding/text.py
-def normalize_for_grounding(text: str) -> str: ...        # FrameFlow's: join line-break hyphens, collapse whitespace, upper-case
+def normalize_for_grounding(text: str) -> str: ...        # FrameFlow's (join line-break hyphens, collapse whitespace, upper-case) + fold curly quotes/dashes/ellipsis to ASCII and collapse dash runs, on both sides
 type Index = list[tuple[int, Span, str]]                  # (scene_index, heading/element span, normalised source lines)
 def build_index(screenplay: Screenplay) -> Index: ...     # built once per screenplay; the filter reuses it
 def locate_in(index: Index, quote: str) -> tuple[int, Span] | None: ...
@@ -195,6 +195,8 @@ the parser, so a faithful quote is always locatable.
 | Recall | model-only, cues via `match_speaker` | FrameFlow's name-set intersection: exact-name only, missed "THABO" vs "THABO MOLEFE" |
 | Chunk failure | fail the extraction | skip the chunk: a silent gap in the cast |
 | Concurrency | 4 chunks at once | sequential (FrameFlow): Lightning allows 600 RPM / 400K TPM (U4) |
+| Quote ↔ name pairing | not checked: a kept quote is verbatim and located, but nothing proves it is *about* the entity it's paired with | a semantic check: needs another model call and can't be exact. Nothing unscripted can be shown either way; a mis-paired quote is still a real line |
+| Aliases ("THABO" vs "THABO MOLEFE" proposed separately) | kept as two entries | fuzzy merge: risks fusing two people. `match_speaker` still binds cues correctly, so scenes and recall are unaffected |
 | Chunk size | 12,000 chars | FrameFlow's 20,000: smaller chunks help recall, and Lightning is cheap |
 
 ## 9. How this is verified

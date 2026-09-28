@@ -5,7 +5,9 @@ so an accurate quote comes back with the wrap collapsed to a space, and a compou
 line break ("broad-" / "shouldered") comes back joined. Ignoring whitespace amount, case, and a
 line-break hyphen does not weaken grounding: the complete word sequence must still appear, in
 order. Invented or re-ordered content still fails. FrameFlow's lead character was dropped from
-two runs in three by a line-break hyphen before this was fixed.
+two runs in three by a line-break hyphen before this was fixed. Panelwise also folds curly
+quotes, dashes and the ellipsis to ASCII, on both sides (PR #10 review: a prettified apostrophe
+would otherwise drop an accurate quote).
 """
 
 import re
@@ -14,11 +16,28 @@ from app.script import Screenplay, Span
 
 _WHITESPACE = re.compile(r"\s+")
 _LINEBREAK_HYPHEN = re.compile(r"-[ \t]*\r?\n[ \t]*")
+_DASH_RUN = re.compile(r"-{2,}")
+# Typographic punctuation a model "prettifies" into: the same quote, so fold it to plain ASCII.
+# Applied to both the quote and the script, so it can only ever match what the script says.
+_TYPOGRAPHIC = str.maketrans(
+    {
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u2013": "-",
+        "\u2014": "--",
+        "\u2212": "-",
+        "\u2026": "...",
+    }
+)
 
 
 def normalize_for_grounding(text: str) -> str:
-    joined = _LINEBREAK_HYPHEN.sub("-", text or "")
-    return _WHITESPACE.sub(" ", joined).strip().upper()
+    folded = (text or "").translate(_TYPOGRAPHIC)
+    joined = _LINEBREAK_HYPHEN.sub("-", folded)
+    # "--" and an em dash are the same dash in a screenplay.
+    return _WHITESPACE.sub(" ", _DASH_RUN.sub("-", joined)).strip().upper()
 
 
 type Index = list[tuple[int, Span, str]]
