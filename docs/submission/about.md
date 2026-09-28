@@ -90,7 +90,7 @@ $$0.3 \times \$0.06 + 0.15 \times \$0.24 \approx \$0.05 .$$
 the *last* provider's error, "connection refused on localhost" — pointing us at the wrong service
 entirely. Now an exhausted chain reports every provider's failure.
 
-**Reading the catalog versus measuring the API.** Before writing any code we spent about half a cent
+**Reading the catalog versus measuring the API.** Before writing any code we spent under half a cent
 probing Token Factory, and several answers contradicted what the documentation suggested:
 
 - The model catalog lists no JSON mode for any Nemotron model, yet strict `json_schema` output
