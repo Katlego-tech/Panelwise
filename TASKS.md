@@ -102,7 +102,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 > names the FrameFlow source; the porter adds a row to the table in
 > [CHANGES-FROM-FRAMEFLOW.md](CHANGES-FROM-FRAMEFLOW.md).
 
-- [ ] T001 [FND] **Token Factory check.** Answer U1–U6 from the FrameFlow Nebius plan (json_schema enforced? thinking off? which host serves each model? rate limits? a vision model? sampling for grounded extraction) and write the answers to `docs/nebius-findings.md`. Lane `llm`.
+- [x] T001 [FND] **Token Factory check.** Answer U1–U7 with real calls against our account and write the answers to `docs/nebius-findings.md`. Lane `llm`.
+      Design:  none (research, no structure). Questions U1–U6 come from `frameflow-nebius-hackathon/PLAN.md` §3; U7 is Panelwise's own: is a vision model served, and does it accept an image in a chat message?
+      Files:   docs/nebius-findings.md, .env.example (model IDs and hosts corrected to what answered)
+      Contract:for each of U1–U7, `docs/nebius-findings.md` gives: the verdict, the exact request (key redacted), the relevant part of the raw response, and the consequence for T004 / `verify`. It closes with the settled values for every `NEBIUS_*` variable in `.env.example`.
+      Verify:  every verdict cites a response captured on or after 2026-09-28; `.env.example` model IDs all appear in `GET /v1/models` output recorded in the doc
+      Done:    T004's implementer can write the provider without making a single exploratory call, and STATUS.md's "vision model?" risk is closed or turned into a named plan
 - [ ] T002 [P] [SET] **Versions + local stack.** Pin Python/Node, `services/api/pyproject.toml` (uv), Next.js app in `apps/web`, `docker-compose.yml` (postgres, redis, api, web). CI green on the gate. Lane `infra`.
 - [ ] T003 [P] [SET] **ComfyUI on a Nebius GPU.** Bring up ComfyUI on Nebius AI Cloud, record cost/hour and seconds per frame in `infra/nebius/README.md`. Lane `infra`.
 - [ ] T004 [FND] **Nebius provider with tiers.** Fast, reasoning and vision tiers, per-call `tier=`, `structured_chat` + repair retry, strip `<think>`. Port from `app/services/llm_provider.py`, `openai_compat.py`. Depends on T001. Lane `llm`.
@@ -125,7 +130,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 ## Phase 3 — Design for the new work (markdown only)
 
-- [ ] T010 [P] [DSN] `docs/design/verify.md` — audit sequence, verdict schema, re-render limit, audit log.
+- [ ] T010 [P] [DSN] `docs/design/verify.md` — audit sequence, verdict schema, re-render limit, audit log. Built on vision option A (a Token Factory VLM describes the frame, Nemotron judges it); option B (self-hosted NVIDIA VLM) is a stretch. See `docs/nebius-findings.md` § The vision decision.
 - [ ] T011 [P] [DSN] `docs/design/comic.md` — page model, panel sizing by story beat, bubble placement, lettering, export.
 - [ ] T012 [P] [DSN] `docs/design/characters.md` — reference portraits and how they feed ComfyUI.
 
