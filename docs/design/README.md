@@ -11,3 +11,4 @@ assistant can read and write them.
 | --- | --- | --- | --- |
 | `llm` | [llm.md](llm.md) | agreed | class, sequence (retry + repair), contracts, settings |
 | `script+grounding` | [script.md](script.md) | agreed | class (scenes, elements, spans), parse sequence + classification rules, contracts |
+| `script+grounding` | [grounding.md](grounding.md) | agreed | class (entities, quotes, report), extraction + filter sequence, faithfulness/recall, contracts |
