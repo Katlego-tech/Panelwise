@@ -102,10 +102,25 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 > names the FrameFlow source; the porter adds a row to the table in
 > [CHANGES-FROM-FRAMEFLOW.md](CHANGES-FROM-FRAMEFLOW.md).
 
-- [ ] T001 [FND] **Token Factory check.** Answer U1–U6 from the FrameFlow Nebius plan (json_schema enforced? thinking off? which host serves each model? rate limits? a vision model? sampling for grounded extraction) and write the answers to `docs/nebius-findings.md`. Lane `llm`.
-- [ ] T002 [P] [SET] **Versions + local stack.** Pin Python/Node, `services/api/pyproject.toml` (uv), Next.js app in `apps/web`, `docker-compose.yml` (postgres, redis, api, web). CI green on the gate. Lane `infra`.
+- [x] T001 [FND] **Token Factory check.** Answer U1–U7 with real calls against our account and write the answers to `docs/nebius-findings.md`. Lane `llm`.
+      Design:  none (research, no structure). Questions U1–U6 come from `frameflow-nebius-hackathon/PLAN.md` §3; U7 is Panelwise's own: is a vision model served, and does it accept an image in a chat message?
+      Files:   docs/nebius-findings.md, .env.example (model IDs and hosts corrected to what answered)
+      Contract:for each of U1–U7, `docs/nebius-findings.md` gives: the verdict, the exact request (key redacted), the relevant part of the raw response, and the consequence for T004 / `verify`. It closes with the settled values for every `NEBIUS_*` variable in `.env.example`.
+      Verify:  every verdict cites a response captured on or after 2026-09-28; `.env.example` model IDs all appear in `GET /v1/models` output recorded in the doc
+      Done:    T004's implementer can write the provider without making a single exploratory call, and STATUS.md's "vision model?" risk is closed or turned into a named plan
+- [x] T002 [P] [SET] **Versions + local stack.** Pin Python/Node, `services/api/pyproject.toml` (uv), Next.js app in `apps/web`, `docker-compose.yml` (postgres, redis, api, web). CI green on the gate. Lane `infra`.
+      Design:  PLAN.md § Technical Context (versions, stack) and § Project structure (paths). No new entities.
+      Files:   services/api/{pyproject.toml,uv.lock,.python-version,Dockerfile,app/main.py,app/core/config.py,app/api/v1/health.py,tests/test_health.py}; apps/web/{package.json,pnpm-lock.yaml,Dockerfile,next.config.ts,tsconfig.json,eslint.config.mjs,vitest.config.ts,app/api/health/route.ts,app/api/health/route.test.ts}; docker-compose.yml; .github/workflows/ci.yml (versions); PLAN.md (versions row)
+      Contract:API `GET /api/v1/health` pings Postgres (`SELECT 1`) and Redis (`PING`) → 200 `{"status":"ok","checks":{"postgres":"ok","redis":"ok"}}`; any failure → 503, `"status":"degraded"`, the failing check reads `"error: <ExceptionType>"` (no connection strings or messages leak). Web `GET /api/health` calls `${API_URL}/api/v1/health` → mirrors its status code with `{"web":"ok","api":<api body>}`; API unreachable → 502 `{"web":"ok","api":null,"error":"api unreachable"}`.
+      Verify:  bash scripts/gate.sh (ruff, pyright, pytest, eslint, tsc, vitest, build, osv, jscpd all run); docker compose up --build --wait, then curl localhost:3000/api/health → 200 with both checks "ok"; docker compose stop redis → 503 with redis "error: …"
+      Done:    `docker compose up` brings up all four services healthy on pinned versions, and the gate runs real checks on both projects (count > 2) locally and in CI
 - [ ] T003 [P] [SET] **ComfyUI on a Nebius GPU.** Bring up ComfyUI on Nebius AI Cloud, record cost/hour and seconds per frame in `infra/nebius/README.md`. Lane `infra`.
-- [ ] T004 [FND] **Nebius provider with tiers.** Fast, reasoning and vision tiers, per-call `tier=`, `structured_chat` + repair retry, strip `<think>`. Port from `app/services/llm_provider.py`, `openai_compat.py`. Depends on T001. Lane `llm`.
+- [x] T004 [FND] **Nebius provider with tiers.** Fast, reasoning and vision tiers, per-call `tier=`, `structured_chat` + repair retry, strip `<think>`. Port from `app/services/llm_provider.py`, `openai_compat.py`. Depends on T001. Lane `llm`.
+      Design:  docs/design/llm.md (all sections); measured behaviour in docs/nebius-findings.md
+      Files:   services/api/app/llm/{__init__,client,structured,smoke}.py; services/api/app/core/config.py; services/api/tests/llm/*; CHANGES-FROM-FRAMEFLOW.md (ported rows)
+      Contract:docs/design/llm.md §6, verbatim
+      Verify:  bash scripts/gate.sh (tests use httpx.MockTransport, no network); uv run python -m app.llm.smoke answers on FAST and REASONING with FAST reasoning_tokens == 0
+      Done:    T006 can call `await structured_chat(model, messages, Extraction, Tier.FAST)` and get a validated object plus the model that answered and its token usage, on the real account
 - [ ] T005 [P] [FND] **Script module.** Port from `screenplay_parser.py`, `scene_time.py`, `dialogue_linker.py`. Lane `script+grounding`.
 - [ ] T006 [FND] **Grounding module.** Port from `extraction_service.py`, `grounding.py`, `governance_service.py`; runs on Nemotron. Depends on T004, T005. Lane `script+grounding`.
 
@@ -125,7 +140,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 ## Phase 3 — Design for the new work (markdown only)
 
-- [ ] T010 [P] [DSN] `docs/design/verify.md` — audit sequence, verdict schema, re-render limit, audit log.
+- [ ] T010 [P] [DSN] `docs/design/verify.md` — audit sequence, verdict schema, re-render limit, audit log. Built on vision option A (a Token Factory VLM describes the frame, Nemotron judges it); option B (self-hosted NVIDIA VLM) is a stretch. See `docs/nebius-findings.md` § The vision decision.
 - [ ] T011 [P] [DSN] `docs/design/comic.md` — page model, panel sizing by story beat, bubble placement, lettering, export.
 - [ ] T012 [P] [DSN] `docs/design/characters.md` — reference portraits and how they feed ComfyUI.
 

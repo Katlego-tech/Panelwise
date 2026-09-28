@@ -9,4 +9,4 @@ assistant can read and write them.
 
 | Lane | Doc | Status | Covers |
 | --- | --- | --- | --- |
-| `<lane>` | [`<lane>`.md](<lane>.md) | draft | `<class / sequence / state / contracts>` |
+| `llm` | [llm.md](llm.md) | agreed | class, sequence (retry + repair), contracts, settings |

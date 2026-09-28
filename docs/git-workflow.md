@@ -121,6 +121,25 @@ dropped. (A private repo on GitHub Free can't have any of this — see
 When a second person joins, switch to team mode: change the review mode in AGENTS.md §4 and raise
 required approvals to 1.
 
+### The fallback: a team of two, one of them away
+
+Team mode assumes the other contributor answers. When they can't and the work can't wait,
+[AGENTS.md](../AGENTS.md) §4 allows a PR to merge on a solo-mode review instead: a fresh AI
+reviewer, its verdict and findings posted on the PR before the merge, every finding fixed or
+answered there.
+
+- **Eligibility is recorded, not assumed.** The PR description ends with
+  `Reviewed by: <reviewer> (fallback — <contributor> unavailable: <when and how they were asked,
+  or why they couldn't be>)`. A later reader can check that line; "they seemed busy" can't be
+  checked.
+- **Three kinds of change wait anyway:** the Non-negotiables in [PLAN.md](../PLAN.md),
+  [AGENTS.md](../AGENTS.md) and [scripts/gate.sh](../scripts/gate.sh). They define what the review
+  enforces, so one person changing them alone changes the rules for both. The only exception is
+  the project lead authorizing it explicitly: the authorization, its reason and the PR number go in
+  the STATUS.md Log before the merge, and the fresh AI review still happens.
+- **The other contributor reads fallback-merged PRs when they're back.** An objection becomes a
+  follow-up PR, not a revert.
+
 ## Commit messages
 
 Small commits, clear messages, reference the task:

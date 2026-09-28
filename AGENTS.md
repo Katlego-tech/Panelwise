@@ -141,9 +141,12 @@ done, because by the letter of the task it was.
     **fresh AI reviewer's** review instead, exactly as in solo mode: the `code-reviewer` agent or a
     different AI tool, never the session that wrote the change. Its verdict and findings are posted
     on the PR *before* merging, every finding is fixed or answered there, and the PR description
-    says `Reviewed by: <reviewer> (fallback — <contributor> unavailable)`.
+    says `Reviewed by: <reviewer> (fallback — <contributor> unavailable: <when and how they were
+    asked, or why they couldn't be>)`. "Unavailable" is that recorded fact, not a feeling.
   - The fallback never covers a change to the Non-negotiables in [PLAN.md](PLAN.md), this file, or
-    [scripts/gate.sh](scripts/gate.sh) — those wait for the other contributor.
+    [scripts/gate.sh](scripts/gate.sh) — those wait for the other contributor, **unless the project
+    lead explicitly authorizes the exception**. The authorization, its reason and the PR number go
+    in the STATUS.md Log *before* the merge, and the fresh AI review is still required.
   - The other contributor reads fallback-merged PRs when they're back; anything they object to gets
     a follow-up PR, not a revert war.
   - `main` has no server-side branch protection (private repo on GitHub Free; decided 2026-09-28),
