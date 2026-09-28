@@ -127,7 +127,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:docs/design/script.md §6, verbatim
       Verify:  bash scripts/gate.sh; the end-to-end test parses a 2-page self-written PDF built with fpdf2 into the expected scenes, and every element's Span slices back to its own text
       Done:    `parse_pdf(bytes)` returns ordered scenes whose every action and dialogue element names the page and lines it came from; `resolve_times` and `match_speaker` are ready for T006/T007
-- [ ] T006 [FND] **Grounding module.** Port from `extraction_service.py`, `grounding.py`, `governance_service.py`; runs on Nemotron. Depends on T004, T005. Lane `script+grounding`.
+- [x] T006 [FND] **Grounding module.** Port from `extraction_service.py`, `grounding.py`, `governance_service.py`; runs on Nemotron. Depends on T004, T005. Lane `script+grounding`.
+      Design:  docs/design/grounding.md (all sections)
+      Files:   services/api/app/grounding/{__init__,model,text,schema,filter,extract,run}.py; services/api/tests/grounding/*; CHANGES-FROM-FRAMEFLOW.md (ported rows)
+      Contract:docs/design/grounding.md §6, verbatim
+      Verify:  bash scripts/gate.sh (no network in tests); `uv run python -m app.grounding.run <sample.pdf>` on the real account prints grounded entities with page/line spans, faithfulness, recall, model and tokens
+      Done:    the Phase 1 checkpoint: a sample script parses and extracts on Nemotron with a faithfulness score and a recall score, and every entity shown quotes the script at a located span
 
 **Checkpoint:** a sample script parses and extracts on Nemotron with a faithfulness score.
 

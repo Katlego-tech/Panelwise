@@ -36,7 +36,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030 | | | ✅ T002 done · T003 next |
-| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | Katlego | Claude | 🔵 In review (T005) · T006 next |
+| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | Katlego | Claude | 🔵 In review (T006) · T005 done |
 | `shots` | Shot planner | T007 | | | ⬜ To Do |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T024 | | | ⬜ To Do |
@@ -68,6 +68,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - **Gate:** 10 checks across 2 projects (ruff, pyright, pytest, eslint+tsc, vitest, next build, placeholder, secrets, osv-scanner, jscpd).
 - **Token Factory findings (T001):** [docs/nebius-findings.md](docs/nebius-findings.md).
 - **Script module (T005):** `app/script` — `parse_pdf` → ordered scenes; every action/dialogue element carries its page and line span. `resolve_times`, `match_speaker`. Design: [docs/design/script.md](docs/design/script.md).
+- **Grounded extraction (T006):** `app/grounding` — scene-chunked extraction on Lightning; every kept quote located to a page/line span; faithfulness + recall; locations from headings, missed speakers from cues. Checkpoint: `uv run python -m app.grounding.run <script.pdf>`.
 - **LLM seam (T004):** `app/llm` — `NebiusChatModel` (fast / reasoning / vision tiers, retries with `Retry-After`, thinking off on fast) and `structured_chat` (strict `json_schema`, one repair retry). Design: [docs/design/llm.md](docs/design/llm.md). Live check: `cd services/api && uv run python -m app.llm.smoke`.
 
 ## 🛠️ Environment & access
@@ -114,3 +115,4 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - 2026-09-28 — Katlego (via Claude) — **Lead authorization (AGENTS.md §4 exception):** Katlego authorized PR #4, which changes AGENTS.md itself, to merge without Tumo's review. Reason: Tumo is often unavailable and the deadline is 2026-10-30; Katlego's instruction on 2026-09-28 was "merge all open pull requests and merge PRs once their review is clean". Tumo was not asked. The fresh AI review is still required before merging, and Tumo should read §4 when back. Next: T005/T006. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — Ported the kit's merged-branch cleanup (Cultivation PR #4): `scripts/prune-branches.sh` runs after `git pull` on main; `install-hooks.sh` sets fetch.prune and checks the server setting. Tumo: re-run `bash install-hooks.sh`. Next: T005. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — T005: `app/script` parser with source spans, scene time, speaker matching; 40 script tests incl. a real 2-page PDF. PR #7 merged; PR #8 (Devpost draft) in re-review. Next: T006. Blocked on: nothing.
+- 2026-09-28 — Katlego (via Claude) — **Phase 1 checkpoint passed on the real account** (self-written 3-scene sample): faithfulness 1.000 (5/5, 8/8 quotes located), recall 1.000 (2/2 speakers), Lightning, 509 in / 157 out / 0 reasoning tokens. Tiny sample; feature-length recall needs T031. Note: SPEC.md is still the unfilled template. Next: T007 / T031. Blocked on: nothing.
