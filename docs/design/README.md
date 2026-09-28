@@ -10,3 +10,4 @@ assistant can read and write them.
 | Lane | Doc | Status | Covers |
 | --- | --- | --- | --- |
 | `llm` | [llm.md](llm.md) | agreed | class, sequence (retry + repair), contracts, settings |
+| `script+grounding` | [script.md](script.md) | agreed | class (scenes, elements, spans), parse sequence + classification rules, contracts |

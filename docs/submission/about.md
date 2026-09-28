@@ -25,7 +25,7 @@ tells the crew something the writer never wrote. So Panelwise is built around on
 
 ## What it does
 
-⟨TBD: each step true once US1, T005–T009, ships; on main today only the Nemotron client (T004) exists⟩
+⟨TBD: each step true once US1, T005–T009, ships; on main today the Nemotron client (T004) and the screenplay parser (T005) exist; extraction onward does not⟩
 Upload a screenplay. Panelwise parses it into scenes and dialogue, extracts the characters and
 locations with **NVIDIA Nemotron on Nebius Token Factory**, plans a shot list, renders one frame per
 shot, and lays the frames out as storyboard pages or as comic pages with speech bubbles taken from
