@@ -35,7 +35,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | Katlego | Claude | ✅ T001 done · T004 next |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030 | | | ⬜ To Do |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030 | Katlego | Claude | 🔵 In review (T002) |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | | | ⬜ To Do |
 | `shots` | Shot planner | T007 | | | ⬜ To Do |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
@@ -62,7 +62,11 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 ## 🧱 What's built so far
 
-- Scaffold only (Cultivation kit, folder structure, licence, disclosure note). No code yet.
+- **Local stack (T002):** `docker compose up --build --wait` runs postgres, redis, api and web on pinned versions (PLAN.md § Technical Context). Host ports default to 5432/6379/8000/3000 and can be overridden in `.env` (FrameFlow's containers hold 5432/6379 on Katlego's machine).
+- **API** (`services/api`, FastAPI, uv): `GET /api/v1/health` pings Postgres and Redis; 503 + exception type on failure, with a timeout.
+- **Web** (`apps/web`, Next.js 16, pnpm): `GET /api/health` reports web + API health; 502 when the API is unreachable. No pages yet (T009).
+- **Gate:** 10 checks across 2 projects (ruff, pyright, pytest, eslint+tsc, vitest, next build, placeholder, secrets, osv-scanner, jscpd).
+- **Token Factory findings (T001):** [docs/nebius-findings.md](docs/nebius-findings.md).
 
 ## 🛠️ Environment & access
 
@@ -100,3 +104,4 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 - 2026-09-27 — Katlego (via Claude) — scaffold, disclosure note, lanes and Phase 1 task list. Next: T001 + T002. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — T001 done: `docs/nebius-findings.md` (json_schema enforced, thinking off works, one host, no image gen, no NVIDIA vision → option A). ~$0.004 of trial credit. Next: T004. Blocked on: nothing.
+- 2026-09-28 — Katlego (via Claude) — T002: pinned Python 3.14 / Node 24.21 / Next 16.3.6 / PG 18.6 / Redis 8.10.2; compose stack healthy; gate now runs 10 checks. Next: T004 (llm). Blocked on: nothing.
