@@ -136,7 +136,19 @@ done, because by the letter of the task it was.
     replaces the human approval; it does not skip review. Details:
     [docs/git-workflow.md](docs/git-workflow.md#solo-mode).
 
-  This project's review mode: **`team`**
+  This project's review mode: **`team`**, with a solo-mode fallback:
+  - **When the other contributor is unavailable** and the work can't wait, the author may merge on a
+    **fresh AI reviewer's** review instead, exactly as in solo mode: the `code-reviewer` agent or a
+    different AI tool, never the session that wrote the change. Its verdict and findings are posted
+    on the PR *before* merging, every finding is fixed or answered there, and the PR description
+    says `Reviewed by: <reviewer> (fallback — <contributor> unavailable)`.
+  - The fallback never covers a change to the Non-negotiables in [PLAN.md](PLAN.md), this file, or
+    [scripts/gate.sh](scripts/gate.sh) — those wait for the other contributor.
+  - The other contributor reads fallback-merged PRs when they're back; anything they object to gets
+    a follow-up PR, not a revert war.
+  - `main` has no server-side branch protection (private repo on GitHub Free; decided 2026-09-28),
+    so this rule and the pre-push hook are the only guards. Don't merge a PR whose `gate` check is
+    red or missing.
 - Commit format ties work back to a task ID: `type(lane): T0xx short description`
   (e.g. `feat(audio): T012 faster-whisper HIP transcription`).
 

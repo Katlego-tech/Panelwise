@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-09-27 — by Katlego (via Claude)_
+_Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 ---
 
@@ -77,6 +77,7 @@ _Last updated: 2026-09-27 — by Katlego (via Claude)_
 - **Is a vision model served on Token Factory?** If not, `verify` needs another NVIDIA vision model on Nebius AI Cloud. T001 answers this.
 - **Which styles stay private?** Decide before T008 moves styles over. The demo may only use public styles.
 - **Repo is private.** It must be public before submission (T035).
+- **`main` is unprotected on the server** (private + GitHub Free; decided 2026-09-28 to leave it). Only the pre-push hook and AGENTS.md §4 guard it; Tumo must run `bash install-hooks.sh`. Once the repo is public (T035), protection is free — turn it on then.
 - **No copyrighted scripts** in the repo, demo or video. Only public-domain or self-written samples.
 - GPU cost: $50 of credit covers Token Factory calls, not a GPU VM. Check the cost of the ComfyUI box in T003.
 
@@ -100,3 +101,4 @@ _Last updated: 2026-09-27 — by Katlego (via Claude)_
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
 - 2026-09-27 — Katlego (via Claude) — scaffold, disclosure note, lanes and Phase 1 task list. Next: T001 + T002. Blocked on: nothing.
+- 2026-09-28 — Katlego (via Claude) — AGENTS.md §4: fresh-AI-review fallback when the other contributor is unavailable; `main` left unprotected. Next: merge T001 on review. Blocked on: nothing.
