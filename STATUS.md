@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-09-27 — by Katlego (via Claude)_
+_Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 ---
 
@@ -34,7 +34,7 @@ _Last updated: 2026-09-27 — by Katlego (via Claude)_
 
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
-| `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ⬜ To Do |
+| `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | Katlego | Claude | 🟡 Doing (T001) |
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030 | | | ⬜ To Do |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | | | ⬜ To Do |
 | `shots` | Shot planner | T007 | | | ⬜ To Do |
