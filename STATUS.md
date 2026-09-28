@@ -105,6 +105,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
 - 2026-09-27 — Katlego (via Claude) — scaffold, disclosure note, lanes and Phase 1 task list. Next: T001 + T002. Blocked on: nothing.
+- 2026-09-28 — Katlego (via Claude) — drafted the Devpost story in `docs/submission/about.md` (`eval+submission`, unclaimed; ⟨TBD⟩s filled by T033–T035). Next: T001 probe. Blocked on: Token Factory key in `.env`.
 - 2026-09-28 — Katlego (via Claude) — T001 done: `docs/nebius-findings.md` (json_schema enforced, thinking off works, one host, no image gen, no NVIDIA vision → option A). ~$0.004 of trial credit. Next: T004. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — AGENTS.md §4: fresh-AI-review fallback when the other contributor is unavailable; `main` left unprotected. Next: T002. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — T002: pinned Python 3.14 / Node 24.21 / Next 16.3.6 / PG 18.6 / Redis 8.10.2; compose stack healthy; gate now runs 10 checks. Next: T004 (llm). Blocked on: nothing.
