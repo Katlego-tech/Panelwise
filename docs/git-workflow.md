@@ -37,7 +37,27 @@ From that point on, direct pushes are disabled (local hook + CI + server-side br
 6. **Wait for green CI** + the review: another contributor in team mode, a fresh AI reviewer in
    [solo mode](#solo-mode) ([AGENTS.md](../AGENTS.md) §4).
 7. **Merge the PR.** Tick the task `[x]` in TASKS.md, update STATUS.md (+ Log line).
-8. Delete the branch. `git switch main && git pull`.
+8. `git switch main && git pull`. The merged branch is already gone from the server, and the pull
+   deletes your local copy — see [Merged branches are deleted](#merged-branches-are-deleted).
+
+## Merged branches are deleted
+
+Every branch is deleted once its PR merges — on the server and in every clone — with nobody having
+to remember. A finished branch left lying around is where someone commits onto work that already
+landed, and a long `git branch` list hides the one branch that is actually in progress.
+
+| Where | What deletes it | Set up by |
+| --- | --- | --- |
+| **Server** | The repo setting *Automatically delete head branches* | A repo admin, once: `gh repo edit --delete-branch-on-merge`. Every GitHub plan has it, private Free repos included. `install-hooks.sh` checks it and says so if it's off |
+| **Each clone** — remote-tracking refs | `fetch.prune=true` | `install-hooks.sh` |
+| **Each clone** — local branches | `.githooks/post-merge` runs [`scripts/prune-branches.sh`](../scripts/prune-branches.sh) after every `git pull` on `main` | `install-hooks.sh` |
+
+The script deletes a branch only when it is **proven** merged: it was pushed, and either its tip is
+already in `origin/main`, or its upstream is gone and GitHub has a PR merged **into `main`** whose
+head is exactly that tip (squash and rebase merges). A branch with commits after its merged PR is
+kept and named — those commits exist nowhere else — and so is one whose PR merged into some other
+branch, or came from a fork. Unpushed local branches are never touched. Run it by hand with
+`bash scripts/prune-branches.sh --dry-run` to see what it would do.
 
 ## Merge requirements (all must be true before merging a PR)
 
