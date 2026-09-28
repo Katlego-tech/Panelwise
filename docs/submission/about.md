@@ -25,7 +25,7 @@ tells the crew something the writer never wrote. So Panelwise is built around on
 
 ## What it does
 
-⟨TBD: each step true once US1, T005–T009, ships; today the parser and the Nemotron client exist⟩
+⟨TBD: each step true once US1, T005–T009, ships; on main today only the Nemotron client (T004) exists⟩
 Upload a screenplay. Panelwise parses it into scenes and dialogue, extracts the characters and
 locations with **NVIDIA Nemotron on Nebius Token Factory**, plans a shot list, renders one frame per
 shot, and lays the frames out as storyboard pages or as comic pages with speech bubbles taken from
@@ -43,10 +43,11 @@ logged, so you can see why a frame was accepted.
   Nemotron with a strict JSON schema. Every extracted entity must carry a verbatim quote from the
   script; a grounding filter drops anything whose quote can't be found in the source.
   ⟨TBD: true once T006 ships; the filter is ported from FrameFlow⟩
-- **Model tiers.** High-volume, schema-bound calls (extraction, shot planning) run on the fast tier,
-  **Nemotron 3.5 Lightning**, with thinking switched off; judgement calls use **Nemotron 3 Super**
-  with thinking on. Every result records which model answered and how many tokens it spent
-  thinking.
+- **Model tiers.** Every model call goes through one client with two text tiers: the fast tier,
+  **Nemotron 3.5 Lightning** with thinking switched off, and **Nemotron 3 Super** with thinking on
+  for judgement calls. Every result records which model answered and how many tokens it spent
+  thinking. High-volume, schema-bound work (extraction, shot planning) goes on the fast tier.
+  ⟨TBD: "goes" is true once T006/T007 call it⟩
 - **Rendering.** ComfyUI on a **Nebius AI Cloud** GPU, with character reference portraits so the same
   person looks the same from panel to panel. ⟨TBD: true once T003 and T025 ship⟩
 - **The audit loop.** Each frame may be rendered at most \(k+1\) times. If a single render passes
