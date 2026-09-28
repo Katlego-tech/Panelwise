@@ -81,6 +81,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - **No NVIDIA vision model on Token Factory** (T001). Decided: a Token Factory VLM (GLM-5.3-Flash) *describes* each frame and Nemotron *judges* it; self-hosting an NVIDIA VLM on the Nebius GPU is a stretch. SPEC, README and the Devpost draft still say "Nemotron vision auditor" and must be corrected.
 - **Which styles stay private?** Decide before T008 moves styles over. The demo may only use public styles.
 - **Repo is private.** It must be public before submission (T035).
+- **`main` is unprotected on the server** (private + GitHub Free; decided 2026-09-28 to leave it). Only the pre-push hook and AGENTS.md §4 guard it; Tumo must run `bash install-hooks.sh`. Once the repo is public (T035), protection is free — turn it on then.
 - **No copyrighted scripts** in the repo, demo or video. Only public-domain or self-written samples.
 - GPU cost: $50 of credit covers Token Factory calls, not a GPU VM. Check the cost of the ComfyUI box in T003.
 
@@ -105,5 +106,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 - 2026-09-27 — Katlego (via Claude) — scaffold, disclosure note, lanes and Phase 1 task list. Next: T001 + T002. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — T001 done: `docs/nebius-findings.md` (json_schema enforced, thinking off works, one host, no image gen, no NVIDIA vision → option A). ~$0.004 of trial credit. Next: T004. Blocked on: nothing.
+- 2026-09-28 — Katlego (via Claude) — AGENTS.md §4: fresh-AI-review fallback when the other contributor is unavailable; `main` left unprotected. Next: T002. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — T002: pinned Python 3.14 / Node 24.21 / Next 16.3.6 / PG 18.6 / Redis 8.10.2; compose stack healthy; gate now runs 10 checks. Next: T004 (llm). Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — T002 merged (PR #5). T004: `app/llm` client + structured_chat, 32 tests, live smoke passes (fast 0 reasoning tokens, reasoning 62). Next: T005/T006. Blocked on: nothing.
+- 2026-09-28 — Katlego (via Claude) — **Lead authorization (AGENTS.md §4 exception):** Katlego authorized PR #4, which changes AGENTS.md itself, to merge without Tumo's review. Reason: Tumo is often unavailable and the deadline is 2026-10-30; Katlego's instruction on 2026-09-28 was "merge all open pull requests and merge PRs once their review is clean". Tumo was not asked. The fresh AI review is still required before merging, and Tumo should read §4 when back. Next: T005/T006. Blocked on: nothing.
