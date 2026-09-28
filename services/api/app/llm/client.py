@@ -11,7 +11,7 @@ import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Self
+from typing import Any, Self, cast
 
 import httpx2
 
@@ -164,7 +164,11 @@ class NebiusChatModel:
             else:
                 status = response.status_code
                 if status == 200:
-                    data: dict[str, Any] = response.json()
+                    try:
+                        data: dict[str, Any] = response.json()
+                    except ValueError:
+                        # Something in front of Token Factory answered, not the model.
+                        raise LLMRequestError(f"{model}: HTTP 200 without JSON", status) from None
                     return data
                 if status not in _RETRYABLE:
                     # A bad request fails the same way every time; retrying only spends credit.
@@ -189,12 +193,27 @@ def _retry_after(response: httpx2.Response) -> float | None:
     return min(max(seconds, 0.0), _MAX_RETRY_AFTER_S)
 
 
+def _text_of(content: object) -> str:
+    """Message content is a string, or a list of parts of which only text parts carry text."""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    texts: list[str] = []
+    for part in cast(list[object], content):
+        if isinstance(part, dict):
+            fields = cast(dict[str, object], part)
+            if fields.get("type") == "text":
+                texts.append(str(fields.get("text", "")))
+    return "".join(texts)
+
+
 def _to_result(data: dict[str, Any], requested: str, tier: Tier) -> ChatResult:
     choices: list[dict[str, Any]] = data.get("choices") or [{}]
     choice = choices[0]
     message: dict[str, Any] = choice.get("message") or {}
     finish_reason: str | None = choice.get("finish_reason")
-    content = _THINK_BLOCK.sub("", message.get("content") or "").strip()
+    content = _THINK_BLOCK.sub("", _text_of(message.get("content"))).strip()
     model: str = data.get("model") or requested
 
     if not content:

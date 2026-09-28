@@ -213,6 +213,21 @@ async def test_empty_content_without_reasoning_names_the_finish_reason() -> None
         await make(rec).chat(HI)
 
 
+async def test_content_as_a_list_of_parts_is_joined_from_its_text_parts() -> None:
+    parts = [{"type": "text", "text": "39"}, {"type": "image_url"}, {"type": "text", "text": "1"}]
+    rec = Recorder(ok(completion(None) | {"choices": [{"message": {"content": parts}}]}))
+
+    assert (await make(rec).chat(HI)).content == "391"
+
+
+async def test_a_200_that_is_not_json_is_an_llm_error_not_a_decode_error() -> None:
+    rec = Recorder(httpx2.Response(200, text="<html>gateway</html>"))
+
+    with pytest.raises(LLMRequestError) as err:
+        await make(rec).chat(HI)
+    assert err.value.status == 200
+
+
 # --- retries ----------------------------------------------------------------------
 
 

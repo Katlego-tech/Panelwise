@@ -127,6 +127,29 @@ async def test_invalid_twice_raises_validation_error() -> None:
     assert len(rec.bodies) == 2
 
 
+async def test_two_repair_attempts_can_both_be_used_and_still_report_repaired() -> None:
+    rec = Recorder("not json", '{"location": 3}', json.dumps(VALID))
+    result = await structured_chat(
+        make(rec), [{"role": "user", "content": "s"}], Scene, max_repair_attempts=2
+    )
+
+    assert result.repaired is True
+    assert len(rec.bodies) == 3
+    assert len(rec.bodies[2]["messages"]) == len(rec.bodies[0]["messages"]) + 4
+
+
+async def test_a_system_message_made_of_parts_gets_the_schema_as_another_part() -> None:
+    rec = Recorder(json.dumps(VALID))
+    system = {"role": "system", "content": [{"type": "text", "text": "Be literal."}]}
+    await structured_chat(make(rec), [system, {"role": "user", "content": "s"}], Scene)
+
+    sent = rec.bodies[0]["messages"]
+    assert [m["role"] for m in sent] == ["system", "user"]
+    assert sent[0]["content"][0] == {"type": "text", "text": "Be literal."}
+    assert json.dumps(Scene.model_json_schema()) in sent[0]["content"][1]["text"]
+    assert len(system["content"]) == 1  # the caller's message is left untouched
+
+
 async def test_no_repair_attempts_raises_on_the_first_invalid_answer() -> None:
     rec = Recorder("not json")
 

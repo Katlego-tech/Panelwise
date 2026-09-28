@@ -9,6 +9,7 @@ import json
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any, cast
 
 from pydantic import BaseModel, ValidationError
 
@@ -28,10 +29,16 @@ def _with_schema(messages: Sequence[Message], schema: dict[str, object]) -> list
     instruction = f"Reply with JSON only, matching this JSON Schema: {json.dumps(schema)}"
     out = [dict(m) for m in messages]
     # One system message only: some chat templates reject a second.
-    if out and out[0].get("role") == "system" and isinstance(out[0].get("content"), str):
-        out[0]["content"] = f"{out[0]['content']}\n\n{instruction}"
-    else:
-        out.insert(0, {"role": "system", "content": instruction})
+    if out and out[0].get("role") == "system":
+        content = out[0].get("content")
+        if isinstance(content, str):
+            out[0]["content"] = f"{content}\n\n{instruction}"
+            return out
+        if isinstance(content, list):
+            parts = cast(list[Any], content)
+            out[0]["content"] = [*parts, {"type": "text", "text": instruction}]
+            return out
+    out.insert(0, {"role": "system", "content": instruction})
     return out
 
 

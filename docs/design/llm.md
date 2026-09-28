@@ -71,7 +71,8 @@ classDiagram
 - `ChatResult.model` is the model the server says answered (`response.model`), falling back to the
   requested ID — anything that names a model to a user reports this, never a configured default.
 - `content` has a leading `<think>…</think>` removed and is `.strip()`ped (findings U2: Super
-  returns `"\n391"` with thinking on).
+  returns `"\n391"` with thinking on). Content that arrives as a list of parts is the
+  concatenation of its `text` parts.
 - `Usage.reasoning_tokens` comes from `usage.completion_tokens_details.reasoning_tokens`; 0 when
   absent. It is already included in `completion_tokens` (that is how it's billed).
 
@@ -111,6 +112,8 @@ sequenceDiagram
   request body (the body quotes the screenplay).
 - Retries exhausted on 429 / 5xx / network → `LLMRequestError` with the last status (`None` for
   network).
+- 200 whose body isn't JSON (something in front of Token Factory answered) → `LLMRequestError(200)`,
+  no retry. Every failure this module raises is an `LLMError`.
 - 200 with empty content → `LLMEmptyResponse`. If the message carries `reasoning_content`, the
   error says thinking consumed the budget and to call with `thinking=False` or raise `max_tokens`.
 - Tier with no model configured (e.g. `NEBIUS_MODEL_VISION` empty) → `LLMConfigError` at call time;
@@ -165,8 +168,8 @@ sent (the toggle was only measured on Nemotron). `False` sends
 **Structured request:** `response_format = {"type": "json_schema", "json_schema": {"name":
 <ResponseModel.__name__>, "schema": <model_json_schema()>, "strict": true}}` (findings U1), plus
 `"Reply with JSON only, matching this JSON Schema: <schema>"` appended to the first system message,
-or a new leading system message if there is none. Never a second system message: some chat
-templates accept only one.
+(as an extra `text` part when its content is a list of parts), or a new leading system message
+if there is none. Never a second system message: some chat templates accept only one.
 
 **Settings** (`app/core/config.py`, env names in `.env.example`): `nebius_api_key`,
 `nebius_base_url`, `nebius_model_fast`, `nebius_model_reasoning`, `nebius_model_vision`,
