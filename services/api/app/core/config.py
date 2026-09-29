@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The repo-root .env, wherever the API is started from. In the Docker image this path
@@ -13,7 +14,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=REPO_ENV, extra="ignore")
 
     database_url: str = "postgresql+asyncpg://panelwise:panelwise@localhost:5432/panelwise"
-    redis_url: str = "redis://localhost:6379/0"
     health_check_timeout_s: float = 2.0
 
     # Nebius Token Factory -- values measured in docs/nebius-findings.md (T001).
@@ -24,3 +24,12 @@ class Settings(BaseSettings):
     nebius_model_vision: str = "zai-org/GLM-5.3-Flash"
     llm_request_timeout_s: float = 120.0
     llm_max_attempts: int = 3
+
+    @field_validator("database_url")
+    @classmethod
+    def _asyncpg_driver(cls, url: str) -> str:
+        # Supabase hands out postgresql:// (or postgres://); the async engine needs +asyncpg.
+        for scheme in ("postgresql://", "postgres://"):
+            if url.startswith(scheme):
+                return "postgresql+asyncpg://" + url.removeprefix(scheme)
+        return url
