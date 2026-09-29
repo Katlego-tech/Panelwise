@@ -147,7 +147,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 ## Phase 2 — US1: script → grounded storyboard
 
-- [ ] T007 [US1] **Shot planner.** Port from `shot_service.py`. Depends on T006. Lane `shots`.
+- [x] T007 [US1] **Shot planner.** Port from `shot_service.py`. Depends on T006. Lane `shots`.
+      Design:  docs/design/shots.md (all sections)
+      Files:   services/api/app/shots/{__init__,model,schema,planner,run}.py; services/api/tests/shots/*; CHANGES-FROM-FRAMEFLOW.md (ported row)
+      Contract:docs/design/shots.md §6, verbatim
+      Verify:  bash scripts/gate.sh (no network in tests); `uv run python -m app.shots.run <sample.pdf>` on the real account prints every shot with its span and verbatim source, and every scene element appears in exactly one shot
+      Done:    T008 can take a `ShotPlan` whose every shot cites the script lines it covers and names only extracted characters and props present in that scene
 - [ ] T008 [US1] **Storyboard.** Port from `storyboard_service.py`, `storyboard_styles.py`, `storyboard_document.py`, `image_provider.py`, `image_cache.py`, `image_postprocess.py`. Style registry loads `styles/` plus optional `PANELWISE_PRIVATE_STYLES`. Images go to Supabase Storage (docs/design/deploy.md §7). Depends on T003, T007. Lane `storyboard`.
 - [ ] T009 [US1] **Web: upload → shots → storyboard.** Includes Supabase Auth sign-in and the `Job` table for progress (docs/design/deploy.md §3–§5). Lane `web` (UI goes to Claude users per AGENTS.md §1).
 
