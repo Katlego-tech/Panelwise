@@ -13,4 +13,5 @@ assistant can read and write them.
 | `script+grounding` | [script.md](script.md) | agreed | class (scenes, elements, spans), parse sequence + classification rules, contracts |
 | `script+grounding` | [grounding.md](grounding.md) | agreed | class (entities, quotes, report), extraction + filter sequence, faithfulness/recall, contracts |
 | `shots` | [shots.md](shots.md) | agreed | class (Shot, plan, report), per-scene sequence, range normalisation, name filtering, contracts |
+| `characters` | [characters.md](characters.md) | agreed | portrait + references classes, portrait and frame flow, portrait state machine, prompt rules (no names, script words only), IP-Adapter choice, contracts |
 | `infra` | [deploy.md](deploy.md) | agreed | where each piece runs, env contract, browser → web → API flow, Job state, decisions |

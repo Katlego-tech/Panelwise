@@ -164,7 +164,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 - [ ] T010 [P] [DSN] `docs/design/verify.md` — audit sequence, verdict schema, re-render limit, audit log. Built on vision option A (a Token Factory VLM describes the frame, Nemotron judges it); option B (self-hosted NVIDIA VLM) is a stretch. See `docs/nebius-findings.md` § The vision decision.
 - [ ] T011 [P] [DSN] `docs/design/comic.md` — page model, panel sizing by story beat, bubble placement, lettering, export.
-- [ ] T012 [P] [DSN] `docs/design/characters.md` — reference portraits and how they feed ComfyUI.
+- [x] T012 [P] [DSN] `docs/design/characters.md` — reference portraits and how they feed ComfyUI.
 
 ---
 
