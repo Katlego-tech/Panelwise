@@ -117,8 +117,15 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `NEBIUS_*`, `LLM_*` | API only | unchanged (docs/design/llm.md) |
 | `REDIS_URL` | — | **removed** |
 
-**Deploy configs:** `apps/web/vercel.json` (framework `nextjs`, pnpm, root directory `apps/web`);
-`services/api/railway.json` (Dockerfile build, health check `/api/v1/health`, restart on failure).
+**Deploy configs:** `apps/web/vercel.json` (framework `nextjs`, pnpm, root directory `apps/web`).
+Railway is configured in its dashboard (root `/services/api`, Dockerfile, health check
+`/api/v1/health`, restart on failure), written down step by step in `docs/deploy.md`: Railway's
+`railway.json` is deprecated, new services can't use it, and existing files stop working on
+2026-12-01 (T037 review, checked against Railway's docs 2026-09-29).
+
+**`DATABASE_URL`** may be `postgresql://`, `postgres://` or `postgresql+asyncpg://`; the API adds the
+`+asyncpg` driver and rewrites libpq's `sslmode=` to asyncpg's `ssl=` (same values). asyncpg rejects
+`sslmode` at connect time.
 
 **API health** (`GET /api/v1/health`, T002 contract) keeps its shape; its checks become
 `{"postgres": …}` only.
@@ -128,7 +135,6 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | Path | New? | Responsibility | Task |
 |---|---|---|---|
 | `apps/web/vercel.json` | new | Vercel build settings | T037 |
-| `services/api/railway.json` | new | Railway build + health check | T037 |
 | `services/api/app/main.py`, `app/core/config.py`, `docker-compose.yml`, `.env.example`, `pyproject.toml` | changed | Redis out; Supabase settings in | T037 |
 | `docs/deploy.md` | new | the account steps (Supabase, Railway, Vercel), in order, with checks | T037 |
 | `services/api/app/storage/` | new | Supabase Storage for images | T008 |
@@ -140,6 +146,7 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
 | API host | Railway | Nebius VM: more setup, not covered by credit; the GPU box: couples API uptime to the GPU (Katlego, 2026-09-29). Railway isn't free either: a trial credit, then a small monthly minimum; budget it for the demo's life to 15 Dec |
+| Railway config | dashboard settings, documented in `docs/deploy.md` | `railway.json` (the kit's): deprecated, closed to new services, dead on 2026-12-01; `.railway/railway.ts`: unverified code for four settings |
 | Postgres client | SQLAlchemy + asyncpg over the session pooler | the `supabase` REST client for data (the kit's `db.py`): we already have SQL code, and REST can't do transactions |
 | Pooler mode | session (5432) | transaction (6543): no prepared statements, which asyncpg relies on; direct connection: IPv6-only without the paid add-on |
 | Redis | removed; job state in Postgres | keep Redis: a second hosted service for one table's worth of state |
@@ -154,7 +161,8 @@ message broker, as before.
 ## 9. How this is verified
 
 - T037: the gate green with Redis gone (health tests updated test-first); `docker compose up` still
-  healthy locally; `railway.json`/`vercel.json` validated against their schemas.
+  healthy locally; `vercel.json` validated against its schema; Railway's dashboard settings written
+  down in `docs/deploy.md`.
 - T037 done means deployed: the Railway URL answers `/api/v1/health` `ok` against Supabase, and the
   Vercel URL's `/api/health` answers 200 through it. That needs Katlego's accounts, so the task is
   **blocked on accounts** until they exist, and says so.

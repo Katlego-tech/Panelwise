@@ -9,7 +9,6 @@ dependencies = [
     "httpx2>=2.13.1",
     "pdfplumber>=0.11.10",
     "pydantic-settings>=2.15.0",
-    "redis>=8.1.0",
     "sqlalchemy[asyncio]>=2.1.1",
     "uvicorn[standard]>=0.54.0",
 ]

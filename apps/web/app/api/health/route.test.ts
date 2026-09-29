@@ -17,7 +17,7 @@ afterEach(() => {
 
 describe("GET /api/health", () => {
   it("calls the API's health endpoint and mirrors a healthy answer", async () => {
-    const api = { status: "ok", checks: { postgres: "ok", redis: "ok" } };
+    const api = { status: "ok", checks: { postgres: "ok", storage: "ok" } };
     fetchMock.mockResolvedValue(Response.json(api, { status: 200 }));
 
     const res = await GET();
@@ -28,7 +28,7 @@ describe("GET /api/health", () => {
   });
 
   it("mirrors a degraded API as 503 with the API's checks", async () => {
-    const api = { status: "degraded", checks: { postgres: "ok", redis: "error: ConnectionError" } };
+    const api = { status: "degraded", checks: { postgres: "ok", storage: "error: ConnectionError" } };
     fetchMock.mockResolvedValue(Response.json(api, { status: 503 }));
 
     const res = await GET();

@@ -4,7 +4,6 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -17,22 +16,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-        # Both clients connect lazily, on first use -- building them never touches the network.
+        # The engine connects lazily, on first use -- building it never touches the network.
+        # Deployed, DATABASE_URL is Supabase's session pooler (docs/design/deploy.md §6).
         engine = create_async_engine(settings.database_url, pool_pre_ping=True)
-        redis = Redis.from_url(settings.redis_url)  # pyright: ignore[reportUnknownMemberType]
 
         async def postgres() -> None:
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
 
-        async def redis_ping() -> None:
-            await redis.ping()  # pyright: ignore[reportUnknownMemberType]
-
-        app.state.health_checks = {"postgres": postgres, "redis": redis_ping}
+        app.state.health_checks = {"postgres": postgres}
         try:
             yield
         finally:
-            await redis.aclose()
             await engine.dispose()
 
     app = FastAPI(title="Panelwise API", lifespan=lifespan)

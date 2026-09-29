@@ -138,9 +138,9 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 - [ ] T037 [SET] **Deploy stack: Vercel + Railway + Supabase Postgres, Redis removed.** Lane `infra`.
       Design:  docs/design/deploy.md (§1, §4, §6, §7 rows marked T037)
-      Files:   apps/web/vercel.json; services/api/railway.json; services/api/app/{main.py,core/config.py}; services/api/tests/test_health.py; services/api/pyproject.toml + uv.lock (redis out); docker-compose.yml; .env.example; docs/deploy.md
+      Files:   apps/web/vercel.json; apps/web/next.config.ts; services/api/app/{main.py,core/config.py}; services/api/tests/test_health.py; services/api/pyproject.toml + uv.lock (redis out); docker-compose.yml; .env.example; docs/deploy.md
       Contract:docs/design/deploy.md §6 (env names, deploy configs, health checks postgres only)
-      Verify:  bash scripts/gate.sh; docker compose up --build --wait healthy without Redis; then, with Katlego's accounts: the Railway URL's /api/v1/health answers ok against Supabase, and the Vercel URL's /api/health answers 200 through it
+      Verify:  bash scripts/gate.sh; docker compose up --build --wait healthy without Redis; then, with Katlego's accounts (Railway configured in its dashboard, docs/deploy.md): the Railway URL's /api/v1/health answers ok against Supabase, and the Vercel URL's /api/health answers 200 through it
       Done:    the code needs no Redis, and the three hosted services are reachable from each other on the real accounts. Blocked on accounts until Katlego creates them; docs/deploy.md lists the steps
 
 ---

@@ -35,7 +35,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | 🟡 Doing (T037) · T002 done · T003 needs GPU access |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | 🔵 T037 code in review · 🔴 its deploy check blocked on accounts · T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | | | ✅ T005, T006 done |
 | `shots` | Shot planner | T007 | | | ⬜ To Do |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
@@ -63,7 +63,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 ## 🧱 What's built so far
 
-- **Local stack (T002):** `docker compose up --build --wait` runs postgres, redis, api and web on pinned versions (PLAN.md § Technical Context). Host ports default to 5432/6379/8000/3000 and can be overridden in `.env` (FrameFlow's containers hold 5432/6379 on Katlego's machine).
+- **Local stack (T002, T037):** `docker compose up --build --wait` runs postgres, api and web on pinned versions (PLAN.md § Technical Context); no Redis since T037. Host ports default to 5432/8000/3000 and can be overridden in `.env` (FrameFlow's containers hold 5432 on Katlego's machine). Deploy config: `apps/web/vercel.json`; Railway is set in its dashboard (`docs/deploy.md`: `railway.json` is deprecated, closed to new services, dead on 2026-12-01).
 - **API** (`services/api`, FastAPI, uv): `GET /api/v1/health` pings Postgres and Redis; 503 + exception type on failure, with a timeout.
 - **Web** (`apps/web`, Next.js 16, pnpm): `GET /api/health` reports web + API health; 502 when the API is unreachable. No pages yet (T009).
 - **Gate:** 10 checks across 2 projects (ruff, pyright, pytest, eslint+tsc, vitest, next build, placeholder, secrets, osv-scanner, jscpd).
@@ -120,3 +120,5 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - 2026-09-28 — Katlego (via Claude) — **Phase 1 checkpoint passed on the real account** (self-written 3-scene sample): faithfulness 1.000 (5/5, 8/8 quotes located), recall 1.000 (2/2 speakers), Lightning, 509 in / 157 out / 0 reasoning tokens. Tiny sample; feature-length recall needs T031. Note: SPEC.md is still the unfilled template. Next: T007 / T031. Blocked on: nothing.
 - 2026-09-29 — Katlego (via Claude) — Plan change: adopt the Hackathon kit's stack (Vercel, Railway, Supabase; Redis removed); `docs/design/deploy.md`, T037 added; Hackathon-kit layers being ported on a separate branch. Next: T037 code. Blocked on: hosting accounts for T037's deploy check.
 - 2026-09-29 — Katlego (via Claude) — Brought in Hackathon-kit layers (event.toml, ./hack, judged, long) on docs/hackathon-kit-layers. Next: review. Blocked on: nothing.
+- 2026-09-29 — Katlego (via Claude) — T037 code: Redis removed (health checks postgres only), `railway.json` + `vercel.json` (both schema-validated), API honours `PORT`, Supabase `postgresql://` URLs accepted; compose healthy without Redis; `docs/deploy.md` account steps. Next: T007. Blocked on: Katlego's Supabase, Railway and Vercel accounts for T037's deploy check.
+- 2026-09-29 — Katlego (via Claude) — T037 review fixes: `?sslmode=` → asyncpg `?ssl=` (proven live: raw sslmode fails with TypeError, rewritten connects); `railway.json` dropped (Railway deprecated it, new services can't use it, cutoff 2026-12-01) for documented dashboard settings; Next standalone off on Vercel. Next: T007. Blocked on: accounts for T037's deploy check.
