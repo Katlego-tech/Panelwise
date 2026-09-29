@@ -224,6 +224,9 @@ class Renderer(Protocol):
     # width × height: the storyboard's 16:9 size, or a comic panel's rect (comic.md §4 step 6)
 
 # app/verify/audit.py (T020)
+async def describe_frame(model: NebiusChatModel, png: bytes) -> tuple[FrameDescription, ChatResult]: ...
+#   the blind describer on its own (Tier.VISION, no shot details); audit_frame calls it, and so do
+#   portraits (characters.md), which need only people and has_text
 def seed_for(shot: Shot, attempt: int) -> int: ...          # int.from_bytes(sha256(f"{scene_index}:{number}:{attempt}").digest()[:4], "big")  (unsigned)
 def run_checks(shot: Shot, scene: Scene, description: FrameDescription, judgement: Judgement,
                extraction: Extraction) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]: ...   # pure
@@ -245,7 +248,7 @@ async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot
 
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
-| `services/api/app/verify/{__init__,model,schema,prompts,audit}.py` | new | describe, judge, checks, verdict | T020 |
+| `services/api/app/verify/{__init__,model,schema,prompts,audit}.py` | new | `describe_frame` (also used by portraits), judge, checks, verdict | T020 |
 | `services/api/app/verify/loop.py` + migration for `frame_audits` | new | render → audit → retry → state; logging | T021 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | T021's UI part, built to the web lane's design | T021 |
 | `services/api/tests/verify/` | new | §9 | T020, T021 |
