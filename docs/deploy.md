@@ -32,13 +32,24 @@ kill %1
 ## 2. Railway — the API
 
 1. railway.com → New project → Deploy from GitHub repo → `Katlego-tech/Panelwise`.
-2. Service → Settings: **Root directory** `/services/api`; **Config file**
-   `/services/api/railway.json` (Dockerfile build, health check `/api/v1/health`).
+2. Service → Settings (set these in the dashboard; there is deliberately no config file, see below):
+
+   | Setting | Value |
+   |---|---|
+   | Root directory | `/services/api` |
+   | Builder | Dockerfile (Railway detects `services/api/Dockerfile`) |
+   | Healthcheck path | `/api/v1/health` (timeout 60 s) |
+   | Restart policy | On failure, 3 retries |
+
+   *Why no `railway.json`:* Railway deprecated Config as Code. New services can't opt into it, and
+   existing files stop working on **2026-12-01**, before judging ends on 15 Dec
+   (docs.railway.com/config-as-code/reference, checked 2026-09-29). Its replacement,
+   `.railway/railway.ts`, would be unverified code for four settings.
 3. Service → Variables:
 
    | Variable | Value |
    |---|---|
-   | `DATABASE_URL` | step 1's session-pooler string (`postgresql://…` is fine; the API adds `+asyncpg`) |
+   | `DATABASE_URL` | step 1's session-pooler string, as copied. `postgresql://…` is fine (the API adds `+asyncpg`), and so is `?sslmode=require` (the API turns it into asyncpg's `?ssl=require`) |
    | `NEBIUS_API_KEY` | your Token Factory key |
    | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | step 1 (used from T008/T009) |
 

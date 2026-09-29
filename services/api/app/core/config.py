@@ -1,6 +1,7 @@
 """Settings, read from the environment (see .env.example at the repo root)."""
 
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -31,5 +32,14 @@ class Settings(BaseSettings):
         # Supabase hands out postgresql:// (or postgres://); the async engine needs +asyncpg.
         for scheme in ("postgresql://", "postgres://"):
             if url.startswith(scheme):
-                return "postgresql+asyncpg://" + url.removeprefix(scheme)
-        return url
+                url = "postgresql+asyncpg://" + url.removeprefix(scheme)
+        # libpq's ?sslmode= (which Supabase suggests) is ?ssl= to asyncpg, same values; asyncpg
+        # rejects an unknown sslmode keyword at connect time, so the API would never be healthy.
+        base, _, query = url.partition("?")
+        if not query:
+            return url
+        params = [
+            ("ssl" if key == "sslmode" else key, value)
+            for key, value in parse_qsl(query, keep_blank_values=True)
+        ]
+        return f"{base}?{urlencode(params)}"

@@ -95,3 +95,17 @@ def test_a_supabase_connection_string_is_used_with_the_asyncpg_driver(given: str
     assert settings.database_url == (
         "postgresql+asyncpg://u:p@aws-0-eu-central-1.pooler.supabase.com:5432/postgres"
     )
+
+
+@pytest.mark.parametrize(
+    ("given", "expected_query"),
+    [
+        ("postgresql://u:p@h:5432/postgres?sslmode=require", "ssl=require"),
+        ("postgres://u:p@h:5432/postgres?sslmode=verify-full", "ssl=verify-full"),
+        ("postgresql+asyncpg://u:p@h:5432/postgres?ssl=require", "ssl=require"),
+    ],
+)
+def test_libpq_sslmode_becomes_asyncpgs_ssl(given: str, expected_query: str) -> None:
+    # Supabase suggests ?sslmode=require; asyncpg has no sslmode and rejects it at connect time.
+    settings = Settings(_env_file=None, database_url=given)  # pyright: ignore[reportCallIssue]
+    assert settings.database_url == f"postgresql+asyncpg://u:p@h:5432/postgres?{expected_query}"
