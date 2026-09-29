@@ -1,10 +1,10 @@
 """Settings, read from the environment (see .env.example at the repo root)."""
 
 from pathlib import Path
-from urllib.parse import parse_qsl, urlencode
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 # The repo-root .env, wherever the API is started from. In the Docker image this path
 # doesn't exist and compose supplies the environment instead; a missing file is ignored.
@@ -29,17 +29,16 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def _asyncpg_driver(cls, url: str) -> str:
+        # Parsed with SQLAlchemy's own URL parser, the one the engine uses: a "?" or "&" inside
+        # the password is part of the password, not the start of the query (PR #13 review).
+        parsed = make_url(url)
         # Supabase hands out postgresql:// (or postgres://); the async engine needs +asyncpg.
-        for scheme in ("postgresql://", "postgres://"):
-            if url.startswith(scheme):
-                url = "postgresql+asyncpg://" + url.removeprefix(scheme)
-        # libpq's ?sslmode= (which Supabase suggests) is ?ssl= to asyncpg, same values; asyncpg
+        if parsed.drivername in ("postgresql", "postgres"):
+            parsed = parsed.set(drivername="postgresql+asyncpg")
+        # libpq's sslmode= (which Supabase suggests) is ssl= to asyncpg, same values; asyncpg
         # rejects an unknown sslmode keyword at connect time, so the API would never be healthy.
-        base, _, query = url.partition("?")
-        if not query:
-            return url
-        params = [
-            ("ssl" if key == "sslmode" else key, value)
-            for key, value in parse_qsl(query, keep_blank_values=True)
-        ]
-        return f"{base}?{urlencode(params)}"
+        if "sslmode" in parsed.query:
+            query = dict(parsed.query)
+            query["ssl"] = query.pop("sslmode")
+            parsed = parsed.set(query=query)
+        return parsed.render_as_string(hide_password=False)

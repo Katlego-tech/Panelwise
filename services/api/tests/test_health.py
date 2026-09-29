@@ -5,6 +5,7 @@ import time
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.engine import make_url
 
 from app.api.v1.health import Check, get_checks
 from app.core.config import Settings
@@ -109,3 +110,18 @@ def test_libpq_sslmode_becomes_asyncpgs_ssl(given: str, expected_query: str) -> 
     # Supabase suggests ?sslmode=require; asyncpg has no sslmode and rejects it at connect time.
     settings = Settings(_env_file=None, database_url=given)  # pyright: ignore[reportCallIssue]
     assert settings.database_url == f"postgresql+asyncpg://u:p@h:5432/postgres?{expected_query}"
+
+
+def test_a_password_containing_a_question_mark_survives() -> None:
+    # A "?" in the password is not the start of the query (PR #13 review).
+    given = "postgresql://postgres.ref:my?pass@pooler.example.com:5432/postgres?sslmode=require"
+    settings = Settings(_env_file=None, database_url=given)  # pyright: ignore[reportCallIssue]
+    url = make_url(settings.database_url)
+    assert (url.drivername, url.password, url.host, url.port, url.database) == (
+        "postgresql+asyncpg",
+        "my?pass",
+        "pooler.example.com",
+        5432,
+        "postgres",
+    )
+    assert dict(url.query) == {"ssl": "require"}
