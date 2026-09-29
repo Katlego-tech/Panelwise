@@ -52,7 +52,7 @@ constitution and let this section be the single copy (see
 
 | Dimension | Value |
 | --- | --- |
-| **Language(s) + versions** | **Python 3.14** (image `python:3.14.7-slim-trixie`; Python has no LTS line, 3.14 is the newest stable) · **Node 24.21.0 LTS** (image `node:24.21.0-trixie-slim`; Node 26 only becomes LTS on 2026-10-28) · Next.js 16.3.6 · pnpm 11.10.0 · uv 0.11.32. Datastores: `postgres:18.6-trixie`, `redis:8.10.2-trixie`. Checked against endoflife.date and Docker Hub on 2026-09-28 (T002) |
+| **Language(s) + versions** | **Python 3.14** (image `python:3.14.7-slim-trixie`; Python has no LTS line, 3.14 is the newest stable) · **Node 24.21.0 LTS** (image `node:24.21.0-trixie-slim`; Node 26 only becomes LTS on 2026-10-28) · Next.js 16.3.6 · pnpm 11.10.0 · uv 0.11.32. Local datastore: `postgres:18.6-trixie` (deployed: Supabase Postgres; Redis removed 2026-09-29). Checked against endoflife.date and Docker Hub on 2026-09-28 (T002) |
 | **Architecture** | `Modular monolith - one FastAPI API service plus one Next.js web app, split by module not by service` |
 | **Messaging / async** | `none (job status and progress in a Postgres table; Redis removed 2026-09-29)` |
 | **Frontend** | `Next.js + shadcn/ui (Radix + Tailwind + CVA)` |
@@ -77,7 +77,7 @@ panelwise/
 ├── README.md                    # setup, Nemotron + Token Factory usage, demo link
 ├── CHANGES-FROM-FRAMEFLOW.md    # the "what was significantly updated" disclosure
 ├── .env.example                 # key names only
-├── docker-compose.yml           # postgres, redis, api, web (+ comfyui profile in T003)
+├── docker-compose.yml           # local: postgres, api, web (+ comfyui profile in T003); deployed: Vercel/Railway/Supabase
 ├── infra/
 │   ├── nebius/                  # GPU VM / serverless endpoint for ComfyUI
 │   └── comfyui/workflows/       # public node graphs (JSON)
