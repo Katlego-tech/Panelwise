@@ -161,9 +161,10 @@ sequenceDiagram
 - **Seeds** are deterministic: `seed(shot, attempt)`, so an attempt can be reproduced.
 - **`max_renders` = 3** (the first render plus two re-renders, `k = 2`). With a pass rate `p = 0.6`
   that's `E[N] ≈ 1.56` renders per frame; the real `p` comes from T032's measurement.
-- **A withheld frame is never shown.** The storyboard and the comic show its shot as a text card:
+- **A withheld frame is never shown.** The storyboard shows its shot as a text card:
   the verbatim `source`, the span, and "Frame withheld: failed audit (unscripted person)". The user
-  can ask for more attempts later; each is audited the same way.
+  can ask for more attempts later; each is audited the same way. The comic has its own withheld
+  card, without the source (its bubbles letter the dialogue): comic.md §4 step 6.
 
 **Failure paths:** the describer or judge call fails (an `LLMError`, or `ValidationError` after the
 repair retry) → that attempt's audit is `ERROR`, logged, and the frame is **withheld**, never passed

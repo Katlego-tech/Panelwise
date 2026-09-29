@@ -1,0 +1,329 @@
+# Design — `comic` (page layout, panels, speech bubbles, export)
+
+**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T022 (layout), T023 (bubbles, lettering,
+export), T024 consumes it (reader) · **Spec:** US3 (script → comic); SPEC.md's stories are still
+the template
+
+---
+
+## 1. What this covers
+
+Turning a `ShotPlan` (docs/design/shots.md) into comic pages: which shots share a page and a row, how
+big each panel is, the frame rendered for each panel, where each speech bubble sits, how it's
+lettered, and the exported pages (PNG and PDF, plus a layout JSON for the web reader).
+
+**Non-negotiable I applies to every letter on the page.** Bubbles and captions carry **verbatim
+script text only**, each with its source `Span`; nothing is paraphrased, summarised, truncated,
+dropped or invented. The single exception is typographic: the ` — ` that joins a scene caption's
+location and time (§3). Action lines are never lettered (the art shows them), and there are no
+invented sound effects.
+
+**Not covered:** the renderer (T008) and the audit (verify.md), which this calls; the web reader's UI
+(T024).
+
+## 2. Reference material
+
+| Kind | Where |
+| --- | --- |
+| Visual reference | none yet; producing a reference page from the self-written sample is part of T022's Verify |
+| Inputs | `ShotPlan`, `Shot` (shots.md §6); `Screenplay`, `Scene`, `Dialogue`, `Span` (script.md §6); the frame renderer and audit (verify.md §6: `Renderer`, `render_until_accepted`, `Audit.positions`). **Depends on verify.md's `Renderer.render` and `render_until_accepted` taking `width`/`height`** (added in PR #17, T010), so this doc lands after it |
+| Prior art in FrameFlow | none: FrameFlow made storyboard PDFs, never comics (its `storyboard_document.py` hand-wrote a PDF with base-14 fonts, two 16:9 panels per A4 page) |
+| Font | **Comic Neue** (SIL Open Font License 1.1), committed with its licence under `services/api/assets/fonts/` |
+| Page size | US comic trim, 6.625 × 10.25 in, rendered at 300 dpi = **1988 × 3075 px**; margins **120 px** (0.4 in); gutters **36 px** |
+
+## 3. Domain model
+
+```mermaid
+classDiagram
+    class ComicBook {
+        +tuple~Page~ pages
+        +LayoutReport report
+    }
+    class Page {
+        +int number
+        +int width
+        +int height
+        +tuple~Panel~ panels
+    }
+    class Panel {
+        +int scene_index
+        +int shot_number
+        +Rect rect
+        +tuple~Bubble~ bubbles
+        +tuple~Caption~ captions
+    }
+    class Bubble {
+        +BubbleKind kind
+        +str speaker
+        +str text
+        +int element
+        +Span span
+        +Rect rect
+        +Point|None tail
+        +int font_px
+    }
+    class Caption {
+        +CaptionKind kind
+        +str text
+        +int|None element
+        +Span span
+        +Rect rect
+        +int font_px
+    }
+    class LayoutReport {
+        +int panels
+        +int bubbles
+        +int captions
+        +int relayouts
+    }
+    class BubbleKind {
+        <<enum>>
+        SPEECH
+        OFF_PANEL
+    }
+    class CaptionKind {
+        <<enum>>
+        SCENE
+        VOICE_OVER
+    }
+    ComicBook --> Page
+    ComicBook --> LayoutReport
+    Page --> Panel
+    Panel --> Bubble
+    Panel --> Caption
+```
+
+- `Rect` is `(x, y, w, h)` and `Point` is `(x, y)`, both in page pixels.
+- **One panel per shot**, in plan order. `(scene_index, shot_number)` names the shot. **The panel's
+  frame is rendered at exactly `rect`'s width × height** (§4), so nothing is ever cropped.
+- **One bubble or caption per `Dialogue` element** the shot covers, in element order. `text` is
+  `Dialogue.text` byte for byte; `element` is its index in `scene.elements`; `span` is its span;
+  `speaker` is `Dialogue.cue` verbatim. Parentheticals are direction for the art and are not
+  lettered.
+- **Extension → kind**, exhaustive over any `Dialogue.extension` (free text in script.md): take
+  `extension.upper()` (or `""`); if it contains `V.O.` → a `VOICE_OVER` caption (a box, no tail),
+  so `V.O./CONT'D` is a voice-over too; else if it contains `O.S.`, `O.C.` or `OFF` → an
+  `OFF_PANEL` bubble (tail to the panel edge nearest the speaker's side, or the right edge if
+  unknown); else → a `SPEECH` bubble. `CONT'D`, `FILTERED`, `PRE-LAP`, `ON P.A.` and anything else
+  are speech.
+- **`SCENE` caption** on a scene's first panel: `scene.location`, then — only when
+  `absolute_time(scene.time_of_day)` is not `None` — ` — ` and that time. Words from the heading
+  only; a borrowed clock (`CONTINUOUS`) is never lettered. `element` is `None`; `span` is the
+  heading line.
+
+## 4. Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Comic job
+    participant G as layout_geometry()
+    participant V as render_until_accepted (verify.md)
+    participant B as place_lettering()
+    participant R as render_pages()
+    C->>G: ShotPlan, Screenplay
+    G->>G: weights → tiers → pages → rects; lettering area budget (≤ 3 passes)
+    G-->>C: geometry (rects), or ComicError
+    loop each panel
+        C->>V: shot, width × height = the panel rect
+        V-->>C: accepted frame + positions, or WITHHELD
+    end
+    C->>B: panels + frames + positions
+    B-->>C: bubbles and captions placed
+    C->>R: ComicBook + frames
+    R-->>C: page PNGs, one PDF, layout JSON
+```
+
+Geometry and the lettering budget are settled **before** any frame exists, from text alone; frames
+are then rendered to fit their panels. No step loops back to re-render.
+
+**1. Weights (panel size by story beat).** Base by framing: `wide` 2.0; `medium`, `over_shoulder`,
+`pov` 1.0; `close_up` 0.8; `extreme_close_up`, `insert` 0.6. +0.5 for a scene's first shot (the
+establishing beat). Lettering: `c` = total characters of the texts the panel will letter (bubbles
+and captions); add **0.25 × ⌈c / 60⌉** (integer ceiling; 0 when `c` = 0).
+
+**2. Tiers.** Shots are taken in plan order. A shot of weight ≥ 2.0 gets a tier of its own (a
+*solo* tier). Otherwise it joins the open tier; the tier closes when it holds 3 panels or its
+weights reach ≥ 2.0 after adding. A scene's first shot always opens a new tier (closing any open
+one).
+
+**3. Pages.** Tiers fill pages in order, 3 per page. Usable height `H = 3075 − 2·120 − 36·(t−1)` for
+`t` tiers on the page; with `s` solo tiers and `t − s` normal ones, unit `u = H / ((t − s) + 1.25·s)`;
+a normal tier is `u` tall, a solo tier `1.25·u`, each rounded down to whole pixels with the
+remainder added to the last tier. So every page's tiers fill it exactly. The last page
+may have 1 or 2 tiers; the formula stretches them.
+
+**4. Panels.** Usable width `W = 1988 − 2·120 − 36·(p−1)` for `p` panels in the tier; widths are
+proportional to weights, rounded down to whole pixels, with the rounding remainder added to the
+last panel. `rect` follows from the running x and y.
+
+**5. Lettering budget (fit, never shrink or cut).** Each text is wrapped with the font at **32 px**
+(nominal) to at most 40% of the panel width; its box is the wrapped block plus 16 px padding each
+side (an ellipse is drawn inside it). If the boxes' total area exceeds **35% of the panel's area**,
+that panel's weight is raised by 0.5 and steps 2–4 rerun (a *relayout*), at most 3 passes. A panel
+still over budget gets a solo tier; if even that is over, the layout fails with `ComicError` naming
+the shot. Text is never below **28 px** (the renderer may drop from 32 to 28 to fit a box, never
+lower) and never truncated or reworded.
+
+**6. Frames.** Each panel's shot is rendered at `rect.w × rect.h` through verify.md's
+`render_until_accepted` (the same audit, the same withhold rule). A `WITHHELD` frame's panel shows
+the comic's **withheld card** instead, and its lettering is still placed:
+
+- The card is `rect.w × rect.h`, white, with a 4 px mid-grey (`#808080`) border.
+- It carries two lines, centred, in the comic font at 32 px: `Frame withheld: failed audit
+  (<checks>)`, where `<checks>` is the names of the failed **hard** checks of the *last* attempt,
+  in `Check` enum order, lower case with `_` as spaces, joined by `, ` (an `ERROR` audit reads
+  `audit error`); and `Script p.<page> l.<line_start>–<line_end>` from the shot's span.
+- It does not repeat the shot's `source`: the bubbles on it already letter the dialogue, and action
+  text is never lettered. (The storyboard's card, which verify.md §4 describes, does show the
+  source; the storyboard has no bubbles.)
+- Placement on a card: `detail` is 0 everywhere, so boxes go to the earliest admissible cells;
+  `positions` is empty (a failed attempt's positions describe a frame no one sees), so `SPEECH`
+  tails point at the panel's bottom centre and `OFF_PANEL` tails at the right edge.
+
+**7. Placing lettering.** Candidate positions are the 12 × 8 grid of cell corners inside the panel
+(columns × rows), each tried as a box's top-left. **Hard constraints** (a candidate that breaks one is
+never chosen): the box lies inside the panel; it overlaps no earlier box; **reading order**: its
+grid cell `(row, col)` is after the previous box's in row-major order (`row > prev_row`, or `row ==
+prev_row` and `col > prev_col`). **Cost** among the admissible: `detail + 2.0 × covers_speaker`,
+where `detail` is the mean of Pillow `FIND_EDGES` over the box on the grayscale frame, divided by 255
+(0–1), and `covers_speaker` is 1 when the box overlaps the speaker's third of the panel (from the
+audit's `positions`, looked up by `match_speaker(speaker, list(positions))`; 0 when unknown). Lowest
+cost wins; ties go to the earlier cell in row-major order. The `SCENE` caption, when present, is
+placed first, at the panel's top-left. If a box has no admissible candidate, `ComicError` names the
+shot. (The budget in step 5 makes this rare, not impossible.)
+
+**8. Tails.** `SPEECH`: from the bubble's nearest edge to the speaker's point: horizontal centre of
+their third (`left`/`centre`/`right`) at 45% of the panel height; when the position is unknown, the
+panel's bottom centre. `OFF_PANEL`: to the panel edge on the speaker's side, else the right edge.
+Captions: no tail.
+
+**Failure paths:** layout over budget after the passes → `ComicError` (shot named); no admissible
+spot for a box → `ComicError` (shot named); the renderer failing → the frame job fails (verify.md);
+the font file missing → `ComicError` at start-up, never a fallback font. A missing line is worse than
+a failed job.
+
+## 5. State
+
+Layout geometry is pure. Producing a comic is a `Job` (docs/design/deploy.md §5: `QUEUED → RUNNING →
+DONE | FAILED`); progress = panels rendered, then pages rendered.
+
+## 6. Contracts
+
+```python
+# app/comic/model.py
+type Rect = tuple[int, int, int, int]      # x, y, w, h (page px)
+type Point = tuple[int, int]               # x, y (page px)
+class BubbleKind(StrEnum): SPEECH = "speech"; OFF_PANEL = "off_panel"
+class CaptionKind(StrEnum): SCENE = "scene"; VOICE_OVER = "voice_over"
+@dataclass(frozen=True) class Bubble: kind: BubbleKind; speaker: str; text: str; element: int; span: Span; rect: Rect; tail: Point | None; font_px: int
+@dataclass(frozen=True) class Caption: kind: CaptionKind; text: str; element: int | None; span: Span; rect: Rect; font_px: int
+@dataclass(frozen=True) class Panel: scene_index: int; shot_number: int; rect: Rect; bubbles: tuple[Bubble, ...]; captions: tuple[Caption, ...]
+@dataclass(frozen=True) class Page: number: int; width: int; height: int; panels: tuple[Panel, ...]
+@dataclass(frozen=True) class LayoutReport: panels: int; bubbles: int; captions: int; relayouts: int
+@dataclass(frozen=True) class ComicBook: pages: tuple[Page, ...]; report: LayoutReport
+@dataclass(frozen=True) class PanelFrame: png: bytes; positions: Mapping[str, Position]; withheld: bool   # Position from verify.md
+class ComicError(RuntimeError): ...
+
+# app/comic/layout.py (T022) — pure, no images
+def panel_weight(shot: Shot, scene: Scene, first_in_scene: bool, lettered_chars: int) -> float: ...
+def layout_geometry(plan: ShotPlan, screenplay: Screenplay) -> ComicBook: ...   # rects set; bubbles/captions not yet placed
+
+# app/comic/bubbles.py (T023)
+def place_lettering(book: ComicBook, screenplay: Screenplay, plan: ShotPlan,
+                    frames: Mapping[tuple[int, int], PanelFrame]) -> ComicBook: ...
+
+# app/comic/render.py (T023)
+def render_pages(book: ComicBook, frames: Mapping[tuple[int, int], PanelFrame]) -> list[bytes]: ...   # PNG per page
+def to_pdf(pages: Sequence[bytes]) -> bytes: ...
+def to_json(book: ComicBook, frame_urls: Mapping[tuple[int, int], str]) -> dict[str, object]: ...
+```
+
+**Layout JSON** (T024's input, verbatim shape):
+
+```json
+{
+  "pages": [{
+    "number": 1, "width": 1988, "height": 3075,
+    "panels": [{
+      "shot": [0, 1],
+      "rect": [120, 120, 1748, 1062],
+      "frame_url": "https://…/frames/…png",
+      "withheld": false,
+      "bubbles": [{
+        "kind": "speech", "speaker": "NANDI", "text": "You came back.",
+        "element": 2, "span": {"page": 1, "line_start": 14, "line_end": 14},
+        "rect": [300, 180, 420, 160], "tail": [620, 574], "font_px": 32
+      }],
+      "captions": [{
+        "kind": "scene", "text": "LIGHTHOUSE KITCHEN — NIGHT",
+        "element": null, "span": {"page": 1, "line_start": 5, "line_end": 5},
+        "rect": [136, 136, 640, 80], "font_px": 32
+      }]
+    }]
+  }]
+}
+```
+
+Every piece of text carries its span, so the reader can show "from page 1, line 14" on any bubble.
+`frame_url` is the Supabase Storage URL of the accepted frame (absent and `withheld: true` for a
+withheld one).
+
+## 7. Structure
+
+| Path | New? | Responsibility | Task |
+| --- | --- | --- | --- |
+| `services/api/app/comic/{__init__,model,layout}.py` | new | weights, tiers, pages, rects, lettering budget | T022 |
+| `services/api/app/comic/{bubbles,render}.py` | new | placement, tails, lettering, the withheld card, page PNGs, PDF, JSON | T023 |
+| `services/api/assets/fonts/ComicNeue-*.ttf`, `OFL.txt` | new | the lettering font and its licence | T023 |
+| `services/api/tests/comic/` | new | §9 | T022, T023 |
+
+Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, multi-page PDF via
+`save_all`). No second PDF library.
+
+## 8. Decisions & alternatives
+
+| Decision | Chosen | Rejected, and why |
+|---|---|---|
+| Lettered text | `Dialogue.text` verbatim, with its span | a model rewriting speech for comic rhythm: invention, and the span would no longer point at what's shown |
+| Action lines | not lettered | narration captions from action: the art already shows it |
+| Sound effects | none | lettering "SLAM!" from "DOORS SLAM.": a styling decision the script didn't make (open question) |
+| Frame shape | rendered at the panel's size | cover-cropping the storyboard's 16:9 frames: two-panel tiers are near-square, so a ≤ 20% crop limit forced almost every tier to one panel, and deeper crops can cut a character out. **Cost:** a comic renders its own frames (and audits them), on top of the storyboard's |
+| Order of work | geometry and lettering budget from text first, frames second | placing bubbles on images and growing panels afterwards: every growth would mean a re-render |
+| Too much text | the panel grows; the job fails before text is cut | shrinking below 28 px (illegible) or truncating (drops script) |
+| Reading order | a hard constraint | a cost term: the cheapest spot could still break reading order |
+| Bubble position | image detail + speaker position | a vision model placing bubbles: another call per panel, not deterministic |
+| Speaker position | from the audit's `positions` | face detection: another model for a tail direction |
+| Page flow | a scene starts a new tier, not a new page | a page per scene: short scenes waste pages |
+| PDF | Pillow `save_all` | reportlab / img2pdf: a second library for what Pillow does |
+
+Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none.
+
+## 9. How this is verified
+
+- **Traceability:** every `Dialogue` of every shot is in exactly one bubble or caption, `text` equal
+  to `Dialogue.text` and `span` to its span; no other text is lettered except `SCENE` captions built
+  from heading words and the ` — ` joiner.
+- **Extension mapping:** `None`, `CONT'D`, `FILTERED`, `PRE-LAP` → speech; `O.S.`, `O.C.`,
+  `OFF SCREEN` → off-panel; `V.O.`, `V.O./CONT'D` → voice-over caption.
+- **Geometry** (pure, no images): one panel per shot in plan order; deterministic; ≤ 3 tiers per
+  page, ≤ 3 panels per tier; solo tiers for weight ≥ 2.0; a scene's first shot opens a tier; tiers
+  fill the page height exactly; panels inside the margins, gutters respected, no overlap; the
+  lettering-weight rounding (`⌈c/60⌉`); the budget raising weights and, past 3 passes, a solo tier,
+  then `ComicError`.
+- **Placement:** boxes inside their panel, never overlapping, strictly in reading order; font ≥ 28
+  px; `O.S.` tails on the edge; `V.O.` as captions; no admissible spot → `ComicError`.
+- **Frames:** each panel's render request is exactly its `rect` size; a withheld frame yields the
+  card (its two lines, the failed hard checks in enum order, `audit error` for an ERROR audit, no
+  source text) plus its lettering, placed in grid order with default tails.
+- **Export:** one PDF page per `Page` at 1988 × 3075; the JSON matches §6's shape and round-trips
+  every span.
+- **Visual:** T022/T023 render the self-written sample's comic and commit the page PNGs as the
+  reference later changes are compared against.
+
+## 10. Open questions
+
+- [ ] Sound effects from all-caps action ("DOORS SLAM.") would suit comics, but lettering them is a
+  styling choice; decide with a sample page in hand (T023).
+- [ ] Dual dialogue isn't parsed (script.md §10), so two simultaneous speeches read as sequential
+  bubbles.
+- [ ] Right-to-left reading order: not planned.
