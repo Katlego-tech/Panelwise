@@ -34,8 +34,13 @@ classDiagram
         +Setting setting
         +Light light
         +ShotSize shot_size
-        +list~str~ objects
+        +list~SeenObject~ objects
         +bool has_text
+    }
+    class SeenObject {
+        +str name
+        +ObjectCategory category
+        +bool held
     }
     class SeenPerson {
         +Position position
@@ -51,7 +56,7 @@ classDiagram
         +str|None support
     }
     class ObjectCall {
-        +str object
+        +int object
         +ObjectKind kind
         +str|None support
     }
@@ -80,6 +85,7 @@ classDiagram
         +tuple~Audit~ audits
     }
     FrameDescription --> SeenPerson
+    FrameDescription --> SeenObject
     Judgement --> PersonCall
     Judgement --> ObjectCall
     Audit --> FrameDescription
@@ -90,30 +96,38 @@ classDiagram
 
 - **The describer is blind to the shot.** It gets the image and a neutral instruction: count the
   people, where each one stands, what they look like in a short phrase, interior or exterior, the
-  light, the shot size, notable objects, and whether any text or letters appear. It is never told
+  light, the shot size, the notable objects (each with a category from a fixed list and whether
+  someone holds it), and whether any text or letters appear. It is never told
   what it *should* see, so it can't simply agree.
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
   character (or nobody), and whether each object is a scripted prop, set dressing, or unscripted.
+- **`PersonCall.person` and `ObjectCall.object`** are 0-based indexes into the description's `people`
+  and `objects`. The judgement must call **every** person and **every** object **exactly once**; a
+  judgement that skips one, repeats one, or indexes out of range is invalid, and the audit is
+  `ERROR` (the frame is withheld).
 - **`support` must be verbatim.** When the judge says an unnamed person or an object is supported
   by the script ("a crowd gathers"), `support` must quote the shot's `source` or a quote of one of
   the shot's entities. Code checks the quote with `normalize_for_grounding` substring matching,
-  exactly as the grounding filter does. **A support that isn't found counts as unscripted.**
-- **`positions`**: character → `left | centre | right`, from the judge's person calls. The comic's
-  bubble tails use it (comic.md §4).
+  exactly as the grounding filter does. **A support that isn't found counts as unscripted.** For
+  `set_dressing`, `support` must instead quote the scene heading (the location words that make a
+  stove plausible in a kitchen).
+- **`positions`**: character → `left | centre | right`, from the judge's person calls (each character
+  matches at most one person, so the position is unambiguous). Stored with the audit; the comic
+  reads the accepted audit's positions (comic.md §4, `PanelFrame.positions`).
 
 ### The checks
 
 | Check | Decided by | Severity | Fails when |
 |---|---|---|---|
-| `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person maps to no shot character and has no verified `support` |
-| `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`, or `scripted_prop` without a verified `support` |
+| `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted) |
+| `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon`, `screen_or_sign` or `food`, or its `support` isn't found in the heading |
 | `TEXT_IN_FRAME` | code | **hard** | `has_text` (letters in the art could be words the script never said) |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
 | `MISSING_CHARACTER` | code | soft | a shot character matched to no described person |
-| `LIGHT` | code | soft | `day` vs a night-family time (`NIGHT`, `MIDNIGHT`, `EVENING`) or `night` vs a day-family time; `unclear` passes |
-| `FRAMING` | code | soft | `shot_size` is two or more steps from the shot's framing on wide → medium → close → extreme_close (`over_shoulder`, `pov` count as medium; `insert` as close) |
+| `LIGHT` | code | soft | `light` is `day` and the shot's time is night-family (`NIGHT`, `MIDNIGHT`, `EVENING`), or `light` is `night` and the time is day-family (`DAY`, `MORNING`, `AFTERNOON`). Transitional times (`DAWN`, `DUSK`, `SUNRISE`, `SUNSET`, `MAGIC HOUR`), a `None` time, `dawn_or_dusk` and `unclear` always pass |
+| `FRAMING` | code | soft | `shot_size` is two or more steps from the shot's framing on wide → medium → close → extreme_close (`over_shoulder`, `pov` count as medium; `insert` as close); `unclear` passes |
 
 **Verdict:** `FAIL` if any hard check fails; `WARN` if only soft checks fail; `PASS` otherwise. Hard
 checks are the ones that would put something unscripted on screen; soft checks are quality
@@ -186,6 +200,7 @@ class Setting(StrEnum): INTERIOR = "interior"; EXTERIOR = "exterior"; UNCLEAR = 
 class Light(StrEnum): DAY = "day"; NIGHT = "night"; DAWN_OR_DUSK = "dawn_or_dusk"; UNCLEAR = "unclear"
 class ShotSize(StrEnum): WIDE = "wide"; MEDIUM = "medium"; CLOSE = "close"; EXTREME_CLOSE = "extreme_close"; UNCLEAR = "unclear"
 class ObjectKind(StrEnum): SCRIPTED_PROP = "scripted_prop"; SET_DRESSING = "set_dressing"; UNSCRIPTED = "unscripted"
+class ObjectCategory(StrEnum): FURNITURE = "furniture"; ARCHITECTURE = "architecture"; NATURE = "nature"; CLOTHING = "clothing"; ANIMAL = "animal"; VEHICLE = "vehicle"; WEAPON = "weapon"; SCREEN_OR_SIGN = "screen_or_sign"; FOOD = "food"; OTHER = "other"
 class Check(StrEnum): UNSCRIPTED_PERSON; UNSCRIPTED_OBJECT; TEXT_IN_FRAME; SETTING; MISSING_CHARACTER; LIGHT; FRAMING   # value = the name in lower case
 class Severity(StrEnum): HARD = "hard"; SOFT = "soft"
 class Verdict(StrEnum): PASS = "pass"; WARN = "warn"; FAIL = "fail"; ERROR = "error"
@@ -196,18 +211,20 @@ class FrameState(StrEnum): RENDERING; AUDITING; PASSED; WARNED; WITHHELD; FAILED
 
 # app/verify/schema.py — the two model calls (strict json_schema)
 class SeenPerson(BaseModel): position: Position; appearance: str
-class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[str]; has_text: bool
-class PersonCall(BaseModel): person: int; character: str | None; support: str | None
-class ObjectCall(BaseModel): object: str; kind: ObjectKind; support: str | None
+class SeenObject(BaseModel): name: str; category: ObjectCategory; held: bool
+class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[SeenObject]; has_text: bool
+class PersonCall(BaseModel): person: int; character: str | None; support: str | None   # person: 0-based index into description.people
+class ObjectCall(BaseModel): object: int; kind: ObjectKind; support: str | None        # object: 0-based index into description.objects
 class Judgement(BaseModel): people: list[PersonCall]; objects: list[ObjectCall]
 
 # The renderer T008 must provide (verify depends on this shape, nothing more)
 @dataclass(frozen=True) class RenderedFrame: shot: tuple[int, int]; attempt: int; seed: int; png: bytes; width: int; height: int; prompt: str
 class Renderer(Protocol):
-    async def render(self, shot: Shot, attempt: int, seed: int) -> RenderedFrame: ...
+    async def render(self, shot: Shot, attempt: int, seed: int, width: int, height: int) -> RenderedFrame: ...
+    # width × height: the storyboard's 16:9 size, or a comic panel's rect (comic.md §4 step 6)
 
 # app/verify/audit.py (T020)
-def seed_for(shot: Shot, attempt: int) -> int: ...          # sha256 of "scene_index:number:attempt", first 4 bytes
+def seed_for(shot: Shot, attempt: int) -> int: ...          # int.from_bytes(sha256(f"{scene_index}:{number}:{attempt}").digest()[:4], "big")  (unsigned)
 def run_checks(shot: Shot, scene: Scene, description: FrameDescription, judgement: Judgement,
                extraction: Extraction) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]: ...   # pure
 async def audit_frame(model: NebiusChatModel, frame: RenderedFrame, shot: Shot, screenplay: Screenplay,
@@ -215,13 +232,13 @@ async def audit_frame(model: NebiusChatModel, frame: RenderedFrame, shot: Shot, 
 
 # app/verify/loop.py (T021)
 async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot: Shot, screenplay: Screenplay,
-                                extraction: Extraction, *, max_renders: int = 3,
+                                extraction: Extraction, *, width: int, height: int, max_renders: int = 3,
                                 log: Callable[[Audit], Awaitable[None]]) -> FrameOutcome: ...
 ```
 
 **Audit log table** (`frame_audits`, T021, one row per attempt): `id`, `job_id`, `scene_index`,
 `shot_number`, `attempt`, `seed`, `frame_asset` (Supabase Storage path), `description` (jsonb),
-`judgement` (jsonb), `checks` (jsonb), `verdict`, `models`, `prompt_tokens`, `completion_tokens`,
+`judgement` (jsonb), `checks` (jsonb), `positions` (jsonb), `verdict`, `models`, `prompt_tokens`, `completion_tokens`,
 `created_at`. Nothing in it quotes more of the script than the shot's own `source`.
 
 ## 7. Structure
@@ -246,13 +263,20 @@ async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot
 | Re-render feedback | a new seed | feeding the failed checks into the prompt: SDXL-Turbo at cfg 1 ignores negative prompts (FrameFlow's own config note); revisit with the T003 model |
 | Hard vs soft | hard = would show something unscripted; soft = quality | failing on every soft miss: burns renders on lighting a storyboard can live with |
 
+**Accepted residual risk:** the audit can only judge what the describer reports. A person or object
+the describer misses passes unseen. T032 measures exactly this (recall on frames with a deliberately
+injected extra person or object); if it's poor, the describer prompt or model changes, or option B.
+
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none. Wording for the
 pitch and README (per the vision decision): *"a vision model describes each frame; Nemotron audits
 it against the script."*
 
 ## 9. How this is verified
 
-- `run_checks` (pure) on hand-built descriptions and judgements: every check's pass and fail, each
+- `run_checks` (pure) on hand-built descriptions and judgements: every check's pass and fail —
+  including **two people called as one character** (the second is unscripted), a name not in the
+  shot, a skipped or repeated index (`ERROR`), a held object or an animal called `set_dressing`,
+  every `LIGHT` family and exemption, `unclear` framing — each
   severity's effect on the verdict, `support` quotes verified (and a fake support counted as
   unscripted), `INT_EXT` and `unclear` passing, positions derived.
 - `audit_frame` with `httpx2.MockTransport`: the describer call carries the image and **no** shot
