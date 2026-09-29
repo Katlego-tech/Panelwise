@@ -31,7 +31,7 @@ rules = "https://nebiusglobalaihackathon.devpost.com/rules"
 resources = "https://nebiusglobalaihackathon.devpost.com/resources"
 repo = "https://github.com/Katlego-tech/Panelwise"   # private until T035 makes it public
 track = "Best Apps and Agents"
-demo = ""                    # open item, set by T030: the hosted demo on Nebius, up until 15 Dec 2026
+demo = ""                    # open item, set by T030: the Vercel URL (web; API on Railway), up until 15 Dec 2026
 video = ""                   # open item, set by T034: the public YouTube video, 3 minutes or shorter
 judging = "2026-12-01 to 2026-12-15"   # the demo must stay up, free and unrestricted, until 15 Dec
 

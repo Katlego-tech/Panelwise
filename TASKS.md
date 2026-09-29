@@ -136,13 +136,20 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 **Checkpoint:** a sample script parses and extracts on Nemotron with a faithfulness score.
 
+- [ ] T037 [SET] **Deploy stack: Vercel + Railway + Supabase Postgres, Redis removed.** Lane `infra`.
+      Design:  docs/design/deploy.md (§1, §4, §6, §7 rows marked T037)
+      Files:   apps/web/vercel.json; services/api/railway.json; services/api/app/{main.py,core/config.py}; services/api/tests/test_health.py; services/api/pyproject.toml + uv.lock (redis out); docker-compose.yml; .env.example; docs/deploy.md
+      Contract:docs/design/deploy.md §6 (env names, deploy configs, health checks postgres only)
+      Verify:  bash scripts/gate.sh; docker compose up --build --wait healthy without Redis; then, with Katlego's accounts: the Railway URL's /api/v1/health answers ok against Supabase, and the Vercel URL's /api/health answers 200 through it
+      Done:    the code needs no Redis, and the three hosted services are reachable from each other on the real accounts. Blocked on accounts until Katlego creates them; docs/deploy.md lists the steps
+
 ---
 
 ## Phase 2 — US1: script → grounded storyboard
 
 - [ ] T007 [US1] **Shot planner.** Port from `shot_service.py`. Depends on T006. Lane `shots`.
-- [ ] T008 [US1] **Storyboard.** Port from `storyboard_service.py`, `storyboard_styles.py`, `storyboard_document.py`, `image_provider.py`, `image_cache.py`, `image_postprocess.py`. Style registry loads `styles/` plus optional `PANELWISE_PRIVATE_STYLES`. Depends on T003, T007. Lane `storyboard`.
-- [ ] T009 [US1] **Web: upload → shots → storyboard.** Lane `web` (UI goes to Claude users per AGENTS.md §1).
+- [ ] T008 [US1] **Storyboard.** Port from `storyboard_service.py`, `storyboard_styles.py`, `storyboard_document.py`, `image_provider.py`, `image_cache.py`, `image_postprocess.py`. Style registry loads `styles/` plus optional `PANELWISE_PRIVATE_STYLES`. Images go to Supabase Storage (docs/design/deploy.md §7). Depends on T003, T007. Lane `storyboard`.
+- [ ] T009 [US1] **Web: upload → shots → storyboard.** Includes Supabase Auth sign-in and the `Job` table for progress (docs/design/deploy.md §3–§5). Lane `web` (UI goes to Claude users per AGENTS.md §1).
 
 **Checkpoint:** US1 demoable in the browser on Nemotron + Nebius GPU.
 
@@ -169,10 +176,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 ## Phase 5 — Hardening and submission
 
-- [ ] T030 [POL] Hosted demo on Nebius, seeded judge account, LLM + image spend caps, upload limits. Stays up to 15 Dec. Lane `infra`.
+- [ ] T030 [POL] Hosted demo on Vercel + Railway + Supabase (docs/design/deploy.md), seeded judge account (Supabase Auth), LLM + image spend caps, upload limits. Stays up to 15 Dec. Lane `infra`.
 - [ ] T031 [P] [POL] Public-domain / self-written sample screenplays in `samples/`. Lane `eval+submission`.
 - [ ] T032 [P] [POL] `eval/`: faithfulness and frame-audit accuracy numbers for the README. Lane `eval+submission`.
 - [ ] T033 [POL] README: setup, how Nemotron and Token Factory are used, feedback section. Lane `eval+submission`.
 - [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
 - [ ] T035 [POL] gitleaks over history, make the repo public, submit on Devpost by 29 Oct. Lane `eval+submission`.
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
+- [ ] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

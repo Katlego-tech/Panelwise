@@ -13,7 +13,7 @@ times are already in `event.toml [time]` with their source; `./hack kickoff` is 
 - [x] Roles decided: Katlego Thapelo Tlhapiso, project leader (Claude, Gemini); Tumo Olorato
       Mogame, co-builder (Claude). AGENTS.md §1 and `event.toml [team]`.
 - [ ] Everyone's time zone and working hours written in STATUS.md, with the overlap marked. The
-      timeline is in SAST; working hours are not recorded yet (open item, no task).
+      timeline is in SAST; working hours are not recorded yet (open item, T038).
 - [x] One place for decisions: this repo (STATUS.md, TASKS.md, AGENTS.md). Lanes are claimed in
       STATUS.md's taskboard.
 - [ ] Both members registered on Devpost and in one team there (frameflow-nebius-hackathon/PLAN.md
@@ -23,7 +23,7 @@ times are already in `event.toml [time]` with their source; `./hack kickoff` is 
 
 - [x] Boilerplate scaffolded and CI running the gate: the Cultivation kit, then T002's pinned stack;
       `.github/workflows/ci.yml` runs `scripts/gate.sh` (10 checks across 2 projects).
-- [ ] A deploy pipeline producing a live URL: the hosted demo on Nebius, up until 15 Dec (T030).
+- [ ] A deploy pipeline producing a live URL: the hosted demo on Vercel (web) + Railway (API) + Supabase (docs/design/deploy.md), up until 15 Dec. Accounts and wiring T037 (steps in docs/deploy.md); the judge-ready demo T030.
 - [x] `event.toml [checks]` points at real commands (`bash scripts/gate.sh`, which runs every check
       itself), and the gate passes. `[checks] smoke` is set by T009.
 - [x] Keys in `.env` (never committed), names in `.env.example` (T001 settled every `NEBIUS_*` value).

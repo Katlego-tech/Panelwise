@@ -35,8 +35,8 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030 | | | ✅ T002 done · T003 next |
-| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | Katlego | Claude | 🔵 In review (T006) · T005 done |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | 🟡 Doing (T037) · T002 done · T003 needs GPU access |
+| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | | | ✅ T005, T006 done |
 | `shots` | Shot planner | T007 | | | ⬜ To Do |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T024 | | | ⬜ To Do |
@@ -47,8 +47,9 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 
 ## ⏭️ Next action
 
-1. **T005 / T006** — script module, then grounded extraction on `structured_chat` (the `llm` seam is ready).
-   **T003** — ComfyUI on a Nebius GPU, in parallel.
+1. **T037** — deploy stack (Vercel + Railway + Supabase, Redis out): the code now; the deploy check needs Katlego's three accounts ([docs/design/deploy.md](docs/design/deploy.md)).
+2. **T007** — shot planner (Phase 2), on the grounded entities from T006.
+3. **T003** — ComfyUI on a Nebius GPU: blocked on GPU access (Katlego). Every rendering task waits on it.
 
 ## 🗓️ Timeline to 2026-10-30 10:00 PDT (19:00 SAST)
 
@@ -86,6 +87,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - **`main` is unprotected on the server** (private + GitHub Free; decided 2026-09-28 to leave it). Only the pre-push hook and AGENTS.md §4 guard it; Tumo must run `bash install-hooks.sh`. Once the repo is public (T035), protection is free — turn it on then.
 - **No copyrighted scripts** in the repo, demo or video. Only public-domain or self-written samples.
 - GPU cost: $50 of credit covers Token Factory calls, not a GPU VM. Check the cost of the ComfyUI box in T003.
+- **Stack changed 2026-09-29** (Katlego): web on Vercel, API on Railway, Supabase for Postgres/Storage/Auth, Redis removed — the Hackathon kit's stack. [docs/design/deploy.md](docs/design/deploy.md). Needs Katlego's Vercel, Railway and Supabase accounts (T037).
 
 ## 🔄 Retrospectives (one per phase boundary)
 
@@ -116,4 +118,5 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - 2026-09-28 — Katlego (via Claude) — Ported the kit's merged-branch cleanup (Cultivation PR #4): `scripts/prune-branches.sh` runs after `git pull` on main; `install-hooks.sh` sets fetch.prune and checks the server setting. Tumo: re-run `bash install-hooks.sh`. Next: T005. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — T005: `app/script` parser with source spans, scene time, speaker matching; 40 script tests incl. a real 2-page PDF. PR #7 merged; PR #8 (Devpost draft) in re-review. Next: T006. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — **Phase 1 checkpoint passed on the real account** (self-written 3-scene sample): faithfulness 1.000 (5/5, 8/8 quotes located), recall 1.000 (2/2 speakers), Lightning, 509 in / 157 out / 0 reasoning tokens. Tiny sample; feature-length recall needs T031. Note: SPEC.md is still the unfilled template. Next: T007 / T031. Blocked on: nothing.
+- 2026-09-29 — Katlego (via Claude) — Plan change: adopt the Hackathon kit's stack (Vercel, Railway, Supabase; Redis removed); `docs/design/deploy.md`, T037 added; Hackathon-kit layers being ported on a separate branch. Next: T037 code. Blocked on: hosting accounts for T037's deploy check.
 - 2026-09-29 — Katlego (via Claude) — Brought in Hackathon-kit layers (event.toml, ./hack, judged, long) on docs/hackathon-kit-layers. Next: review. Blocked on: nothing.

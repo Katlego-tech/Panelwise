@@ -8,7 +8,7 @@ panelwise/
 ├── README.md                    # setup, Nemotron + Token Factory usage, demo link
 ├── CHANGES-FROM-FRAMEFLOW.md    # the "what was significantly updated" disclosure
 ├── .env.example                 # key names only
-├── docker-compose.yml           # postgres, redis, api, web (+ comfyui profile)   [to add]
+├── docker-compose.yml           # local: postgres, api, web (+ comfyui profile, T003); deployed: docs/design/deploy.md
 ├── infra/
 │   ├── nebius/                  # GPU VM / serverless endpoint for ComfyUI
 │   └── comfyui/workflows/       # public node graphs (JSON)
