@@ -1,6 +1,7 @@
 # Design — `infra` deploy (Vercel + Railway + Supabase)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T037 (stack), T008 (Storage), T009/T030 (Auth)
+· **Spec:** cross-cutting (hosting for every story; SPEC.md's stories are still the template)
 · **Decided:** 2026-09-29 by Katlego, adopting the Hackathon kit's REACT + FASTAPI stack
 
 ---
@@ -138,7 +139,7 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
-| API host | Railway | Nebius VM: more setup, not covered by credit; the GPU box: couples API uptime to the GPU (Katlego, 2026-09-29) |
+| API host | Railway | Nebius VM: more setup, not covered by credit; the GPU box: couples API uptime to the GPU (Katlego, 2026-09-29). Railway isn't free either: a trial credit, then a small monthly minimum; budget it for the demo's life to 15 Dec |
 | Postgres client | SQLAlchemy + asyncpg over the session pooler | the `supabase` REST client for data (the kit's `db.py`): we already have SQL code, and REST can't do transactions |
 | Pooler mode | session (5432) | transaction (6543): no prepared statements, which asyncpg relies on; direct connection: IPv6-only without the paid add-on |
 | Redis | removed; job state in Postgres | keep Redis: a second hosted service for one table's worth of state |
