@@ -39,7 +39,16 @@ classDiagram
         +int width
         +int height
         +PortraitState state
-        +tuple~Audit~ audits
+        +tuple~PortraitAudit~ audits
+    }
+    class PortraitAudit {
+        +int attempt
+        +int seed
+        +int|None people
+        +bool|None has_text
+        +bool ok
+        +tuple~str~ models
+        +Usage usage
     }
     class Reference {
         +str character
@@ -49,7 +58,7 @@ classDiagram
     }
     class FrameReferences {
         +tuple~Reference~ refs
-        +str placement
+        +str|None placement
     }
     class Region {
         <<enum>>
@@ -65,7 +74,7 @@ classDiagram
         WITHHELD
         FAILED
     }
-    Portrait --> Region
+    Portrait --> PortraitAudit
     FrameReferences --> Reference
     Reference --> Region
 ```
@@ -76,9 +85,17 @@ classDiagram
    (a famous character's name summons a real actor's face). Names stay in the data, never in the
    prompt text.
 2. **Only the script's words describe a character.** A portrait prompt carries the character's
-   `described_by` quotes verbatim: their located quotes that come from **action paragraphs**, since
-   a line of dialogue says what they say, not how they look. No age, gender, ethnicity or skin tone
-   is added unless those words are in a quote.
+   `described_by` quotes: their located quotes whose span is an **Action** element's span. A quote
+   located in a Dialogue element (what they say, not how they look) or in a scene heading is
+   excluded. No age, gender, ethnicity or skin tone is added unless those words are in a quote.
+   **Redaction, the one change to a quote:** screenplays introduce a character by name inside the
+   description ("NANDI (60s, oilskin coat) pours tea…"), so before a quote enters any image prompt,
+   every whole-word occurrence of a name token of *this* character is replaced by `a person`, and of
+   any *other* character by `another person`. Name tokens are the words of `normalise(entity.name)`
+   (script.md), matched case-sensitively in UPPER or Title case at word boundaries, which is how
+   screenplays write names. Rule 1 therefore holds by construction; redaction only removes words,
+   never adds them. The one known cost: a sentence-initial common word that is also a name ("Will")
+   is redacted too, which fails safe.
 3. **Undescribed means undescribed.** A character with no descriptive quote (always true for
    `Source.CUE` backfills, whose only quote is a speech) gets a neutral portrait prompt, and
    `undescribed = True` is shown in the UI: "the script doesn't describe NANDI". Nothing is
@@ -115,14 +132,18 @@ sequenceDiagram
     F->>C: frame_ref1.json / frame_ref2.json with the portrait(s) as IP-Adapter input
 ```
 
-**Portrait checks** (hard; verify.md's describer, no judge needed): exactly one person; `has_text`
-false. Three attempts, then `WITHHELD`: frames for that character render **without** a reference
-(text-only), which is what FrameFlow always did, and the UI says so.
+**Portrait checks** (hard, no judge): verify.md's `describe_frame` (the blind describer, exposed on
+its own) gives the description; the portrait passes when `len(people) == 1` and `has_text` is
+false. Each attempt is a `PortraitAudit` (`people`/`has_text` are `None` when the describer call
+failed, and then `ok` is false). Three attempts, then `WITHHELD`: frames for that character render
+**without** a reference (text-only), which is what FrameFlow always did, and the UI says so.
 
 **`choose_references(shot, portraits)`** (pure, deterministic):
 1. Candidates: `shot.characters` whose portrait is `READY`.
-2. Order: characters who **speak** in the shot's covered elements, in speaking order; then the
-   rest in `shot.characters` order.
+2. Order: first, characters who **speak** in the shot's covered elements, each resolved from its
+   `Dialogue.cue` with `match_speaker(cue, shot.characters)` (an unresolved cue is skipped), ordered
+   by their **first** speech and listed **once** however often they speak; then the remaining
+   candidates in `shot.characters` order. Each character appears in the order exactly once.
 3. Take the first two. One → `FULL` region, weight 0.7, no placement phrase. Two → first `LEFT`,
    second `RIGHT`, weight 0.6 each, masks splitting the frame down the middle, placement "one
    figure on the left, one on the right".
@@ -150,6 +171,8 @@ stateDiagram-v2
     WITHHELD --> RENDERING: user asks again
     READY --> RENDERING: user regenerates
     READY --> [*]
+    WITHHELD --> [*]
+    FAILED --> [*]
 ```
 
 A portrait is used as a reference only in `READY`. Portrait generation is a `Job` per character
@@ -161,13 +184,17 @@ A portrait is used as a reference only in `READY`. Portrait generation is a `Job
 # app/characters/model.py
 class Region(StrEnum): FULL = "full"; LEFT = "left"; RIGHT = "right"
 class PortraitState(StrEnum): RENDERING = "rendering"; AUDITING = "auditing"; READY = "ready"; WITHHELD = "withheld"; FAILED = "failed"
-@dataclass(frozen=True) class Portrait: character: str; prompt: str; described_by: tuple[Quote, ...]; undescribed: bool; seed: int; asset: str | None; width: int; height: int; state: PortraitState; audits: tuple[Audit, ...]
+@dataclass(frozen=True) class PortraitAudit: attempt: int; seed: int; people: int | None; has_text: bool | None; ok: bool; models: tuple[str, ...]; usage: Usage
+@dataclass(frozen=True) class Portrait: character: str; prompt: str; described_by: tuple[Quote, ...]; undescribed: bool; seed: int; asset: str | None; width: int; height: int; state: PortraitState; audits: tuple[PortraitAudit, ...]
 @dataclass(frozen=True) class Reference: character: str; asset: str; region: Region; weight: float
 @dataclass(frozen=True) class FrameReferences: refs: tuple[Reference, ...]; placement: str | None
 
 # app/characters/portraits.py (T025)
-def described_by(entity: Entity, screenplay: Screenplay) -> tuple[Quote, ...]: ...   # quotes whose span is an Action element
-def portrait_prompt(entity: Entity, screenplay: Screenplay, style_prefix: str) -> tuple[str, tuple[Quote, ...], bool]: ...   # never contains entity.name
+def described_by(entity: Entity, screenplay: Screenplay) -> tuple[Quote, ...]: ...   # quotes whose span equals an Action element's span
+def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...        # rule 2's redaction; pure
+def portrait_prompt(entity: Entity, screenplay: Screenplay, characters: Sequence[str], style_prefix: str) -> tuple[str, tuple[Quote, ...], bool]: ...
+#   the redacted described_by quotes, joined; contains no name token of any character
+def portrait_seed(character: str, attempt: int) -> int: ...  # int.from_bytes(sha256(f"portrait:{normalise(character)}:{attempt}").digest()[:4], "big")
 async def make_portrait(renderer: PortraitRenderer, model: NebiusChatModel, entity: Entity,
                         screenplay: Screenplay, *, max_renders: int = 3) -> Portrait: ...
 
@@ -183,8 +210,8 @@ class PortraitRenderer(Protocol):
 IP-Adapters with left and right attention masks). Code sets inputs by node **title** (`"positive"`,
 `"seed"`, `"ref_left"`, …), never by numeric id, so a re-saved graph keeps working.
 
-**Cache and storage key**: sha256 of the prompt, seed, width × height, checkpoint name, IP-Adapter
-model name and reference asset ids. FrameFlow's image cache keyed on a Gemini model id even when
+**Cache and storage key**: sha256 of the prompt, seed, width × height, checkpoint name, and, for
+frames only, the IP-Adapter model name and the reference asset ids (a portrait uses neither). FrameFlow's image cache keyed on a Gemini model id even when
 ComfyUI drew the image; every input that changes the pixels is in this key.
 
 ## 7. Structure
@@ -213,9 +240,14 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 ## 9. How this is verified
 
 - `described_by`: only action-paragraph quotes; a `CUE` character is `undescribed`.
-- `portrait_prompt`: never contains the character's name (any case), contains each descriptive
-  quote verbatim, and nothing about age, gender or ethnicity that isn't in a quote.
-- `choose_references`: speakers first; at most two; `FULL` for one; `LEFT`/`RIGHT` for two; only
+- `redact_names`: "NANDI (60s, oilskin coat) pours tea" → "a person (60s, oilskin coat) pours tea";
+  another character's name → "another person"; multi-word names token by token; lower-case common
+  words untouched ("she will stay" with a character WILL); a sentence-initial "Will" redacted.
+- `portrait_prompt`: contains no name token of any character, contains each described quote with only
+  those redactions, and nothing about age, gender or ethnicity that isn't in a quote; heading- and
+  dialogue-located quotes excluded.
+- `choose_references`: speakers first, by first speech, each once (a character speaking twice gets
+  one reference); cues resolved with `match_speaker`; at most two; `FULL` for one; `LEFT`/`RIGHT` for two; only
   `READY` portraits; the placement phrase never names anyone.
 - Portrait loop with a fake renderer and a mocked describer: pass; fail then pass; three fails →
   `WITHHELD` and frames fall back to no reference.
