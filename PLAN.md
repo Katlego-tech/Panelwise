@@ -54,11 +54,11 @@ constitution and let this section be the single copy (see
 | --- | --- |
 | **Language(s) + versions** | **Python 3.14** (image `python:3.14.7-slim-trixie`; Python has no LTS line, 3.14 is the newest stable) · **Node 24.21.0 LTS** (image `node:24.21.0-trixie-slim`; Node 26 only becomes LTS on 2026-10-28) · Next.js 16.3.6 · pnpm 11.10.0 · uv 0.11.32. Datastores: `postgres:18.6-trixie`, `redis:8.10.2-trixie`. Checked against endoflife.date and Docker Hub on 2026-09-28 (T002) |
 | **Architecture** | `Modular monolith - one FastAPI API service plus one Next.js web app, split by module not by service` |
-| **Messaging / async** | `none (Redis for job status and progress)` |
+| **Messaging / async** | `none (job status and progress in a Postgres table; Redis removed 2026-09-29)` |
 | **Frontend** | `Next.js + shadcn/ui (Radix + Tailwind + CVA)` |
 | **Containerization** | `Docker per service + one docker-compose.yml for local dev` |
-| **Runtime/deploy target** | API + web on Nebius (Serverless Endpoint or VM); ComfyUI on a Nebius AI Cloud GPU |
-| **Data layer** | Postgres (SQLAlchemy 2 async + Alembic), Redis for job status, content-addressed file store for images |
+| **Runtime/deploy target** | Web on **Vercel**, API on **Railway**, data/storage/auth on **Supabase**; ComfyUI on a Nebius AI Cloud GPU. Changed 2026-09-29 from "API + web on Nebius" to the Hackathon kit's stack: [docs/design/deploy.md](docs/design/deploy.md) |
+| **Data layer** | Supabase Postgres via the session pooler (SQLAlchemy 2 async + Alembic; compose Postgres locally), Supabase Storage for images, Supabase Auth |
 | **Key external services/models** | Nebius Token Factory: Nemotron fast tier, reasoning tier, vision model (IDs in .env.example; confirm on day 1) |
 | **Testing** | pytest + ruff + pyright; Vitest + Playwright; eval/ benchmarks |
 | **Perf/cost goals** | Full script under ~$0.10 of Token Factory credit; one frame in seconds on GPU, not minutes |
