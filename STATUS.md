@@ -37,7 +37,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | 🔵 T037 code in review · 🔴 its deploy check blocked on accounts · T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | | | ✅ T005, T006 done |
-| `shots` | Shot planner | T007 | | | ⬜ To Do |
+| `shots` | Shot planner | T007 | Katlego | Claude | 🔵 In review (T007) |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T024 | | | ⬜ To Do |
 | `verify` | Nemotron vision frame audit, re-render loop, audit log | T010, T020, T021 | | | ⬜ To Do |
@@ -69,6 +69,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - **Gate:** 10 checks across 2 projects (ruff, pyright, pytest, eslint+tsc, vitest, next build, placeholder, secrets, osv-scanner, jscpd).
 - **Token Factory findings (T001):** [docs/nebius-findings.md](docs/nebius-findings.md).
 - **Script module (T005):** `app/script` — `parse_pdf` → ordered scenes; every action/dialogue element carries its page and line span. `resolve_times`, `match_speaker`. Design: [docs/design/script.md](docs/design/script.md).
+- **Shot planner (T007):** `app/shots` — each scene becomes shots that cover every element exactly once, cite their page/line span and verbatim text, and name only extracted characters/props present in the scene; time of day from `resolve_times`. Live: `uv run python -m app.shots.run <script.pdf>`.
 - **Grounded extraction (T006):** `app/grounding` — scene-chunked extraction on Lightning; every kept quote located to a page/line span; faithfulness + recall; locations from headings, missed speakers from cues. Checkpoint: `uv run python -m app.grounding.run <script.pdf>`.
 - **LLM seam (T004):** `app/llm` — `NebiusChatModel` (fast / reasoning / vision tiers, retries with `Retry-After`, thinking off on fast) and `structured_chat` (strict `json_schema`, one repair retry). Design: [docs/design/llm.md](docs/design/llm.md). Live check: `cd services/api && uv run python -m app.llm.smoke`.
 
@@ -123,3 +124,4 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - 2026-09-29 — Katlego (via Claude) — T037 code: Redis removed (health checks postgres only), `railway.json` + `vercel.json` (both schema-validated), API honours `PORT`, Supabase `postgresql://` URLs accepted; compose healthy without Redis; `docs/deploy.md` account steps. Next: T007. Blocked on: Katlego's Supabase, Railway and Vercel accounts for T037's deploy check.
 - 2026-09-29 — Katlego (via Claude) — T037 review fixes: `?sslmode=` → asyncpg `?ssl=` (proven live: raw sslmode fails with TypeError, rewritten connects); `railway.json` dropped (Railway deprecated it, new services can't use it, cutoff 2026-12-01) for documented dashboard settings; Next standalone off on Vercel. Next: T007. Blocked on: accounts for T037's deploy check.
 - 2026-09-29 — Katlego (via Claude) — **Lead authorization (AGENTS.md §4 exception):** Katlego authorized **PR #14**, adding the Hackathon kit's judged and long rules to AGENTS.md (new §9, §10). Reason: they come with the Hackathon kit Katlego adopted for this event on 2026-09-29 (PRs #11–#13), Tumo is often unavailable, and the deadline is 2026-10-30. Two corrections: the gate does not check mock imports, and hand-offs use docs/HANDOFF.template.md. Katlego's words: "yes, apply the AGENTS.md rules with your corrections". Tumo was not asked. The fresh AI review is still required before merging; Tumo should read §9–§10 when back. Next: T007. Blocked on: nothing.
+- 2026-09-29 — Katlego (via Claude) — T007 shot planner: 23 tests; live on the sample: 7 shots over 3 scenes, every element in exactly one shot, 0 invented names. First live runs showed 8 range repairs (the model padded a 1-element scene with 6 shots); stating the element bounds in the prompt took it to 0 in two runs and halved output tokens. Next: T008 (needs T003's GPU). Blocked on: GPU access for rendering.
