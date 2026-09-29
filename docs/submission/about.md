@@ -57,7 +57,8 @@ logged, so you can see why a frame was accepted.
 
   which is how we plan to budget GPU time ⟨TBD: true once T020/T021 ship⟩: at \(p = ⟨TBD⟩\) and \(k = ⟨TBD⟩\), a frame costs
   \(⟨TBD⟩\) renders on average.
-- **Stack.** FastAPI + Postgres + Redis behind a Next.js app, all in Docker.
+- **Stack.** A Next.js app on Vercel in front of a FastAPI service on Railway, with Supabase for
+  Postgres, image storage and sign-in. ⟨TBD: true once T037 deploys; today it runs in Docker locally⟩
 
 ## Challenges we ran into
 

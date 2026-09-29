@@ -44,3 +44,6 @@ styles/private/
 *.pdf
 !samples/**/*.pdf
 !docs/**/*.pdf
+
+# Agent worktrees (Claude Code isolation) live inside the repo; never commit them
+.claude/worktrees/
