@@ -40,9 +40,9 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T024 | | | ⬜ To Do |
-| `verify` | Nemotron vision frame audit, re-render loop, audit log | T010, T020, T021 | | | ⬜ To Do |
-| `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | 🔵 T011 design in review · T022/T023 wait on frames (T008) |
-| `characters` | Reference portraits for consistent characters | T012, T025 | | | ⬜ To Do |
+| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | | | ✅ T010 design done · T020/T021 wait on frames (T008) |
+| `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | | | ✅ T011 design done · T022/T023 wait on frames (T008) |
+| `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
 | `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035 | | | ⬜ To Do |
 
 ## ⏭️ Next action
@@ -125,4 +125,6 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - 2026-09-29 — Katlego (via Claude) — T037 review fixes: `?sslmode=` → asyncpg `?ssl=` (proven live: raw sslmode fails with TypeError, rewritten connects); `railway.json` dropped (Railway deprecated it, new services can't use it, cutoff 2026-12-01) for documented dashboard settings; Next standalone off on Vercel. Next: T007. Blocked on: accounts for T037's deploy check.
 - 2026-09-29 — Katlego (via Claude) — **Lead authorization (AGENTS.md §4 exception):** Katlego authorized **PR #14**, adding the Hackathon kit's judged and long rules to AGENTS.md (new §9, §10). Reason: they come with the Hackathon kit Katlego adopted for this event on 2026-09-29 (PRs #11–#13), Tumo is often unavailable, and the deadline is 2026-10-30. Two corrections: the gate does not check mock imports, and hand-offs use docs/HANDOFF.template.md. Katlego's words: "yes, apply the AGENTS.md rules with your corrections". Tumo was not asked. The fresh AI review is still required before merging; Tumo should read §9–§10 when back. Next: T007. Blocked on: nothing.
 - 2026-09-29 — Katlego (via Claude) — T007 shot planner: 23 tests; live on the sample: 7 shots over 3 scenes, every element in exactly one shot, 0 invented names. First live runs showed 8 range repairs (the model padded a 1-element scene with 6 shots); stating the element bounds in the prompt took it to 0 in two runs and halved output tokens. Next: T008 (needs T003's GPU). Blocked on: GPU access for rendering.
+- 2026-09-29 — Katlego (via Claude) — T010: `docs/design/verify.md` — blind describer (GLM) + Nemotron judge + code checks; "supported by the script" needs a verified verbatim quote; hard/soft checks; failed frames withheld, never shown; audit log per attempt. Next: T012. Blocked on: GPU (T003).
+- 2026-09-29 — Katlego (via Claude) — T012: `docs/design/characters.md` — portraits from action-paragraph quotes only (no names in any image prompt; undescribed stays undescribed), audited; IP-Adapter references (≤2 per frame, left/right masks), Apache-licensed adapter over insightface-based FaceID. Phase 3 designs all in review. Next: merge reviews. Blocked on: GPU (T003).
 - 2026-09-29 — Katlego (via Claude) — T007 merged (PR #15). T011: `docs/design/comic.md` — verbatim-only lettering with spans, deterministic tiers/weights, ≤20% crop, bubbles by image detail + reading order, grow-don't-shrink fit. Next: T010, T012. Blocked on: GPU (T003) for any rendering.
