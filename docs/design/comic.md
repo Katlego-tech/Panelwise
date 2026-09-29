@@ -26,7 +26,7 @@ invented sound effects.
 | Kind | Where |
 | --- | --- |
 | Visual reference | none yet; producing a reference page from the self-written sample is part of T022's Verify |
-| Inputs | `ShotPlan`, `Shot` (shots.md §6); `Screenplay`, `Scene`, `Dialogue`, `Span` (script.md §6); the frame renderer and audit (verify.md §6: `Renderer`, `render_until_accepted`, `Audit.positions`) |
+| Inputs | `ShotPlan`, `Shot` (shots.md §6); `Screenplay`, `Scene`, `Dialogue`, `Span` (script.md §6); the frame renderer and audit (verify.md §6: `Renderer`, `render_until_accepted`, `Audit.positions`). **Depends on verify.md's `Renderer.render` and `render_until_accepted` taking `width`/`height`** (added in PR #17, T010), so this doc lands after it |
 | Prior art in FrameFlow | none: FrameFlow made storyboard PDFs, never comics (its `storyboard_document.py` hand-wrote a PDF with base-14 fonts, two 16:9 panels per A4 page) |
 | Font | **Comic Neue** (SIL Open Font License 1.1), committed with its licence under `services/api/assets/fonts/` |
 | Page size | US comic trim, 6.625 × 10.25 in, rendered at 300 dpi = **1988 × 3075 px**; margins **120 px** (0.4 in); gutters **36 px** |
@@ -166,7 +166,19 @@ lower) and never truncated or reworded.
 
 **6. Frames.** Each panel's shot is rendered at `rect.w × rect.h` through verify.md's
 `render_until_accepted` (the same audit, the same withhold rule). A `WITHHELD` frame's panel shows
-the text card verify.md defines; its lettering is still placed.
+the comic's **withheld card** instead, and its lettering is still placed:
+
+- The card is `rect.w × rect.h`, white, with a 4 px mid-grey (`#808080`) border.
+- It carries two lines, centred, in the comic font at 32 px: `Frame withheld: failed audit
+  (<checks>)`, where `<checks>` is the names of the failed **hard** checks of the *last* attempt,
+  in `Check` enum order, lower case with `_` as spaces, joined by `, ` (an `ERROR` audit reads
+  `audit error`); and `Script p.<page> l.<line_start>–<line_end>` from the shot's span.
+- It does not repeat the shot's `source`: the bubbles on it already letter the dialogue, and action
+  text is never lettered. (The storyboard's card, which verify.md §4 describes, does show the
+  source; the storyboard has no bubbles.)
+- Placement on a card: `detail` is 0 everywhere, so boxes go to the earliest admissible cells;
+  `positions` is empty (a failed attempt's positions describe a frame no one sees), so `SPEECH`
+  tails point at the panel's bottom centre and `OFF_PANEL` tails at the right edge.
 
 **7. Placing lettering.** Candidate positions are the 12 × 8 grid of cell corners inside the panel
 (columns × rows), each tried as a box's top-left. **Hard constraints** (a candidate that breaks one is
@@ -261,7 +273,7 @@ withheld one).
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
 | `services/api/app/comic/{__init__,model,layout}.py` | new | weights, tiers, pages, rects, lettering budget | T022 |
-| `services/api/app/comic/{bubbles,render}.py` | new | placement, tails, lettering, page PNGs, PDF, JSON | T023 |
+| `services/api/app/comic/{bubbles,render}.py` | new | placement, tails, lettering, the withheld card, page PNGs, PDF, JSON | T023 |
 | `services/api/assets/fonts/ComicNeue-*.ttf`, `OFL.txt` | new | the lettering font and its licence | T023 |
 | `services/api/tests/comic/` | new | §9 | T022, T023 |
 
@@ -300,8 +312,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   then `ComicError`.
 - **Placement:** boxes inside their panel, never overlapping, strictly in reading order; font ≥ 28
   px; `O.S.` tails on the edge; `V.O.` as captions; no admissible spot → `ComicError`.
-- **Frames:** each panel's render request is exactly its `rect` size; a withheld frame yields a card
-  plus its lettering.
+- **Frames:** each panel's render request is exactly its `rect` size; a withheld frame yields the
+  card (its two lines, the failed hard checks in enum order, `audit error` for an ERROR audit, no
+  source text) plus its lettering, placed in grid order with default tails.
 - **Export:** one PDF page per `Page` at 1988 × 3075; the JSON matches §6's shape and round-trips
   every span.
 - **Visual:** T022/T023 render the self-written sample's comic and commit the page PNGs as the
