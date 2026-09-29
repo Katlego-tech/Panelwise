@@ -226,3 +226,35 @@ A task is done when **all** of these hold:
 - [ ] Runs inside any stated budgets (no new regression in latency/memory/cost).
 - [ ] STATUS.md updated (checkbox + lane status + Log line); task ID referenced in the commit.
 - [ ] PR opened into `main`, CI green, reviewed according to the review mode in §4, merged.
+
+## 9. Judged by people (this event)
+
+From the Hackathon kit's judged layer; applied 2026-09-29 on Katlego's authorization.
+
+- **Build to the rubric** (`event.toml [rubric]`, [RUBRIC.md](RUBRIC.md)). A feature that earns no
+  points is a candidate to cut. Judges' scores are normalised, and that punishes polarised scores:
+  stability first.
+- **Mock the edges, never the core.** Peripheral services (payments, email, identity, third-party
+  data you can't rely on at demo time) may be mocked in `mocks/` and listed in
+  [MOCKS.md](MOCKS.md). Nothing under `event.toml [scope] core` may import from `mocks/`.
+  `scripts/gate.sh` does **not** check this yet (that needs a gate change), so reviewers do.
+- **Sponsor SDKs are load-bearing or absent.** Record where each one runs in
+  `event.toml [[sponsors]] used_in` (file:line). An unused dependency in a package file gets
+  spotted.
+- **The demo is the release.** [DEMO.md](DEMO.md) is the script. Rehearse it, and keep the
+  fallbacks working.
+
+## 10. Long-form rules (a week or more)
+
+From the Hackathon kit's long layer; applied 2026-09-29 on Katlego's authorization.
+
+- **Sustainable pace.** Work in the agreed hours (recorded in STATUS.md by T038), with no
+  overnight pushes. Longer formats exist partly to avoid burnout; don't bring it back.
+- **A stand-up line per working block** in the STATUS.md Log: done, next, blocked.
+- **Contracts before code.** Anything two people or time zones build against goes in
+  [CONTRACTS.md](CONTRACTS.md) first (it indexes each design doc's §6).
+- **Hand off at every time-zone change**, using the STATUS.md handoff block and
+  [docs/HANDOFF.template.md](docs/HANDOFF.template.md): what's done, what's decided, the next
+  step, the gotchas.
+- **Milestones are demos.** Each milestone in the clock (`./hack status`) ends with something shown
+  working; record it in [MILESTONES.md](MILESTONES.md).
