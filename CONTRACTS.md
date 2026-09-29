@@ -29,7 +29,9 @@ Where:    [docs/design/grounding.md](docs/design/grounding.md) §6
 Owner:    `script+grounding` · Consumers: shots (T007), storyboard (T008), verify (T020), characters (T025)
 Status:   built (T006)
 
-### Not yet written (each lands with its design doc, before its code)
+## Not yet written
+
+Each lands with its design doc, before its code, and then gets its own `###` heading above.
 - `shots`: the shot spec the renderer and the auditor both read. T007: whoever claims it writes the design doc first (PLAN.md Non-negotiable 4).
 - `verify`: the verdict schema, re-render limit and audit-log entry. T010.
 - `comic`: page model, panel sizing and bubble placement. T011.
