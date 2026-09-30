@@ -355,8 +355,9 @@ Undecided in PLAN.md and the design docs; listed here so no implementer decides 
    audit?
 2. **Order within P2.** PLAN.md puts US2, US3 and US4 in one phase. If time runs short, which is
    cut or thinned first?
-3. **Which styles stay private** (STATUS.md § Open decisions): decide before T008. The demo uses
-   public styles only either way.
+3. **Which styles stay private** (STATUS.md § Open decisions): **decided 2026-09-30 by the user**:
+   none. `clean` (the default), `ink` and `pencil` are public in `styles/`; `classic` is dropped
+   (storyboard.md §8, §10).
 4. **Spend cap and upload limit values** for the hosted demo: PLAN.md sets the goal (about $0.10 a
    script) but not the caps, nor how many extra attempts a user may ask for on a withheld frame or
    portrait. Decide in T030.
