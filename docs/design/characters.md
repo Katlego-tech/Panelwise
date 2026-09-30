@@ -191,12 +191,14 @@ class PortraitState(StrEnum): RENDERING = "rendering"; AUDITING = "auditing"; RE
 
 # app/characters/portraits.py (T025)
 def described_by(entity: Entity, screenplay: Screenplay) -> tuple[Quote, ...]: ...   # quotes whose span equals an Action element's span
-def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...        # rule 2's redaction; pure
 def portrait_prompt(entity: Entity, screenplay: Screenplay, characters: Sequence[str], style_prefix: str) -> tuple[str, tuple[Quote, ...], bool]: ...
 #   the redacted described_by quotes, joined; contains no name token of any character
 def portrait_seed(character: str, attempt: int) -> int: ...  # int.from_bytes(sha256(f"portrait:{normalise(character)}:{attempt}").digest()[:4], "big")
 async def make_portrait(renderer: PortraitRenderer, model: NebiusChatModel, entity: Entity,
                         screenplay: Screenplay, *, max_renders: int = 3) -> Portrait: ...
+
+# app/characters/redact.py (built by T008, which needs it for frame prompts first: storyboard.md §6)
+def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...        # rule 2's redaction; pure
 
 # app/characters/references.py (T025)
 def choose_references(shot: Shot, scene: Scene, portraits: Mapping[str, Portrait]) -> FrameReferences: ...
@@ -210,16 +212,20 @@ class PortraitRenderer(Protocol):
 IP-Adapters with left and right attention masks). Code sets inputs by node **title** (`"positive"`,
 `"seed"`, `"ref_left"`, …), never by numeric id, so a re-saved graph keeps working.
 
-**Cache and storage key**: sha256 of the prompt, seed, width × height, checkpoint name, and, for
-frames only, the IP-Adapter model name and the reference asset ids (a portrait uses neither). FrameFlow's image cache keyed on a Gemini model id even when
-ComfyUI drew the image; every input that changes the pixels is in this key.
+**Cache and storage key**: sha256 of the fully substituted API graph that is submitted (canonical
+JSON) plus the post-processing step, storyboard.md §3.3. The prompt, seed, size, checkpoint and, for
+frames only, the IP-Adapter model and the reference image names are all inputs of that graph (a
+portrait uses no IP-Adapter). FrameFlow's image cache keyed on a Gemini model id even when ComfyUI
+drew the image; every input that changes the pixels is in this key.
 
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
-| `services/api/app/characters/{__init__,model,portraits,references}.py` | new | §3–§6 | T025 |
-| `infra/comfyui/workflows/{portrait,frame,frame_ref1,frame_ref2}.json` | new | the graphs | T025 (with T003's box) |
+| `services/api/app/characters/{model,portraits,references}.py` | new | §3–§6 | T025 |
+| `services/api/app/characters/{__init__,redact}.py` | new | `redact_names` (and storyboard.md's `redact_all`) | T008 |
+| `infra/comfyui/workflows/{portrait,frame_ref1,frame_ref2}.json` | new | the graphs | T025 (with T003's box) |
+| `infra/comfyui/workflows/frame.json` | new | the no-reference frame graph | T008 (storyboard.md §6) |
 | `infra/nebius/README.md` | changed | installed custom nodes, model files, their licences and versions | T003 |
 | `services/api/tests/characters/` | new | §9 | T025 |
 

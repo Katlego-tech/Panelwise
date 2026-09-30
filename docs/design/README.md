@@ -16,4 +16,5 @@ assistant can read and write them.
 | `verify` | [verify.md](verify.md) | agreed | class (description, judgement, audit, outcome), render→describe→judge→check loop, frame state machine, checks table, contracts, audit log |
 | `characters` | [characters.md](characters.md) | agreed | portrait + references classes, portrait and frame flow, portrait state machine, prompt rules (no names, script words only), IP-Adapter choice, contracts |
 | `comic` | [comic.md](comic.md) | agreed | class (book, pages, panels, bubbles, captions), weights, tiers, lettering budget, frames rendered at panel size, bubble placement, withheld card, contracts, reader JSON |
+| `storyboard` | [storyboard.md](storyboard.md) | draft | class (styles, prompt parts, renderer, storyboard, pages), plan → render → audit → Storage → PDF sequence, grounded prompt rules and invariant, public/private style validation, render key and cache, contracts, JSON |
 | `infra` | [deploy.md](deploy.md) | agreed | where each piece runs, env contract, browser → web → API flow, Job state, decisions |

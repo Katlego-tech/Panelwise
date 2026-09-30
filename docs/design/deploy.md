@@ -169,6 +169,7 @@ message broker, as before.
 
 ## 10. Open questions
 
-- [ ] Storage in local development: a dev bucket in the same Supabase project, or a local
-  filesystem adapter behind the same interface? Decide in T008.
+- [x] Storage in local development: a dev bucket in the same Supabase project, or a local
+  filesystem adapter behind the same interface? **Decided (storyboard.md §8):** a dev bucket through
+  the same `SupabaseStore`; tests use an in-memory fake.
 - [ ] Row-level security policies for Storage and the `Job` table: decide with Auth in T009.
