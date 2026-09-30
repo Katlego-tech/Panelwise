@@ -22,7 +22,7 @@ is planned, with the task that delivers it.
 A feature that appears in no row is a candidate to cut ([SCOPE.md](SCOPE.md) § Out of scope).
 
 **Honesty line for every row:** no Nemotron model on Token Factory accepts images
-(findings U7), so the frame audit's *describe* step runs on `zai-org/GLM-5.3-Flash`, a
+(findings U7), so the frame audit's *describe* step runs on `deepseek-ai/DeepSeek-V4.1-Flash`, a
 non-NVIDIA model. Every claim a judge reads uses the approved wording, *"a vision model describes each
 frame; Nemotron audits it against the script"* (docs/design/verify.md §8), never "Nemotron vision
 auditor" (README, SPEC and the Devpost draft corrected 2026-09-30).

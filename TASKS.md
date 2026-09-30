@@ -133,6 +133,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:docs/design/grounding.md §6, verbatim
       Verify:  bash scripts/gate.sh (no network in tests); `uv run python -m app.grounding.run <sample.pdf>` on the real account prints grounded entities with page/line spans, faithfulness, recall, model and tokens
       Done:    the Phase 1 checkpoint: a sample script parses and extracts on Nemotron with a faithfulness score and a recall score, and every entity shown quotes the script at a located span
+- [x] T039 [FND] **Parser and grounding fixes found by the samples.** `INT./EXT.` headings; paragraph breaks lost at pdfplumber's 13 pt rows; the time of a two-dash heading; wrapped parentheticals; dialogue quotes that start with the speaker's cue (samples/README.md § Parser findings, § Live run). Depends on T031. Lane `script+grounding`.
+      Design:  docs/design/script.md §4 (classification, heading split, row height), §8, §10; docs/design/grounding.md §3, §4, §6, §8 (the cue-header rule)
+      Files:   services/api/app/script/parser.py; services/api/app/grounding/{text,filter,extract,__init__}.py; services/api/tests/script/test_parser.py; services/api/tests/grounding/{test_text_and_filter,test_extract}.py; docs/design/{script,grounding}.md; samples/README.md (counts, findings, live numbers); CHANGES-FROM-FRAMEFLOW.md if a ported row changes
+      Contract:parser: `INT./EXT.` (and `EXT./INT.`) is a heading with `IntExt.INT_EXT`; `parse_pdf` reads 12 pt rows (`y_density=12`); a heading with 2+ separators whose last segment is a known time (`ABSOLUTE_TIMES | RELATIVE_TIMES`) takes it as the time and everything before it as the location; a line under a cue that opens `(` without closing, followed by lines at the same indent until one ends `)`, is one parenthetical (anything else replays as dialogue). Grounding: a quote not located as-is is kept only if its leading line(s) equal the rendered header of one speech (cue, optional `(extension)`, optional `(parenthetical)`, normalised) and the rest is non-empty and inside that same speech; the kept `Quote.text` is the rest, without the header. Nothing else is loosened. The extraction prompt says not to include cues or parentheticals in a quote.
+      Verify:  bash scripts/gate.sh (tests first, each failing for the right reason; samples' committed PDFs unchanged, README counts updated); `uv run python -m app.grounding.run ../../samples/<name>.pdf` for all three samples on the real account, before/after numbers in samples/README.md
+      Done:    all three samples parse with every scene and paragraph break of their source, and a dialogue quote Lightning prefixes with its cue is kept, located at that speech, without the cue; the-red-kite's live recall is above 0/3
 
 **Checkpoint:** a sample script parses and extracts on Nemotron with a faithfulness score.
 
@@ -187,7 +193,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 ## Phase 4 — US2 frame audit · US3 comic · US4 consistent characters
 
-- [ ] T020 [US2] Frame audit: a vision model describes the frame; Nemotron judges it against the shot spec and returns a verdict. Depends on T010. Lane `verify`.
+- [x] T020 [US2] **Frame audit:** a vision model describes the frame blind, Nemotron judges it against the shot, code runs the checks and returns a verdict. Depends on T010. Lane `verify`.
+      Design:  docs/design/verify.md §3 (model, the checks table), §4 (describe → judge → check), §6
+      Files:   services/api/app/verify/{__init__,model,schema,prompts,audit,run}.py; services/api/tests/verify/*; docs/design/verify.md (§7 run.py row, §10 measured answers)
+      Contract:docs/design/verify.md §6 `model.py`, `schema.py`, the renderer shapes and `audit.py`, verbatim
+      Verify:  bash scripts/gate.sh (no network in tests: run_checks on hand-built descriptions for every check's pass and fail; audit_frame via MockTransport proves the describer call carries the image and no shot details); `uv run python -m app.verify.run <script.pdf> <scene>.<shot> <frame.png>` on the real account prints the description, the judgement, every check and the verdict
+      Done:    T021 can call `await audit_frame(model, frame, shot, screenplay, extraction)` and get an `Audit` whose verdict is FAIL for an unscripted person or object, text in frame or a contradicted setting, and ERROR (never PASS) when either model call fails
 - [ ] T021 [US2] Re-render on mismatch, cap retries, log every verdict; show the log in the web app. Lane `verify`.
 - [x] T022 [US3] **Comic page layout + panel sizing from the shot list.** Depends on T007, T011. Lane `comic`.
       Design:  docs/design/comic.md §3 (model), §4 steps 1–5 (weights, tiers, pages, panels, lettering budget), §6, §9 (Geometry)
@@ -204,7 +215,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 ## Phase 5 — Hardening and submission
 
 - [ ] T030 [POL] Hosted demo on Vercel + Railway + Supabase (docs/design/deploy.md), seeded judge account (Supabase Auth), LLM + image spend caps, upload limits. Stays up to 15 Dec. Lane `infra`.
-- [ ] T031 [P] [POL] Public-domain / self-written sample screenplays in `samples/`. Lane `eval+submission`.
+- [x] T031 [P] [POL] Public-domain / self-written sample screenplays in `samples/`. Lane `eval+submission`.
+      Design:  none (no new entities). Layout follows docs/design/script.md §2–§4 (action at the margin, dialogue ~2.5", parenthetical ~3.1", cue ~3.7", transitions right; page furniture the parser drops). No copyrighted script: every sample is self-written for this repo (Apache-2.0)
+      Files:   samples/{the-red-kite,lost-property,sipho-and-siphokazi}.fountain + .pdf; samples/README.md; services/api/tools/{__init__,build_samples}.py; services/api/tests/samples/*; services/api/pyproject.toml (pyright includes tools)
+      Contract:`cd services/api && uv run python -m tools.build_samples` rebuilds every `samples/<name>.pdf` from `samples/<name>.fountain` (a Fountain subset: title page, headings, action, cue/parenthetical/dialogue, transitions, `===` page break) in US-letter 12 pt Courier, paginated at 54 lines with automatic (MORE)/(CONT'D) splits, and prints pages / scenes / speaking characters as `parse_pdf` reads them
+      Verify:  bash scripts/gate.sh (a test parses every committed PDF with `parse_pdf`, checks it matches a fresh build of its source, and checks the counts in samples/README.md); from services/api, `uv run python -m app.shots.run ../../samples/the-red-kite.pdf` on the real account
+      Done:    three original screenplays of different shapes (a ~3-page demo script, a ~10-page larger cast, a tricky-formatting one) sit in `samples/` as source and PDF; each parses with the real parser into the scene and speaker counts samples/README.md states, and the README records provenance, licence and the live run on the demo script
 - [ ] T032 [P] [POL] `eval/`: faithfulness and frame-audit accuracy numbers for the README. Lane `eval+submission`.
 - [ ] T033 [POL] README: setup, how Nemotron and Token Factory are used, feedback section. Lane `eval+submission`.
 - [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
