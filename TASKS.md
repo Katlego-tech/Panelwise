@@ -174,7 +174,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Done:    a planned project's scenes, entities, report, lines and shots come back in exactly web.md §6's shapes, and frames come back only from `frames` rows
 - [ ] T040 [US1] **Web: tokens, sign-in, projects and upload.** Lane `web` (Claude). Depends on T009. Its sign-in check needs a Supabase project (T037).
       Design:  docs/design/web.md §2 (tokens, direction), §4.0, §4.1, §5, §6 (routes, components, copy)
-      Files:   apps/web/app/globals.css; apps/web/components/ui/*; apps/web/lib/{supabase,api}/*; apps/web/middleware.ts; apps/web/app/(auth)/sign-in/*; apps/web/app/projects/page.tsx; apps/web/app/api/projects/route.ts; apps/web/components/{AppBar,SignInForm}.tsx; apps/web/components/projects/*; apps/web/components/shared/{Verdict,SpanRef,Quote,Meter}.tsx; tests beside them
+      Files:   apps/web/app/globals.css; apps/web/components/ui/*; apps/web/lib/{supabase,api}/*; apps/web/middleware.ts; apps/web/app/(auth)/sign-in/*; apps/web/app/projects/page.tsx; apps/web/app/api/projects/route.ts; apps/web/components/AppBar.tsx (ProjectTabs inside); apps/web/components/SignInForm.tsx; apps/web/components/projects/*; apps/web/components/shared/{Verdict,SpanRef,Quote,Meter}.tsx; tests beside them
       Contract:docs/design/web.md §6 (types in apps/web/lib/api/types.ts, route handlers)
       Verify:  pnpm lint && pnpm test (every ProjectRow state, the upload errors); then the running app side by side with docs/design/web/signin.png and projects.png at 1440 px
       Done:    signed out redirects to sign-in; a signed-in user uploads a PDF and sees it in the list with its live job state or its failure message, matching the two references in layout, tokens and copy
