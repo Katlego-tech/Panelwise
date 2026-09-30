@@ -26,7 +26,7 @@ Status:   built (T005)
 
 ### `app/grounding`: `Entity`, `Quote`, `GroundingReport`, `Extraction`, `extract`, `ground`, `locate`
 Where:    [docs/design/grounding.md](docs/design/grounding.md) §6
-Owner:    `script+grounding` · Consumers: shots (T007), storyboard (T008), verify (T020), characters (T025)
+Owner:    `script+grounding` · Consumers: shots (T007), storyboard (T008, T026), verify (T020), characters (T025)
 Status:   built (T006)
 
 ## Not yet written
@@ -36,4 +36,4 @@ Each lands with its design doc, before its code, and then gets its own `###` hea
 - `verify`: the verdict schema, re-render limit and audit-log entry. T010.
 - `comic`: page model, panel sizing and bubble placement. T011.
 - `characters`: reference portraits and how they feed ComfyUI. T012.
-- `web` ↔ API: the upload, shots, storyboard and comic endpoints the app calls. T009 (with T008), T024.
+- `web` ↔ API: the upload, shots, storyboard and comic endpoints the app calls. T009 (with T027's storyboard JSON), T024.

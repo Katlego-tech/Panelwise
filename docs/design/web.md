@@ -2,7 +2,7 @@
 
 **Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T043, T044 (API: projects and
 upload, the pipeline runner, the read endpoints), T040–T042, T045 (the screens), T021 (frame state, the
-audit section of the frame sheet, "Try another render"), T008 (the storyboard PDF) ·
+audit section of the frame sheet, "Try another render"), T026 (the rendering stage), T027 (the storyboard PDF) ·
 **Spec:** US1, and US2's "the audit log is visible in the app" ([SPEC.md](../../SPEC.md))
 
 ---
@@ -19,7 +19,7 @@ script supervisor's convention: a straight line while the speaker is on screen, 
 they're off). A frame never appears without the line it came from next to it.
 
 **Not covered:** the comic reader (T024; its own section is added here before T024 starts),
-rendering and the PDF itself (T008; its design doc, docs/design/storyboard.md, is in review), the
+rendering and the PDF itself (T026, T027: docs/design/storyboard.md), the
 audit logic (verify.md).
 
 ## 2. Reference material
@@ -38,7 +38,7 @@ code, and `tokens.css` is the token source every value below comes from.
 
 - Content in the mockups is the self-written lighthouse script from
   `services/api/tests/script/conftest.py`: its real lines, line numbers and page break. The frame
-  images are **pencil sketches standing in for renders**; the app shows real frames (T008) and
+  images are **pencil sketches standing in for renders**; the app shows real frames (T026, audited by T021) and
   nothing where there is none (§4.3).
 - Tokens: [web/mockups/tokens.css](web/mockups/tokens.css): palette, the three typefaces, radius,
   the page shadow, the six shot-line colours and the verdict colours. T040 ports them to
@@ -127,7 +127,7 @@ classDiagram
   holding its current `FrameState`, attempt number, the job that last moved it (`frame_audits.job_id`
   is that job) and, for `passed`/`warned` only, the Storage path of the accepted image. It is the
   only source of `FrameView`; `frame_audits` (verify.md §6) holds the history. **No frame reaches the
-  web before T021:** T008's renderer output is never exposed on its own, only through a `frames` row
+  web before T021:** T026's renderer output is never exposed on its own, only through a `frames` row
   that T021's loop has moved to `passed` or `warned`.
 - **Settled** means `passed`, `warned`, `withheld` or `failed`: nothing more will happen to the
   frame without a user action. `withheld` is a subset of settled. Every count in the app uses this
@@ -166,7 +166,7 @@ sequenceDiagram
     A->>P: start the job (asyncio task)
     loop each stage
         P->>S: job RUNNING, stage, progress
-        P->>P: parse → extract → plan → render (T008/T021)
+        P->>P: parse → extract → plan → render (storyboard.md build_storyboard, T026; loop T021)
         P->>S: write the stage's column; advance
     end
     P->>S: job DONE (or FAILED, error)
@@ -179,7 +179,9 @@ sequenceDiagram
 
 - **Until T021's loop exists, the pipeline stops after planning** with the job `DONE`, and the
   storyboard shows shot cards with no frame (§4.3). This is the real state of a project with no
-  audited renders, not a stand-in. T008 landing alone changes nothing on the page.
+  audited renders, not a stand-in. The rendering stage is storyboard.md §4's `build_storyboard`
+  (T026), which renders through verify's loop (T021); the loop writes `frames` and `frame_audits`
+  rows as it goes. The storyboard JSON (T027) is an export, not what the pages read.
 - **Failures** set `FAILED` with an `error` written for the user, never an exception text:
   - `ScriptParseError.code == "not_a_pdf"` → "This file couldn't be opened as a PDF. Export the
     script from your screenwriting app as a PDF and upload that."
@@ -257,7 +259,7 @@ change, the client fetches `GET /api/projects/[id]/frames` and re-renders the bo
   "Planning shots", "Rendering frames"), a meter at settled ÷ total, and "{settled} of {total}
   frames settled · {withheld} withheld" while rendering (§3: withheld counts as settled).
 - **Export PDF** (bar, right): disabled with the tooltip "Available when every frame has settled"
-  until no frame is `rendering` or `auditing`; then it downloads T008's PDF.
+  until no frame is `rendering` or `auditing`; then it downloads T027's PDF.
 - **Phones** (≤ 1100 px): the lined script is hidden and every card keeps its own source and span
   (storyboard-phone.png), so a frame is still never shown without its lines. The project tabs drop
   to a second row of the bar (≤ 640 px).
@@ -322,7 +324,7 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 | `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T044 |
 | `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T044 |
 | `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row; `[]` until T021 creates rows | T044 (reads `frames`; the table is T021's) |
-| `GET /projects/{id}/storyboard.pdf` | — | 200 PDF · 409 while a frame is unsettled | T008 |
+| `GET /projects/{id}/storyboard.pdf` | — | 200 PDF · 409 while a frame is unsettled | T027 |
 | `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 409 in any other state | T021 |
 
 **Response types** (TypeScript in `apps/web/lib/api/types.ts`; Pydantic mirrors in
@@ -451,7 +453,7 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
 | `services/api/app/core/auth.py` | new | Supabase access-token check (a FastAPI dependency) | T009 |
-| `services/api/app/storage/` | new | Supabase Storage: the uploaded PDFs (T009); frame images added by T008 | T009, T008 |
+| `services/api/app/storage/` | new | Supabase Storage: the uploaded PDFs (T009); frame images added by T026 (storyboard.md §3.3) | T009, T026 |
 | `services/api/app/jobs/` + migration | new | the `Job` table with `project_id`, `stage`; the restart sweep | T009 |
 | `services/api/app/projects/{model,repo}.py` + migration | new | the `projects` table | T009 |
 | `services/api/app/api/v1/projects.py` (POST, list), `schemas.py` | new | §6 rows marked T009 | T009 |
