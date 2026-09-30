@@ -1,7 +1,7 @@
 # Design — `grounding` (entity extraction + grounding filter; lane `script+grounding`)
 
-**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T006 · **Spec:** PLAN.md Non-negotiable I
-(SPEC.md's stories are still the template)
+**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T006 · **Spec:** PLAN.md Non-negotiable I;
+[SPEC.md](../../SPEC.md) US1
 
 ---
 

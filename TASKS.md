@@ -170,7 +170,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 ## Phase 4 — US2 frame audit · US3 comic · US4 consistent characters
 
-- [ ] T020 [US2] Frame audit: vision model compares frame with shot spec, returns a verdict. Depends on T010. Lane `verify`.
+- [ ] T020 [US2] Frame audit: a vision model describes the frame; Nemotron judges it against the shot spec and returns a verdict. Depends on T010. Lane `verify`.
 - [ ] T021 [US2] Re-render on mismatch, cap retries, log every verdict; show the log in the web app. Lane `verify`.
 - [ ] T022 [US3] Comic page layout + panel sizing from the shot list. Depends on T011. Lane `comic`.
 - [ ] T023 [US3] Speech bubbles from linked dialogue, placed in empty space; comic PDF export. Lane `comic`.

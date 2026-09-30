@@ -42,7 +42,7 @@ storyboard pipeline needs, and drops scheduling, compliance, auditions, voice an
 | Area | New work |
 | --- | --- |
 | Models | NVIDIA Nemotron on Nebius Token Factory for every text call, with fast and reasoning tiers |
-| Frame audit | Nemotron vision model checks each frame against its shot spec, re-renders on mismatch, and logs every verdict |
+| Frame audit | A vision model describes each frame, Nemotron audits the description against its shot spec, the frame is re-rendered on mismatch, and every verdict is logged |
 | Comic mode | Panel layout by story beat, speech bubbles from linked dialogue, lettering, comic page export |
 | Character consistency | Portraits used as image references across panels |
 | Rendering | ComfyUI on Nebius AI Cloud GPUs (FrameFlow rendered on CPU) |
