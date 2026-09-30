@@ -16,6 +16,8 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY app ./app
+# The comic lettering font (docs/design/comic.md §2); a missing font fails the comic job.
+COPY assets ./assets
 
 RUN useradd --system --uid 10001 panelwise
 USER panelwise

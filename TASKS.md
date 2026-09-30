@@ -177,7 +177,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Verify:  bash scripts/gate.sh (no network in tests: run_checks on hand-built descriptions for every check's pass and fail; audit_frame via MockTransport proves the describer call carries the image and no shot details); `uv run python -m app.verify.run <script.pdf> <scene>.<shot> <frame.png>` on the real account prints the description, the judgement, every check and the verdict
       Done:    T021 can call `await audit_frame(model, frame, shot, screenplay, extraction)` and get an `Audit` whose verdict is FAIL for an unscripted person or object, text in frame or a contradicted setting, and ERROR (never PASS) when either model call fails
 - [ ] T021 [US2] Re-render on mismatch, cap retries, log every verdict; show the log in the web app. Lane `verify`.
-- [ ] T022 [US3] Comic page layout + panel sizing from the shot list. Depends on T011. Lane `comic`.
+- [x] T022 [US3] **Comic page layout + panel sizing from the shot list.** Depends on T007, T011. Lane `comic`.
+      Design:  docs/design/comic.md §3 (model), §4 steps 1–5 (weights, tiers, pages, panels, lettering budget), §6, §9 (Geometry)
+      Files:   services/api/app/comic/{__init__,model,layout}.py; services/api/tests/comic/*; services/api/assets/fonts/{ComicNeue-Regular.ttf,OFL.txt} (the budget measures text with it); services/api/pyproject.toml + uv.lock (pillow); services/api/Dockerfile (copies assets/); docs/design/comic.md (clarifications)
+      Contract:docs/design/comic.md §6 `app/comic/model.py` and `app/comic/layout.py`, verbatim (`PanelFrame` lands with T023, which consumes it)
+      Verify:  bash scripts/gate.sh (pure, no images, no network); the tests lay out the self-written sample's plan and assert §9's geometry list
+      Done:    T023 can call `layout_geometry(plan, screenplay)` and get a deterministic `ComicBook` whose pages hold one panel per shot in plan order, sized by story beat, tiers filling each page exactly inside the margins and gutters, every panel's lettering within its 35% area budget, or a `ComicError` naming the shot that can't fit
 - [ ] T023 [US3] Speech bubbles from linked dialogue, placed in empty space; comic PDF export. Lane `comic`.
 - [ ] T024 [US3] Web comic reader. Lane `web`.
 - [ ] T025 [US4] Reference portraits used across panels. Port from `portrait_service.py`, `portrait_jobs.py`. Depends on T012. Lane `characters`.
