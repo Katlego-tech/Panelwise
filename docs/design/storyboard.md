@@ -1,7 +1,8 @@
 # Design — `storyboard` (frames, styles, the image chain, the storyboard PDF)
 
-**Status:** draft · **Owner:** Katlego (Claude) · **Tasks:** T008 (the pure parts, Storage and the
-PDF: buildable now), T026 (renderer, job, live run: blocked on T003's GPU and T021's loop) · **Spec:** [SPEC.md](../../SPEC.md) US1 (script → grounded storyboard)
+**Status:** draft · **Owner:** Katlego (Claude) · **Tasks:** T008 (styles, redaction, prompts and a
+prompt-printing CLI: buildable now), T026 (workflow, renderer, Storage, the storyboard job: blocked
+on T003's GPU and T021's loop), T027 (the PDF and JSON, after T026) · **Spec:** [SPEC.md](../../SPEC.md) US1 (script → grounded storyboard)
 
 ---
 
@@ -37,7 +38,7 @@ box itself (T003, `infra/nebius/`); the `Job` table and the web screens (T009); 
 | Character rules | characters.md §3 rules 1–3 (no names in prompts; only the script's words; undescribed stays undescribed) and its redaction |
 | Hosting | deploy.md §1 (Supabase Storage for images), §6 (env), §10 (local Storage: decided here, §8) |
 | ComfyUI | `infra/comfyui/workflows/` (committed API-format JSON, inputs set by node title: characters.md §6) |
-| Visual reference | none yet. The first live run of `python -m app.storyboard.run` on the self-written sample commits its PDF pages as PNGs under `docs/design/reference/storyboard/`, the reference later changes are compared against (T026 Done) |
+| Visual reference | none yet. The first live run of `python -m app.storyboard.run` on the self-written sample commits its PDF pages as PNGs under `docs/design/reference/storyboard/`, the reference later changes are compared against (T027 Done) |
 | Fonts | **Courier Prime** Regular and Bold (SIL OFL 1.1), committed under `services/api/assets/fonts/` with their licence: the screenplay's own typeface, and the PDF prints script text verbatim |
 
 ## 3. Domain model
@@ -83,6 +84,7 @@ classDiagram
         +str name
         +dict graph
         +int native_area
+        +int max_words
     }
     class RenderRecord {
         +tuple~int,int~ shot
@@ -159,9 +161,8 @@ only to **remove** words, by redaction). A prompt is an ordered tuple of **parts
 where it came from; `text()` joins them with `", "` (comma phrases, the way CLIP reads captions:
 FrameFlow's finding).
 
-**Order**, fixed: `STYLE`, `FRAMING`, `SETTING`, `TIME`, `COUNT`, `PLACEMENT`, then the covered
-elements' `ACTION` and `DIRECTION` parts **interleaved in element order** (an action paragraph, then
-the next speech's parenthetical, and so on). The scene-level parts lead because a text encoder that
+**Order**, fixed: `STYLE`, `FRAMING`, `SETTING`, `TIME`, `COUNT`, `PLACEMENT`, then one `ACTION`
+part per covered `Action` element, **in element order**. The scene-level parts lead because a text encoder that
 truncates drops the tail.
 
 | `PartKind` | Origin | Text | `span` |
@@ -171,9 +172,8 @@ truncates drops the tail.
 | `SETTING` | this scene's heading | `inside` / `outside` / `at` (from `scene.int_ext`: `INT`, `EXT`, `INT_EXT`) + `scene.location`, **redacted, then** lower-cased | this scene's heading span |
 | `TIME` | `shot.time_of_day` (resolved, shots.md) | lower-cased; omitted when `None` | the heading span of the scene that **supplied** the clock (`time_source`, below) |
 | `COUNT` | code, from `visible_characters(shot, scene)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
-| `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`) | the phrase; T026's renderer passes `None`, T025 passes it | `None` |
+| `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`), and is accepted only when `visible_characters` has exactly two members (else `ValueError`), so it can never contradict `COUNT` | the phrase; T026's renderer passes `None`, T025 passes it | `None` |
 | `ACTION` | a covered `Action` element's text | verbatim, whitespace collapsed, redacted | the element's span |
-| `DIRECTION` | a covered `Dialogue.parenthetical` | verbatim with its enclosing `(` `)` removed, redacted | the element's span |
 
 - **The heading span** of a scene is `Span(scene.span.page, scene.span.line_start,
   scene.span.line_start)`: the heading line (`Scene.span` itself runs to the scene's last element).
@@ -198,13 +198,16 @@ truncates drops the tail.
 
 **The invariant** (tested, §9): for every part whose `span` is not `None`, that span is this scene's
 heading span, the heading span of `time_source`'s scene (only for `TIME`), or the span of an element
-the shot covers; and the part's text (after the `SETTING` part's leading preposition, and with a
-`DIRECTION`'s parentheses restored) is, under `normalize_for_grounding`, a substring of `redact_all`
+the shot covers; and the part's text (after the `SETTING` part's leading preposition) is, under `normalize_for_grounding`, a substring of `redact_all`
 applied to that heading or element text. Every part whose `span` is `None` is from the fixed tables
 above or the style. So a prompt says nothing that isn't in this shot's lines or its heading, except
 the style's medium words and the code's fixed framing, preposition, count and placement vocabulary,
 none of which names a person, prop or event.
 
+- **Parentheticals never enter a prompt.** `Dialogue.parenthetical` ("beat", "without turning") is
+  a delivery note, not a picture; it isn't part of `Dialogue.text`, its line lies outside the
+  element's span (script.md's parser), and it isn't in the shot's `source`, so it could not be traced
+  to the span a prompt part cites.
 - **Dialogue text never enters a prompt.** Speech isn't visible, and words in a prompt are how
   letters appear in the art (verify.md's hard `TEXT_IN_FRAME`). The speakers are drawn because they
   are counted (`COUNT`) and, with T025, as reference figures.
@@ -225,8 +228,7 @@ none of which names a person, prop or event.
     never speaks and whom extraction missed isn't known to be a name, so it is not redacted. §9 pins
     this with an adversarial fixture; §8 records it.
   Redaction only removes words (characters.md rule 2). Besides it, a script span undergoes only
-  whitespace collapsing, lower-casing for `SETTING` and `TIME`, and removal of a `DIRECTION`'s
-  enclosing parentheses.
+  whitespace collapsing and lower-casing for `SETTING` and `TIME`.
 - **Undescribed stays undescribed** (characters.md rule 3): nothing about how anyone looks is added
   unless the covered text says it.
 - **Parentheses are escaped.** ComfyUI reads `(words)` as a weight, and screenplays are full of
@@ -237,13 +239,15 @@ none of which names a person, prop or event.
   which only subtracts.
 - **Word budget.** `max_words` (the workflow's, §6) counts **whitespace-separated words** of
   `text()`, a deliberately conservative proxy for the encoder's token limit (the default 55 for
-  CLIP's 77 tokens; T003 sets it for the real encoder). Over budget, whole parts are dropped from the
-  **tail** backwards (`DIRECTION` and `ACTION` parts, last element first), never the first `ACTION`
-  or `DIRECTION` part, never `STYLE`, `FRAMING`, `SETTING`, `TIME`, `COUNT` or `PLACEMENT`. If that is
-  still over, the remaining last part is cut to its longest prefix that fits and ends at a sentence
-  end (`.`, `!`, `?`), else at a word boundary. `trimmed` counts dropped and cut parts. Cutting only
-  removes script words; what's left is still a verbatim prefix, and the prompt never exceeds
-  `max_words`.
+  CLIP's 77 tokens; T003 sets it for the real encoder). The **fixed parts** (`STYLE`, `FRAMING`,
+  `SETTING`, `TIME`, `COUNT`, `PLACEMENT`) are never dropped; if they alone exceed `max_words`,
+  `build_frame_prompt` raises `PromptError` naming the shot (a style or location too long for the
+  encoder is a configuration error, surfaced as the renderer's failure, never a silently truncated
+  prompt). Otherwise, over budget, whole `ACTION` parts are dropped from the **tail** backwards,
+  never the first; if still over, the first `ACTION` part is cut to its longest prefix that fits and
+  ends at a sentence end (`.`, `!`, `?`), else at a word boundary, and dropped altogether if not even
+  one word fits. `trimmed` counts dropped and cut parts. Cutting only removes script words; what's
+  left is a verbatim prefix, and a returned prompt never exceeds `max_words`.
 
 ### 3.2 Styles
 
@@ -292,8 +296,8 @@ default = true        # exactly one PUBLIC style sets this
   that are shown and stored**; nothing touches a frame after it is audited.
 - **The render key** is `sha256` of the canonical JSON (sorted keys, no whitespace) of the **fully
   substituted API graph** that is submitted, then, each after a `"\x1f"`: the **requested**
-  `<width>x<height>`, `FIT_VERSION` (a constant bumped whenever `fit` changes), and the
-  post-processing step (`grayscale` or `none`). The requested size is in the key because two
+  `<width>x<height>`, `RENDER_VERSION` (a constant bumped whenever `fit` or a post-processing pass
+  changes), and the post-processing step (`grayscale` or `none`). The requested size is in the key because two
   requests can round to one draw size (a comic rect and 1280 × 720), and the stored PNG is the
   fitted one. Prompt, negative, seed, draw size, checkpoint, sampler, steps, cfg and, with T025, the
   IP-Adapter model and reference image names are all inputs of that graph, so every input that
@@ -309,7 +313,8 @@ default = true        # exactly one PUBLIC style sets this
 - **`StoryboardFrame`** is the storyboard's view of verify.md's `FrameOutcome`, built by `frame_of`
   from the outcome and the `RenderRecord` of its **last** attempt (`outcome.audits[-1].attempt`;
   `None` only when no audit exists, i.e. the renderer failed on the first attempt): `asset` is the accepted
-  frame's storage path (`None` unless `PASSED` or `WARNED`); `prompt` (the record's `prompt.text()`) and `seed` are the last attempt's, which
+  frame's storage path (`None` unless `PASSED` or `WARNED`); `prompt` (the text actually sent, as in `RenderedFrame.prompt`: weighted and escaped; the
+  record keeps the tagged `FramePrompt`) and `seed` are the last attempt's, which
   for a `PASSED` or `WARNED` frame is the accepted one; `attempts` = `len(outcome.audits)`;
   `verdict` is the last audit's; `noted_checks` are the last audit's failed checks: the failed
   **hard** checks for a `WITHHELD` frame (what its card names), the failed **soft** checks for a
@@ -320,7 +325,9 @@ default = true        # exactly one PUBLIC style sets this
 - **Page**: A4 portrait at 150 dpi, **1240 × 1754 px**; margins **90 px**; content width **1060 px**;
   the frame is drawn at **1060 × 596** (16:9, 1280 × 720 scaled); **40 px** between blocks.
 - **Scenes start a new page.** Header, from the top margin: `STORYBOARD` (Bold 22 px, one line),
-  8 px, then the scene's heading **verbatim** (Bold 26 px, 34 px line pitch), wrapped to the content
+  8 px, then the scene's heading **as printed in the script** (the line of `Screenplay.text` at
+  `heading_span`, sliced the way script.md's spans slice back; not `Scene.heading`, which the parser
+  normalises) (Bold 26 px, 34 px line pitch), wrapped to the content
   width like source text (below), then 12 px, a 2 px rule, and 24 px: `22 + 8 + 34 × lines + 38` px
   in all. Footer, above the bottom margin: a 1 px rule, 8 px, then (Regular 18 px, 24 px pitch)
   `Panelwise · <style label> · page <n> · A vision model describes each frame; Nemotron audits it
@@ -420,6 +427,9 @@ sequenceDiagram
   frames and log rows are kept); no new shot starts. No
   fallback provider and no placeholder image (§8). The frames already rendered stay in Storage, so a
   rerun pays only for the rest.
+- **A prompt whose fixed parts exceed the word budget** → `PromptError`, raised by the renderer as
+  `RendererError` → `FAILED`, naming the shot: a configuration error (style or budget), never a
+  truncated prompt.
 - **A workflow missing a titled node, or a checkpoint ComfyUI doesn't have** → `RendererError` from
   `check_workflow` before any shot is rendered.
 - **An audit error or the last attempt failing** → `WITHHELD` (verify.md): the block shows the card;
@@ -459,13 +469,14 @@ def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...  
 def redact_all(text: str, characters: Sequence[str]) -> str: ...                 # every character's name tokens → "a person"
 
 # app/storyboard/prompt.py — pure
-class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; PLACEMENT = "placement"; ACTION = "action"; DIRECTION = "direction"
+class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; PLACEMENT = "placement"; ACTION = "action"
 @dataclass(frozen=True) class PromptPart: kind: PartKind; text: str; span: Span | None
 @dataclass(frozen=True)
 class FramePrompt:
     parts: tuple[PromptPart, ...]
     trimmed: int
     def text(self) -> str: ...                          # ", ".join(p.text for p in parts)
+class PromptError(ValueError): ...                      # the fixed parts alone exceed max_words (names the shot)
 FRAMING_WORDS: Mapping[Framing, str]                    # §3.1's table
 PLACEMENT_PHRASES: frozenset[str] = frozenset({"one figure on the left, one on the right"})
 OFF_SCREEN_MARKS: tuple[str, ...] = ("V.O.", "O.S.", "O.C.", "OFF")   # comic.md §3's list
@@ -475,7 +486,10 @@ def visible_characters(shot: Shot, scene: Scene) -> tuple[str, ...]: ...        
 def build_frame_prompt(shot: Shot, screenplay: Screenplay, extraction: Extraction, style: Style, *,
                        max_words: int, placement: str | None = None) -> FramePrompt: ...
 #   placement must be in PLACEMENT_PHRASES (else ValueError); T026 passes None, T025 passes
-#   characters.md FrameReferences.placement
+#   characters.md FrameReferences.placement; a placement with len(visible_characters) != 2 is a ValueError
+
+# app/storyboard/prompts.py — T008's live check (python -m app.storyboard.prompts <script.pdf> [--style KEY])
+async def main(argv: list[str]) -> int: ...             # parse, extract, plan; print each shot's parts, kinds and spans
 
 # app/storyboard/workflow.py — pure
 @dataclass(frozen=True) class Workflow: name: str; graph: Mapping[str, Any]; native_area: int; max_words: int
@@ -483,8 +497,8 @@ REQUIRED_TITLES: tuple[str, ...] = ("checkpoint", "positive", "negative", "seed"
 def load_workflow(path: Path, max_words: int) -> Workflow: ...     # WorkflowError if a title is missing or repeated
 def draw_size(width: int, height: int, native_area: int) -> tuple[int, int]: ...   # multiples of 64
 def substitute(workflow: Workflow, *, positive: str, negative: str, seed: int, width: int, height: int) -> dict[str, Any]: ...
-FIT_VERSION: int = 1
-def render_key(graph: Mapping[str, Any], width: int, height: int, postprocess: str) -> str: ...   # sha256 hex, §3.3
+RENDER_VERSION: int = 1
+def render_key(graph: Mapping[str, Any], width: int, height: int, postprocess: str) -> str: ...   # sha256 hex, §3.3 (requested size, RENDER_VERSION)
 def fit(png: bytes, width: int, height: int) -> Image.Image: ...                  # cover + centre-crop, exact size
 def weighted(text: str, phrase: str, emphasis: float | None) -> str: ...          # "(phrase:1.3)" on its first occurrence
 
@@ -555,7 +569,7 @@ def to_json(storyboard: Storyboard, plan: ShotPlan, frame_urls: Mapping[tuple[in
 `frame_url` is present only for `passed` and `warned`; a `withheld` frame has none. `source` and
 `span` are the shot's, so the web app shows "from page 1, lines 5–9" on every frame (SPEC US1).
 
-**Environment** (added to `.env.example` and deploy.md §6: Storage and styles by T008, `COMFYUI_*` by T026):
+**Environment** (added to `.env.example` and deploy.md §6: styles by T008, `COMFYUI_*` and Storage by T026):
 
 | Variable | Where | What |
 |---|---|---|
@@ -575,18 +589,19 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
-| `services/api/app/storyboard/{__init__,model,styles,prompt,workflow,document}.py` | new | §3–§6: styles, prompt, the pure workflow helpers (tested on a fixture graph), the document layout, PDF and JSON (tested with generated PNGs) | T008 |
-| `services/api/app/storyboard/{render,build,run}.py` | new | `ComfyRenderer`, `build_storyboard`, and `python -m app.storyboard.run <script.pdf> [--style KEY] --out DIR`: parses, extracts, plans, renders and audits on the real account and GPU, writes the PDF and frames to `DIR` and Storage, prints each shot's state and prompt | T026 |
+| `services/api/app/storyboard/{__init__,styles,prompt,prompts}.py` | new | §3.1–§3.2, §6; `prompts.py`: `python -m app.storyboard.prompts <script.pdf> [--style KEY]` parses, extracts and plans on the real account and prints every shot's prompt parts with their spans, so the team can read the prompts before any GPU exists | T008 |
+| `services/api/app/storyboard/{model,workflow,render,build,run}.py` | new | §3.3, §4, §6: the workflow helpers, `ComfyRenderer`, `build_storyboard`, and `python -m app.storyboard.run <script.pdf> [--style KEY] --out DIR` (renders and audits on the real account and GPU, stores the frames, prints each shot's state and prompt) | T026 |
+| `services/api/app/storyboard/document.py` | new | §3.4, §6: layout, PDF, JSON; `run` writes the PDF to `DIR` and Storage | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
-| `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (deploy.md §7) | T008 |
-| `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (Storage, styles), T026 (`COMFYUI_*`) |
+| `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (deploy.md §7), built with its first consumer, the renderer | T026 |
+| `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`), T026 (`COMFYUI_*`, `SUPABASE_STORAGE_BUCKET`) |
 | `styles/*.toml`, `styles/README.md` | new / changed | the styles the team keeps public (§10); the file format | T008 |
 | `infra/comfyui/workflows/frame.json` | new | the frame graph, on T003's model | T026 (with T003's box) |
-| `services/api/assets/fonts/{CourierPrime-Regular,CourierPrime-Bold}.ttf`, `CourierPrime-OFL.txt` | new | the document's font and its licence | T008 |
+| `services/api/assets/fonts/{CourierPrime-Regular,CourierPrime-Bold}.ttf`, `CourierPrime-OFL.txt` | new | the document's font and its licence | T027 |
 | `services/api/app/images/README.md` | removed | the provider chain and cache it described are not built (§8); the renderer lives in `storyboard/` | T026 |
-| `docs/design/reference/storyboard/*.png` | new | the sample's rendered pages, the visual reference | T026 |
-| `services/api/tests/{storyboard,storage,characters}/` | new | §9 | T008, T026 |
-| `CHANGES-FROM-FRAMEFLOW.md` | changed | a row per ported file | T008, T026 |
+| `docs/design/reference/storyboard/*.png` | new | the sample's rendered pages, the visual reference | T027 |
+| `services/api/tests/{storyboard,storage,characters}/` | new | §9 | T008, T026, T027 |
+| `CHANGES-FROM-FRAMEFLOW.md` | changed | a row per ported file | T008, T026, T027 |
 
 ## 8. Decisions & alternatives
 
@@ -596,7 +611,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | Dialogue in the prompt | never; speakers enter as the `COUNT` and, with T025, as references | the speech text: not visible, and the surest way to get letters in the art (hard `TEXT_IN_FRAME`) |
 | Camera movement in the prompt | never; printed under the frame | FrameFlow's movement words: a still can't pan, and "handheld" reads as blur |
 | Entity quotes | only as the covered elements' own text; nothing from outside the shot; appearance comes from T025's reference portrait | a character's first descriptive quote or a prop's first mention: each is an introduction that carries its own moment's event ("pours tea") into a shot that doesn't have it, which the audit then fails (`UNSCRIPTED_OBJECT`). **Cost:** until T025, a dialogue-only shot is drawn from its setting, time and figure count alone |
-| Figure count | `visible_characters`: planner characters the covered elements show on screen | `len(shot.characters)`: the planner lists who it thinks fits, and `V.O.`/`O.S.` speakers aren't in the frame |
+| Figure count | `visible_characters`: planner characters the covered elements show on screen. Loose on shared name tokens ("JOHN SMITH"/"JOHN DOE") and possessives ("reads NANDI's letter"); both only change the count word | `len(shot.characters)`: the planner lists who it thinks fits, and `V.O.`/`O.S.` speakers aren't in the frame. **Known effect:** verify.md's soft `MISSING_CHARACTER` checks `shot.characters`, so a shot with an off-screen speaker ends `WARNED` with a `missing_character` note; accepted (it's soft and true), see §10 |
 | Unextracted names | accepted residual risk, pinned by a test | redacting every ALL-CAPS word: sound effects and emphasis ("SLAM", "NOW") are written the same way and would become "a person" |
 | Over-long prompts | drop whole parts from the tail, then cut the last kept part at a sentence end or word | cutting mid-word or mid-quote at random; letting the encoder truncate silently (it drops the end, whatever is there) |
 | Names | redacted to "a person" in every script part (`redact_all`) | names in the prompt: characters.md rule 1 |
@@ -628,14 +643,15 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   `PLACEMENT_PHRASES` or the style; `text()` contains no name token of any character; no
   `Dialogue.text` appears; `rationale` never appears (a shot built with a sentinel rationale); no
   prompt exceeds `max_words`. The sample includes a `CONTINUOUS` scene after a night scene.
-- **`build_frame_prompt`** cases: the fixed part order with `ACTION` and `DIRECTION` interleaved;
+- **`build_frame_prompt`** cases: the fixed part order, `ACTION` parts in element order;
   `INT`/`EXT`/`INT_EXT` prepositions; a `None` time omitted; a borrowed time citing the earlier
   heading; counts 0 to 5 from `visible_characters` (a planner character not in the covered text, a
   `V.O.` speaker and an `O.S.` speaker not counted; an on-screen speaker and a named actor counted); a
-  dialogue-only shot (no `ACTION`, parentheticals as `DIRECTION` without their parentheses); a
+  dialogue-only shot (no `ACTION` part; its parentheticals and speech absent); a
   character introduced in an earlier shot contributing nothing; a placement outside
-  `PLACEMENT_PHRASES` raising `ValueError`; the budget dropping from the tail, keeping the first
-  script part, then cutting it at a sentence end or word boundary, with `trimmed` counting them;
+  `PLACEMENT_PHRASES` raising `ValueError`; the budget dropping `ACTION` parts from the tail, keeping the first,
+  then cutting it at a sentence end or word boundary, with `trimmed` counting them; fixed parts over
+  budget raising `PromptError`;
   "NANDI'S KITCHEN" in the raw heading → "inside a person's kitchen".
 - **Redaction, adversarial**: a two-word name as one "a person"; possessives; `THE STRANGER` and
   `OLD MAN` cues leaving "The" and "Old" alone; a lower-case common word equal to a name untouched; a
@@ -645,7 +661,8 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - **`load_styles`**: the repo's `styles/` loads with exactly one public default; each §3.2 failure
   raises `StyleError` naming the file (a private key shadowing a public one, a private default, a
   subject word in `medium`, weight syntax, a missing field, an unknown field).
-- **Workflow**: the committed `frame.json` has every `REQUIRED_TITLES` node once; `substitute` sets
+- **Workflow** (T026): on a fixture graph, and then on the committed `frame.json`, every
+  `REQUIRED_TITLES` node exists once; `substitute` sets
   inputs by title and leaves every other input untouched; `render_key` changes when any substituted
   input or the post-process changes and is stable across dict ordering; `draw_size` returns multiples
   of 64 near the native area for 16:9 and for comic.md's tall and wide panel rects; `fit` returns
@@ -669,7 +686,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   1240 × 1754; a withheld block draws the card with the checks in enum order and `audit error` for
   an `ERROR`; no withheld frame's pixels are ever read (its bytes are not passed in). `to_json`
   matches §6's shape and omits `frame_url` for a withheld frame.
-- **Live** (T026; needs T003, T021): `python -m app.storyboard.run` on the self-written sample in the default
+- **Live** (T026/T027; needs T003, T021): `python -m app.storyboard.run` on the self-written sample in the default
   public style: every shot ends `PASSED`, `WARNED` or `WITHHELD`; the PDF and frames are in Storage;
   seconds per frame and renders per frame are recorded in `infra/nebius/README.md` for T032; the
   pages are committed as the visual reference.
@@ -700,5 +717,8 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   setting, time and figure count. If T032's samples show these frames are too generic, the team
   decides between waiting for T025's references and allowing a narrowly defined descriptive phrase
   (never a whole sentence) from a character's introduction.
+- [ ] **Off-screen speakers and `MISSING_CHARACTER`** (§8): every shot with a `V.O.`/`O.S.` speaker
+  will end `WARNED`. Accepted here; if the notes are noise, verify.md could skip characters whose
+  only covered speech is off-screen (a verify.md change, its own PR).
 - [ ] **Scripts outside Latin-1-plus**: Courier Prime covers Latin scripts; a script in another writing
   system would print missing-glyph boxes. Out of scope until a sample needs it.

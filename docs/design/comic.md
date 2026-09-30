@@ -18,7 +18,7 @@ dropped or invented. The single exception is typographic: the ` — ` that joins
 location and time (§3). Action lines are never lettered (the art shows them), and there are no
 invented sound effects.
 
-**Not covered:** the renderer (T008) and the audit (verify.md), which this calls; the web reader's UI
+**Not covered:** the renderer (T026, storyboard.md) and the audit (verify.md), which this calls; the web reader's UI
 (T024).
 
 ## 2. Reference material

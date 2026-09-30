@@ -13,7 +13,7 @@ character, built only from the script's words about them, audited, and then fed 
 render as an **image reference** (IP-Adapter in ComfyUI). Also the rules every image prompt obeys
 about characters.
 
-**Not covered:** the frame renderer itself (T008), the audit (verify.md, reused here), the ComfyUI
+**Not covered:** the frame renderer itself (T026, storyboard.md), the audit (verify.md, reused here), the ComfyUI
 box (T003).
 
 ## 2. Reference material
@@ -79,7 +79,7 @@ classDiagram
     Reference --> Region
 ```
 
-**The character rules for every image prompt** (portraits and frames; T008 must follow them too):
+**The character rules for every image prompt** (portraits and frames; storyboard.md's frame prompts follow them too):
 
 1. **No character names in image prompts.** An image model reads a name as a style or likeness cue
    (a famous character's name summons a real actor's face). Names stay in the data, never in the
@@ -122,7 +122,7 @@ sequenceDiagram
     participant J as Portrait job (per character)
     participant C as ComfyUI (T003)
     participant D as Describer (verify.md)
-    participant F as Frame render (T008)
+    participant F as Frame render (T026)
     J->>J: described_by = the character's action-paragraph quotes; prompt (no name)
     loop attempt 1..3
         J->>C: portrait.json (prompt, seed, 768×1024)
@@ -142,7 +142,8 @@ failed, and then `ok` is false). Three attempts, then `WITHHELD`: frames for tha
 **without** a reference (text-only), which is what FrameFlow always did, and the UI says so.
 
 **`choose_references(shot, portraits)`** (pure, deterministic):
-1. Candidates: `shot.characters` whose portrait is `READY`.
+1. Candidates: `visible_characters(shot, scene)` (storyboard.md §3.1: on screen in the covered
+   elements, so never a `V.O.`/`O.S.` speaker) whose portrait is `READY`.
 2. Order: first, characters who **speak** in the shot's covered elements, each resolved from its
    `Dialogue.cue` with `match_speaker(cue, shot.characters)` (an unresolved cue is skipped), ordered
    by their **first** speech and listed **once** however often they speak; then the remaining
@@ -215,11 +216,12 @@ class PortraitRenderer(Protocol):
 IP-Adapters with left and right attention masks). Code sets inputs by node **title** (`"positive"`,
 `"seed"`, `"ref_left"`, …), never by numeric id, so a re-saved graph keeps working.
 
-**Cache and storage key**: sha256 of the fully substituted API graph that is submitted (canonical
-JSON) plus the post-processing step, storyboard.md §3.3. The prompt, seed, size, checkpoint and, for
-frames only, the IP-Adapter model and the reference image names are all inputs of that graph (a
-portrait uses no IP-Adapter). FrameFlow's image cache keyed on a Gemini model id even when ComfyUI
-drew the image; every input that changes the pixels is in this key.
+**Cache and storage key**: storyboard.md §3.3's render key: sha256 of the fully substituted API
+graph that is submitted (canonical JSON), then the requested width × height, `RENDER_VERSION` and
+the post-processing step. The prompt, seed, draw size, checkpoint and, for frames only, the
+IP-Adapter model and the reference image names are inputs of that graph (a portrait uses no
+IP-Adapter). FrameFlow's image cache keyed on a Gemini model id even when ComfyUI drew the image;
+every input that changes the pixels is in this key.
 
 ## 7. Structure
 

@@ -30,9 +30,9 @@ Pre-fill every input. Never click an unrehearsed path on camera.
 2. Upload the sample screenplay from `samples/` (T031).
 3. The scenes, characters and locations appear, each with its verbatim quote and page/line span (T006 builds it; T009 shows it in the app).
 4. The shot list appears, planned on Nemotron (T007, T009).
-5. Frames render, one per shot, in a public style (T003, T008).
+5. Frames render, one per shot, in a public style (T003, T008, T026).
 6. Open the audit log: one frame was re-rendered, with the vision model's description and Nemotron's verdict shown (T020, T021).
-7. Export the storyboard PDF (T008).
+7. Export the storyboard PDF (T027).
 8. Switch to the comic: pages with speech bubbles taken from the script's dialogue, in the reader (T022–T024).
 9. Click a panel to show the script lines it came from (Non-negotiable 1, PLAN.md; T009 for frames, T024 for comic panels).
 
