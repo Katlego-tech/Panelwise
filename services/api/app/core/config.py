@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     llm_request_timeout_s: float = 120.0
     llm_max_attempts: int = 3
 
+    # Frames (docs/design/storyboard.md §6). The prompt's word budget, a conservative proxy for the
+    # text encoder's token limit: 55 words for CLIP's 77 tokens until T003 picks the model.
+    comfyui_max_words: int = 55
+    # A directory of private style TOMLs outside the repo; empty means none. Never set on the
+    # hosted demo.
+    panelwise_private_styles: str = ""
+
     @field_validator("database_url")
     @classmethod
     def _asyncpg_driver(cls, url: str) -> str:
