@@ -36,7 +36,7 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | 🔵 T037 code in review · 🔴 its deploy check blocked on accounts · T003 needs GPU access |
-| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006 | | | ✅ T005, T006 done |
+| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039 | Katlego | Claude | 🟡 T039 parser + grounding fixes from the samples · T005, T006 done |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T024 | | | ⬜ To Do |
