@@ -187,7 +187,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 ## Phase 5 — Hardening and submission
 
 - [ ] T030 [POL] Hosted demo on Vercel + Railway + Supabase (docs/design/deploy.md), seeded judge account (Supabase Auth), LLM + image spend caps, upload limits. Stays up to 15 Dec. Lane `infra`.
-- [ ] T031 [P] [POL] Public-domain / self-written sample screenplays in `samples/`. Lane `eval+submission`.
+- [x] T031 [P] [POL] Public-domain / self-written sample screenplays in `samples/`. Lane `eval+submission`.
+      Design:  none (no new entities). Layout follows docs/design/script.md §2–§4 (action at the margin, dialogue ~2.5", parenthetical ~3.1", cue ~3.7", transitions right; page furniture the parser drops). No copyrighted script: every sample is self-written for this repo (Apache-2.0)
+      Files:   samples/{the-red-kite,lost-property,sipho-and-siphokazi}.fountain + .pdf; samples/README.md; services/api/tools/{__init__,build_samples}.py; services/api/tests/samples/*; services/api/pyproject.toml (pyright includes tools)
+      Contract:`cd services/api && uv run python -m tools.build_samples` rebuilds every `samples/<name>.pdf` from `samples/<name>.fountain` (a Fountain subset: title page, headings, action, cue/parenthetical/dialogue, transitions, `===` page break) in US-letter 12 pt Courier, paginated at 54 lines with automatic (MORE)/(CONT'D) splits, and prints pages / scenes / speaking characters as `parse_pdf` reads them
+      Verify:  bash scripts/gate.sh (a test parses every committed PDF with `parse_pdf`, checks it matches a fresh build of its source, and checks the counts in samples/README.md); from services/api, `uv run python -m app.shots.run ../../samples/the-red-kite.pdf` on the real account
+      Done:    three original screenplays of different shapes (a ~3-page demo script, a ~10-page larger cast, a tricky-formatting one) sit in `samples/` as source and PDF; each parses with the real parser into the scene and speaker counts samples/README.md states, and the README records provenance, licence and the live run on the demo script
 - [ ] T032 [P] [POL] `eval/`: faithfulness and frame-audit accuracy numbers for the README. Lane `eval+submission`.
 - [ ] T033 [POL] README: setup, how Nemotron and Token Factory are used, feedback section. Lane `eval+submission`.
 - [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
