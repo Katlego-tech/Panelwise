@@ -39,8 +39,9 @@ traces back to a verbatim source span, and every audit verdict is logged.
   [characters.md §1, §3]
 - **Stay inside the credits:** a full script under about $0.10 of Token Factory credit; LLM and image
   spend capped in code. [PLAN.md Non-negotiable 2, § Technical Context]
-- **Nemotron visibly load-bearing:** extraction, shot planning and every audit decision run on
-  Nemotron on Token Factory. [RUBRIC.md; verify.md §3]
+- **Nemotron visibly load-bearing:** extraction, shot planning and the audit's judgement (which described
+  person is which character, whether an object is scripted) run on Nemotron on Token Factory; the
+  countable checks and the verdict are code. [RUBRIC.md; verify.md §3, §8]
 
 ### Non-goals
 
@@ -359,8 +360,8 @@ Undecided in PLAN.md and the design docs; listed here so no implementer decides 
 4. **Spend cap and upload limit values** for the hosted demo: PLAN.md sets the goal (about $0.10 a
    script) but not the caps, nor how many extra attempts a user may ask for on a withheld frame or
    portrait. Decide in T030.
-5. **Frame-audit accuracy bar.** T032 measures precision and recall; no target is agreed, nor what
-   happens if recall is poor (a new describer prompt or model, or option B). [verify.md §8]
+5. **Frame-audit accuracy bar.** T032 measures precision and recall, but no target is agreed. (If
+   recall is poor, the remedy is decided: a new describer prompt or model, or option B; verify.md §8.)
 6. **Who can see a project.** Row-level security for projects, Storage and the `Job` table is
    undecided (deploy.md §10): decide with Auth in T009.
 7. **Sound effects** from all-caps action ("DOORS SLAM."): a styling choice, decided with a sample
