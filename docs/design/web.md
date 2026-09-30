@@ -496,7 +496,8 @@ def shot_views(screenplay: Screenplay, extraction: Extraction, plan: ShotPlan) -
 ```
 
 `FrameView` and `AuditView` have schemas only in T044: their data is `frames` and `frame_audits`
-rows, so their builders are T047's (`FrameView`, with `audits` `[]`) and T021's (`AuditView`).
+rows, so their builders are T047's (`FrameView`, with `audits` `[]`) and T021's (`AuditView`). The
+`FrameView` model itself refuses an `image_url` outside `passed`/`warned`, so no builder can send one.
 
 **Web routes** (Next.js App Router): `/sign-in`, `/projects`, `/projects/[id]/script`,
 `/projects/[id]/storyboard` (`?shot=` opens the sheet), `/projects/[id]/comic` (T024; until then
