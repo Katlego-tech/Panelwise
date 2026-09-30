@@ -28,7 +28,7 @@ select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "RUF"]
 [tool.pyright]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
-include = ["app", "tests"]
+include = ["app", "tests", "tools"]
 venvPath = "."
 venv = ".venv"
 

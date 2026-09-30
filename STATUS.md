@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-09-28 — by Katlego (via Claude)_
+_Last updated: 2026-09-30 — by Katlego (via Claude)_
 
 ---
 
@@ -43,7 +43,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | | | ✅ T010 design done · T020/T021 wait on frames (T008) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | | | ✅ T011 design done · T022/T023 wait on frames (T008) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
-| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035 | Katlego | Claude | 🟡 Doing T031 |
+| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035 | Katlego | Claude | 🔵 T031 in review |
 
 ## ⏭️ Next action
 
@@ -71,6 +71,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - **Script module (T005):** `app/script` — `parse_pdf` → ordered scenes; every action/dialogue element carries its page and line span. `resolve_times`, `match_speaker`. Design: [docs/design/script.md](docs/design/script.md).
 - **Shot planner (T007):** `app/shots` — each scene becomes shots that cover every element exactly once, cite their page/line span and verbatim text, and name only extracted characters/props present in the scene; time of day from `resolve_times`. Live: `uv run python -m app.shots.run <script.pdf>`.
 - **Grounded extraction (T006):** `app/grounding` — scene-chunked extraction on Lightning; every kept quote located to a page/line span; faithfulness + recall; locations from headings, missed speakers from cues. Checkpoint: `uv run python -m app.grounding.run <script.pdf>`.
+- **Samples (T031):** `samples/` — three self-written screenplays (demo `the-red-kite`, 11-speaker `lost-property`, tricky-format `sipho-and-siphokazi`) as Fountain source + PDF, rebuilt by `uv run python -m tools.build_samples`; parser findings in `samples/README.md`.
 - **LLM seam (T004):** `app/llm` — `NebiusChatModel` (fast / reasoning / vision tiers, retries with `Retry-After`, thinking off on fast) and `structured_chat` (strict `json_schema`, one repair retry). Design: [docs/design/llm.md](docs/design/llm.md). Live check: `cd services/api && uv run python -m app.llm.smoke`.
 
 ## 🛠️ Environment & access
@@ -128,3 +129,4 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 - 2026-09-29 — Katlego (via Claude) — T010: `docs/design/verify.md` — blind describer (GLM) + Nemotron judge + code checks; "supported by the script" needs a verified verbatim quote; hard/soft checks; failed frames withheld, never shown; audit log per attempt. Next: T012. Blocked on: GPU (T003).
 - 2026-09-29 — Katlego (via Claude) — T012: `docs/design/characters.md` — portraits from action-paragraph quotes only (no names in any image prompt; undescribed stays undescribed), audited; IP-Adapter references (≤2 per frame, left/right masks), Apache-licensed adapter over insightface-based FaceID. Phase 3 designs all in review. Next: merge reviews. Blocked on: GPU (T003).
 - 2026-09-29 — Katlego (via Claude) — T007 merged (PR #15). T011: `docs/design/comic.md` — verbatim-only lettering with spans, deterministic tiers/weights, ≤20% crop, bubbles by image detail + reading order, grow-don't-shrink fit. Next: T010, T012. Blocked on: GPU (T003) for any rendering.
+- 2026-09-30 — Katlego (via Claude) — T031: three self-written samples + `tools/build_samples.py` + tests; gate 10 checks green. Found: `INT./EXT.` headings not parsed, pdfplumber `y_density=13` merges ~10% of action paragraphs, two-dash headings split wrong; live on `the-red-kite`: 19 shots, every element once, but grounding faithfulness 0.625/0.143 and recall 0/3 because Lightning prefixes dialogue quotes with the cue. Next: review, then T032. Blocked on: nothing (the parser/grounding fixes belong to `script+grounding`).
