@@ -6,7 +6,7 @@ from typing import Any
 import httpx2
 import pytest
 
-from app.grounding import ExtractionError, chunk_scenes, extract, render_chunk
+from app.grounding import SYSTEM_PROMPT, ExtractionError, chunk_scenes, extract, render_chunk
 from app.llm import NebiusChatModel, Tier
 from app.script import Dialogue, Screenplay, parse_text
 from tests.script.conftest import two_page_text
@@ -81,6 +81,13 @@ def test_rendered_chunk_carries_every_element_verbatim(screenplay: Screenplay) -
             if isinstance(e, Dialogue):
                 assert e.cue in rendered
     assert "(without turning)" in rendered
+
+
+def test_the_prompt_asks_for_quotes_without_cues_or_parentheticals() -> None:
+    # T039: Lightning copied the cue line into dialogue quotes. The filter can strip a speech's
+    # own header, but the prompt should not invite it.
+    assert "without the speaker's name" in SYSTEM_PROMPT
+    assert "parenthetical" in SYSTEM_PROMPT
 
 
 async def test_extract_calls_the_fast_tier_with_thinking_off_and_strict_schema(

@@ -17,7 +17,12 @@ from collections.abc import Sequence
 
 from app.grounding.model import Dropped, Entity, EntityKind, GroundingReport, Quote, Source
 from app.grounding.schema import ProposedEntity
-from app.grounding.text import build_index, locate_in, normalize_for_grounding
+from app.grounding.text import (
+    build_cue_index,
+    build_index,
+    locate_quote,
+    normalize_for_grounding,
+)
 from app.script import Dialogue, Screenplay, Span, match_speaker, normalise
 
 
@@ -25,6 +30,7 @@ def ground(
     proposals: Sequence[ProposedEntity], screenplay: Screenplay
 ) -> tuple[tuple[Entity, ...], GroundingReport]:
     index = build_index(screenplay)
+    cues = build_cue_index(screenplay)
     script = normalize_for_grounding(screenplay.text)
 
     # Merge across chunks on (kind, name), keeping the first spelling and every distinct quote.
@@ -41,11 +47,13 @@ def ground(
     dropped: list[Dropped] = []
     fully_grounded = quotes_total = quotes_located = 0
     for name, kind, quotes in groups.values():
-        located = [Quote(q, *found) for q in quotes if (found := locate_in(index, q)) is not None]
+        found = [f for q in quotes if (f := locate_quote(index, cues, q)) is not None]
         quotes_total += len(quotes)
-        quotes_located += len(located)
+        quotes_located += len(found)
+        located = _unique(found)
         name_found = _mentions(script, name)
-        if name_found and located and len(located) == len(quotes):
+        # Every quote located, counted before `_unique` folds repeats into one.
+        if name_found and found and len(found) == len(quotes):
             fully_grounded += 1
         if not name_found:
             dropped.append(Dropped(name, kind, "name not found in the script"))
@@ -78,6 +86,19 @@ def ground(
         recall=recall_found / cues_total if cues_total else 1.0,
     )
     return entities, report
+
+
+def _unique(found: Sequence[tuple[str, int, Span]]) -> list[Quote]:
+    """One Quote per text and span: `"LERATO\\nI promise."` and `"I promise."` keep the same
+    text at the same speech once the cue is stripped."""
+    seen: set[tuple[str, Span]] = set()
+    quotes: list[Quote] = []
+    for text, scene_index, span in found:
+        key = (normalize_for_grounding(text), span)
+        if key not in seen:
+            seen.add(key)
+            quotes.append(Quote(text, scene_index, span))
+    return quotes
 
 
 def _mentions(script: str, name: str) -> bool:
