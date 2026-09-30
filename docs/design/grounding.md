@@ -1,6 +1,6 @@
 # Design — `grounding` (entity extraction + grounding filter; lane `script+grounding`)
 
-**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T006 · **Spec:** PLAN.md Non-negotiable I;
+**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T006, T039 · **Spec:** PLAN.md Non-negotiable I;
 [SPEC.md](../../SPEC.md) US1
 
 ---
@@ -90,7 +90,9 @@ classDiagram
 - **`Quote.text`** is the model's quote; **`Quote.span`** is the element (action paragraph, speech
   or heading) it was found inside. A quote is *located* only when its normalised text is a
   substring of one element's normalised text — so its span is exact, never "somewhere in the
-  script".
+  script". The one exception to "the model's quote": a dialogue quote the model led with its
+  speech's own header (§4, *Cue headers*) is kept **without** that header, so `Quote.text` is
+  always text inside `Quote.span`.
 - **`Entity.scenes`**: 0-based scene indexes, derived from where its quotes and (for characters)
   its matched cues sit. Never taken from the model's say-so.
 - **Speaking characters the model missed** are added with `Source.CUE`, quoting their first
@@ -112,7 +114,7 @@ sequenceDiagram
         M-->>X: proposed entities + ChatResult
     end
     X->>G: all proposals + Screenplay
-    G->>G: per quote: locate in one element → Quote(span) or unlocated
+    G->>G: per quote: locate in one element, else strip its speech's own header → Quote(text, span) or unlocated
     G->>G: per entity: name found in script AND ≥1 quote located → keep (bad quotes dropped); else Dropped
     G->>G: merge by (kind, normalise(name)); add HEADING locations; add CUE characters the model missed
     G-->>X: entities + GroundingReport
@@ -124,6 +126,27 @@ proposed, after merging. **Filtering** is per quote: an entity with one bad quot
 ones, because FrameFlow lost its lead character to exactly this (one quote broken by a line-break
 hyphen). The two differ on purpose: the score measures the model; the filter decides what the
 product may show, and it only ever shows located quotes.
+
+**Cue headers (T039).** `render_chunk` shows a speech as `CUE (EXT)`, `(parenthetical)`, text,
+and Nemotron 3.5 Lightning copies the header into the quote (`"LERATO\nI promise."`). The cue
+line is not inside the speech's span, so the whole quote failed: on `samples/the-red-kite.pdf`
+faithfulness fell to 0.14–0.63 and recall to 0/3. Two changes, in this order of trust:
+
+1. The prompt asks for dialogue quotes without the speaker's name or the parenthetical.
+2. `locate_quote`: a quote not located as given is tried once more, and kept only if **all** hold:
+   its first line, or first two lines, normalised, equal one of *one speech's own* headers — the
+   cue, the cue with its extension, either followed by that speech's parenthetical, or the
+   parenthetical alone; the rest of the quote is non-empty; and the rest is inside **that same
+   speech** (a speech of the same cue, never another speaker's). The kept `Quote.text` is the
+   rest. No other prefix is stripped, a cue anywhere but the leading line is never stripped, and
+   a quote that fails is still dropped — so every kept quote is still verbatim script text
+   located to one span (Non-negotiable I). A stripped quote counts as located for faithfulness:
+   the model copied what it was shown, word for word. The same text at the same span, given with
+   and without its header, is kept once.
+
+**Line-break hyphen (T039).** Only a hyphen touching the word before it is joined across a line
+break (`sea-` / `green` → `SEA-GREEN`). A spaced dash at a line's end (`LOST PROPERTY -` /
+`PLATFORM 9`) keeps its space; joining it made the sign's own words unfindable.
 
 **Recall** = distinct speaking cues matched (`match_speaker`) by a model-proposed, grounded
 character ÷ distinct speaking cues. 1.0 when the script has no dialogue.
@@ -151,10 +174,15 @@ class Source(StrEnum): MODEL = "model"; CUE = "cue"; HEADING = "heading"
 class ExtractionError(RuntimeError): ...
 
 # app/grounding/text.py
-def normalize_for_grounding(text: str) -> str: ...        # FrameFlow's (join line-break hyphens, collapse whitespace, upper-case) + fold curly quotes/dashes/ellipsis to ASCII and collapse dash runs, on both sides
+def normalize_for_grounding(text: str) -> str: ...        # FrameFlow's (join line-break hyphens that touch a word, collapse whitespace, upper-case) + fold curly quotes/dashes/ellipsis to ASCII and collapse dash runs, on both sides
 type Index = list[tuple[int, Span, str]]                  # (scene_index, heading/element span, normalised source lines)
 def build_index(screenplay: Screenplay) -> Index: ...     # built once per screenplay; the filter reuses it
 def locate_in(index: Index, quote: str) -> tuple[int, Span] | None: ...
+type CueIndex = list[tuple[int, Span, frozenset[str], str]]  # (scene_index, speech span, its normalised headers, normalised source lines)
+def headers(speech: Dialogue) -> frozenset[str]: ...      # CUE, CUE (EXT), either + " (paren)", "(paren)" — normalised
+def build_cue_index(screenplay: Screenplay) -> CueIndex: ...
+def locate_after_cue(cues: CueIndex, quote: str) -> tuple[str, int, Span] | None: ...   # (text kept = quote minus its 1–2 header lines, scene_index, speech span)
+def locate_quote(index: Index, cues: CueIndex, quote: str) -> tuple[str, int, Span] | None: ...  # as given (locate_in), else locate_after_cue
 def locate(quote: str, screenplay: Screenplay) -> tuple[int, Span] | None: ...   # (scene_index, element or heading span)
 
 # app/grounding/schema.py — what the model is asked for (strict json_schema via structured_chat).
@@ -191,6 +219,7 @@ the parser, so a faithful quote is always locatable.
 | Locations | from headings | model-extracted: the parser already knows them exactly |
 | Character attributes | quotes only | age/gender/role fields: inference is invention |
 | Quote location | inside one element | anywhere in the full text (FrameFlow): gives no span a panel can cite |
+| A dialogue quote led by its cue (T039) | prompt says leave it out; the filter strips a leading line that is that same speech's own header, keeps the rest | reject the whole quote: dropped every character quoted through dialogue on Lightning (recall 0/3); strip any leading all-caps line: would let one speaker's name front another's line; match the quote anywhere after a cue: no longer one span |
 | Filter granularity | per quote | per entity (FrameFlow): one wrap-broken quote dropped the lead |
 | Recall | model-only, cues via `match_speaker` | FrameFlow's name-set intersection: exact-name only, missed "THABO" vs "THABO MOLEFE" |
 | Chunk failure | fail the extraction | skip the chunk: a silent gap in the cast |
@@ -202,7 +231,11 @@ the parser, so a faithful quote is always locatable.
 ## 9. How this is verified
 
 - `normalize_for_grounding` / `locate`: line-break hyphen, case, whitespace; a quote spanning two
-  elements is not located; a heading is locatable.
+  elements is not located; a heading is locatable; a spaced dash at a line end is not joined.
+- `locate_quote` (T039): each header form is stripped and the rest kept at its own speech; the
+  cases that must still fail — another speaker's cue, a wrong extension or parenthetical, nothing
+  after the header, a cue not on its own line, a quote stitched across speeches, a heading or an
+  action line as the "header", a name that is no cue.
 - `ground`: bad quote dropped but entity kept; entity whose name isn't in the script dropped with a
   reason; merge across chunks; HEADING locations; CUE backfill; faithfulness and recall arithmetic.
 - `extract`: chunks never split a scene; `max_chunks` refusal makes no call; a failing chunk fails

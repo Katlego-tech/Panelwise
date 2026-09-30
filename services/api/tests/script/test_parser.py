@@ -20,6 +20,8 @@ from .conftest import (
     DIALOGUE,
     PAGE_1,
     PAGE_2,
+    PAREN,
+    Row,
     heading,
     layout,
     pdf_bytes,
@@ -73,6 +75,15 @@ def test_a_heading_without_a_time_has_none_rather_than_an_invented_day(
         ("EXT/INT. FARMHOUSE - DAWN", IntExt.INT_EXT, "FARMHOUSE", "DAWN"),
         ("int. hallway -- later", IntExt.INT, "hallway", "LATER"),
         ("EXT. ROOFTOP--NIGHT", IntExt.EXT, "ROOFTOP", "NIGHT"),
+        # T039: the form screenwriting software writes, with a dot on both sides of the slash.
+        ("INT./EXT. BAKKIE -- DAY", IntExt.INT_EXT, "BAKKIE", "DAY"),
+        ("EXT./INT. FARMHOUSE - DUSK", IntExt.INT_EXT, "FARMHOUSE", "DUSK"),
+        # T039: two separators, and the last segment is a known time: that is the time.
+        ("INT. SIPHO'S HOUSE - KITCHEN - NIGHT", IntExt.INT, "SIPHO'S HOUSE - KITCHEN", "NIGHT"),
+        ("INT./EXT. BAKKIE - MOVING - DAY", IntExt.INT_EXT, "BAKKIE - MOVING", "DAY"),
+        ("EXT. PIER -- END -- MOMENTS LATER", IntExt.EXT, "PIER -- END", "MOMENTS LATER"),
+        # ...and when it is not a known time, the first separator splits, as before.
+        ("INT. HOUSE - KITCHEN - FLASHBACK", IntExt.INT, "HOUSE", "KITCHEN - FLASHBACK"),
     ],
 )
 def test_heading_variants(slug: str, int_ext: IntExt, location: str, time: str) -> None:
@@ -154,6 +165,77 @@ def test_shouted_all_caps_dialogue_is_not_mistaken_for_a_new_speaker() -> None:
     assert [(type(e), getattr(e, "cue", None), e.text) for e in elements] == [
         (Dialogue, "NANDI", "NO!"),
         (Dialogue, "THABO", "Yes."),
+    ]
+
+
+def test_an_int_ext_heading_with_dots_starts_a_scene_and_keeps_its_prefix() -> None:
+    rows = [
+        heading("2", "INT. ROOM - DAY"),
+        None,
+        (ACTION, "A chair."),
+        None,
+        heading("3", "INT./EXT. SIPHO'S BAKKIE - MOVING - DAY"),
+        None,
+        (ACTION, "The truck rattles on."),
+    ]
+    scenes = parse_text(layout(rows)).scenes
+
+    assert [(s.number, s.heading) for s in scenes] == [
+        ("2", "INT. ROOM - DAY"),
+        ("3", "INT./EXT. SIPHO'S BAKKIE - MOVING - DAY"),
+    ]
+    assert [e.text for e in scenes[1].elements] == ["The truck rattles on."]
+
+
+def test_a_parenthetical_that_wraps_is_one_parenthetical_not_dialogue() -> None:
+    rows = [
+        heading("1", "INT. SHOP - DAY"),
+        None,
+        (CUE, "MAMA THEMBI"),
+        (PAREN, "(sliding a bucket across"),
+        (PAREN, "the counter, then leaning"),
+        (PAREN, "in close)"),
+        (DIALOGUE, "Kazi. Is it true, what they"),
+        (DIALOGUE, "say?"),
+        (PAREN, "(beat, then almost"),
+        (PAREN, "to herself)"),
+        (DIALOGUE, "The letter came."),
+    ]
+    screenplay = parse_text(layout(rows))
+    speeches = screenplay.scenes[0].elements
+
+    assert [(type(e), getattr(e, "parenthetical", None), e.text) for e in speeches] == [
+        (
+            Dialogue,
+            "sliding a bucket across the counter, then leaning in close",
+            "Kazi. Is it true, what they say?",
+        ),
+        (Dialogue, "beat, then almost to herself", "The letter came."),
+    ]
+    # The parenthetical's lines are not in the speech's span: its span is the spoken lines only.
+    assert speeches[0].span == Span(page=1, line_start=7, line_end=8)
+
+
+def test_an_unclosed_bracket_in_dialogue_stays_dialogue() -> None:
+    # Only a bracket closed at the same column is a parenthetical; otherwise nothing is lost.
+    rows = [
+        heading("1", "INT. SHOP - DAY"),
+        None,
+        (CUE, "NANDI"),
+        (DIALOGUE, "(and I mean this"),
+        (DIALOGUE, "kindly: go home."),
+        None,
+        (CUE, "THABO"),
+        (PAREN, "(quietly, as if"),
+        (DIALOGUE, "No."),
+    ]
+    elements = parse_text(layout(rows)).scenes[0].elements
+
+    assert [
+        (getattr(e, "cue", None), getattr(e, "parenthetical", None), e.text) for e in elements
+    ] == [
+        ("NANDI", None, "(and I mean this kindly: go home."),
+        ("THABO", None, "(quietly, as if No."),
     ]
 
 
@@ -254,3 +336,20 @@ def test_a_real_two_page_pdf_parses_like_its_layout_text() -> None:
         for e in scene.elements:
             source = lines[e.span.line_start - 1 : e.span.line_end]
             assert " ".join(line.strip() for line in source) == e.text
+
+
+def test_a_blank_line_between_paragraphs_in_a_12pt_pdf_is_never_lost() -> None:
+    # T039: pdfplumber's default 13 pt layout rows round some 24 pt gaps (one blank 12 pt line)
+    # down to no blank row, and two paragraphs parse as one. 12 pt rows keep every break.
+    rows: list[Row] = [heading("1", "INT. ROOM - DAY"), None]
+    for i in range(20):
+        rows += [
+            (ACTION, f"Paragraph {i} begins here and"),
+            (ACTION, "wraps onto a second line."),
+            None,
+        ]
+    scene = parse_pdf(pdf_bytes([rows])).scenes[0]
+
+    assert [e.text for e in scene.elements] == [
+        f"Paragraph {i} begins here and wraps onto a second line." for i in range(20)
+    ]

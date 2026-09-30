@@ -13,7 +13,15 @@ from app.grounding.model import (
     Source,
 )
 from app.grounding.schema import ChunkEntities, ProposedEntity
-from app.grounding.text import build_index, locate, locate_in, normalize_for_grounding
+from app.grounding.text import (
+    build_cue_index,
+    build_index,
+    locate,
+    locate_after_cue,
+    locate_in,
+    locate_quote,
+    normalize_for_grounding,
+)
 
 __all__ = [
     "SYSTEM_PROMPT",
@@ -27,12 +35,15 @@ __all__ = [
     "ProposedEntity",
     "Quote",
     "Source",
+    "build_cue_index",
     "build_index",
     "chunk_scenes",
     "extract",
     "ground",
     "locate",
+    "locate_after_cue",
     "locate_in",
+    "locate_quote",
     "normalize_for_grounding",
     "render_chunk",
 ]

@@ -27,7 +27,7 @@ invented.
 | --- | --- | --- | --- | --- |
 | [`the-red-kite`](the-red-kite.fountain) | Demo script: a girl, her grandfather and a kite | 5 | 5 | 3 |
 | [`lost-property`](lost-property.fountain) | Larger cast, for recall: one night in a station's lost-property office | 10 | 12 | 11 |
-| [`sipho-and-siphokazi`](sipho-and-siphokazi.fountain) | Deliberately awkward formatting | 6 | 10 | 4 |
+| [`sipho-and-siphokazi`](sipho-and-siphokazi.fountain) | Deliberately awkward formatting | 6 | 11 | 4 |
 
 Pages include the title page. Scenes and speaking characters are what `parse_pdf` reads, which is
 not always what the source says: see [Parser findings](#parser-findings).
@@ -73,37 +73,41 @@ book. Built to find the parser's edges:
 
 ## Parser findings
 
-Found by these samples on 2026-09-30 and not fixed here (lane `script+grounding` owns the parser):
+Found by these samples on 2026-09-30. Items 1–4 are fixed by T039 (lane `script+grounding`); every
+sample now parses with all of its source's scenes (12, 11, 5), action paragraphs (50, 31, 21) and
+parentheticals (13, 3, 4).
 
-1. **`INT./EXT.` headings are not recognised.** `SCENE_HEADING_RE` accepts `INT/EXT` and
-   `INT/EXT.` but not `INT./EXT.`, the form most screenwriting software writes. Scene 3 of
-   `sipho-and-siphokazi` is read as an action line inside scene 2, so the parser counts 10 scenes
-   where the source has 11.
-2. **A blank line between two action paragraphs is sometimes lost.** pdfplumber's layout text
-   uses `y_density=13` points a row; a screenplay's lines are 12 points apart, so a one-line gap
-   sometimes rounds away and two paragraphs parse as one `Action`. Spans stay exact; only the
-   paragraph boundary is lost. Counts: 2 of 21 paragraph breaks in `the-red-kite`, 6 of 50 in
-   `lost-property`, 5 of 31 in `sipho-and-siphokazi`. With `y_density=12` every boundary survives
-   in all three samples.
-3. **A heading with two dashes splits at the first.** `INT. SIPHO'S HOUSE - KITCHEN - NIGHT` gives
-   location `SIPHO'S HOUSE` and time `KITCHEN - NIGHT`, which `resolve_times` does not recognise, so
-   the scene borrows the previous scene's clock. Here that is also `NIGHT`, by luck.
-4. **A parenthetical that wraps is read as dialogue** (already an open question in
-   [docs/design/script.md](../docs/design/script.md) §10). Two such speeches in
-   `sipho-and-siphokazi` have `parenthetical=None` and the parenthetical's words at the start of
-   their text.
-5. **A line-break hyphen stays in the element text** (`sea- green`, `south- westerly`). Grounding
-   already joins it when it locates a quote (`app/grounding/text.py`); comic lettering (T023) will
-   need to join it too before a bubble shows it.
+1. **`INT./EXT.` headings were not recognised** — fixed. `SCENE_HEADING_RE` accepted `INT/EXT` and
+   `INT/EXT.` but not `INT./EXT.`, the form most screenwriting software writes, so scene 3 of
+   `sipho-and-siphokazi` was read as an action line inside scene 2 (10 scenes, not 11).
+2. **A blank line between two action paragraphs was sometimes lost** — fixed. pdfplumber's layout
+   text used `y_density=13` points a row; a screenplay's lines are 12 points apart, so a one-line
+   gap sometimes rounded away and two paragraphs parsed as one `Action` (2 of 21 breaks in
+   `the-red-kite`, 6 of 50 in `lost-property`, 5 of 31 in `sipho-and-siphokazi`). `parse_pdf`
+   now reads 12 pt rows.
+3. **A heading with two dashes split at the first** — fixed.
+   `INT. SIPHO'S HOUSE - KITCHEN - NIGHT` now gives location `SIPHO'S HOUSE - KITCHEN`, time
+   `NIGHT` (the last segment is the time when it is a known time), and
+   `INT./EXT. SIPHO'S BAKKIE - MOVING - DAY` gives `SIPHO'S BAKKIE - MOVING`, `DAY`.
+4. **A parenthetical that wraps was read as dialogue** — fixed. Both speeches in
+   `sipho-and-siphokazi` (three and four lines) now have their parenthetical, and dialogue text
+   without it ([docs/design/script.md](../docs/design/script.md) §4).
+5. **A line-break hyphen stays in the element text** (`sea- green`, `south- westerly`) — open.
+   Grounding joins it in the script's raw lines, but the model is shown the element text and
+   copies `sea- green`, which is then not located (2 of 36 quotes in the 2026-09-30 T039 run of
+   `sipho-and-siphokazi`). Comic lettering (T023) needs it joined too; the fix belongs in the
+   parser's element text, which changes the span-to-text contract, so it is its own task.
 
 Handled correctly: (MORE) / (CONT'D) splits, `(CONTINUED)` / `CONTINUED:`, page numbers,
 transitions, `4A` scene numbers, a heading with no time (`None`, not an invented `DAY`), `--` as
 the separator, the shouted all-caps dialogue line, and SIPHO / SIPHOKAZI kept apart as cues.
 
-## Live run — `the-red-kite` on the real account (2026-09-30)
+## Live runs on the real account (2026-09-30)
 
 Nemotron 3.5 Lightning on Token Factory (`nvidia/Nemotron-3_5-Lightning`, thinking off), one
-extraction chunk, a few thousand tokens in all.
+extraction chunk per sample, 1,400–2,900 tokens in and 550–2,400 out a run.
+
+### `the-red-kite`, before T039
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -111,12 +115,29 @@ extraction chunk, a few thousand tokens in all.
 | Grounding, run 1 | `uv run python -m app.grounding.run ../../samples/the-red-kite.pdf` | faithfulness **0.625** (5/8 entities, 11/26 quotes located); recall **0.000** (0/3 speakers) |
 | Grounding, run 2 | same | faithfulness **0.143** (1/7 entities, 8/30 quotes located); recall **0.000** (0/3 speakers) |
 
-Every character still reaches the shot plan (the cue fallback adds LERATO, MOKGOSI and RADIO
-ANNOUNCER from their cues), and nothing ungrounded is kept. But the numbers are far below the
-Phase 1 sample's 1.000 / 1.000, and the cause is visible in the raw model output: **Lightning
-starts almost every dialogue quote with the speaker's cue line** (`"LERATO\nI promise."`,
-`"MOKGOSI (smiling)\nAnd we watch the sky."`). The cue is not inside the dialogue element's span,
-so `locate` rejects the whole quote, and a character quoted only through dialogue is dropped from
-the model's list. A few quotes also stitch a heading or a second paragraph onto an action line. For
-lane `script+grounding` (T032 will measure it): either tell the model to leave the cue out, or let
-`locate` accept a leading cue line that matches the element's own cue.
+Every character still reached the shot plan (the cue fallback adds LERATO, MOKGOSI and RADIO
+ANNOUNCER from their cues), and nothing ungrounded was kept. But the cause of the low numbers was
+visible in the raw model output: **Lightning started almost every dialogue quote with the
+speaker's cue line** (`"LERATO\nI promise."`, `"MOKGOSI (smiling)\nAnd we watch the sky."`). The
+cue is not inside the dialogue element's span, so `locate` rejected the whole quote, and a
+character quoted only through dialogue was dropped from the model's list.
+
+### Grounding before and after T039, all three samples
+
+`uv run python -m app.grounding.run ../../samples/<name>.pdf`. "Before" is `main` at `68c4cd8`,
+"after" is T039 (prompt asks for dialogue quotes without the cue or parenthetical; the filter
+strips a leading line that is that same speech's own header; 12 pt rows; the heading and
+parenthetical fixes). One run each; Lightning at temperature 0 still varies run to run.
+
+| Sample | Faithfulness before | after | Recall before | after |
+| --- | --- | --- | --- | --- |
+| `the-red-kite` | 0.333 (2/6; 7/27 quotes) | **1.000** (7/7; 29/29 quotes) | 0/3 | **3/3** |
+| `lost-property` | 0.793 (23/29; 79/87 quotes) | **0.846** (22/26; 77/81 quotes) | 10/11 | 10/11 |
+| `sipho-and-siphokazi` | 0.333 (5/15; 13/45 quotes) | **0.750** (12/16; 34/36 quotes) | 0/4 | **4/4** |
+
+With the new prompt Lightning mostly leaves the cue out, so most of the gain is the prompt. In a
+diagnostic run over all three samples, 2 of 166 quotes still led with a header — both with the
+speech's own parenthetical (`"(reading)\nThree umbrellas. …"`) — and the filter kept them at that
+speech without it. What still fails: names the script never writes (`NOTEPAD`, `GURGLE`: dropped),
+a model paraphrase (`"He plays a VIOLIN."`: dropped), finding 5 above, and the ANNOUNCER in
+`lost-property`, a V.O. voice the model doesn't list (added from its cue, not counted to recall).
