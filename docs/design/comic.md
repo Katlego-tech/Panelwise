@@ -1,8 +1,8 @@
 # Design — `comic` (page layout, panels, speech bubbles, export)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T022 (layout), T023 (bubbles, lettering,
-export), T024 consumes it (reader) · **Spec:** US3 (script → comic); SPEC.md's stories are still
-the template
+export), T024 consumes it (reader) · **Spec:** [SPEC.md](../../SPEC.md) US3 (script →
+comic)
 
 ---
 

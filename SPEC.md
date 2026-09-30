@@ -1,71 +1,370 @@
 # `Panelwise` — Specification (the WHAT)
 
-**Related:** [PLAN.md](PLAN.md) (the HOW) · [TASKS.md](TASKS.md) (the backlog)
+**Related:** [PLAN.md](PLAN.md) (the HOW) · [TASKS.md](TASKS.md) (the backlog) ·
+[docs/design/](docs/design/) (the shapes) · [SCOPE.md](SCOPE.md) (problem, persona, milestones)
+
+Nothing here is new: every requirement restates PLAN.md or an agreed design doc, and names its
+source in brackets. Where the sources don't decide something, it is listed under
+[Open questions](#open-questions) instead of being decided here.
 
 ---
 
 ## Overview
 
-`<Two or three sentences: what the system is, who/what calls it (a human user? an automated
-harness? both?), and what it produces.>`
+Panelwise turns a screenplay into a shot-by-shot storyboard and then into a comic book. A person
+uploads a screenplay PDF in the web app; NVIDIA Nemotron on Nebius Token Factory extracts the
+characters, props and locations and plans the shots, ComfyUI on a Nebius AI Cloud GPU renders one
+frame per shot, and every frame is audited before anyone sees it: **a vision model describes each
+frame; Nemotron audits it against the script** and a failing frame is re-rendered. The output is a
+storyboard (in the app and as a PDF) and comic pages with speech bubbles lettered from the script's
+dialogue (in a reader and as a PDF). [PLAN.md § Summary; docs/nebius-findings.md § The vision
+decision, option A; verify.md §8]
+
+**The rule everything below serves (PLAN.md Non-negotiable 1):** a storyboard frame or comic panel
+never shows a character, prop, line of dialogue or event that is not in the screenplay. Every panel
+traces back to a verbatim source span, and every audit verdict is logged.
 
 ### Goals
 
-- `<the core things the system must do>`
+- **Grounded extraction:** every character, prop and location shown quotes the script verbatim at a
+  located page/line span; anything that can't be located is dropped, never shown. Faithfulness and
+  recall are reported together. [grounding.md §1, §4]
+- **A shot list that covers the whole script:** every element of every scene lands in exactly one
+  shot, so no line of dialogue is left without a panel. [shots.md §1, §3]
+- **One audited frame per shot,** in a public style, re-rendered on a failed audit within a retry
+  cap, with every attempt's description and verdict in an audit log the user can open.
+  [PLAN.md Phase 4; verify.md §4]
+- **Comic pages** whose every letter is verbatim script text with its span. [comic.md §1]
+- **Consistent characters** across panels, drawn only from the script's own words about them.
+  [characters.md §1, §3]
+- **Stay inside the credits:** a full script under about $0.10 of Token Factory credit; LLM and image
+  spend capped in code. [PLAN.md Non-negotiable 2, § Technical Context]
+- **Nemotron visibly load-bearing:** extraction, shot planning and the audit's judgement (which described
+  person is which character, whether an object is scripted) run on Nemotron on Token Factory; the
+  countable checks and the verdict are code. [RUBRIC.md; verify.md §3, §8]
 
 ### Non-goals
 
-- `<explicitly out of scope — this list prevents scope creep more than the goals list does>`
+Out of scope for this event; written down so nobody quietly builds them. [SCOPE.md § Out of scope]
+
+- Editable panels (redraw one frame with a note), animatics with scratch audio, exporting shot lists
+  to scheduling tools.
+- Self-hosting an NVIDIA vision model on the Nebius GPU (vision option B): a stretch, never on the
+  critical path. [docs/nebius-findings.md § The vision decision]
+- A multi-provider LLM fallback chain: Token Factory only.
+- Private style packs in the demo: the public repo runs everything the demo shows. [PLAN.md
+  Non-negotiable 2]
+- Any copyrighted screenplay in the repo, the demo or the video.
+- Character attributes the script doesn't state (age, gender, ethnicity, skin tone), including
+  FrameFlow's "director choices"; appearance notes only ever as explicitly user-entered, labelled
+  fields, and not until someone asks. [grounding.md §8; characters.md §8, §10]
+- Narration captions from action lines, and sound effects. [comic.md §1, §8]
+- Right-to-left reading order. [comic.md §10]
+- Scripts without a text layer (scans): refused. [script.md §4]
 
 ---
 
 ## Actors
 
-### `<Primary actor — e.g. "the end user" or "the evaluation harness">`
+### The end user: a writer-director with a script and no storyboard artist
 
-`<What it does, step by step: what it sends in, what it expects back, how it judges success.>`
+[SCOPE.md § Who it's for]
 
-> 📝 **Customize:** if there's a scoring/evaluation rubric (hackathon, grading, SLA), spell it out here —
-> it drives every acceptance criterion below.
+1. Signs in to the web app (Supabase Auth). [deploy.md §1, §4; T009]
+2. Uploads a screenplay PDF.
+3. Sees the scenes, characters and locations, each with its verbatim quote and page/line span; then
+   the shot list. [DEMO.md golden path 3–4]
+4. Watches frames render, one per shot; opens the audit log to see why each frame was accepted,
+   re-rendered or withheld. [DEMO.md 5–6]
+5. Exports the storyboard PDF; switches to the comic reader; exports the comic PDF. [DEMO.md 7–8]
+6. Clicks any frame, panel or bubble to see the script lines it came from. [DEMO.md 9]
+
+**Success, in their terms:** a frame they can hand to a crew without checking it against the script
+first, because nothing in it was invented.
+
+### The hackathon judges
+
+Judges score from the public repo, the hosted demo and a video of 3 minutes or less, between 1 and
+15 Dec 2026, with no live pitch. [RUBRIC.md; DEMO.md; event.toml]
+
+- They sign in with a **seeded judge account** whose project is already rendered, so they see a
+  full storyboard and comic without spending credit or waiting on a GPU. [DEMO.md § Fallbacks; T030]
+- The hosted demo stays up, free and unrestricted, until 15 Dec, behind spend caps and upload
+  limits so a judge can't drain the credit. [DEMO.md § Fallbacks; deploy.md §1; T030]
+
+**The rubric** (Devpost, four criteria, equal weights of 25; `event.toml [rubric]`, mapped to
+evidence in [RUBRIC.md](RUBRIC.md)):
+
+| Criterion | What it asks of this spec |
+|---|---|
+| Technological Implementation | Nebius Token Factory and Nemotron used effectively: extraction, shot planning and the audit judge on Nemotron; rendering on a Nebius AI Cloud GPU |
+| Design | a complete product experience, not a proof of concept: US1–US4 in the web app, both PDFs, the audit log |
+| Potential Impact | evidence it works for the persona, on public-domain or self-written scripts: faithfulness, recall and frame-audit accuracy numbers (T032) |
+| Quality of the Idea | a non-obvious use of Nemotron: grounding enforced in code, Nemotron as the judge of an image-audit loop |
+
+**Honesty rule for every claim a judge reads:** no Nemotron model on Token Factory accepts images
+(findings U7), so the audit's *describe* step runs on `zai-org/GLM-5.3-Flash`, a non-NVIDIA model.
+The approved wording is *"a vision model describes each frame; Nemotron audits it against the
+script."* Never "Nemotron vision auditor". [verify.md §8; RUBRIC.md]
 
 ---
 
 ## User stories
 
-> 📝 **Customize:** number them `US1, US2, ...`, prioritize `P1/P2/P3`, and write each as independently
-> testable and independently demoable — this is what makes phased delivery ([PLAN.md](PLAN.md) §Build
-> phases) actually work instead of being a "big bang" in disguise.
+Priorities follow PLAN.md § Build phases: US1 is Phase 3 on its own and is the MVP (**P1**); US2,
+US3 and US4 are all Phase 4 (**P2**). Within P2, STATUS.md's timeline builds US2 and US4 in week 3
+and US3 in week 4; PLAN.md doesn't rank them further (see Open questions).
 
-A story title needs a **verb and an object** — "Refuse to launch into a full world", not "World
-fixes". A title you can't act on is a story nobody understood well enough to build.
+Each scenario becomes an acceptance test ([docs/testing-strategy.md](docs/testing-strategy.md));
+a task's `Verify:` line names the scenario it satisfies.
 
-### US1 — `<title>` (P1)
+### US1 — Turn a screenplay into a grounded storyboard (P1)
 
-**As a** `<actor>`, **I want** `<capability>`, **so that** `<value>`.
+**As a** writer-director, **I want** to upload my screenplay and get a storyboard with one frame
+per shot, **so that** my crew can see the film before it is shot, without a storyboard artist.
 
-**Scenarios** — each becomes an acceptance test
-([docs/testing-strategy.md](docs/testing-strategy.md#acceptance-tests-start-with-a-story)), and a
-task's `Verify:` line names the scenario it satisfies:
+[PLAN.md Phase 3; SCOPE.md week 2; T005–T009; script.md, grounding.md, shots.md]
 
 ```
-Scenario: <name — the case, not the mechanism>
-  Given <starting state>
-  When  <the action>
-  Then  <the observable outcome>
+Scenario: A screenplay becomes a storyboard
+  Given a signed-in user and a self-written screenplay PDF with a text layer
+  When  they upload it
+  Then  the scenes, characters and locations appear, each with a verbatim quote and its page/line span
+  And   the shot list appears, every shot citing the lines it covers
+  And   one frame per shot renders in a public style
+  And   the storyboard exports as a PDF
 ```
 
-- **Scenario: `<the happy path>`** — Given `<...>`, when `<...>`, then `<...>`.
-- **Scenario: `<the edge that breaks it>`** — Given `<...>`, when `<...>`, then `<...>`.
-
-> A story with one scenario is usually a story with an unexamined edge case. Write the boundary and
-> the refusal too — "the world is full", "the file is empty", "the key is expired" — because those
-> are the cases the implementation will otherwise decide for itself, silently.
+- **Scenario: every frame traces to the script** — Given a rendered storyboard, when the user
+  clicks a frame, then the verbatim script lines it came from and their page/line span are shown.
+  [PLAN.md NN1; DEMO.md 9; shots.md §3 `source`, `span`]
+- **Scenario: an entity the script doesn't support is dropped** — Given the model proposes a
+  character whose quotes can't be located in any single script element, when extraction runs, then
+  that entity is dropped with a reason and never shown; an entity with one bad quote keeps its
+  located ones. [grounding.md §4]
+- **Scenario: the report shows what was missed, not only what was right** — Given an extraction,
+  when it finishes, then faithfulness (grounded ÷ proposed) and recall (speaking cues found by the
+  model ÷ speaking cues) are reported together, and speaking characters the model missed are still
+  added to the cast from their cues. [grounding.md §3–§4]
+- **Scenario: no line of the script is left without a shot** — Given a scene of *n* elements, when
+  shots are planned, then each element is in exactly one shot, in order, even when the model's
+  proposed ranges overlap, leave gaps or run out of bounds (they are repaired and counted). A scene
+  with no elements gets one shot citing its heading. [shots.md §3–§4]
+- **Scenario: a shot can't smuggle in a character** — Given the model names a character or prop not
+  extracted for that scene, when the shot is built, then the name is dropped, never drawn, and
+  counted in the plan report. [shots.md §3, §8]
+- **Scenario: the time of day comes from the script** — Given a scene headed `CONTINUOUS` after a
+  night scene, when its shots are planned, then their time of day is the resolved night, not the
+  model's guess. [shots.md §2–§3]
+- **Scenario: a scanned PDF is refused** — Given a PDF with no text layer, when it is uploaded, then
+  parsing fails with "no text layer", never an empty screenplay that looks like success. Likewise a PDF with no scene
+  headings, or a malformed PDF. [script.md §4]
+- **Scenario: a failed model call fails loudly** — Given one extraction chunk's or one scene's
+  shot-planning call fails after its repair retry, when the job runs, then the whole job fails
+  naming the chunk or scene; no partial storyboard with a silent gap is shown. [grounding.md §4;
+  shots.md §4]
+- **Scenario: a script too long for the budget is refused before it costs anything** — Given a
+  script that needs more than the extraction chunk limit, when it is uploaded, then extraction is
+  refused before any model call is made. [grounding.md §4]
 
 **Acceptance criteria:**
-- [ ] `<observable, testable criterion>`
+- [ ] Every entity, shot and frame shown carries a verbatim quote or source text located to a
+  page/line span.
+- [ ] Faithfulness and recall are shown for every extraction.
+- [ ] Every scene element is covered by exactly one shot.
+- [ ] Only public styles are used; the storyboard exports as a PDF.
+- [ ] Progress survives an API restart (a `Job` row in Postgres). [deploy.md §3, §5]
+
+### US2 — Audit every frame against its shot before anyone sees it (P2)
+
+**As a** writer-director, **I want** each frame checked against its shot and re-rendered when it
+shows something the script doesn't, **so that** I can trust a frame without checking it myself.
+
+[PLAN.md Phase 4; SCOPE.md week 3; T010, T020, T021; verify.md]
+
+```
+Scenario: A frame that matches its shot is shown, with its audit
+  Given a rendered frame for a shot
+  When  the vision model describes it, blind to the shot, and Nemotron judges the description against the shot's grounded spec
+  And   every hard check passes
+  Then  the frame is shown (PASS, or WARN if only soft checks failed)
+  And   the audit log holds the description, the judgement, every check and the verdict
+```
+
+- **Scenario: an unscripted person triggers a re-render** — Given a frame with a person the judge
+  can't match to one of the shot's characters and who has no verbatim support in the shot's source,
+  when it is audited, then the verdict is `FAIL` (`unscripted_person`) and the shot is re-rendered
+  with a new deterministic seed. Two people called as the same character count the same way.
+  [verify.md §3 checks, §4]
+- **Scenario: an unscripted object, visible text, or the wrong setting fails** — Given a frame
+  showing an object the judge calls unscripted (or a held object, an animal, vehicle, weapon, screen
+  or sign, or food passed off as set dressing), or any letters or text, or an exterior in an `INT`
+  scene, when it is audited, then the verdict is `FAIL`. [verify.md §3]
+- **Scenario: "supported by the script" needs a verbatim quote** — Given the judge says an unnamed
+  person or object is supported but its `support` quote is not found in the shot's source or
+  entities' quotes (or, for set dressing, the scene heading), when checks run, then it counts as
+  unscripted. [verify.md §3]
+- **Scenario: a quality miss is logged, not blocking** — Given a frame that only misses a character,
+  has day light in a night scene, or is framed two or more steps off, when it is audited, then the
+  verdict is `WARN`, the frame is shown, and the soft checks are logged and visible. Transitional
+  times (dawn, dusk) and `unclear` always pass. [verify.md §3]
+- **Scenario: a frame that keeps failing is withheld, shown as a text card** — Given a shot whose
+  three renders (the first plus two re-renders) all fail, when the loop ends, then no frame is
+  shown; the storyboard shows a text card with the shot's verbatim source, its span and "Frame
+  withheld: failed audit (unscripted person)" (naming the failed check), and the user can ask for
+  another attempt, audited the same way. [verify.md §4–§5]
+- **Scenario: an audit that can't run never passes a frame** — Given the describer or judge call
+  fails, or the judgement skips, repeats or mis-indexes a described person or object, when the
+  audit runs, then the audit is `ERROR`, it is logged, and the frame is withheld. [verify.md §3–§4]
+- **Scenario: the describer can't just agree** — Given any audit, when the vision model is called,
+  then its request carries the image and a neutral instruction and no shot details. [verify.md §3,
+  §9]
+- **Scenario: the audit log is visible in the app** — Given a storyboard in which a frame was
+  re-rendered, when the user opens the audit log, then each attempt shows the vision model's
+  description, Nemotron's verdict and each check. [DEMO.md 6; T021]
+- **Scenario: the renderer fails** — Given ComfyUI errors, when a frame is rendered, then the frame
+  job fails (`FAILED`); nothing is shown unaudited. [verify.md §4]
+
+**Acceptance criteria:**
+- [ ] No frame is displayed unless its audit is `PASS` or `WARN`; no state transition skips the audit.
+- [ ] At most 3 renders per frame by default; every attempt, pass or fail, is a row in the audit log.
+- [ ] Every audit decision is Nemotron's or code's; the vision model only describes.
+- [ ] Frame-audit precision and recall are measured on a labelled set with injected extra people and
+  objects, and reported in the README. [verify.md §9; T032]
+
+### US3 — Lay the script out as comic pages with speech bubbles (P2)
+
+**As a** writer-director, **I want** the same script as comic pages with the dialogue in speech
+bubbles, **so that** I get a second, readable form of the story that is held to the same rule.
+
+[PLAN.md Phase 4; SCOPE.md week 4; T011, T022–T024; comic.md]
+
+```
+Scenario: A shot plan becomes comic pages
+  Given a planned and audited script
+  When  the user opens the comic
+  Then  pages show one panel per shot in plan order, sized by story beat
+  And   each line of dialogue the shot covers is in one bubble or caption, lettered byte for byte as the script has it, with its span
+  And   the pages read in the web reader and export as one PDF
+```
+
+- **Scenario: dialogue is lettered verbatim, never cut** — Given a panel with more dialogue than
+  fits, when it is laid out, then the panel grows (up to three relayouts, then a tier of its own);
+  text never drops below 28 px and is never truncated, paraphrased or dropped; if it still can't
+  fit, the comic job fails naming the shot. [comic.md §4 step 5, §8]
+- **Scenario: voice-over and off-screen speech** — Given a line with extension `V.O.` (including
+  `V.O./CONT'D`), then it is a caption box with no tail; with `O.S.`, `O.C.` or `OFF`, then an
+  off-panel bubble whose tail points to the panel edge; any other extension is ordinary speech.
+  [comic.md §3]
+- **Scenario: only the script's words are on the page** — Given any comic page, then action lines,
+  parentheticals and sound effects are not lettered, and the scene caption on a scene's first panel
+  uses only the heading's location and, when it has a real clock, its time (`CONTINUOUS` is never
+  lettered). [comic.md §1, §3]
+- **Scenario: a withheld panel still carries its dialogue** — Given a panel whose frame was withheld
+  by the audit, when the page is rendered, then the panel shows the comic's withheld card ("Frame
+  withheld: failed audit (<failed hard checks>)" and the script page/lines), its bubbles are still
+  placed, and the card does not repeat the source text. [comic.md §4 step 6]
+- **Scenario: bubbles don't hide the speaker and read in order** — Given an accepted frame, when
+  bubbles are placed, then they sit in low-detail areas away from the speaker's third, never
+  overlap, and follow reading order; the speech tail points at the speaker's position from the
+  audit. [comic.md §4 steps 7–8]
+- **Scenario: every bubble traces to the script** — Given the comic reader, when the user clicks a
+  bubble or panel, then the reader shows the page and lines it came from. [comic.md §6; DEMO.md 9]
+- **Scenario: no crop cuts anyone out** — Given a panel of any shape, when its frame is made, then
+  it is rendered and audited at exactly the panel's size, never cropped from the storyboard frame.
+  [comic.md §3, §8]
+
+**Acceptance criteria:**
+- [ ] Every `Dialogue` of every shot is in exactly one bubble or caption whose text equals it and
+  whose span is its span; no other text appears except heading-built scene captions.
+- [ ] Panels are rendered through the same audit as US2; a withheld frame is never drawn.
+- [ ] Pages are 1988 × 3075 px; the reader, the PDF and the layout JSON agree. [comic.md §2, §6]
+
+### US4 — Keep each character looking the same from panel to panel (P2)
+
+**As a** writer-director, **I want** a character to look the same in every frame and panel, **so
+that** the crew and the reader can follow who is who.
+
+[PLAN.md Phase 4; SCOPE.md week 3; T012, T025; characters.md]
+
+```
+Scenario: A reference portrait keeps a character consistent
+  Given a character the script describes in an action paragraph
+  When  their portrait is rendered from those quotes, with every name redacted, and passes its audit (exactly one person, no text)
+  Then  the portrait is used as an image reference in every frame the character appears in
+  And   the character is recognisably the same across panels
+```
+
+- **Scenario: an undescribed character stays undescribed** — Given a character the script never
+  describes (for example one known only from a dialogue cue), when their portrait is made, then it
+  uses a neutral prompt with nothing inferred, and the app says "the script doesn't describe
+  <NAME>". [characters.md §3 rule 3]
+- **Scenario: only action lines describe a character** — Given quotes about a character located in
+  dialogue or a scene heading, when the portrait prompt is built, then those quotes are excluded, and
+  no age, gender, ethnicity or skin tone is added unless those words are in a quote. [characters.md
+  §3 rule 2]
+- **Scenario: no name reaches an image model** — Given "NANDI (60s, oilskin coat) pours tea", when it
+  enters an image prompt, then it reads "a person (60s, oilskin coat) pours tea"; another
+  character's name becomes "another person". This holds for every portrait and frame prompt.
+  [characters.md §3 rules 1–2, §9]
+- **Scenario: a portrait that keeps failing is withheld** — Given three portrait renders that fail
+  their audit, when the loop ends, then the portrait is withheld, that character's frames render
+  without a reference, and the app says so. [characters.md §4]
+- **Scenario: a crowded shot** — Given a shot with three or more characters, when references are
+  chosen, then only two get one (speakers first, by first speech), placed left and right, and the
+  frame's provenance says the rest come from the prompt alone. [characters.md §4]
+- **Scenario: the GPU box is missing the reference nodes** — Given ComfyUI lacks the IP-Adapter
+  nodes or models, when a frame job starts, then it fails naming what is missing; it never silently
+  renders without references. [characters.md §4]
+
+**Acceptance criteria:**
+- [ ] No image prompt contains any character's name token.
+- [ ] Portraits are used as references only when audited `READY`.
+- [ ] Undescribed characters are flagged in the UI.
 
 ---
 
 ## Acceptance criteria (system-level)
 
-- [ ] `<the criteria that gate "this is done", independent of any one user story>`
+- [ ] **Non-negotiable 1:** every storyboard frame and comic panel traces to a verbatim source span;
+  every audit verdict is logged; nothing unscripted is shown. [PLAN.md]
+- [ ] **Credits:** a full script costs under about $0.10 of Token Factory credit; LLM and image spend
+  are capped in code; one frame renders in seconds on the GPU, not minutes. [PLAN.md NN2, §
+  Technical Context]
+- [ ] **Honest wording** in README, the Devpost story, the video and the app: a vision model
+  describes each frame; Nemotron audits it. [verify.md §8]
+- [ ] **Public repo runs the demo:** everything the demo shows runs from the public repo with public
+  styles; the repo carries an OSI licence (Apache-2.0). [PLAN.md NN2, § Technical Context]
+- [ ] **Samples:** only public-domain or self-written screenplays in the repo, demo and video.
+  [PLAN.md § Technical Context; SCOPE.md]
+- [ ] **Hosted demo** on Vercel + Railway + Supabase, with a seeded judge account whose project is
+  pre-rendered, spend caps and upload limits, up until 15 Dec 2026. [deploy.md; DEMO.md; T030]
+- [ ] **Measured:** faithfulness, recall and frame-audit accuracy numbers in the README. [T032]
+- [ ] **Submission:** a video of 3 minutes or less, submitted on Devpost by 29 Oct 2026 (deadline
+  30 Oct 10:00 PDT). [PLAN.md § Summary; event.toml]
+
+---
+
+## Open questions
+
+Undecided in PLAN.md and the design docs; listed here so no implementer decides them silently.
+
+1. **Unaudited frames at the US1 checkpoint.** PLAN.md makes US1 (storyboard) demoable before US2
+   (the audit), but verify.md says a frame is never shown without a `PASS` or `WARN` audit. Until
+   T020 lands, are US1 frames shown (labelled unaudited), or does the US1 checkpoint wait for the
+   audit?
+2. **Order within P2.** PLAN.md puts US2, US3 and US4 in one phase. If time runs short, which is
+   cut or thinned first?
+3. **Which styles stay private** (STATUS.md § Open decisions): decide before T008. The demo uses
+   public styles only either way.
+4. **Spend cap and upload limit values** for the hosted demo: PLAN.md sets the goal (about $0.10 a
+   script) but not the caps, nor how many extra attempts a user may ask for on a withheld frame or
+   portrait. Decide in T030.
+5. **Frame-audit accuracy bar.** T032 measures precision and recall, but no target is agreed. (If
+   recall is poor, the remedy is decided: a new describer prompt or model, or option B; verify.md §8.)
+6. **Who can see a project.** Row-level security for projects, Storage and the `Job` table is
+   undecided (deploy.md §10): decide with Auth in T009.
+7. **Sound effects** from all-caps action ("DOORS SLAM."): a styling choice, decided with a sample
+   page in hand (comic.md §10, T023). Until then, none.
+8. **Dual dialogue** isn't parsed, so simultaneous speeches read as sequential bubbles (script.md
+   §10, comic.md §10). Fix only if a sample needs it.

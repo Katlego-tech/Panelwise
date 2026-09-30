@@ -3,8 +3,9 @@
 **Script → storyboard → comic, grounded in the screenplay at every step.**
 
 Panelwise turns a screenplay into a shot-by-shot storyboard and then into a comic book. Every panel
-traces back to a verbatim span of the script: a vision model audits each rendered frame against its
-shot spec and re-renders it when the frame shows something the script doesn't.
+traces back to a verbatim span of the script: a vision model describes each rendered frame, Nemotron
+audits it against the shot spec, and the frame is re-rendered when it shows something the script
+doesn't.
 
 Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/)
 (Best Apps and Agents track).
@@ -21,7 +22,8 @@ flowchart LR
   P --> G[Grounded extraction<br/>Nemotron · Token Factory]
   G --> S[Shot planning<br/>Nemotron]
   S --> R[Render frames<br/>ComfyUI on Nebius GPU]
-  R --> V{Frame audit<br/>Nemotron vision}
+  R --> D[Describe frame<br/>vision model · Token Factory]
+  D --> V{Frame audit<br/>Nemotron judges}
   V -- mismatch --> R
   V -- pass --> B[Storyboard PDF]
   V -- pass --> C[Comic pages<br/>layout + speech bubbles]
@@ -29,8 +31,8 @@ flowchart LR
 
 | Stage | NVIDIA / Nebius |
 | --- | --- |
-| Extraction, shot planning, panel layout | NVIDIA Nemotron on **Nebius Token Factory** (OpenAI-compatible API) |
-| Frame audit (who's in frame, framing, time of day) | NVIDIA Nemotron vision-language model on Token Factory |
+| Extraction, shot planning | NVIDIA Nemotron on **Nebius Token Factory** (OpenAI-compatible API) |
+| Frame audit (who's in frame, framing, time of day) | A vision model on Token Factory (`zai-org/GLM-5.3-Flash`, not NVIDIA: no Nemotron model there accepts images) describes each frame; **NVIDIA Nemotron** judges the description against the shot spec |
 | Image rendering | ComfyUI on a **Nebius AI Cloud** GPU |
 
 ## Quick start

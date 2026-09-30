@@ -1,8 +1,8 @@
 # Design — `characters` (reference portraits and consistent characters)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T025 (portraits, references in frames);
-its ComfyUI nodes are installed on T003's GPU · **Spec:** US4 (the same character looks the same from
-panel to panel); SPEC.md's stories are still the template
+its ComfyUI nodes are installed on T003's GPU · **Spec:** [SPEC.md](../../SPEC.md) US4 (the same character
+looks the same from panel to panel)
 
 ---
 
