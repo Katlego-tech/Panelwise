@@ -9,7 +9,7 @@ log, log in the web app) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 Checking every rendered frame against its shot before anyone sees it, re-rendering it when it
 fails, and logging every verdict. This is where Non-negotiable I is enforced **on pixels**: a frame
-that shows a person, prop or event the script doesn't put in that shot is never shown. Up to T008,
+that shows a person, prop or event the script doesn't put in that shot is never shown. Up to T026,
 grounding is enforced on text; this is the first check on images.
 
 **Not covered:** rendering (T026 provides the renderer this calls: storyboard.md), comic layout (comic.md reads
@@ -21,7 +21,7 @@ the audit's speaker positions), portraits (characters.md).
 | --- | --- |
 | The vision decision | docs/nebius-findings.md § The vision decision: **option A**: no Nemotron model on Token Factory accepts images (U7), so a vision model (`NEBIUS_MODEL_VISION`, DeepSeek-V4.1-Flash since 2026-09-30: GLM-5.3-Flash stopped receiving images, findings § U7 re-check) *describes* the frame and Nemotron *judges* it. Option B, a self-hosted NVIDIA VLM on the ComfyUI GPU, is a stretch |
 | Prior art in FrameFlow | **none**: FrameFlow had no image audit, no verdicts and no automatic re-render; "regenerate" was a user button with a random seed |
-| Inputs | `Shot` (shots.md §6: framing, characters, props, time_of_day, source, span); `Entity` quotes (grounding.md §6); `Scene.int_ext`, `location` (script.md §6); the rendered frame (T008) |
+| Inputs | `Shot` (shots.md §6: framing, characters, props, time_of_day, source, span); `Entity` quotes (grounding.md §6); `Scene.int_ext`, `location` (script.md §6); the rendered frame (T026) |
 | LLM seam | `structured_chat`, `Tier.VISION` and `Tier.REASONING` (llm.md §6). Image content parts are OpenAI-style (`image_url` data URLs), as probed in U7 |
 | Expected renders | `E[N] = (1 − (1−p)^(k+1)) / p` for pass rate `p` and `k` re-renders (docs/submission/about.md) |
 
