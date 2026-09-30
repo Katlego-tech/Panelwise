@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal, TypeAliasType, Union, get_args, get_origin
+from uuid import UUID
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -29,11 +30,12 @@ WEB_MD = Path(__file__).resolve().parents[4] / "docs" / "design" / "web.md"
 
 @dataclass(frozen=True)
 class Shape:
-    kind: Literal["object", "list", "enum", "prim"]
+    kind: Literal["object", "list", "dict", "enum", "prim"]
     nullable: bool = False
     fields: tuple[tuple[str, Shape], ...] = ()
     item: Shape | None = None
     values: frozenset[str] = frozenset()
+    prim: str = ""  # string, number or boolean
 
 
 def ts_block() -> str:
@@ -102,8 +104,12 @@ class TypeScript:
             return Shape("object", nullable, fields=self.interface(only).fields)
         if only in self.aliases:
             inner = self.shape(self.aliases[only])
-            return Shape(inner.kind, nullable, inner.fields, inner.item, inner.values)
-        return Shape("prim", nullable)
+            return Shape(inner.kind, nullable, inner.fields, inner.item, inner.values, inner.prim)
+        if only.startswith("Record<"):
+            _, value = split_top(only[len("Record<") : -1], ",")
+            return Shape("dict", nullable, item=self.shape(value))
+        assert only in ("string", "number", "boolean"), f"unknown TypeScript type {only!r}"
+        return Shape("prim", nullable, prim=only)
 
 
 # --- the comparison ------------------------------------------------------------------------
@@ -140,8 +146,16 @@ def compare(annotation: Any, shape: Shape, where: str) -> None:
             assert get_origin(inner) is Literal, where
             values = set(get_args(inner))
         assert values == set(shape.values), f"{where}: {values} vs {set(shape.values)}"
+    elif shape.kind == "dict":
+        assert get_origin(inner) is dict, where
+        key, value = get_args(inner)
+        assert key is str, where
+        assert shape.item is not None
+        compare(value, shape.item, f"{where}{{}}")
     else:
-        assert not (isinstance(inner, type) and issubclass(inner, BaseModel)), where
+        # A doc `string` is a JSON string: str, or a UUID or datetime that serialises as one.
+        allowed = {"string": (str, UUID, datetime), "number": (int, float), "boolean": (bool,)}
+        assert inner in allowed[shape.prim], f"{where}: {inner} for a TypeScript {shape.prim}"
 
 
 TS = TypeScript(ts_block())
@@ -180,6 +194,23 @@ def test_the_comparison_catches_a_renamed_field() -> None:
 
     with pytest.raises(AssertionError):
         compare(Wrong, TS.interface("SpanRef"), "SpanRef")
+
+
+def test_the_comparison_catches_a_primitive_type_difference() -> None:
+    class Wrong(BaseModel):
+        page: str
+        line_start: int
+        line_end: int
+
+    with pytest.raises(AssertionError):
+        compare(Wrong, TS.interface("SpanRef"), "SpanRef")
+
+
+def test_the_comparison_reads_a_record_s_value_union() -> None:
+    positions = dict(TS.interface("AuditView").fields)["positions"]
+    assert positions.kind == "dict"
+    assert positions.item is not None
+    assert positions.item.values == {"left", "centre", "right"}
 
 
 def test_the_comparison_catches_a_nullability_difference() -> None:
