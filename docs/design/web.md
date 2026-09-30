@@ -1,7 +1,8 @@
 # Design — `web` (sign-in, projects, script, storyboard, frame detail)
 
-**Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009 (API: projects, jobs, pipeline
-runner, read endpoints), T040–T042 (the screens), T021 (the audit section of the frame sheet) ·
+**Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T043, T044 (API: projects and
+upload, the pipeline runner, the read endpoints), T040–T042, T045 (the screens), T021 (frame state, the
+audit section of the frame sheet, "Try another render"), T008 (the storyboard PDF) ·
 **Spec:** US1, and US2's "the audit log is visible in the app" ([SPEC.md](../../SPEC.md))
 
 ---
@@ -18,7 +19,8 @@ script supervisor's convention: a straight line while the speaker is on screen, 
 they're off). A frame never appears without the line it came from next to it.
 
 **Not covered:** the comic reader (T024; its own section is added here before T024 starts),
-rendering and the PDF itself (T008, docs/design/storyboard.md), the audit logic (verify.md).
+rendering and the PDF itself (T008; its design doc, docs/design/storyboard.md, is in review), the
+audit logic (verify.md).
 
 ## 2. Reference material
 
@@ -96,7 +98,19 @@ classDiagram
         PLANNING
         RENDERING
     }
+    class Frame {
+        +uuid project_id
+        +int scene_index
+        +int shot_number
+        +FrameState state
+        +int attempt
+        +uuid job_id
+        +str|None asset
+        +str|None withheld_check
+        +datetime updated_at
+    }
     Project "1" --> "*" Job
+    Project "1" --> "*" Frame
     Job --> Stage
 ```
 
@@ -106,14 +120,25 @@ classDiagram
   grounding.md and shots.md §6. A stage writes its column in the same transaction that advances the
   job, so a page never sees a half-written stage. `title` is what the user typed at upload,
   defaulting to the file name without `.pdf`.
-- **`Job`** (deploy.md §3) gains `project_id` and `stage`. `kind` is `"storyboard"`. `progress` is
-  0–100 over the whole job: parsing 0–5, extracting 5–40, planning 40–60, rendering 60–100 (by
-  frames settled). Frames themselves are T021's (`frame_audits`, verify.md §6), read through §6's
-  `FrameView`.
+- **`Job`** (deploy.md §3) gains `project_id` and `stage`. `kind` is `"storyboard"` (the upload's
+  job) or `"frame_attempt"` (one "Try another render"). `progress` is 0–100 over the whole job:
+  parsing 0–5, extracting 5–40, planning 40–60, rendering 60–100 (by frames settled).
+- **`Frame`** (table `frames`, **T021**): one row per shot that has entered verify.md's state machine,
+  holding its current `FrameState`, attempt number, the job that last moved it (`frame_audits.job_id`
+  is that job) and, for `passed`/`warned` only, the Storage path of the accepted image. It is the
+  only source of `FrameView`; `frame_audits` (verify.md §6) holds the history. **No frame reaches the
+  web before T021:** T008's renderer output is never exposed on its own, only through a `frames` row
+  that T021's loop has moved to `passed` or `warned`.
+- **Settled** means `passed`, `warned`, `withheld` or `failed`: nothing more will happen to the
+  frame without a user action. `withheld` is a subset of settled. Every count in the app uses this
+  definition.
 - **`Screenplay.page_starts`** (new field, T009 adds it and updates script.md §6 in the same PR):
-  `tuple[int, ...]`, the 1-based first line of each page in `Screenplay.text`. The parser already
-  knows this (`parse_text(text, page_breaks)`); the lined script needs it to break pages where the
-  PDF did.
+  `tuple[int, ...]`, the 1-based first line of each page in `Screenplay.text`, so
+  `page_starts[0] == 1` and `len(page_starts) == page_count`. The parser's `page_breaks` omits page
+  1; `page_starts` is `(1, *page_breaks)`. The lined script needs it to break pages where the PDF did.
+- **`ScriptParseError.code`** (new, T043 adds it and updates script.md §6):
+  `"not_a_pdf" | "no_text_layer" | "no_headings"`, one per raise in `app/script/parser.py`, so the
+  copy in §4.1 maps on a code, never on a message.
 
 ## 4. Flow
 
@@ -152,21 +177,31 @@ sequenceDiagram
     end
 ```
 
-- **Before T008 and T003 land, the pipeline stops after planning** with the job `DONE`, and the
+- **Until T021's loop exists, the pipeline stops after planning** with the job `DONE`, and the
   storyboard shows shot cards with no frame (§4.3). This is the real state of a project with no
-  renderer, not a stand-in.
+  audited renders, not a stand-in. T008 landing alone changes nothing on the page.
 - **Failures** set `FAILED` with an `error` written for the user, never an exception text:
-  - script.md's `ScriptParseError` "no text layer" → "This PDF has no text layer. It looks like a
-    scan. Export the script from your screenwriting app as a PDF and upload that."
-  - no scene headings → "No scene headings found. Panelwise reads screenplays formatted with
+  - `ScriptParseError.code == "not_a_pdf"` → "This file couldn't be opened as a PDF. Export the
+    script from your screenwriting app as a PDF and upload that."
+  - `"no_text_layer"` → "This PDF has no text layer. It looks like a scan. Export the script from
+    your screenwriting app as a PDF and upload that."
+  - `"no_headings"` → "No scene headings found. Panelwise reads screenplays formatted with
     headings like INT. KITCHEN - NIGHT."
   - extraction or planning failed (`ExtractionError`, `ShotError`) → "Reading the script failed at
     scene {n}. Nothing was saved from this run. Upload the script again to retry."
-  - over the extraction budget (grounding.md §4) → "This script is longer than this demo reads
-    (about {pages} pages). Upload a shorter one."
-  - the API restarted mid-job: on startup every `RUNNING` job becomes `FAILED` with "The server
-    restarted while this ran. Upload the script again." (deploy.md §5: a retry is a new job).
+  - over the extraction budget: `extract()` raises `ExtractionError` before any model call when the
+    script splits into more than `max_chunks` (40) chunks (`app/grounding/extract.py`). T043
+    checks the chunk count itself before calling, so this case is told apart from a failed call →
+    "This script is longer than this demo reads. Upload a shorter one."
+  - the API restarted mid-job: on startup every `QUEUED` or `RUNNING` job, of either kind, becomes
+    `FAILED` with "The server restarted while this ran. Upload the script again." (deploy.md §5: a
+    retry is a new job), and every `frames` row in `rendering` or `auditing` becomes `failed`
+    (verify.md §5's renderer-error path), its card reading "Rendering was interrupted by a restart."
 - Upload limits (size, pages) are T030's; the API refuses over-limit files with 413 before storing.
+  **Constraint for T030:** the upload passes through a Vercel function, whose request body limit is
+  about 4.5 MB (Vercel's documented function payload limit; check it when T030 sets the figure), so
+  the upload limit must sit below it. Screenplay PDFs with a text layer are typically well under
+  1 MB.
 
 ### 4.2 Script
 
@@ -181,7 +216,10 @@ columns stack: intro, report, entities, scenes.
 ### 4.3 Storyboard
 
 Server component: `Project`, `GET …/lines`, `GET …/shots`, `GET …/frames`, all in parallel. The
-client part polls `…/status` while the job is active, and refreshes frames when `progress` changes.
+client part polls `GET /api/projects/[id]/status` every 2 s **while the latest job is `queued` or
+`running`, or any frame is `rendering` or `auditing`** (a "Try another render" runs after the upload's
+job is `DONE`). `status` returns the `ProjectSummary` (its `frames` counts included); when the counts
+change, the client fetches `GET /api/projects/[id]/frames` and re-renders the board.
 
 - **Lined script** (left, sticky, scrolls on its own): each page is a paper sheet with its lines in
   Courier Prime, line numbers in the margin, the page number top right. Each shot is a line in the
@@ -201,17 +239,22 @@ client part polls `…/status` while the job is active, and refreshes frames whe
 
 | `FrameView` | Card media | Verdict label | Extra line |
 |---|---|---|---|
-| none yet (no renderer, or not started) | the hatched panel, "Not rendered yet" | — | — |
+| none yet (no `frames` row: before T021, or not reached) | the hatched panel, "Not rendered yet" | — | — |
 | `rendering` | hatched panel, three dots, "Rendering attempt {n} of {max}" | "Rendering" | — |
 | `auditing` | same, "Auditing attempt {n} of {max}" | "Auditing" | — |
 | `passed` | the frame | "Passed audit" | "Passed on attempt {n} of {max}" when n > 1 |
 | `warned` | the frame | "Passed with a warning" | each failed soft check: "Light: day light in a night scene" |
 | `withheld` | a text card: the verbatim source, its span, "Frame withheld: failed audit ({check})", button "Try another render" | "Withheld" | — |
-| `failed` | a text card: the source, its span, "The renderer failed on this frame." | "Render failed" | — |
+| `failed` | a text card: the source, its span, "The renderer failed on this frame." (or, after the restart sweep, "Rendering was interrupted by a restart.") | "Render failed" | — |
 
-- **Job strip** under the bar while the job is active: the stage in words ("Reading the script",
-  "Planning shots", "Rendering frames"), a meter, and "{settled} of {total} frames settled ·
-  {withheld} withheld" while rendering.
+  Withheld and failed cards carry the source **once**, in the text card; the source line under the
+  header is left out for them. Spans on cards read `p.1 l.7–8` (`l.14` for one line), in the body
+  face, not Courier: Atkinson Hyperlegible is built to tell `l` from `1`, Courier is not, and a
+  span sits next to shot ids like `1.4`.
+
+- **Job strip** under the bar while polling (above): the stage in words ("Reading the script",
+  "Planning shots", "Rendering frames"), a meter at settled ÷ total, and "{settled} of {total}
+  frames settled · {withheld} withheld" while rendering (§3: withheld counts as settled).
 - **Export PDF** (bar, right): disabled with the tooltip "Available when every frame has settled"
   until no frame is `rendering` or `auditing`; then it downloads T008's PDF.
 - **Phones** (≤ 1100 px): the lined script is hidden and every card keeps its own source and span
@@ -234,7 +277,7 @@ A right-hand sheet over the board (Radix Dialog, focus trapped, Esc and × close
    seed; "Seen" (the describer's people, setting, light and shot size, in words); "Judged" (who
    each person was called); the failed checks with their details, then "{k} other checks passed"
    (or "All 7 checks passed"); finally "Described by {vision model} · judged by {judge model}".
-   Before T021 lands this section is absent, not empty.
+   Before T021 lands this section is absent, not empty. (T045 builds steps 1–4.)
 
 ## 5. State
 
@@ -270,16 +313,16 @@ Frame card states are verify.md §5's `FrameState`; the card never shows an imag
 **API** (FastAPI, `/api/v1`, every route requires `Authorization: Bearer <Supabase access token>`,
 verified against Supabase Auth; a project belongs to its `owner`, anyone else gets 404):
 
-| Method, path | Body | Response |
-|---|---|---|
-| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` · 413 `{error: "too_large"}` |
-| `GET /projects` | — | 200 `ProjectSummary[]`, newest first |
-| `GET /projects/{id}` | — | 200 `Project` |
-| `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing |
-| `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends |
-| `GET /projects/{id}/frames` | — | 200 `FrameView[]` (one per shot that has one) |
-| `GET /projects/{id}/storyboard.pdf` | — | 200 PDF (T008) · 409 while a frame is unsettled |
-| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (T021: `withheld` → `rendering`) · 409 in any other state |
+| Method, path | Body | Response | Task |
+|---|---|---|---|
+| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 413 `{error: "too_large"}` | T009 |
+| `GET /projects` | — | 200 `ProjectSummary[]`, newest first | T009 |
+| `GET /projects/{id}` | — | 200 `Project` | T044 |
+| `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T044 |
+| `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T044 |
+| `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row; `[]` until T021 creates rows | T044 (reads `frames`; the table is T021's) |
+| `GET /projects/{id}/storyboard.pdf` | — | 200 PDF · 409 while a frame is unsettled | T008 |
+| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 409 in any other state | T021 |
 
 **Response types** (TypeScript in `apps/web/lib/api/types.ts`; Pydantic mirrors in
 `services/api/app/api/v1/schemas.py`; field names identical):
@@ -292,7 +335,8 @@ interface Job { id: string; state: JobState; stage: Stage | null; progress: numb
 interface ProjectSummary {
   id: string; title: string; created_at: string;
   pages: number | null; scenes: number | null; shots: number | null;          // null until known
-  frames: { settled: number; total: number; withheld: number } | null;         // null before rendering
+  frames: { settled: number; total: number; withheld: number; active: number } | null;
+  // null before rendering. settled = passed + warned + withheld + failed (§3); active = rendering + auditing
   job: Job;                                                                    // the latest job
 }
 
@@ -318,7 +362,7 @@ interface Project extends ProjectSummary {
   scene_list: SceneView[] | null; entities: EntityView[] | null; report: ReportView | null;
 }
 
-interface LinesView { lines: string[]; page_starts: number[] }  // Screenplay.text split on "\n"; 1-based
+interface LinesView { lines: string[]; page_starts: number[] }  // Screenplay.text split on "\n"; page_starts[0] == 1
 
 interface ShotView {
   id: string;                            // "{scene number}.{shot number}", e.g. "1.4"
@@ -359,7 +403,7 @@ interface FrameView {
 **Web routes** (Next.js App Router): `/sign-in`, `/projects`, `/projects/[id]/script`,
 `/projects/[id]/storyboard` (`?shot=` opens the sheet), `/projects/[id]/comic` (T024; until then
 the tab is disabled, with the tooltip "Comic pages aren't built yet"). Route handlers proxy the API server-side (deploy.md §4): `POST /api/projects`,
-`GET /api/projects/[id]/status`, `GET /api/projects/[id]/storyboard.pdf`,
+`GET /api/projects/[id]/status`, `GET /api/projects/[id]/frames`, `GET /api/projects/[id]/storyboard.pdf`,
 `POST /api/projects/[id]/frames/[scene]/[number]/attempts`.
 
 **Component tree** (`apps/web/components/`, each built on shadcn/ui primitives restyled with the
@@ -378,8 +422,8 @@ ScriptPage
 StoryboardPage
 ├── JobStrip
 ├── LinedScript → ScriptSheet (per page) → ScriptLine*, ShotLine* ; Legend
-├── FrameBoard → SceneHeader, FrameCard (FrameMedia | PendingMedia | WithheldCard | FailedCard)
-└── FrameSheet → FrameMedia, SourceBlock, InFrame, AuditLog → AttemptItem → CheckList
+├── FrameBoard → SceneHeader, FrameCard (FrameMedia | PendingMedia | WithheldCard | FailedCard)   [T042]
+└── FrameSheet → FrameMedia, SourceBlock, InFrame   [T045], AuditLog → AttemptItem → CheckList   [T021]
 shared: Verdict, SpanRef, Quote (Courier), Meter
 ```
 
@@ -404,14 +448,20 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
-| `services/api/app/projects/` (`model.py`, `repo.py`, `pipeline.py`) + migration | new | `Project`, the `Job` fields, the stage runner, the restart sweep | T009 |
-| `services/api/app/api/v1/{projects,schemas}.py`, `app/core/auth.py` | new | §6 endpoints, Supabase token check | T009 |
-| `services/api/app/script/{model,parser}.py` | changed | `Screenplay.page_starts` (+ script.md §6) | T009 |
+| `services/api/app/core/auth.py` | new | Supabase access-token check (a FastAPI dependency) | T009 |
+| `services/api/app/storage/` | new | Supabase Storage: the uploaded PDFs (T009); frame images added by T008 | T009, T008 |
+| `services/api/app/jobs/` + migration | new | the `Job` table with `project_id`, `stage`; the restart sweep | T009 |
+| `services/api/app/projects/{model,repo}.py` + migration | new | the `projects` table | T009 |
+| `services/api/app/api/v1/projects.py` (POST, list), `schemas.py` | new | §6 rows marked T009 | T009 |
+| `services/api/app/projects/pipeline.py` | new | parse → extract → plan as a job; stage columns; failure copy by code | T043 |
+| `services/api/app/script/{model,parser}.py` | changed | `Screenplay.page_starts`, `ScriptParseError.code` (+ script.md §6) | T043 |
+| `services/api/app/api/v1/projects.py` (read endpoints) | changed | §6 rows marked T044 | T044 |
 | `apps/web/app/globals.css`, `apps/web/components/ui/*` | new | tokens as Tailwind `@theme`; shadcn/ui primitives restyled | T040 |
 | `apps/web/lib/{supabase,api}/*`, `apps/web/middleware.ts` | new | `@supabase/ssr` session, typed API client, §6 types | T040 |
 | `apps/web/app/(auth)/sign-in/`, `apps/web/app/projects/page.tsx`, `apps/web/app/api/projects/**` | new | §4.0, §4.1 | T040 |
 | `apps/web/app/projects/[id]/script/`, `components/script/*` | new | §4.2 | T041 |
-| `apps/web/app/projects/[id]/storyboard/`, `components/storyboard/*` | new | §4.3, §4.4 (without the audit section) | T042 |
+| `apps/web/app/projects/[id]/storyboard/`, `components/storyboard/{LinedScript,FrameBoard,FrameCard,JobStrip}*` | new | §4.3 | T042 |
+| `components/storyboard/{FrameSheet,SourceBlock,InFrame}*` | new | §4.4 steps 1–4 | T045 |
 | `components/storyboard/AuditLog.tsx` | new | §4.4 step 5 | T021 |
 
 ## 8. Decisions & alternatives
@@ -422,6 +472,7 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | Shots tab | none: the lined script *is* the shot list | a table of shots: repeats the storyboard without the frames |
 | Progress | poll `status` every 2 s while active | websockets / SSE: needs a long-lived connection through Vercel for a few-minute job |
 | Stage results | jsonb columns on `projects` | a table per entity: nothing queries inside them yet; the dataclasses already define the shape |
+| Frame state storage | a `frames` row per shot (T021), `frame_audits` for history | deriving state from `frame_audits`: it has no row while rendering, so `rendering` and `auditing` can't be told apart |
 | A job interrupted by a restart | `FAILED` on startup, upload again | resuming mid-stage: a partial extraction is exactly what grounding.md refuses to show |
 | Images | Supabase Storage signed URLs, only for passed or warned frames | public bucket URLs: a withheld frame's file would be one guess away |
 | Theme | light only | dark mode: the paper-on-a-light-table metaphor doesn't survive inversion, and the deadline is 2026-10-30 |
@@ -432,14 +483,17 @@ restyled).
 
 ## 9. How this is verified
 
-- **API (T009):** pytest with a fake Supabase token verifier and the compose Postgres: upload →
-  job runs the stages with `httpx2.MockTransport` models → `GET` endpoints return §6 shapes; another
-  user's project is 404; a failed stage leaves the columns before it and the user-facing error; the
-  restart sweep fails a `RUNNING` job; `image_url` is null for every state but passed and warned.
-- **Web (T040–T042):** vitest + Testing Library on each component's states: every row of the card
+- **API (T009, T043, T044):** pytest with a fake Supabase token verifier and the compose Postgres:
+  upload → job runs the stages with `httpx2.MockTransport` models → `GET` endpoints return §6 shapes;
+  another user's project is 404; each `ScriptParseError.code` gives its copy; a failed stage leaves
+  the columns before it and the user-facing error; the restart sweep fails `QUEUED`/`RUNNING` jobs
+  and `rendering`/`auditing` frames; `…/frames` is `[]` with no `frames` rows; `image_url` is null
+  for every state but passed and warned; `page_starts[0] == 1`.
+- **Web (T040–T042, T045):** vitest + Testing Library on each component's states: every row of the card
   table renders; **no `<img>` for a frame outside passed/warned**; a shot line's top and height come
   from its span; a dialogue segment off screen draws wavy; the sheet opens from `?shot=`; the lined
-  script is hidden and the source shown on a narrow viewport.
+  script is hidden and the source shown on a narrow viewport; polling continues while any frame is
+  `rendering` or `auditing` after the job is `done`; withheld cards show the source once.
 - **Visual:** each screen side by side with its PNG in §2 at 1440 px (and the storyboard at 390 px),
   layout, tokens and copy matching; a difference is fixed in the code or, if the reference is
   wrong, in this doc first.

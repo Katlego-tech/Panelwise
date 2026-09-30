@@ -140,8 +140,8 @@ Railway is configured in its dashboard (root `/services/api`, Dockerfile, health
 | `apps/web/vercel.json` | new | Vercel build settings | T037 |
 | `services/api/app/main.py`, `app/core/config.py`, `docker-compose.yml`, `.env.example`, `pyproject.toml` | changed | Redis out; Supabase settings in | T037 |
 | `docs/deploy.md` | new | the account steps (Supabase, Railway, Vercel), in order, with checks | T037 |
-| `services/api/app/storage/` | new | Supabase Storage for images | T008 |
-| `services/api/app/jobs/` + migration | new | the `Job` table | T009 |
+| `services/api/app/storage/` | new | Supabase Storage: uploaded PDFs (T009), frame images (T008) | T009, T008 |
+| `services/api/app/jobs/` + migration | new | the `Job` table (with web.md §3's `project_id`, `stage`) | T009 |
 | `apps/web` auth (`@supabase/ssr`) + API token check | new | sign-in, judge account | T009 / T030 |
 
 ## 8. Decisions & alternatives

@@ -154,30 +154,48 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Verify:  bash scripts/gate.sh (no network in tests); `uv run python -m app.shots.run <sample.pdf>` on the real account prints every shot with its span and verbatim source, and every scene element appears in exactly one shot
       Done:    T008 can take a `ShotPlan` whose every shot cites the script lines it covers and names only extracted characters and props present in that scene
 - [ ] T008 [US1] **Storyboard.** Port from `storyboard_service.py`, `storyboard_styles.py`, `storyboard_document.py`, `image_provider.py`, `image_cache.py`, `image_postprocess.py`. Style registry loads `styles/` plus optional `PANELWISE_PRIVATE_STYLES`. Images go to Supabase Storage (docs/design/deploy.md §7). Depends on T003, T007. Lane `storyboard`.
-- [ ] T009 [US1] **API: projects, jobs and the pipeline runner.** Upload a PDF, run parse → extract → plan as a `Job`, serve the §6 read endpoints. Lane `web`. Depends on T006, T007.
-      Design:  docs/design/web.md §3 (Project, Job fields, page_starts), §4.1 (flow, failure copy, restart sweep), §6 (API table, types)
-      Files:   services/api/app/projects/{__init__,model,repo,pipeline}.py + migration; services/api/app/api/v1/{projects,schemas}.py; services/api/app/core/auth.py; services/api/app/script/{model,parser}.py (page_starts); docs/design/script.md §6; services/api/tests/projects/*
-      Contract:docs/design/web.md §6 (API table and response types, verbatim); deploy.md §3/§5 Job with web.md's fields
-      Verify:  bash scripts/gate.sh (pytest against the compose Postgres, models via MockTransport, a fake token verifier); with a Supabase project: upload samples/the-red-kite.pdf with a real user token, poll to DONE, GET /projects/{id}/shots returns every shot with its span
-      Done:    a signed-in caller uploads a screenplay and, without Redis, gets a job that survives an API restart as FAILED (never a half-written stage), and the project's scenes, entities, report, lines and shots in web.md §6's shapes; another user's project is 404
-- [ ] T040 [US1] **Web: tokens, sign-in, projects and upload.** Lane `web` (Claude). Depends on T009.
+- [ ] T009 [US1] **API: sign-in check, projects and upload.** A signed-in caller uploads a PDF; it is stored and a queued `Job` is created. Lane `web`.
+      Design:  docs/design/web.md §3 (Project, Job fields), §4.1 (upload, restart sweep), §6 (rows marked T009); deploy.md §3, §5, §7
+      Files:   services/api/app/core/auth.py; services/api/app/storage/*; services/api/app/jobs/* + migration; services/api/app/projects/{__init__,model,repo}.py + migration; services/api/app/api/v1/{projects,schemas}.py; services/api/tests/{jobs,projects}/*
+      Contract:web.md §6 rows T009 and the `ProjectSummary`/`Job` types, verbatim
+      Verify:  bash scripts/gate.sh (compose Postgres; a fake token verifier; Storage behind a test double at the `app/storage` seam); a non-PDF → 400, over-limit → 413, another user's project absent from the list; the startup sweep fails `QUEUED`/`RUNNING` jobs
+      Done:    POST /api/v1/projects with a valid token stores the PDF and returns 202 with a queued job; GET /api/v1/projects lists only the caller's projects; a job left running by a restart reads FAILED with the restart message
+- [ ] T043 [US1] **API: the pipeline runner.** A queued job parses, extracts and plans, writing each stage's result and progress. Lane `web`. Depends on T009.
+      Design:  docs/design/web.md §3 (stage columns, page_starts, ScriptParseError.code, progress bands), §4.1 (failure copy)
+      Files:   services/api/app/projects/pipeline.py; services/api/app/script/{model,parser}.py; docs/design/script.md §6; services/api/tests/projects/test_pipeline.py; services/api/tests/script/* (page_starts, codes)
+      Contract:web.md §3 and §4.1, verbatim (codes, copy, progress bands)
+      Verify:  bash scripts/gate.sh (models via MockTransport): a good PDF ends DONE with screenplay, extraction and plan columns written; each ScriptParseError code and the chunk budget give their copy; a failed planning call leaves the earlier columns and FAILED; page_starts[0] == 1
+      Done:    uploading samples/the-red-kite.pdf on the real account ends in a DONE job whose project holds the parsed script, the grounded extraction and the shot plan, with the stage and progress visible while it runs
+- [ ] T044 [US1] **API: the read endpoints.** Lane `web`. Depends on T043.
+      Design:  docs/design/web.md §6 (rows marked T044, `Project`, `LinesView`, `ShotView` incl. `segments`, `FrameView`)
+      Files:   services/api/app/api/v1/{projects,schemas}.py; services/api/tests/projects/test_read.py
+      Contract:web.md §6, verbatim
+      Verify:  bash scripts/gate.sh: every §6 type round-trips from a stored project; 409 before the stage; `segments` marks an off-screen speaker's dialogue; …/frames is [] with no frames rows; image_url is null outside passed/warned
+      Done:    a planned project's scenes, entities, report, lines and shots come back in exactly web.md §6's shapes, and frames come back only from `frames` rows
+- [ ] T040 [US1] **Web: tokens, sign-in, projects and upload.** Lane `web` (Claude). Depends on T009. Its sign-in check needs a Supabase project (T037).
       Design:  docs/design/web.md §2 (tokens, direction), §4.0, §4.1, §5, §6 (routes, components, copy)
       Files:   apps/web/app/globals.css; apps/web/components/ui/*; apps/web/lib/{supabase,api}/*; apps/web/middleware.ts; apps/web/app/(auth)/sign-in/*; apps/web/app/projects/page.tsx; apps/web/app/api/projects/**; apps/web/components/{AppBar,projects/*}; tests beside them
       Contract:docs/design/web.md §6 (types in apps/web/lib/api/types.ts, route handlers)
       Verify:  pnpm lint && pnpm test (every ProjectRow state, the upload errors); then the running app side by side with docs/design/web/signin.png and projects.png at 1440 px
       Done:    signed out redirects to sign-in; a signed-in user uploads a PDF and sees it in the list with its live job state or its failure message, matching the two references in layout, tokens and copy
-- [ ] T041 [US1] **Web: script page.** Lane `web` (Claude). Depends on T040.
+- [ ] T041 [US1] **Web: script page.** Lane `web` (Claude). Depends on T040, T044.
       Design:  docs/design/web.md §4.2, §5, §6
       Files:   apps/web/app/projects/[id]/script/*; apps/web/components/script/*; tests beside them
       Contract:consumes GET /api/v1/projects/{id} → Project (web.md §6)
       Verify:  pnpm test (entity sources, report counts in words, dropped entities never listed, stacked on a phone); compare with docs/design/web/script.png
       Done:    every entity shows each quote in Courier with its page/line span, and faithfulness and recall always appear together with their counts, matching script.png
-- [ ] T042 [US1] **Web: storyboard page (lined script, frame board, frame sheet).** Lane `web` (Claude). Depends on T041. Frames appear once T008 renders them; before that the cards show "Not rendered yet", the real state (web.md §4.1).
-      Design:  docs/design/web.md §4.3, §4.4 (steps 1–4), §5, §6
-      Files:   apps/web/app/projects/[id]/storyboard/*; apps/web/components/storyboard/* (not AuditLog); tests beside them
+- [ ] T042 [US1] **Web: storyboard board (lined script and frame cards).** Lane `web` (Claude). Depends on T041. Frames appear only once T021 moves a frame to passed/warned; before that the cards show "Not rendered yet", the real state (web.md §3, §4.1).
+      Design:  docs/design/web.md §4.3, §5, §6
+      Files:   apps/web/app/projects/[id]/storyboard/*; apps/web/components/storyboard/{LinedScript,FrameBoard,FrameCard,JobStrip}*; apps/web/app/api/projects/[id]/{status,frames}/*; tests beside them
       Contract:consumes …/lines, …/shots, …/frames, …/status (web.md §6)
-      Verify:  pnpm test (every card-table row; no <img> outside passed/warned; shot line top/height from spans; wavy off-screen segments; ?shot= opens the sheet; lined script hidden below 1100 px); compare with docs/design/web/storyboard.png, storyboard-frame.png, storyboard-phone.png
-      Done:    on a planned project every shot appears as a line over exactly its script lines and as a card with its verbatim source, hover and click link the two, and the sheet shows the source with its span, matching the three references
+      Verify:  pnpm test (every card-table row; no <img> outside passed/warned; withheld source shown once; shot line top/height from spans; wavy off-screen segments; polling while any frame is active; lined script hidden below 1100 px); compare with docs/design/web/storyboard.png and storyboard-phone.png
+      Done:    on a planned project every shot appears as a line over exactly its script lines and as a card with its verbatim source, and hovering or focusing either highlights the other, matching the two references
+- [ ] T045 [US1] **Web: frame sheet.** Lane `web` (Claude). Depends on T042.
+      Design:  docs/design/web.md §4.4 steps 1–4, §6
+      Files:   apps/web/components/storyboard/{FrameSheet,SourceBlock,InFrame}*; tests beside them
+      Contract:consumes ShotView and FrameView (web.md §6)
+      Verify:  pnpm test (?shot= opens it; Esc closes and clears it; focus trapped; dialogue cue shown outside the quote; positions from the accepted audit); compare with docs/design/web/storyboard-frame.png (without the audit section, which is T021's)
+      Done:    clicking any card or following a ?shot= link opens a sheet showing the frame or its text card, the verbatim source with page, lines and scene, and who is in frame, matching storyboard-frame.png
 
 **Checkpoint:** US1 demoable in the browser on Nemotron + Nebius GPU.
 
