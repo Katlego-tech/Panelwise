@@ -90,6 +90,9 @@ def test_unknown_key_is_a_style_error(public: Path) -> None:
         (GOOD.replace("grayscale = true", 'grayscale = "yes"'), "grayscale"),  # mistyped
         (GOOD + 'emphasis = "1.3"\n', "emphasis"),  # mistyped
         (GOOD + "emphasis = true\n", "emphasis"),  # a bool is not a weight
+        (GOOD + "emphasis = nan\n", "emphasis"),
+        (GOOD + "emphasis = inf\n", "emphasis"),
+        (GOOD + "emphasis = 0.0\n", "emphasis"),
         (GOOD.replace('label = "Test sketch"', "label = 3"), "label"),
         (GOOD.replace('medium = "storyboard sketch, pencil drawing"', 'medium = ""'), "medium"),
         (GOOD + "default = 1\n", "default"),

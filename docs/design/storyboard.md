@@ -229,7 +229,10 @@ none of which names a person, prop or event.
     never speaks and whom extraction missed isn't known to be a name, so it is not redacted. §9 pins
     this with an adversarial fixture; §8 records it.
   Redaction only removes words (characters.md rule 2). Besides it, a script span undergoes only
-  whitespace collapsing and lower-casing for `SETTING` and `TIME`.
+  whitespace collapsing and lower-casing for `SETTING` and `TIME`. **`TIME` is not redacted**: its
+  text is `absolute_time`'s word, a closed vocabulary (`ABSOLUTE_TIMES`) that names no one, and a
+  character named DAWN must not turn the clock into "a person" (PR #27 review). The invariant
+  checks it against the unredacted heading and the vocabulary.
 - **Undescribed stays undescribed** (characters.md rule 3): nothing about how anyone looks is added
   unless the covered text says it.
 - **Parentheses are escaped.** ComfyUI reads `(words)` as a weight, and screenplays are full of

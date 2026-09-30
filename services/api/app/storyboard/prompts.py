@@ -18,7 +18,7 @@ from app.characters import name_tokens, redact_all
 from app.core.config import Settings
 from app.grounding import EntityKind, Extraction, ExtractionError, extract, normalize_for_grounding
 from app.llm import LLMError, NebiusChatModel
-from app.script import Action, Screenplay, ScriptParseError, Span, parse_pdf
+from app.script import ABSOLUTE_TIMES, Action, Screenplay, ScriptParseError, Span, parse_pdf
 from app.shots import Shot, ShotError, ShotPlan, plan_shots
 from app.storyboard.prompt import (
     FramePrompt,
@@ -72,11 +72,18 @@ def cites_this_shot(
                 return False
             continue
         cited = allowed.get(p.kind, {}).get(p.span)
+        if cited is None:
+            return False
+        if p.kind is PartKind.TIME:
+            # A closed vocabulary, not redacted: the clock word itself, from that heading.
+            if p.text.upper() not in ABSOLUTE_TIMES or normalize_for_grounding(
+                p.text
+            ) not in normalize_for_grounding(cited):
+                return False
+            continue
         # SETTING's leading preposition is the code's word, not the script's.
         text = p.text.split(" ", 1)[-1] if p.kind is PartKind.SETTING else p.text
-        if cited is None or normalize_for_grounding(text) not in normalize_for_grounding(
-            redact_all(cited, names)
-        ):
+        if normalize_for_grounding(text) not in normalize_for_grounding(redact_all(cited, names)):
             return False
     return True
 

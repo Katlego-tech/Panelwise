@@ -91,3 +91,16 @@ def test_redaction_only_removes_words() -> None:
 
 def test_no_names_leaves_the_text_as_is() -> None:
     assert redact_all("DOORS SLAM.", []) == "DOORS SLAM."
+
+
+def test_every_apostrophe_form_splits_a_possessive_and_joins_a_run() -> None:
+    # U+02BC is a letter to \w; it must still end the name (PR #27 review).
+    assert redact_all("NANDI\u02bcS coat", ["NANDI"]) == "a person\u02bcs coat"
+    assert redact_all("O\u2019BRIEN waits.", ["O'BRIEN"]) == "a person waits."
+    assert redact_all("O'Brien waits.", ["O'BRIEN"]) == "a person waits."
+
+
+def test_non_latin_capitals_are_names_too() -> None:
+    assert redact_all("\u00c9MILE sits. \u00c9mile's cap.", ["\u00c9MILE"]) == (
+        "a person sits. a person's cap."
+    )

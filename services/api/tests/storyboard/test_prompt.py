@@ -327,3 +327,20 @@ def test_fixed_parts_over_the_budget_raise_naming_the_shot(
 
 def test_the_heading_span_is_the_heading_line(lighthouse: Screenplay) -> None:
     assert heading_span(lighthouse.scenes[1]) == Span(1, 22, 22)
+
+
+def test_a_character_named_like_a_clock_leaves_the_time_alone() -> None:
+    """PR #27 review: TIME is ABSOLUTE_TIMES' own word, never redacted into "a person"."""
+    screenplay = screenplay_of(
+        [heading("1", "EXT. HARBOUR -- DAWN"), None, (ACTION, "DAWN mends a net.")]
+    )
+    extraction = extraction_of(screenplay, [("DAWN", "DAWN mends a net.")])
+    prompt = build_frame_prompt(
+        shot_of(screenplay, 0, [0], characters=["DAWN"], time_of_day="DAWN"),
+        screenplay, extraction, STYLE, max_words=100,
+    )  # fmt: skip
+    assert [(p.kind, p.text) for p in prompt.parts[3:]] == [
+        (K.TIME, "dawn"),
+        (K.COUNT, "one figure"),
+        (K.ACTION, "a person mends a net."),
+    ]

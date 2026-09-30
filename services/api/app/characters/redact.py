@@ -41,8 +41,10 @@ NAME_STOP_WORDS = frozenset(
     }
 )
 
-_WORD = re.compile(r"\w+")
-_APOSTROPHES = frozenset({"'", "\u2019"})
+# Word characters except U+02BC, the modifier-letter apostrophe that \w counts as a letter:
+# NANDI\u02bcS must tokenise as NANDI then S, like NANDI'S (PR #27 review).
+_WORD = re.compile(r"[^\W\u02bc]+")
+_APOSTROPHES = frozenset({"'", "\u2019", "\u02bc"})
 
 
 def name_tokens(names: Sequence[str]) -> frozenset[str]:

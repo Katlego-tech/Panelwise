@@ -12,6 +12,7 @@ same checks, and a bad file fails the start-up naming the file: a style can't ca
 style, or be the default while private (the demo runs on public styles only, PLAN.md NN2).
 """
 
+import math
 import re
 import tomllib
 from collections.abc import Mapping
@@ -170,8 +171,8 @@ def _load_file(path: Path, origin: StyleOrigin) -> Style:
             raise fail(f"{field} is empty")
 
     emphasis = data.get("emphasis")
-    if emphasis is not None and emphasis <= 0:
-        raise fail("emphasis must be positive")
+    if emphasis is not None and not (math.isfinite(emphasis) and emphasis > 0):
+        raise fail("emphasis must be a positive number")
     negative: str = data.get("negative", "")
     for field in ("medium", "finish", "negative"):
         text: str = data.get(field, "")

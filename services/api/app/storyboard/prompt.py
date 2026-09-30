@@ -169,7 +169,11 @@ def build_frame_prompt(
             )
         parts.append(
             PromptPart(
-                PartKind.TIME, script(clock).lower(), heading_span(screenplay.scenes[source])
+                # Not redacted: `absolute_time` already limits it to ABSOLUTE_TIMES, and a
+                # character named DAWN must not turn the clock into "a person" (PR #27 review).
+                PartKind.TIME,
+                clock.lower(),
+                heading_span(screenplay.scenes[source]),
             )
         )
     if visible:

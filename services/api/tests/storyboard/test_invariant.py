@@ -121,7 +121,10 @@ def check(
             source = heading_line(screenplay, heading)
         elif part.kind is K.TIME:
             assert part.span == clock_heading(screenplay, scene.index), where
-            source = heading_line(screenplay, part.span)
+            # A closed vocabulary, never redacted: the clock word itself, from that heading.
+            assert text.upper() in ABSOLUTE_TIMES, where
+            assert norm(text) in norm(heading_line(screenplay, part.span)), where
+            continue
         elif part.kind is K.ACTION:
             element = covered.get(part.span)
             assert isinstance(element, Action), f"{where}: {part} cites no covered action"
