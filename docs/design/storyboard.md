@@ -229,7 +229,10 @@ none of which names a person, prop or event.
     never speaks and whom extraction missed isn't known to be a name, so it is not redacted. §9 pins
     this with an adversarial fixture; §8 records it.
   Redaction only removes words (characters.md rule 2). Besides it, a script span undergoes only
-  whitespace collapsing and lower-casing for `SETTING` and `TIME`.
+  whitespace collapsing and lower-casing for `SETTING` and `TIME`. **`TIME` is not redacted**: its
+  text is `absolute_time`'s word, a closed vocabulary (`ABSOLUTE_TIMES`) that names no one, and a
+  character named DAWN must not turn the clock into "a person" (PR #27 review). The invariant
+  checks it against the unredacted heading and the vocabulary.
 - **Undescribed stays undescribed** (characters.md rule 3): nothing about how anyone looks is added
   unless the covered text says it.
 - **Parentheses are escaped.** ComfyUI reads `(words)` as a weight, and screenplays are full of
@@ -464,6 +467,7 @@ class StyleRegistry:
     def public(self) -> tuple[Style, ...]: ...          # sorted by key
 class StyleError(ValueError): ...
 SUBJECT_WORDS: frozenset[str]                           # §3.2's list
+PUBLIC_STYLES: Path                                     # the repo's styles/ (T026 must ship it in the API image)
 def load_styles(public_dir: Path, private_dir: Path | None) -> StyleRegistry: ...
 
 # app/characters/redact.py  (built by T008; T025 uses it: characters.md §6)
@@ -490,7 +494,9 @@ def visible_characters(shot: Shot, scene: Scene) -> tuple[str, ...]: ...        
 def build_frame_prompt(shot: Shot, screenplay: Screenplay, extraction: Extraction, style: Style, *,
                        max_words: int, placement: str | None = None) -> FramePrompt: ...
 #   placement must be in PLACEMENT_PHRASES (else ValueError); T026 passes None, T025 passes
-#   characters.md FrameReferences.placement; a placement with len(visible_characters) != 2 is a ValueError
+#   characters.md FrameReferences.placement; a placement with len(visible_characters) != 2 is a ValueError;
+#   a shot.time_of_day that isn't the absolute time of time_source's heading is a ValueError (the
+#   planner copies resolve_times, so any other clock is one the headings don't give)
 
 # app/storyboard/prompts.py — T008's live check (python -m app.storyboard.prompts <script.pdf> [--style KEY])
 async def main(argv: list[str]) -> int: ...             # parse, extract, plan; print each shot's parts, kinds and spans
@@ -702,10 +708,10 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 
 ## 10. Open questions
 
-- [ ] **Which styles stay private?** (STATUS.md § Open decisions, SPEC.md open question 3.) FrameFlow's
-  three drawn styles (`clean`, `ink`, `pencil`) are the candidates to port; the team decides which go
-  in `styles/` and which into a private pack, and which public one is the default. The design only
-  requires at least one public style, exactly one public default.
+- [x] **Which styles stay private?** (STATUS.md § Open decisions, SPEC.md open question 3.) **Decided
+  2026-09-30 by the user:** all three of FrameFlow's drawn styles (`clean`, `ink`, `pencil`) are
+  public in `styles/`, `clean` is the default, `classic` is dropped (§8), and the private pack is
+  empty. Built by T008.
 - [ ] **The ComfyUI model and graph** (T003): which checkpoint, sampler, steps and cfg go in
   `frame.json`, its native size, and its licence (recorded in `infra/nebius/README.md`). The model
   decides `COMFYUI_MAX_WORDS` (CLIP's 77 tokens vs a T5 encoder's few hundred), whether comma phrases
