@@ -1,6 +1,6 @@
 # Design — `script` (screenplay parsing; lane `script+grounding`)
 
-**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T005 · **Spec:** [SPEC.md](../../SPEC.md)
+**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T005, T039 · **Spec:** [SPEC.md](../../SPEC.md)
 US1 (script → grounded storyboard)
 
 ---
@@ -85,7 +85,10 @@ classDiagram
   sequence. `index` is always the 0-based position.
 - **`time_of_day`** is the heading's time as written, upper-cased (`NIGHT`, `CONTINUOUS`), or
   **`None` when the heading gives none**. FrameFlow defaulted to `DAY`, which states a fact the
-  script doesn't.
+  script doesn't. The first separator (` - ` or `--`) splits location from time, except when
+  the heading has two or more and its last segment is a known time (`ABSOLUTE_TIMES |
+  RELATIVE_TIMES`): then that segment is the time and everything before it the location
+  (`INT. SIPHO'S HOUSE - KITCHEN - NIGHT` → `SIPHO'S HOUSE - KITCHEN`, `NIGHT`; T039).
 - **`Dialogue.cue`** is the name only ("WAYNE"); `extension` is the cue's bracket ("O.S.", "V.O.",
   "CONT'D") or `None`.
 
@@ -98,7 +101,7 @@ sequenceDiagram
     participant L as pdfplumber
     participant T as parse_text
     U->>P: PDF bytes
-    P->>L: extract_text(layout=True) per page
+    P->>L: extract_text(layout=True, y_density=12) per page
     L-->>P: page texts
     P->>T: lines joined, page_breaks = first line of each page
     T->>T: action margin = most common indent
@@ -109,8 +112,8 @@ sequenceDiagram
 **Classification** (per non-blank line; page furniture — `(CONTINUED)`, `CONTINUED: (2)`, `(MORE)`,
 bare page numbers — is dropped whole. A line is never rewritten, so an element's text is always
 exactly the lines its span names):
-1. Scene heading (`INT`/`EXT`/`INT/EXT`/`EXT/INT`, dot optional; optional scene number on the
-   left) → new scene. The number repeated at the right edge is dropped only when it sits after a
+1. Scene heading (`INT`/`EXT`/`INT/EXT`/`EXT/INT`, each dot optional, so `INT./EXT.` too;
+   optional scene number on the left) → new scene. The number repeated at the right edge is dropped only when it sits after a
    layout gap of 2+ spaces, so `INT. ROOM 1` keeps its "1".
 2. Before the first heading → ignored (title page).
 3. Transition (`CUT TO:`, `FADE OUT.`, `DISSOLVE TO:` …) → dropped; it is editing, not content.
@@ -118,10 +121,20 @@ exactly the lines its span names):
    parenthetical `(…)` → attaches to the current cue; all-caps ≤ 5 words **at the cue column**
    (within 2 of the last cue's indent; any column for the first cue) → cue; otherwise, under a cue
    → dialogue. The cue-column rule keeps a shouted "NO!" at the dialogue column from reading as a
-   new speaker.
+   new speaker. **A parenthetical that wraps** (T039): under a cue, a line that opens `(` with no
+   `)` is held; following lines at the *same indent on the same page*, with no `(`, are held too,
+   and the first one ending `)` closes it — the held lines, joined, become the parenthetical.
+   Anything else first (a blank line, another indent, a page break, furniture) replays the held
+   lines as dialogue, which is what they were read as before: the rule can only retype lines, never
+   drop them.
 5. Anything else → action (and it ends the current cue).
 A blank line ends the current action paragraph and the current cue. A page break ends the current
 element but keeps the speaker, so dialogue continuing onto the next page stays dialogue.
+
+**Row height:** pdfplumber's layout text groups characters into rows of `y_density` points,
+13 by default. Screenplay lines are 12 pt apart (6 an inch), so at 13 some one-line gaps round
+away and two action paragraphs read as one (13 of 102 breaks in the T031 samples). `parse_pdf`
+uses 12, which kept every break in all three samples and in the fpdf2 test PDF (T039).
 
 **Action margin:** the column scene headings start at (they always sit at the action margin); only
 without headings, the most common indent. FrameFlow used the most common indent alone, which in a
@@ -188,6 +201,9 @@ def match_speaker(cue: str, names: Sequence[str]) -> str | None: ...
 | Eighths / page-length estimates | dropped | scheduling data; Panelwise doesn't schedule |
 | DB linking (`link_project_dialogue`) | not ported | no models yet; `match_speaker` is the reusable part and T006/T023 call it |
 | Parser | pdfplumber layout text | Docling: truncated a 150-page script to a third (FrameFlow T283) |
+| Layout row height | 12 pt (`y_density=12`) | pdfplumber's 13 pt default: loses ~13% of one-line paragraph gaps in 12 pt screenplays (T031 samples) |
+| Two-dash headings | last segment is the time only if it is a known time | always the last segment: `INT. HOUSE - KITCHEN` would get time `KITCHEN`; always the first: `KITCHEN - NIGHT` is no time at all |
+| Wrapped parenthetical | held until a same-indent line ends `)`, else replayed as dialogue | any `(`-line opens one: an unclosed bracket in a speech would swallow the rest of it |
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none.
 
@@ -204,7 +220,8 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 
 ## 10. Open questions
 
-- [ ] A parenthetical that wraps onto two lines (`(quietly, almost` / `to herself)`) is read as
-  dialogue text. Spans stay exact; only the typing is wrong. Fix if a sample script needs it.
+- [x] A parenthetical that wraps onto two lines (`(quietly, almost` / `to herself)`) was read as
+  dialogue text. Fixed in T039 (§4, rule 4): `sipho-and-siphokazi` has two, of three and four
+  lines.
 - [ ] Dual dialogue (two speakers side by side) is not detected; both columns read as one speaker's
   lines or as action. Rare in the scripts we'll demo; revisit if a sample needs it.

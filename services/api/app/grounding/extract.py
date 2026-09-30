@@ -26,7 +26,9 @@ SYSTEM_PROMPT = (
     "that show who or what it is. Copy each quote character for character from a single action "
     "paragraph or a single line of dialogue, with the original spelling, punctuation and "
     "capitalisation: quotes are matched against the screenplay, and one that is not word for "
-    "word in the text is discarded."
+    "word in the text is discarded. Quote dialogue without the speaker's name above it and "
+    "without its parenthetical: only the words spoken. Never join a scene heading, a second "
+    "paragraph or another speech onto a quote."
 )
 
 

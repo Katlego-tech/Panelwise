@@ -28,14 +28,15 @@ from app.script.model import (
     ScriptParseError,
     Span,
 )
+from app.script.scene_time import ABSOLUTE_TIMES, RELATIVE_TIMES
 
 # Page furniture: in the text layer, not screenplay content.
 _FURNITURE = re.compile(
     r"^\(?\s*(CONTINUED|MORE)\s*\)?[.:]?\s*(\(\d+\))?$|^\d{1,4}[.:]?$", re.IGNORECASE
 )
 
-# INT. / EXT. / INT/EXT. / EXT/INT. (dot optional), then the rest of the slug line.
-SCENE_HEADING_RE = re.compile(r"^((?:INT|EXT)(?:\s*/\s*(?:INT|EXT))?\.?)\s+(.+)$", re.IGNORECASE)
+# INT. / EXT. / INT/EXT. / INT./EXT. / EXT/INT. (each dot optional), then the rest of the slug.
+SCENE_HEADING_RE = re.compile(r"^((?:INT|EXT)\.?(?:\s*/\s*(?:INT|EXT)\.?)?)\s+(.+)$", re.IGNORECASE)
 _SCENE_NUMBER = re.compile(r"^(\d{1,4}[A-Za-z]?)\s+(?=(?:INT|EXT))", re.IGNORECASE)
 _TIME_SPLIT = re.compile(r"\s*--+\s*|\s+-\s+")
 _PARENTHETICAL = re.compile(r"^\((.+?)\)$")
@@ -43,6 +44,11 @@ _CUE_EXTENSION = re.compile(r"^(.*?)\s*\(([^)]*)\)\s*$")
 _TRANSITIONS = frozenset(
     {"FADE IN", "FADE IN:", "FADE OUT", "FADE OUT.", "FADE OUT:", "FADE TO BLACK."}
 )
+_KNOWN_TIMES = ABSOLUTE_TIMES | RELATIVE_TIMES
+# pdfplumber's layout text maps y to rows of `y_density` points (default 13). Screenplay lines are
+# 12 pt apart (6 lines an inch), so at 13 some one-line gaps round away and two action paragraphs
+# read as one. At 12 every blank line of the three samples survives (T039).
+_ROW_POINTS = 12
 _INDENT_PAST_MARGIN = 4  # a line this far right of the action margin belongs to dialogue
 _FAR_RIGHT = 60  # page numbers and CONTINUED live out here; never the action margin
 
@@ -50,7 +56,9 @@ _FAR_RIGHT = 60  # page numbers and CONTINUED live out here; never the action ma
 def parse_pdf(data: bytes) -> Screenplay:
     try:
         with pdfplumber.open(io.BytesIO(data)) as pdf:
-            pages = [page.extract_text(layout=True) or "" for page in pdf.pages]
+            pages = [
+                page.extract_text(layout=True, y_density=_ROW_POINTS) or "" for page in pdf.pages
+            ]
     except Exception as exc:
         raise ScriptParseError(f"not a readable PDF ({type(exc).__name__})") from exc
     if not any(page.strip() for page in pages):
@@ -134,6 +142,9 @@ class _Parser:
         # Cues sit right of dialogue; a shouted all-caps line ("NO!") at the dialogue column
         # must not read as a new speaker.
         self.cue_column: int | None = None
+        # A parenthetical that wraps: the lines since its "(", at its indent, until one ends ")".
+        self.wrapped: list[tuple[int, int, str]] = []
+        self.wrapped_indent = 0
 
     def page_of(self, line_no: int) -> int:
         return bisect.bisect_right(self.page_breaks, line_no) + 1
@@ -151,6 +162,8 @@ class _Parser:
         return Screenplay(text=text, page_count=page_count, scenes=tuple(self.scenes))
 
     def feed(self, line_no: int, page: int, raw: str) -> None:
+        if self.wrapped and self.continue_parenthetical(line_no, page, raw):
+            return
         if not raw.strip():
             self.flush()
             self.cue = self.parenthetical = None
@@ -176,6 +189,12 @@ class _Parser:
             self.flush()
             self.parenthetical = paren.group(1)
             return
+        if indented and self.cue is not None and line.startswith("(") and ")" not in line:
+            # Maybe a parenthetical that wraps: held until it closes (continue_parenthetical).
+            self.flush()
+            self.wrapped = [(line_no, page, line)]
+            self.wrapped_indent = indent
+            return
         at_cue_column = self.cue_column is None or indent >= self.cue_column - 2
         if indented and at_cue_column and _is_cue(line):
             self.flush()
@@ -192,6 +211,29 @@ class _Parser:
             self.cue = self.parenthetical = None
         self.append(Action, line_no, page, line)
 
+    def continue_parenthetical(self, line_no: int, page: int, raw: str) -> bool:
+        """Hold a wrapped parenthetical's next line, or give up on it. Only a line at the same
+        indent on the same page continues it, and the first one ending ")" closes it. Anything
+        else replays the held lines as dialogue -- today's reading, so nothing is lost -- and
+        returns False so the line is read as usual."""
+        line = raw.strip()
+        indent = len(raw) - len(raw.lstrip())
+        same_block = page == self.wrapped[0][1] and indent == self.wrapped_indent
+        if not line or not same_block or "(" in line or _FURNITURE.match(line):
+            self.replay_wrapped()
+            return False
+        self.wrapped.append((line_no, page, line))
+        if line.endswith(")"):
+            text = " ".join(held for _, _, held in self.wrapped)
+            self.wrapped = []
+            self.parenthetical = text[1:-1].strip()
+        return True
+
+    def replay_wrapped(self) -> None:
+        held, self.wrapped = self.wrapped, []
+        for line_no, page, line in held:
+            self.append(Dialogue, line_no, page, line)
+
     def append(
         self, kind: type[Action] | type[Dialogue], line_no: int, page: int, line: str
     ) -> None:
@@ -205,6 +247,7 @@ class _Parser:
         self.open.last = line_no
 
     def flush(self) -> None:
+        self.replay_wrapped()
         if self.open is not None and self.scene is not None:
             self.scene.elements.append(self.open.close())
         self.open = None
@@ -223,9 +266,7 @@ class _Parser:
         if number and (repeat := re.search(rf"\s{{2,}}{re.escape(number)}$", rest)):
             # Scripts repeat the scene number at the right edge of the row ("ROOM 1" is kept).
             rest = rest[: repeat.start()].rstrip()
-        parts = _TIME_SPLIT.split(rest, maxsplit=1)
-        location = parts[0].strip()
-        time = parts[1].strip().upper() if len(parts) == 2 else ""
+        location, time = _split_time(rest)
         self.scene = _OpenScene(
             index=len(self.scenes),
             number=number or str(len(self.scenes) + 1),
@@ -244,6 +285,21 @@ class _Parser:
         if self.scene is not None:
             self.scenes.append(self.scene.close())
         self.scene = None
+
+
+def _split_time(rest: str) -> tuple[str, str]:
+    """(location, time) from a slug line after its INT./EXT. The first separator splits it --
+    except when there are two or more and the last segment is a known time, as in
+    `SIPHO'S HOUSE - KITCHEN - NIGHT`: then the time is that segment and the rest is the
+    location, separators and all."""
+    separators = list(_TIME_SPLIT.finditer(rest))
+    if not separators:
+        return rest.strip(), ""
+    last = separators[-1]
+    if len(separators) > 1 and (tail := rest[last.end() :].strip().upper()) in _KNOWN_TIMES:
+        return rest[: last.start()].strip(), tail
+    first = separators[0]
+    return rest[: first.start()].strip(), rest[first.end() :].strip().upper()
 
 
 def _is_transition(line: str) -> bool:
