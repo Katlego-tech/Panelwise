@@ -80,8 +80,12 @@ async def test_audit_describes_then_judges_with_the_spec(
     audit = await audit_frame(model_for(handler), frame(), kitchen_shot(), screenplay, extraction)
 
     assert [b["model"] for b in handler.bodies] == ["vision-model", "judge-model"]
+    describer = json.dumps(handler.bodies[0])
+    for detail in ("NANDI", "oilskin", "pours tea", "LIGHTHOUSE", "KITCHEN", "mugs"):
+        assert detail.lower() not in describer.lower(), detail
     judge = json.dumps(handler.bodies[1])
     assert "image_url" not in judge
+    assert base64.b64encode(PNG).decode() not in judge
     for detail in (
         "NANDI",
         "oilskin coat",
@@ -156,3 +160,13 @@ async def test_a_judgement_that_skips_a_person_is_an_error(
     audit = await audit_frame(model_for(handler), frame(), kitchen_shot(), screenplay, extraction)
     assert audit.verdict is Verdict.ERROR
     assert audit.judgement == judged(people=[])
+
+
+async def test_a_description_that_never_validates_is_an_error_and_nothing_is_judged(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    handler = Scripted('{"people": "a few"}', judged().model_dump_json())
+    audit = await audit_frame(model_for(handler), frame(), kitchen_shot(), screenplay, extraction)
+    assert audit.verdict is Verdict.ERROR
+    assert [b["model"] for b in handler.bodies] == ["vision-model", "vision-model"]  # + repair
+    assert audit.description is None and audit.judgement is None

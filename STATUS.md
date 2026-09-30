@@ -83,7 +83,7 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 
 ## ⚠️ Open decisions / risks
 
-- **No NVIDIA vision model on Token Factory** (T001). Decided: a Token Factory VLM (DeepSeek-V4.1-Flash since 2026-09-30; GLM-5.3-Flash stopped receiving images) *describes* each frame and Nemotron *judges* it; self-hosting an NVIDIA VLM on the Nebius GPU is a stretch. Wording corrected everywhere to "a vision model describes each frame; Nemotron audits it against the script" (2026-09-30, `docs/spec`); `services/api/app/verify/README.md` is left to the `feat/verify` branch.
+- **No NVIDIA vision model on Token Factory** (T001). Decided: a Token Factory VLM (DeepSeek-V4.1-Flash since 2026-09-30; GLM-5.3-Flash stopped receiving images) *describes* each frame and Nemotron *judges* it; self-hosting an NVIDIA VLM on the Nebius GPU is a stretch. Wording corrected everywhere to "a vision model describes each frame; Nemotron audits it against the script" (2026-09-30, `docs/spec`), and in `services/api/app/verify/README.md` by T020.
 - **Which styles stay private?** Decide before T008 moves styles over. The demo may only use public styles.
 - **Repo is private.** It must be public before submission (T035).
 - **`main` is unprotected on the server** (private + GitHub Free; decided 2026-09-28 to leave it). Only the pre-push hook and AGENTS.md §4 guard it; Tumo must run `bash install-hooks.sh`. Once the repo is public (T035), protection is free — turn it on then.

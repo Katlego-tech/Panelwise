@@ -2,7 +2,8 @@
 
 _Measured 2026-09-28 against our own account (trial tier, $1 credit) by Katlego (via Claude).
 Every verdict below cites a response captured that day. Total spend for the whole probe: ~$0.004
-(59 billed calls, priced from the catalog)._
+(59 billed calls, priced from the catalog). U7 was re-checked on 2026-09-30 during T020
+([§ U7 re-check](#u7-re-check-2026-09-30)): GLM-5.3-Flash no longer receives images._
 
 Questions U1–U6 come from the FrameFlow Nebius plan (§3); U7 is Panelwise's own.
 
@@ -16,7 +17,7 @@ Questions U1–U6 come from the FrameFlow Nebius plan (§3); U7 is Panelwise's o
 | U4 | Rate limits | Per model, from the catalog and confirmed by response headers. Lightning: **600 RPM / 400K TPM**. A burst of 20 concurrent calls: 20 × 200 | 17 extraction chunks in a burst is far inside the limit. Re-check once the paid credit lands (trial tier today) |
 | U5 | Is an image-generation model served? | **No.** No model in either host's catalog has an image output modality | Rendering stays on ComfyUI on a Nebius GPU (T003). FrameFlow plan item N8 is dropped |
 | U6 | Sampling for grounded extraction | **Not settled by this probe** — 3 runs at each setting on one short scene all grounded their evidence verbatim | Decide on the full-script baseline in T006. The one failure seen was a *shape* failure under `json_object` (see U1), not a sampling one |
-| U7 | Is a vision model served, and does it take an image in a chat message? | **Yes — but none is NVIDIA.** Every Nemotron model is `text->text` and rejects images. Five non-NVIDIA models accept images and all five read our test image correctly | **Decided 2026-09-28: option A now, B as a stretch** — see [§ The vision decision](#the-vision-decision) |
+| U7 | Is a vision model served, and does it take an image in a chat message? | **Yes — but none is NVIDIA.** Every Nemotron model is `text->text` and rejects images. Five non-NVIDIA models accept images and all five read our test image correctly on 2026-09-28; **on 2026-09-30 GLM-5.3-Flash no longer received images** ([re-check](#u7-re-check-2026-09-30)), so the describer is DeepSeek-V4.1-Flash | **Decided 2026-09-28: option A now, B as a stretch** — see [§ The vision decision](#the-vision-decision) |
 
 ## Settled configuration
 
@@ -223,8 +224,8 @@ frame that shows two adults and a child in a kitchen. The same request shape as 
 | Request | Model | `prompt_tokens` | Answer |
 |---|---|---|---|
 | The U7 two-shape PNG (256×256, re-drawn), U7's prompt | `zai-org/GLM-5.3-Flash` | 37 | ❌ "Red blob top-left, dark green blob top-right, red blob bottom-centre, yellow blob bottom-right" |
-| A 448×256 storyboard frame (kitchen, three people), "how many people…?" | `zai-org/GLM-5.3-Flash` | 31 | ❌ "no people… a dark scene… like stars in a night sky"; other runs: "eight young adults on a sofa", "a conference room" |
-| same frame, 896 and 1344 px wide (0.8 MB, 1.9 MB) | `zai-org/GLM-5.3-Flash` | 31 | ❌ invented scenes; the smaller sizes also took ~90 s |
+| A 448×256 storyboard frame (kitchen, three people), "how many people…?" | `zai-org/GLM-5.3-Flash` | 31 | ❌ "no people… a dark scene… like stars in a night sky" |
+| same frame at 1344 px (the original, 1.9 MB) and 448 px (0.18 MB) | `zai-org/GLM-5.3-Flash` | 31 | ❌ invented scenes at both sizes ("a conference room"; "eight young adults on a sofa"); the 448 px call took ~90 s, and 672 px calls timed out at 110 s |
 | same frame | `deepseek-ai/DeepSeek-V4.1-Flash` | 238 | ✅ "three people… a man and a woman… a young girl watches from an open doorway" |
 | same frame | `openbmb/MiniCPM-V-4_5` | 94 | ✅ three people, the girl at the door |
 | same frame | `moonshotai/Kimi-K2.6` | 189 | ✅ three people, the girl peeking through the doorway |
