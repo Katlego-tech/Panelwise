@@ -230,8 +230,6 @@ class Pager:
                     raise ValueError(f"speech by {cue} cannot be split between sentences")
                 self.turn()
                 continue
-                self.turn()
-                continue
             self.put([*rows[:keep], (CUE, "(MORE)")])
             self.turn()
             rest = rows[keep + 1 :] if keep == split else rows[keep:]
