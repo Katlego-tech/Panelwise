@@ -91,7 +91,8 @@ async def run_pipeline(
     max_chunks: int = 40,
 ) -> PipelineResult:
     """Parse, extract and plan, awaiting `on_advance(stage, progress, finished)` as each stage
-    begins -- with its band's start and the stage before it's result -- before starting it."""
+    begins -- with its band's start and the result of the stage before it -- and starts the
+    stage only once the hook has returned."""
     await on_advance(Stage.PARSING, BANDS[Stage.PARSING][0], None)
     try:
         # pdfplumber is synchronous and CPU-bound; keep the event loop free for other requests.

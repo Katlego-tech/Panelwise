@@ -3,6 +3,7 @@
 MockTransport models, no network, no database.
 """
 
+import asyncio
 import json
 import re
 from pathlib import Path
@@ -188,12 +189,16 @@ async def test_the_next_stage_waits_for_the_hook() -> None:
     order: list[str] = []
 
     async def hook(stage: Stage, progress: int, finished: StageResult | None) -> None:
+        # Yield to the loop several times: a stage started without awaiting the hook would run now.
+        for _ in range(5):
+            await asyncio.sleep(0)
         order.append(f"{stage}:{len(handler.calls)}")
 
     await run_pipeline(GOOD_PDF, make(handler), on_advance=hook)
-    # No model call had been made when extraction was announced; every chunk was done by planning.
+    # No model call had been made when extraction's hook returned; every chunk was done by planning.
     assert order[1] == "extracting:0"
     assert order[2] == f"planning:{handler.calls.count('ChunkEntities')}"
+    assert handler.calls.count("ScenePlan") == 3
 
 
 async def test_an_exception_from_the_hook_propagates_unchanged_and_stops_the_run() -> None:

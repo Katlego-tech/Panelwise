@@ -536,7 +536,7 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `services/api/app/projects/job.py` | new | `run_job` (§6): the upload's job runs `run_pipeline`, each stage's column written with the job's advance in one transaction; failures to `FAILED` with the copy | T046 |
 | `services/api/app/projects/codec.py` | new | the stage columns' jsonb: `Screenplay`, `Extraction`, `ShotPlan` to JSON and back, lossless (the read endpoints load them, T044) | T046 |
 | `services/api/app/api/v1/projects.py` (POST starts the job) | changed | the upload schedules `run_job` as an asyncio task after its commit (§4.1) | T046 |
-| `services/api/app/projects/pipeline.py` (RENDERING stage) | changed | call `build_storyboard` with T021's writers; map `progress(settled, total)` into 60–100; job `DONE` | T026 |
+| `services/api/app/projects/pipeline.py` (RENDERING stage) | changed | in `run_pipeline`: `on_advance(RENDERING, 60, plan)`, then `build_storyboard` with T021's writers, `progress(settled, total)` mapped into 60–100; T046's `run_job` marks the job `DONE` | T026 |
 | `services/api/app/frames/{model,repo}.py` + migration (`frames`) | new | the table and its read for `…/frames` | T044 |
 | `services/api/app/script/{model,parser}.py` | changed | `Screenplay.page_starts`, `ScriptParseError.code` (+ script.md §6) | T043 |
 | `services/api/app/api/v1/projects.py` (read endpoints) | changed | §6 rows marked T044 | T044 |
