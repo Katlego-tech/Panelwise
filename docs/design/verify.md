@@ -183,6 +183,8 @@ stateDiagram-v2
     AUDITING --> WITHHELD: FAIL, no attempts left
     AUDITING --> WITHHELD: audit ERROR
     RENDERING --> FAILED: renderer error
+    RENDERING --> FAILED: interrupted by an API restart (startup sweep)
+    AUDITING --> FAILED: interrupted by an API restart (startup sweep)
     WITHHELD --> RENDERING: user asks for another attempt
     PASSED --> [*]
     WARNED --> [*]
@@ -190,7 +192,8 @@ stateDiagram-v2
 ```
 
 `PASSED` and `WARNED` are the only states whose frame may be displayed. No transition skips
-`AUDITING`.
+`AUDITING`. The two sweep edges (added with docs/design/web.md, 2026-09-30) are taken only by the
+startup sweep, for frames whose job died with the process; T021 implements them.
 
 ## 6. Contracts
 

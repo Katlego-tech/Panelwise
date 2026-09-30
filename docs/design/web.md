@@ -195,8 +195,9 @@ sequenceDiagram
     "This script is longer than this demo reads. Upload a shorter one."
   - the API restarted mid-job: on startup every `QUEUED` or `RUNNING` job, of either kind, becomes
     `FAILED` with "The server restarted while this ran. Upload the script again." (deploy.md §5: a
-    retry is a new job), and every `frames` row in `rendering` or `auditing` becomes `failed`
-    (verify.md §5's renderer-error path), its card reading "Rendering was interrupted by a restart."
+    retry is a new job), and every `frames` row in `rendering` or `auditing` becomes `failed` (verify.md §5's
+    sweep edges), its card reading "Rendering was interrupted by a restart." T009 builds the job
+    half of the sweep; T021, which creates the `frames` table, adds the frame half.
 - Upload limits (size, pages) are T030's; the API refuses over-limit files with 413 before storing.
   **Constraint for T030:** the upload passes through a Vercel function, whose request body limit is
   about 4.5 MB (Vercel's documented function payload limit; check it when T030 sets the figure), so
@@ -420,6 +421,7 @@ ScriptPage
 ├── EntitySection (kind) → EntityCard → QuoteLine (Quote + SpanRef)
 └── ReportPanel → ScoreCard ×2, ModelLine
 StoryboardPage
+├── ExportButton (in AppBar actions; disabled until settled)   [T042]
 ├── JobStrip
 ├── LinedScript → ScriptSheet (per page) → ScriptLine*, ShotLine* ; Legend
 ├── FrameBoard → SceneHeader, FrameCard (FrameMedia | PendingMedia | WithheldCard | FailedCard)   [T042]
@@ -462,7 +464,8 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `apps/web/app/projects/[id]/script/`, `components/script/*` | new | §4.2 | T041 |
 | `apps/web/app/projects/[id]/storyboard/`, `components/storyboard/{LinedScript,FrameBoard,FrameCard,JobStrip}*` | new | §4.3 | T042 |
 | `components/storyboard/{FrameSheet,SourceBlock,InFrame}*` | new | §4.4 steps 1–4 | T045 |
-| `components/storyboard/AuditLog.tsx` | new | §4.4 step 5 | T021 |
+| `components/storyboard/AuditLog.tsx`, the "Try another render" button's action, `apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts` | new | §4.4 step 5; §4.3 retry | T021 |
+| `apps/web/app/api/projects/[id]/storyboard.pdf/route.ts`, the Export PDF button | new | §4.3 export | T042 |
 
 ## 8. Decisions & alternatives
 
@@ -487,7 +490,7 @@ restyled).
   upload → job runs the stages with `httpx2.MockTransport` models → `GET` endpoints return §6 shapes;
   another user's project is 404; each `ScriptParseError.code` gives its copy; a failed stage leaves
   the columns before it and the user-facing error; the restart sweep fails `QUEUED`/`RUNNING` jobs
-  and `rendering`/`auditing` frames; `…/frames` is `[]` with no `frames` rows; `image_url` is null
+  (T009) and `rendering`/`auditing` frames (T021); `…/frames` is `[]` with no `frames` rows; `image_url` is null
   for every state but passed and warned; `page_starts[0] == 1`.
 - **Web (T040–T042, T045):** vitest + Testing Library on each component's states: every row of the card
   table renders; **no `<img>` for a frame outside passed/warned**; a shot line's top and height come
