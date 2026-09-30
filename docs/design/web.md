@@ -364,6 +364,7 @@ class PipelineError(RuntimeError):
 # §4.1 copy, verbatim
 NOT_A_PDF: str; NO_TEXT_LAYER: str; NO_HEADINGS: str; TOO_LONG: str
 READ_FAILED: str   # "Reading the script failed at scene {n}. …", filled with str.format(n=...)
+UNEXPECTED: str    # "Something went wrong on our side …": T046's, for an exception run_pipeline doesn't map
 
 async def run_pipeline(
     pdf: bytes, model: NebiusChatModel, *, on_advance: OnAdvance,

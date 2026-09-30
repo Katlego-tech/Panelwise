@@ -28,7 +28,12 @@ class Movement(StrEnum):
 
 
 class ShotError(RuntimeError):
-    """A scene couldn't be planned; no partial plan is returned."""
+    """A scene couldn't be planned; no partial plan is returned. `scene` is its number, as the
+    script prints it (web.md §4.1 names it)."""
+
+    def __init__(self, message: str, *, scene: str) -> None:
+        super().__init__(message)
+        self.scene = scene
 
 
 @dataclass(frozen=True)

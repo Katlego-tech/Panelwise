@@ -297,21 +297,55 @@ def test_spans_report_the_real_page(screenplay: Screenplay) -> None:
 
 
 def test_text_with_no_scene_headings_is_an_error_not_an_empty_screenplay() -> None:
-    with pytest.raises(ScriptParseError, match="no scene headings"):
+    with pytest.raises(ScriptParseError, match="no scene headings") as caught:
         parse_text(layout([(ACTION, "Just some prose."), (ACTION, "No headings at all.")]))
+    assert caught.value.code == "no_headings"
+
+
+def test_a_pdf_with_text_but_no_headings_says_no_headings() -> None:
+    with pytest.raises(ScriptParseError) as caught:
+        parse_pdf(pdf_bytes([[(ACTION, "Just some prose."), (ACTION, "No headings at all.")]]))
+    assert caught.value.code == "no_headings"
 
 
 def test_a_pdf_with_no_text_layer_is_an_error() -> None:
     pdf = FPDF(format="letter")
     pdf.add_page()
     pdf.rect(20, 20, 50, 50)  # drawn, not written: no text layer
-    with pytest.raises(ScriptParseError, match="no text layer"):
+    with pytest.raises(ScriptParseError, match="no text layer") as caught:
         parse_pdf(bytes(pdf.output()))
+    assert caught.value.code == "no_text_layer"
 
 
 def test_bytes_that_are_not_a_pdf_are_an_error() -> None:
-    with pytest.raises(ScriptParseError, match="not a readable PDF"):
+    with pytest.raises(ScriptParseError, match="not a readable PDF") as caught:
         parse_pdf(b"this is not a pdf")
+    assert caught.value.code == "not_a_pdf"
+
+
+# --- page_starts ---------------------------------------------------------------------
+
+
+def test_page_starts_is_one_then_each_page_break(screenplay: Screenplay) -> None:
+    assert screenplay.page_starts == (1, len(PAGE_1) + 1)
+    assert len(screenplay.page_starts) == screenplay.page_count
+
+
+def test_one_page_text_starts_at_line_one() -> None:
+    one = parse_text(layout([heading("1", "INT. ROOM - DAY"), None, (ACTION, "Quiet.")]))
+    assert (one.page_starts, one.page_count) == ((1,), 1)
+
+
+def test_a_real_pdf_reports_where_each_page_starts() -> None:
+    parsed = parse_pdf(pdf_bytes([PAGE_1, PAGE_2]))
+    lines = parsed.text.split("\n")
+    assert parsed.page_starts[0] == 1
+    assert len(parsed.page_starts) == parsed.page_count == 2
+    # Page 1 ends with its (MORE); page 2's number is its first text.
+    split = parsed.page_starts[1] - 1
+    first_text = next(i for i, line in enumerate(lines) if i >= split and line.strip())
+    assert lines[first_text].strip() == "2."
+    assert "(MORE)" in "\n".join(lines[:split])
 
 
 # --- end to end ----------------------------------------------------------------------

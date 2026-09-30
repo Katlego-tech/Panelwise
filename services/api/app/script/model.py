@@ -6,6 +6,7 @@ back to a verbatim span) is only possible if the parser kept one.
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Literal
 
 
 class IntExt(StrEnum):
@@ -14,8 +15,18 @@ class IntExt(StrEnum):
     INT_EXT = "INT/EXT"
 
 
+type ParseErrorCode = Literal["not_a_pdf", "no_text_layer", "no_headings"]
+
+
 class ScriptParseError(ValueError):
-    """The input can't be read as a screenplay. Raised instead of returning an empty one."""
+    """The input can't be read as a screenplay. Raised instead of returning an empty one.
+
+    `code` says which way, one per raise, so a caller picks its copy by code and never by the
+    message (web.md §4.1)."""
+
+    def __init__(self, code: ParseErrorCode, message: str) -> None:
+        super().__init__(message)
+        self.code: ParseErrorCode = code
 
 
 @dataclass(frozen=True)
@@ -60,6 +71,10 @@ class Scene:
 
 @dataclass(frozen=True)
 class Screenplay:
+    """`page_starts` is the 1-based first line of each page in `text`: `page_starts[0] == 1` and
+    `len(page_starts) == page_count`, so a reader can break pages where the PDF did."""
+
     text: str
     page_count: int
     scenes: tuple[Scene, ...]
+    page_starts: tuple[int, ...]

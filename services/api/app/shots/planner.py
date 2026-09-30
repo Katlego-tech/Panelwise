@@ -146,7 +146,9 @@ async def plan_shots(
             except (LLMError, ValidationError) as exc:
                 # A ValidationError quotes the model's output, which quotes the script.
                 detail = str(exc) if isinstance(exc, LLMError) else type(exc).__name__
-                raise ShotError(f"Planning scene {scene.number} failed: {detail}") from exc
+                raise ShotError(
+                    f"Planning scene {scene.number} failed: {detail}", scene=scene.number
+                ) from exc
 
     to_plan = [s for s in screenplay.scenes if s.elements]
     try:

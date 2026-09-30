@@ -104,7 +104,8 @@ async def extract(
                 # model's output, which quotes the script -- so its type alone.
                 detail = str(exc) if isinstance(exc, LLMError) else type(exc).__name__
                 raise ExtractionError(
-                    f"The chunk with scenes {chunk[0].number}-{chunk[-1].number} failed: {detail}"
+                    f"The chunk with scenes {chunk[0].number}-{chunk[-1].number} failed: {detail}",
+                    scene=chunk[0].number,
                 ) from exc
 
     # A TaskGroup cancels the remaining chunks on the first failure: no spending on a result
