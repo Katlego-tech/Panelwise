@@ -200,7 +200,7 @@ sequenceDiagram
     `FAILED` with "The server restarted while this ran. Upload the script again." (deploy.md §5: a
     retry is a new job), and every `frames` row in `rendering` or `auditing` becomes `failed` (verify.md §5's
     sweep edges), its card reading "Rendering was interrupted by a restart." T009 builds the job
-    half of the sweep; T021, which creates the `frames` table, adds the frame half.
+    half of the sweep; T021, which writes `frames` (T044 creates the table), adds the frame half.
 - Upload limits (size, pages) are T030's; the API refuses over-limit files with 413 before storing.
   **Constraint for T030:** the upload passes through a Vercel function, whose request body limit is
   about 4.5 MB (Vercel's documented function payload limit; check it when T030 sets the figure), so

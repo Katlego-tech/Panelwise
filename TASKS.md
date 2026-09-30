@@ -174,7 +174,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 - [ ] T027 [US1] **Storyboard, part 3: the storyboard PDF and JSON.** Port from `storyboard_document.py` (layout; drawn with Pillow instead). Depends on T026. Lane `storyboard`.
       Design:  docs/design/storyboard.md §3.4, §6 (`document.py`, the storyboard JSON), §9 (Document)
       Files:   services/api/app/storyboard/{document,run}.py; services/api/app/api/v1/projects.py (`GET /projects/{id}/storyboard.pdf`, web.md §6); services/api/assets/fonts/{CourierPrime-Regular.ttf,CourierPrime-Bold.ttf,CourierPrime-OFL.txt}; docs/design/reference/storyboard/*.png; services/api/tests/storyboard/*; CHANGES-FROM-FRAMEFLOW.md (ported row)
-      Contract:docs/design/storyboard.md §6 `document.py` and the storyboard JSON, verbatim (T009's input)
+      Contract:docs/design/storyboard.md §6 `document.py` and the storyboard JSON, verbatim (an export; the web pages read `frames` rows, web.md §6)
       Verify:  bash scripts/gate.sh (the document from generated PNGs, including a withheld card and a continued block); then `uv run python -m app.storyboard.run samples/<self-written>.pdf --out /tmp/sb` also writes the PDF to /tmp/sb and Storage
       Done:    a self-written screenplay becomes a storyboard PDF in a public style, one block per shot in plan order, each showing an audited frame (or the withheld card) above the shot's verbatim source and page/line span; the sample's pages are committed as the visual reference
 - [ ] T009 [US1] **API: sign-in check, projects and upload.** A signed-in caller uploads a PDF; it is stored and a queued `Job` is created. Lane `web`.
