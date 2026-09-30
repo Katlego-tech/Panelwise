@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     nebius_base_url: str = "https://api.tokenfactory.nebius.com/v1"
     nebius_model_fast: str = "nvidia/Nemotron-3_5-Lightning"
     nebius_model_reasoning: str = "nvidia/nemotron-3-super-120b-a12b"
-    nebius_model_vision: str = "zai-org/GLM-5.3-Flash"
+    nebius_model_vision: str = "deepseek-ai/DeepSeek-V4.1-Flash"
     llm_request_timeout_s: float = 120.0
     llm_max_attempts: int = 3
 

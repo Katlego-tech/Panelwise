@@ -14,7 +14,7 @@ Factory, and nothing is listed in [MOCKS.md](MOCKS.md). The unit tests replace t
 `httpx2.MockTransport` so they run offline, but those are tests, not the demo. The one thing a judge
 may see that isn't computed on the spot is the seeded judge project, rendered in advance so the
 demo costs nothing to open (T030); uploading a script of your own runs the whole pipeline live.
-And one plain fact about models: the frame audit's *describe* step runs on `zai-org/GLM-5.3-Flash`,
+And one plain fact about models: the frame audit's *describe* step runs on `deepseek-ai/DeepSeek-V4.1-Flash`,
 because no Nemotron model on Token Factory accepts images (findings U7); Nemotron makes the
 verdict (T020).
 
@@ -37,8 +37,9 @@ in / $0.24 out per million tokens, and Token Factory **enforces** a strict `json
 (findings U1), which schema-bound extraction needs. Thinking is switched off on that tier, which
 took a one-number answer from 271 completion tokens to 4 (U2). Nemotron 3 Super, with thinking on,
 is the reasoning tier for judgement calls. Images render on ComfyUI on a Nebius AI Cloud GPU
-because Token Factory serves no image-generation model (U5, T003). The vision step uses GLM-5.3-Flash
-because it was the cheapest model that read our test image correctly (U7).
+because Token Factory serves no image-generation model (U5, T003). The vision step uses DeepSeek-V4.1-Flash:
+the cheapest model we first chose (GLM-5.3-Flash) stopped receiving images, and DeepSeek read our
+storyboard frames correctly (findings § U7 re-check, 2026-09-30).
 
 ### 4. "How did you check that it's accurate, safe or reliable?"
 Cite your evaluation: even 5–10 deterministic test cases with measured results.
