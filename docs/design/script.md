@@ -223,5 +223,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - [x] A parenthetical that wraps onto two lines (`(quietly, almost` / `to herself)`) was read as
   dialogue text. Fixed in T039 (§4, rule 4): `sipho-and-siphokazi` has two, of three and four
   lines.
+- [ ] A spoken line that itself opens with `(` and wraps to a line ending `)` at the *dialogue*
+  column (`(If you must know,` / `she said)`) reads as a wrapped parenthetical (T039 review):
+  the words move to `parenthetical`, out of the speech's text. Rare; a fix needs the dialogue
+  column (parentheticals sit ~0.6" right of it), which the parser doesn't track yet.
 - [ ] Dual dialogue (two speakers side by side) is not detected; both columns read as one speaker's
   lines or as action. Rare in the scripts we'll demo; revisit if a sample needs it.
