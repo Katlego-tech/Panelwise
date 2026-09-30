@@ -36,7 +36,7 @@ def plan_of(*shots: Shot) -> ShotPlan:
 
 
 def book_of(scenes: Sequence[Scene], *shots: Shot) -> ComicBook:
-    return layout_geometry(plan_of(*shots), Screenplay("", 1, tuple(scenes)))
+    return layout_geometry(plan_of(*shots), Screenplay("", 1, tuple(scenes), (1,)))
 
 
 def tiers(page: Page) -> list[list[Panel]]:

@@ -53,6 +53,22 @@ def test_every_element_span_slices_back_to_its_text(name: str) -> None:
             assert " ".join(line.strip() for line in source) == element.text
 
 
+@pytest.mark.parametrize("name", NAMES)
+def test_page_starts_mark_each_page_of_the_text(name: str) -> None:
+    screenplay = committed(name)
+    starts = screenplay.page_starts
+    assert starts[0] == 1
+    assert len(starts) == screenplay.page_count
+    assert list(starts) == sorted(set(starts))
+    assert starts[-1] <= len(screenplay.text.split("\n"))
+    # Every element sits on the page whose lines contain its first line.
+    for scene in screenplay.scenes:
+        for element in scene.elements:
+            page = element.span.page
+            end = starts[page] if page < len(starts) else len(screenplay.text.split("\n")) + 1
+            assert starts[page - 1] <= element.span.line_start < end
+
+
 def test_the_demo_script_has_what_the_demo_shows() -> None:
     screenplay = committed("the-red-kite")
     times = {scene.time_of_day for scene in screenplay.scenes}

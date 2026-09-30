@@ -60,9 +60,9 @@ def parse_pdf(data: bytes) -> Screenplay:
                 page.extract_text(layout=True, y_density=_ROW_POINTS) or "" for page in pdf.pages
             ]
     except Exception as exc:
-        raise ScriptParseError(f"not a readable PDF ({type(exc).__name__})") from exc
+        raise ScriptParseError("not_a_pdf", f"not a readable PDF ({type(exc).__name__})") from exc
     if not any(page.strip() for page in pages):
-        raise ScriptParseError("no text layer (a scanned PDF needs OCR first)")
+        raise ScriptParseError("no_text_layer", "no text layer (a scanned PDF needs OCR first)")
 
     lines: list[str] = []
     page_breaks: list[int] = []
@@ -77,7 +77,7 @@ def parse_pdf(data: bytes) -> Screenplay:
 def parse_text(text: str, page_breaks: Sequence[int] = ()) -> Screenplay:
     lines = text.split("\n")
     breaks = sorted(page_breaks)
-    return _Parser(lines, breaks, _action_margin(lines)).run(text, len(breaks) + 1)
+    return _Parser(lines, breaks, _action_margin(lines)).run(text, (1, *breaks))
 
 
 @dataclass
@@ -149,7 +149,7 @@ class _Parser:
     def page_of(self, line_no: int) -> int:
         return bisect.bisect_right(self.page_breaks, line_no) + 1
 
-    def run(self, text: str, page_count: int) -> Screenplay:
+    def run(self, text: str, page_starts: tuple[int, ...]) -> Screenplay:
         page = 1
         for line_no, raw in enumerate(self.lines, 1):
             if self.page_of(line_no) != page:
@@ -158,8 +158,13 @@ class _Parser:
             self.feed(line_no, page, raw)
         self.close_scene()
         if not self.scenes:
-            raise ScriptParseError("no scene headings (INT./EXT.) found")
-        return Screenplay(text=text, page_count=page_count, scenes=tuple(self.scenes))
+            raise ScriptParseError("no_headings", "no scene headings (INT./EXT.) found")
+        return Screenplay(
+            text=text,
+            page_count=len(page_starts),
+            scenes=tuple(self.scenes),
+            page_starts=page_starts,
+        )
 
     def feed(self, line_no: int, page: int, raw: str) -> None:
         if self.wrapped and self.continue_parenthetical(line_no, page, raw):

@@ -142,7 +142,9 @@ class Movement(StrEnum): STATIC = "static"; PAN = "pan"; TILT = "tilt"; DOLLY = 
 @dataclass(frozen=True) class Shot: scene_index: int; number: int; framing: Framing; movement: Movement; elements: tuple[int, ...]; characters: tuple[str, ...]; props: tuple[str, ...]; time_of_day: str | None; rationale: str; span: Span; source: str
 @dataclass(frozen=True) class PlanReport: scenes: int; shots: int; ranges_repaired: int; characters_dropped: int; props_dropped: int
 @dataclass(frozen=True) class ShotPlan: shots: tuple[Shot, ...]; report: PlanReport; models: tuple[str, ...]; usage: Usage
-class ShotError(RuntimeError): ...
+class ShotError(RuntimeError):
+    def __init__(self, message: str, *, scene: str) -> None: ...
+    scene: str   # the `number` of the scene that failed to plan (web.md §4.1 names it)
 
 # app/shots/schema.py — what the model is asked for (strict json_schema)
 class ProposedShot(BaseModel): first: int; last: int; framing: Framing; movement: Movement; characters: list[str]; props: list[str]; rationale: str

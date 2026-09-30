@@ -209,8 +209,9 @@ async def test_a_scene_with_no_elements_gets_one_shot_without_a_call() -> None:
 
 
 async def test_a_failing_scene_fails_the_plan_and_names_it(screenplay: Screenplay) -> None:
-    with pytest.raises(ShotError, match="scene 2"):
+    with pytest.raises(ShotError, match="scene 2") as caught:
         await plan_shots(make(Scripted(fail_on="GALLERY")), screenplay, extraction_for(screenplay))
+    assert caught.value.scene == "2"
 
 
 async def test_the_plan_reports_models_and_usage(screenplay: Screenplay) -> None:

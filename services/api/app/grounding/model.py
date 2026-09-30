@@ -20,7 +20,14 @@ class Source(StrEnum):
 
 
 class ExtractionError(RuntimeError):
-    """The extraction can't be completed; no partial result is returned."""
+    """The extraction can't be completed; no partial result is returned.
+
+    `scene` is the number of the first scene in the chunk that failed, as the script prints it;
+    None only when the script is over the chunk budget and no call was made (web.md §4.1)."""
+
+    def __init__(self, message: str, *, scene: str | None = None) -> None:
+        super().__init__(message)
+        self.scene = scene
 
 
 @dataclass(frozen=True)

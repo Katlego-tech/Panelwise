@@ -118,13 +118,15 @@ async def test_extract_grounds_merges_and_reports(screenplay: Screenplay) -> Non
 
 async def test_too_many_chunks_is_refused_before_any_call(screenplay: Screenplay) -> None:
     handler = Scripted()
-    with pytest.raises(ExtractionError, match="3 chunks"):
+    with pytest.raises(ExtractionError, match="3 chunks") as caught:
         await extract(make(handler), screenplay, chunk_chars=1, max_chunks=2)
+    assert caught.value.scene is None  # the budget, not a scene (web.md §4.1)
     assert handler.bodies == []
 
 
 async def test_a_failing_chunk_fails_the_extraction_and_names_its_scenes(
     screenplay: Screenplay,
 ) -> None:
-    with pytest.raises(ExtractionError, match="scenes 2"):
+    with pytest.raises(ExtractionError, match="scenes 2") as caught:
         await extract(make(Scripted(fail_on="GALLERY")), screenplay, chunk_chars=1)
+    assert caught.value.scene == "2"
