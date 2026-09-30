@@ -43,7 +43,7 @@ _Last updated: 2026-09-28 — by Katlego (via Claude)_
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | | | ✅ T010 design done · T020/T021 wait on frames (T008) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | | | ✅ T011 design done · T022/T023 wait on frames (T008) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
-| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035 | | | ⬜ To Do |
+| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035 | Katlego | Claude | 🟡 Doing T031 |
 
 ## ⏭️ Next action
 
