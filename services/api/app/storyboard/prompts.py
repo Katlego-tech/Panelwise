@@ -92,7 +92,11 @@ def names_in(prompt: FramePrompt, extraction: Extraction) -> list[str]:
     """Words of the prompt written the way screenplays write names (capitalised) that are a
     name token of an extracted character."""
     tokens = name_tokens(_characters(extraction))
-    return [w for w in re.findall(r"\w+", prompt.text()) if w[0].isupper() and w.upper() in tokens]
+    return [
+        w
+        for w in re.findall(r"[^\W\u02bc]+", prompt.text())
+        if w[0].isupper() and w.upper() in tokens
+    ]
 
 
 def report(
