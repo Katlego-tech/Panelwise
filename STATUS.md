@@ -39,7 +39,7 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039 | Katlego | Claude | ✅ T005, T006, T039 done |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
-| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T044, T040–T042, T045, T024 | Katlego | Claude | 🔵 design (docs/design/web.md) in review · T009 next · T040+ need a Supabase project (T037) |
+| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T044, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · T009 next · T040+ need a Supabase project (T037) |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · T021 waits on T008, T009 (its full scope is now in TASKS.md) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · T023 waits on frames (T008) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
