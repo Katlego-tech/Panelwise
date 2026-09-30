@@ -1,7 +1,8 @@
 # Design — `web` (sign-in, projects, script, storyboard, frame detail)
 
-**Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T043, T046, T044 (API: projects and
-upload, the pipeline core, the pipeline as a job, the read endpoints), T040–T042, T045 (the screens), T021 (frame state, the
+**Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T043, T046, T044, T047 (API: projects
+and upload, the pipeline core, the pipeline as a job, the response schemas and view builders, the
+read endpoints), T040–T042, T045 (the screens), T021 (frame state, the
 audit section of the frame sheet, "Try another render"), T026 (the rendering stage), T027 (the storyboard PDF) ·
 **Spec:** US1, and US2's "the audit log is visible in the app" ([SPEC.md](../../SPEC.md))
 
@@ -125,7 +126,7 @@ classDiagram
   parsing 0–5, extracting 5–40, planning 40–60, rendering 60–100 (by frames settled). The bands
   are `BANDS` in `app/projects/pipeline.py` (§6); a stage reports its band's start when it begins,
   and a job that stops after planning ends `DONE` at 60 until the rendering stage exists (T026).
-- **`Frame`** (table `frames`: **T044** creates the table, its model and its read; **T021** writes it
+- **`Frame`** (table `frames`: **T047** creates the table, its model and its read; **T021** writes it
   through the `on_state`/`on_frame` hooks, verify.md §6 and storyboard.md §6): one row per shot that has entered verify.md's state machine,
   holding its current `FrameState`, attempt number, the job that last moved it (`frame_audits.job_id`
   is that job) and, for `passed`/`warned` only, the Storage path of the accepted image. It is the
@@ -211,7 +212,7 @@ sequenceDiagram
     `FAILED` with "The server restarted while this ran. Upload the script again." (deploy.md §5: a
     retry is a new job), and every `frames` row in `rendering` or `auditing` becomes `failed` (verify.md §5's
     sweep edges), its card reading "Rendering was interrupted by a restart." T009 builds the job
-    half of the sweep; T021, which writes `frames` (T044 creates the table), adds the frame half.
+    half of the sweep; T021, which writes `frames` (T047 creates the table), adds the frame half.
 - Upload limits (size, pages) are T030's; the API refuses over-limit files with 413 before storing.
   **Constraint for T030:** the upload passes through a Vercel function, whose request body limit is
   about 4.5 MB (Vercel's documented function payload limit; check it when T030 sets the figure), so
@@ -334,10 +335,10 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 |---|---|---|---|
 | `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 413 `{error: "too_large"}` | T009 |
 | `GET /projects` | — | 200 `ProjectSummary[]`, newest first | T009 |
-| `GET /projects/{id}` | — | 200 `Project` | T044 |
-| `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T044 |
-| `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T044 |
-| `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row (no rows exist until T021 writes them) | T044 (creates and reads `frames`) |
+| `GET /projects/{id}` | — | 200 `Project` | T047 |
+| `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T047 |
+| `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T047 |
+| `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row (no rows exist until T021 writes them) | T047 (creates and reads `frames`) |
 | `GET /projects/{id}/storyboard.pdf` | — | 200 PDF, built on demand (storyboard.md §6 `layout_document`, `render_pdf`) and stored by content hash · 409 unless the job is `DONE` and every shot is settled | T027 |
 | `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 409 in any other state | T021 |
 
@@ -401,7 +402,8 @@ async def run_job(job_id: uuid.UUID, *, sessions: async_sessionmaker[AsyncSessio
 ```
 
 **Response types** (TypeScript in `apps/web/lib/api/types.ts`; Pydantic mirrors in
-`services/api/app/api/v1/schemas.py`; field names identical):
+`services/api/app/api/v1/schemas.py`, T044: one model per interface and per nested object, `Job`
+and `ProjectSummary` included; field names identical):
 
 ```ts
 type JobState = "queued" | "running" | "done" | "failed";
@@ -425,10 +427,10 @@ interface EntityView {
 interface SceneView {
   index: number; number: string; heading: string;
   time_of_day: string | null;            // resolve_times()
-  time_carried: boolean;                 // true when the heading itself had no absolute time
+  time_carried: boolean;                 // true when time_of_day is not null and the heading itself had no absolute time
   elements: number; shots: number | null;
 }
-interface ReportView {                   // grounding.md GroundingReport, plus the run's models and tokens
+interface ReportView {                   // grounding.md GroundingReport, plus the run's models and tokens (extraction, and planning once it has run)
   faithfulness: number; entities_proposed: number; entities_grounded: number;
   quotes_proposed: number; quotes_located: number;
   recall: number; cues_total: number; cues_found_by_model: number;
@@ -447,8 +449,9 @@ interface ShotView {
   movement: "static" | "pan" | "tilt" | "dolly" | "tracking" | "handheld" | "crane";
   characters: string[]; props: string[]; time_of_day: string | null; rationale: string;
   span: SpanRef; source: string;
-  // one per covered element, in order; on_screen is false for dialogue whose speaker
-  // (match_speaker against the extraction's characters) is not in `characters`
+  // one per covered element, in order ([] for a heading-only establishing shot); on_screen is
+  // false for dialogue whose speaker (match_speaker against the extraction's characters) is not
+  // in `characters`, a cue that matches no character included; true for action
   segments: { line_start: number; line_end: number; cue: string | null; on_screen: boolean }[];
 }
 
@@ -475,6 +478,25 @@ interface FrameView {
   audits: AuditView[];                   // [] until T021
 }
 ```
+
+**View builders** (T044; pure: no database, no I/O; T047 calls them on a project's loaded
+columns):
+
+```python
+# app/projects/views.py
+def lines_view(screenplay: Screenplay) -> LinesView: ...
+def scene_views(screenplay: Screenplay, plan: ShotPlan | None) -> list[SceneView]: ...
+#   time_of_day: resolve_times(); time_carried: time_of_day is not None and absolute_time(scene.time_of_day) is None;
+#   elements: len(scene.elements); shots: the plan's shots in that scene, None while plan is None
+def entity_views(extraction: Extraction) -> list[EntityView]: ...   # extraction order; `scenes` are scene indexes; dropped entities never appear
+def report_view(extraction: Extraction, plan: ShotPlan | None) -> ReportView: ...
+#   models: the extraction's then the plan's, each once, in first-seen order; tokens: the extraction's plus the plan's
+def shot_id(screenplay: Screenplay, shot: Shot) -> str: ...         # f"{scene.number}.{shot.number}", e.g. "1.4", "12A.2"
+def shot_views(screenplay: Screenplay, extraction: Extraction, plan: ShotPlan) -> list[ShotView]: ...   # plan order
+```
+
+`FrameView` and `AuditView` have schemas only in T044: their data is `frames` and `frame_audits`
+rows, so their builders are T047's (`FrameView`, with `audits` `[]`) and T021's (`AuditView`).
 
 **Web routes** (Next.js App Router): `/sign-in`, `/projects`, `/projects/[id]/script`,
 `/projects/[id]/storyboard` (`?shot=` opens the sheet), `/projects/[id]/comic` (T024; until then
@@ -529,17 +551,19 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `services/api/app/storage/{__init__,store}.py` | new | storyboard.md §6 `AssetStore`/`SupabaseStore`, built with the upload (T009); frame images added by T026 (storyboard.md §3.3) | T009 |
 | `services/api/app/jobs/` + migration | new | the `Job` table with `project_id`, `stage`; the restart sweep | T009 |
 | `services/api/app/projects/{model,repo}.py` + migration | new | the `projects` table | T009 |
-| `services/api/app/api/v1/projects.py` (POST, list), `schemas.py` | new | §6 rows marked T009 | T009 |
+| `services/api/app/api/v1/projects.py` (POST, list) | new | §6 rows marked T009 | T009 |
+| `services/api/app/api/v1/schemas.py` | new | every §6 response type as a Pydantic model, field names identical | T044 |
+| `services/api/app/projects/views.py` | new | the view builders (§6): scenes, entities, report, lines, shots with `segments` | T044 |
 | `services/api/app/projects/{__init__,pipeline}.py` | new | `run_pipeline`: parse → extract → plan, the chunk-budget pre-check, `on_advance` per stage, §4.1 copy by code and type (§6); no database | T043 |
 | `services/api/app/projects/run.py` | new | `python -m app.projects.run <pdf>`: the pipeline on the real account, printing each advance and a summary | T043 |
 | `services/api/app/grounding/{model,extract}.py`, `services/api/app/shots/{model,planner}.py` | changed | `ExtractionError.scene`, `ShotError.scene`, the scene number the §4.1 copy names (+ grounding.md, shots.md §6) | T043 |
 | `services/api/app/projects/job.py` | new | `run_job` (§6): the upload's job runs `run_pipeline`, each stage's column written with the job's advance in one transaction; failures to `FAILED` with the copy | T046 |
-| `services/api/app/projects/codec.py` | new | the stage columns' jsonb: `Screenplay`, `Extraction`, `ShotPlan` to JSON and back, lossless (the read endpoints load them, T044) | T046 |
+| `services/api/app/projects/codec.py` | new | the stage columns' jsonb: `Screenplay`, `Extraction`, `ShotPlan` to JSON and back, lossless (the read endpoints load them, T047) | T046 |
 | `services/api/app/api/v1/projects.py` (POST starts the job) | changed | the upload schedules `run_job` as an asyncio task after its commit (§4.1) | T046 |
 | `services/api/app/projects/pipeline.py` (RENDERING stage) | changed | in `run_pipeline`: `on_advance(RENDERING, 60, plan)`, then `build_storyboard` with T021's writers, `progress(settled, total)` mapped into 60–100; T046's `run_job` marks the job `DONE` | T026 |
-| `services/api/app/frames/{model,repo}.py` + migration (`frames`) | new | the table and its read for `…/frames` | T044 |
+| `services/api/app/frames/{model,repo,views}.py` + migration (`frames`) | new | the table, its read for `…/frames`, `FrameView` from a row | T047 |
 | `services/api/app/script/{model,parser}.py` | changed | `Screenplay.page_starts`, `ScriptParseError.code` (+ script.md §6) | T043 |
-| `services/api/app/api/v1/projects.py` (read endpoints) | changed | §6 rows marked T044 | T044 |
+| `services/api/app/api/v1/projects.py` (read endpoints) | changed | §6 rows marked T047 | T047 |
 | `apps/web/app/globals.css`, `apps/web/components/ui/*` | new | tokens as Tailwind `@theme`; shadcn/ui primitives restyled | T040 |
 | `apps/web/lib/{supabase,api}/*`, `apps/web/middleware.ts` | new | `@supabase/ssr` session, typed API client, §6 types | T040 |
 | `apps/web/app/(auth)/sign-in/`, `apps/web/app/projects/page.tsx`, `apps/web/app/api/projects/route.ts`, `apps/web/components/AppBar.tsx` (ProjectTabs inside), `apps/web/components/SignInForm.tsx`, `apps/web/components/projects/*` (ProjectsPage parts) | new | §4.0, §4.1 | T040 |
@@ -574,7 +598,10 @@ restyled).
   returns the plan; each `ScriptParseError.code`, the chunk budget (with no model call), a failed
   extraction chunk and a failed planning call give their §4.1 copy and stage; `page_starts` on
   every sample. Live: `python -m app.projects.run samples/the-red-kite.pdf` on the real account.
-- **API (T009, T046, T044):** pytest with a fake Supabase token verifier and the compose Postgres:
+- **Schemas and views (T044):** pytest, pure: every builder on the self-written samples;
+  `segments` marks an off-screen speaker's dialogue; each model's JSON field names equal this
+  section's TypeScript, parsed from this file.
+- **API (T009, T046, T047):** pytest with a fake Supabase token verifier and the compose Postgres:
   upload → job runs the stages with `httpx2.MockTransport` models → `GET` endpoints return §6 shapes;
   another user's project is 404; each `ScriptParseError.code` gives its copy; a failed stage leaves
   the columns before it and the user-facing error; the restart sweep fails `QUEUED`/`RUNNING` jobs

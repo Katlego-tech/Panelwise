@@ -25,7 +25,7 @@ the Nebius GPU in a chosen **style**, audited by verify.md's loop before anyone 
 table (verify.md, T020/T021); reference portraits and IP-Adapter (characters.md, T025, which
 extends this renderer); comic pages (comic.md, which calls this renderer at panel size); the ComfyUI
 box itself (T003, `infra/nebius/`); the `Job` table, the `frames` table and the web screens
-(docs/design/web.md: T009, T043, T044, T040–T045); spend caps (T030).
+(docs/design/web.md: T009, T043, T044, T046, T047, T040–T045); spend caps (T030).
 
 ## 2. Reference material
 
