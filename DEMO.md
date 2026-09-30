@@ -27,7 +27,7 @@ Every step below names the task that makes it real; nothing is shown before that
 Pre-fill every input. Never click an unrehearsed path on camera.
 
 1. Open the hosted demo (T030) signed in as the seeded judge account.
-2. Upload the sample screenplay from `samples/` (T031).
+2. Upload the demo screenplay, `samples/the-red-kite.pdf` (T031; self-written, see `samples/README.md`).
 3. The scenes, characters and locations appear, each with its verbatim quote and page/line span (T006 builds it; T009 shows it in the app).
 4. The shot list appears, planned on Nemotron (T007, T009).
 5. Frames render, one per shot, in a public style (T003, T008).
