@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log, log in the web app) · **Spec:** US2 (frame audit); SPEC.md's stories are still the template
+log, log in the web app) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 

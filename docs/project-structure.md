@@ -20,7 +20,7 @@ panelwise/
 │   │   ├── grounding/           # extraction, grounding filter, faithfulness
 │   │   ├── shots/               # shot planner
 │   │   ├── storyboard/          # frame gen, styles registry, PDF        (headline)
-│   │   ├── verify/              # Nemotron vision frame auditor + re-render loop
+│   │   ├── verify/              # frame audit (vision model describes, Nemotron judges) + re-render loop
 │   │   ├── comic/               # page layout, panel sizing, bubbles, lettering
 │   │   ├── characters/          # reference portraits for consistent characters
 │   │   ├── images/              # provider chain + cache

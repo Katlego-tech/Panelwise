@@ -23,5 +23,6 @@ A feature that appears in no row is a candidate to cut ([SCOPE.md](SCOPE.md) § 
 
 **Honesty line for every row:** no Nemotron model on Token Factory accepts images
 (findings U7), so the frame audit's *describe* step runs on `zai-org/GLM-5.3-Flash`, a
-non-NVIDIA model. README, SPEC and the Devpost draft still say "Nemotron vision auditor" and must
-be corrected (STATUS.md § Open decisions) before any judge reads them.
+non-NVIDIA model. Every claim a judge reads uses the approved wording, *"a vision model describes each
+frame; Nemotron audits it against the script"* (docs/design/verify.md §8), never "Nemotron vision
+auditor" (README, SPEC and the Devpost draft corrected 2026-09-30).

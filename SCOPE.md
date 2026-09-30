@@ -1,8 +1,8 @@
 # Scope
 
 A long event still needs one clear problem. It just has room for more than one milestone of work
-toward it. The user stories themselves belong in [SPEC.md](SPEC.md) (still the unfilled template,
-per the STATUS.md log of 2026-09-28); this file holds the scope decisions and the milestone plan.
+toward it. The user stories themselves belong in [SPEC.md](SPEC.md) (US1–US4, with their
+scenarios); this file holds the scope decisions and the milestone plan.
 
 ## The problem
 

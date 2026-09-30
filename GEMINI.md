@@ -48,7 +48,7 @@ them as binding, in this order:
 
 ## What `Panelwise` is
 
-`Panelwise turns a screenplay into a grounded storyboard and then a comic book. Nemotron models on Nebius Token Factory extract characters, locations and shots from the script, image models render one frame per shot, a Nemotron vision auditor checks each frame against the shot spec and re-renders on mismatch, and the frames are laid out as storyboard pages or comic pages with speech bubbles from the script dialogue.`
+`Panelwise turns a screenplay into a grounded storyboard and then a comic book. Nemotron models on Nebius Token Factory extract characters, locations and shots from the script, image models render one frame per shot, a vision model describes each frame and Nemotron audits it against the shot spec, re-rendering on mismatch, and the frames are laid out as storyboard pages or comic pages with speech bubbles from the script dialogue.`
 
 The plan lives in [PLAN.md](PLAN.md); the WHAT in [SPEC.md](SPEC.md); the task list in [TASKS.md](TASKS.md).
 
