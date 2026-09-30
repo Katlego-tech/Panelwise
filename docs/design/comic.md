@@ -25,7 +25,7 @@ invented sound effects.
 
 | Kind | Where |
 | --- | --- |
-| Visual reference | none yet. T022 is geometry only (no images), so it pins the self-written sample's page rects in a test; the rendered reference page from that sample comes with T023's `render_pages` |
+| Visual reference | [`docs/design/comic/the-red-kite-page-*.png`](comic/): the self-written sample `samples/the-red-kite.pdf` rendered by T023's `render_pages`, built by `services/api/tools/build_comic_reference.py` from the real parser, a hand-planned shot list (every element in one shot) and **fixture frames** drawn with Pillow, each marked `TEST FIXTURE - not a render` (the real frames wait on T026). Six pages, 20 panels; one panel (scene 3, shot 3) is withheld, to show the card. The gate re-renders it and compares pixels (`tests/comic/test_reference.py`). T022's geometry test pins the rects |
 | Inputs | `ShotPlan`, `Shot` (shots.md §6); `Screenplay`, `Scene`, `Dialogue`, `Span` (script.md §6); the frame renderer and audit (verify.md §6: `Renderer`, `render_until_accepted`, `Audit.positions`). **Depends on verify.md's `Renderer.render` and `render_until_accepted` taking `width`/`height`** (added in PR #17, T010), so this doc lands after it |
 | Prior art in FrameFlow | none: FrameFlow made storyboard PDFs, never comics (its `storyboard_document.py` hand-wrote a PDF with base-14 fonts, two 16:9 panels per A4 page) |
 | Font | **Comic Neue Regular** (`ComicNeue-Regular.ttf`, SIL Open Font License 1.1), committed with its licence under `services/api/assets/fonts/` by T022, because step 5's budget measures text with the same file the renderer letters with |
@@ -158,12 +158,17 @@ last panel. `rect` follows from the running x and y.
 
 **5. Lettering budget (fit, never shrink or cut).** Each text is wrapped with the font at **32 px**
 (nominal) to at most 40% of the panel width; its box is the wrapped block plus 16 px padding each
-side (an ellipse is drawn inside it). If the boxes' total area exceeds **35% of the panel's area**,
+side (the bubble is drawn filling it: step 7, Drawing). If the boxes' total area exceeds **35% of the panel's area**,
 that panel's weight is raised by 0.5 and steps 2–4 rerun (a *relayout*), at most 3 passes. A panel
 still over budget gets a solo tier; if even that is over, the layout fails with `ComicError` naming
 the shot. Wrapping is greedy on whitespace; a word wider than the limit keeps a line to itself
 (never split), so its box is simply wider. A block is its widest line wide and `lines × (ascent +
-descent)` tall. *Passes* are the up-to-3 raising relayouts; a panel over budget after them (one a
+descent)` tall. Wrapping splits on whitespace and rejoins with one space, so a run of whitespace
+letters as one space (typography, not wording). **A line-break hyphen still in the element text**
+(`south- westerly`, samples/README.md finding 5) **is lettered as the element text has it**, space
+and all: the bubble's `text` is `Dialogue.text` byte for byte, and the fix belongs in the parser's
+element text (its own task), which the lettering then picks up unchanged. Joining it here would
+make the lettered words differ from `text` and its span's contract (T023). *Passes* are the up-to-3 raising relayouts; a panel over budget after them (one a
 late reshuffle squeezed) is given a solo tier in one more relayout, and a panel over budget that
 already has a solo tier (weight ≥ 2.0, or given one) at that point fails the layout.
 `LayoutReport.relayouts` counts every rerun of steps 2–4. Text is never below **28 px** (the renderer may drop from 32 to 28 to fit a box, never
@@ -173,8 +178,11 @@ lower) and never truncated or reworded.
 `render_until_accepted` (the same audit, the same withhold rule). A `WITHHELD` frame's panel shows
 the comic's **withheld card** instead, and its lettering is still placed:
 
-- The card is `rect.w × rect.h`, white, with a 4 px mid-grey (`#808080`) border.
-- It carries two lines, centred, in the comic font at 32 px: `Frame withheld: failed audit
+- The card is `rect.w × rect.h`, white, with a 4 px mid-grey (`#808080`) border. **The withheld
+  frame's pixels are never decoded or drawn**: `PanelFrame.withheld` is the switch, whatever
+  `png` holds.
+- It carries two lines, centred, in the comic font at 32 px, black (each wraps greedily on
+  whitespace to the card's width less 2 × 16 px when it is wider, never cut): `Frame withheld: failed audit
   (<checks>)`, where `<checks>` is the names of the failed **hard** checks of the *last* attempt,
   in `Check` enum order, lower case with `_` as spaces, joined by `, ` (an `ERROR` audit reads
   `audit error`); and `Script p.<page> l.<line_start>–<line_end>` from the shot's span.
@@ -182,29 +190,59 @@ the comic's **withheld card** instead, and its lettering is still placed:
   text is never lettered. (The storyboard's card, which verify.md §4 describes, does show the
   source; the storyboard has no bubbles.)
 - Placement on a card: `detail` is 0 everywhere, so boxes go to the earliest admissible cells;
-  `positions` is empty (a failed attempt's positions describe a frame no one sees), so `SPEECH`
-  tails point at the panel's bottom centre and `OFF_PANEL` tails at the right edge.
+  `positions` is empty (a failed attempt's positions describe a frame no one sees), so
+  `OFF_PANEL` tails point at the right edge, and a `SPEECH` bubble has **no tail** (`tail` is
+  `null`): no one is in the panel to point at, and a tail to the bottom centre crosses the card's
+  own two lines (T023 found this on the reference page; the rule was "the bottom centre" before).
+- `panel_frame(outcome, shot)` turns verify's `FrameOutcome` into a `PanelFrame`: `PASSED` or
+  `WARNED` → the accepted frame's PNG and its (last) audit's `positions`; `WITHHELD` → no PNG, no
+  positions, and a `WithheldCard` (`withheld_checks(last audit)`, the shot's span); any other state
+  (a `FAILED` renderer, or not settled) → `ComicError`, since the frame job has failed. A
+  `WITHHELD` outcome whose last audit is neither `ERROR` nor has a failed hard check → `ComicError`
+  (a card never reads "failed audit ()").
+- An accepted frame must decode to exactly `rect.w × rect.h`; any other size → `ComicError` naming
+  the shot (never scaled or cropped). It is pasted at `rect` and gets a 4 px black border drawn
+  inside the rect; the card keeps its own grey border instead.
 
 **7. Placing lettering.** Candidate positions are the 12 × 8 grid of cell corners inside the panel
-(columns × rows), each tried as a box's top-left. **Hard constraints** (a candidate that breaks one is
-never chosen): the box lies inside the panel; it overlaps no earlier box; **reading order**: its
+(columns × rows), each tried as a box's top-left. The grid is laid over the panel **inset by 16 px**
+(the padding) on every side, the *inner rect*: corner `(row, col)` is at `inner.x + ⌊col · inner.w /
+12⌋`, `inner.y + ⌊row · inner.h / 8⌋`, for `col` 0–11, `row` 0–7. A box is its text wrapped at the
+font size (to 40% of the panel width) plus 16 px padding, as in step 5. **Hard constraints** (a
+candidate that breaks one is never chosen): the box lies inside the inner rect; it overlaps no earlier box; **reading order**: its
 grid cell `(row, col)` is after the previous box's in row-major order (`row > prev_row`, or `row ==
 prev_row` and `col > prev_col`). **Cost** among the admissible: `detail + 2.0 × covers_speaker`,
 where `detail` is the mean of Pillow `FIND_EDGES` over the box on the grayscale frame, divided by 255
 (0–1), and `covers_speaker` is 1 when the box overlaps the speaker's third of the panel (from the
 audit's `positions`, looked up by `match_speaker(speaker, list(positions))`; 0 when unknown). Lowest
 cost wins; ties go to the earlier cell in row-major order. The `SCENE` caption, when present, is
-placed first, at the panel's top-left. If a box has no admissible candidate, `ComicError` names the
-shot. (The budget in step 5 makes this rare, not impossible.)
+placed first, at the panel's top-left (cell `(0, 0)`, subject to the same hard constraints). The
+thirds split the panel's width at `⌊w/3⌋` and `⌊2w/3⌋`; a `VOICE_OVER` caption uses its cue as the
+speaker, like a bubble. **Font size:** each box is tried at 32 px; only when no candidate is
+admissible is it tried again at 28 px (the one smaller size, never lower). If a box has no
+admissible candidate at 28 px either, `ComicError` names the shot. (The budget in step 5 makes this
+rare, not impossible.)
+
+**Drawing.** A bubble is a white rounded rectangle filling its box (corner radius `min(48, h/2,
+w/2)`) with a 3 px black outline: an ellipse inscribed in a box with 16 px padding would cut the
+text block's corners, and a radius ≤ 54 px never does. A caption is a pale yellow (`#FFF4C2`)
+rectangle filling its box with a 3 px black outline, no tail. Lines are centred in the box, black,
+in the comic font at `font_px`. Outlines of every box on a panel are drawn first, then every fill,
+then every text, so a tail passing under another bubble never covers its words.
 
 **8. Tails.** `SPEECH`: from the bubble's nearest edge to the speaker's point: horizontal centre of
 their third (`left`/`centre`/`right`) at 45% of the panel height; when the position is unknown, the
-panel's bottom centre. `OFF_PANEL`: to the panel edge on the speaker's side, else the right edge.
-Captions: no tail.
+panel's bottom centre (on a withheld card: no tail, step 6). `OFF_PANEL`: to the panel edge on the speaker's side, else the right edge.
+Captions: no tail. `Bubble.tail` is the tip, in page pixels, always inside the panel: a third's
+centre is `x + ⌊w/6⌋`, `x + ⌊w/2⌋` or `x + ⌊5w/6⌋`, at `y + ⌊0.45 h⌋`; the bottom centre is
+`(x + ⌊w/2⌋, y + h − 1)`; an `OFF_PANEL` tip is on the left (`x`) or right (`x + w − 1`) edge at
+the bubble's vertical centre (a speaker in the `centre` third has no side: right edge). The tail is
+a triangle, 28 px wide at its base, from the point of the box shrunk by the corner radius nearest
+the tip to the tip; a tip inside the box draws no tail.
 
 **Failure paths:** layout over budget after the passes → `ComicError` (shot named); no admissible
 spot for a box → `ComicError` (shot named); the renderer failing → the frame job fails (verify.md);
-the font file missing → `ComicError` at start-up, never a fallback font. A missing line is worse than
+the font file missing → `ComicError` at start-up, never a fallback font; a character the font has no glyph for (it would letter as an empty box) → `ComicError` naming the shot (T023). A missing line is worse than
 a failed job.
 
 ## 5. State
@@ -226,7 +264,8 @@ class CaptionKind(StrEnum): SCENE = "scene"; VOICE_OVER = "voice_over"
 @dataclass(frozen=True) class Page: number: int; width: int; height: int; panels: tuple[Panel, ...]
 @dataclass(frozen=True) class LayoutReport: panels: int; bubbles: int; captions: int; relayouts: int
 @dataclass(frozen=True) class ComicBook: pages: tuple[Page, ...]; report: LayoutReport
-@dataclass(frozen=True) class PanelFrame: png: bytes; positions: Mapping[str, Position]; withheld: bool   # Position from verify.md; lands with T023, its first consumer
+@dataclass(frozen=True) class WithheldCard: checks: str; span: Span   # the card's two variable parts (§4 step 6); lands with T023
+@dataclass(frozen=True) class PanelFrame: png: bytes; positions: Mapping[str, Position]; withheld: bool; card: WithheldCard | None = None   # Position from verify.md; lands with T023, its first consumer. card is set exactly when withheld (else ComicError); a withheld png is never drawn
 class ComicError(RuntimeError): ...
 
 # app/comic/layout.py (T022) — pure, no images
@@ -239,6 +278,8 @@ def place_lettering(book: ComicBook, screenplay: Screenplay, plan: ShotPlan,
                     frames: Mapping[tuple[int, int], PanelFrame]) -> ComicBook: ...
 
 # app/comic/render.py (T023)
+def withheld_checks(audit: Audit) -> str: ...   # the card's <checks>: "audit error", or the failed hard checks in Check order, "_" as spaces, ", "-joined
+def panel_frame(outcome: FrameOutcome, shot: Shot) -> PanelFrame: ...   # §4 step 6; ComicError unless PASSED, WARNED or WITHHELD
 def render_pages(book: ComicBook, frames: Mapping[tuple[int, int], PanelFrame]) -> list[bytes]: ...   # PNG per page
 def to_pdf(pages: Sequence[bytes]) -> bytes: ...
 def to_json(book: ComicBook, frame_urls: Mapping[tuple[int, int], str]) -> dict[str, object]: ...
@@ -272,7 +313,9 @@ def to_json(book: ComicBook, frame_urls: Mapping[tuple[int, int], str]) -> dict[
 
 Every piece of text carries its span, so the reader can show "from page 1, line 14" on any bubble.
 `frame_url` is the Supabase Storage URL of the accepted frame (absent and `withheld: true` for a
-withheld one).
+withheld one). `to_json` reads `withheld` as "the shot has no entry in `frame_urls`": the comic
+job passes a URL for every accepted frame and none for a withheld one. A bubble's `tail` is
+`[x, y]` or `null`; a caption has no `tail` key.
 
 ## 7. Structure
 
@@ -282,6 +325,7 @@ withheld one).
 | `services/api/app/comic/{bubbles,render}.py` | new | placement, tails, lettering, the withheld card, page PNGs, PDF, JSON | T023 |
 | `services/api/assets/fonts/ComicNeue-Regular.ttf`, `OFL.txt` | new | the lettering font and its licence (the budget measures with it; the Dockerfile copies `assets/`) | T022 |
 | `services/api/tests/comic/` | new | §9 | T022, T023 |
+| `services/api/tools/build_comic_reference.py`, `docs/design/comic/the-red-kite-page-*.png` | new | the rendered reference (§2): hand-planned shots and fixture frames, rebuilt with `uv run python -m tools.build_comic_reference` | T023 |
 
 Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, multi-page PDF via
 `save_all`). No second PDF library.
@@ -320,7 +364,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   px; `O.S.` tails on the edge; `V.O.` as captions; no admissible spot → `ComicError`.
 - **Frames:** each panel's render request is exactly its `rect` size; a withheld frame yields the
   card (its two lines, the failed hard checks in enum order, `audit error` for an ERROR audit, no
-  source text) plus its lettering, placed in grid order with default tails.
+  source text) plus its lettering, placed in grid order, `OFF_PANEL` tails to the right edge and no `SPEECH` tail.
 - **Export:** one PDF page per `Page` at 1988 × 3075; the JSON matches §6's shape and round-trips
   every span.
 - **Visual:** T022/T023 render the self-written sample's comic and commit the page PNGs as the
@@ -329,7 +373,10 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 ## 10. Open questions
 
 - [ ] Sound effects from all-caps action ("DOORS SLAM.") would suit comics, but lettering them is a
-  styling choice; decide with a sample page in hand (T023).
+  styling choice; decide with a sample page in hand. T023 letters none (§8); the reference page is
+  now the sample page to decide with.
+- [ ] A line-break hyphen still in element text (`south- westerly`) is lettered with its space
+  until the parser joins it at source (samples/README.md finding 5, its own task; §4 step 5).
 - [ ] Dual dialogue isn't parsed (script.md §10), so two simultaneous speeches read as sequential
   bubbles.
 - [ ] Right-to-left reading order: not planned.

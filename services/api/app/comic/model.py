@@ -4,10 +4,12 @@ Every lettered piece of text carries the `Span` it came from: Non-negotiable I (
 traces back to a verbatim span) holds for the words on the page as much as for the art.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
 from app.script import Span
+from app.verify.model import Position
 
 type Rect = tuple[int, int, int, int]  # x, y, w, h (page px)
 type Point = tuple[int, int]  # x, y (page px)
@@ -84,3 +86,26 @@ class LayoutReport:
 class ComicBook:
     pages: tuple[Page, ...]
     report: LayoutReport
+
+
+@dataclass(frozen=True)
+class WithheldCard:
+    """What a withheld panel's card letters (comic.md §4 step 6): the failed checks and the span."""
+
+    checks: str
+    span: Span
+
+
+@dataclass(frozen=True)
+class PanelFrame:
+    """A panel's frame, rendered at its rect's size. A withheld one is shown only as its card:
+    `png` is never decoded when `withheld`, whatever it holds."""
+
+    png: bytes
+    positions: Mapping[str, Position]
+    withheld: bool
+    card: WithheldCard | None = None
+
+    def __post_init__(self) -> None:
+        if self.withheld != (self.card is not None):
+            raise ComicError("a PanelFrame carries a withheld card exactly when it is withheld")
