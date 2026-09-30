@@ -149,10 +149,13 @@ failed, and then `ok` is false). Three attempts, then `WITHHELD`: frames for tha
    by their **first** speech and listed **once** however often they speak; then the remaining
    candidates in `shot.characters` order. Each character appears in the order exactly once.
 3. Take the first two. One → `FULL` region, weight 0.7, no placement phrase. Two → first `LEFT`,
-   second `RIGHT`, weight 0.6 each, masks splitting the frame down the middle, placement "one
-   figure on the left, one on the right".
-4. Three or more characters: only the first two get references; the rest come from the prompt
-   alone. Stated in the frame's provenance.
+   second `RIGHT`, weight 0.6 each, masks splitting the frame down the middle.
+4. `placement` is "one figure on the left, one on the right" **only** when exactly two
+   references were chosen **and** `visible_characters` has exactly two members (storyboard.md
+   §3.1 rejects a placement otherwise, so it can never contradict the frame's `COUNT`); else `None`.
+5. Three or more visible characters: only the first two get references (still masked left and
+   right), no placement phrase; the prompt's `COUNT` covers the other figures. Stated in the
+   frame's provenance.
 
 The verify audit's `positions` (verify.md) then show whether the figures landed as placed; a
 mismatch is a soft `FRAMING`-class observation, logged, not a failure (T025 decides whether to
@@ -232,7 +235,7 @@ every input that changes the pixels is in this key.
 | `infra/comfyui/workflows/{portrait,frame_ref1,frame_ref2}.json` | new | the graphs | T025 (with T003's box) |
 | `infra/comfyui/workflows/frame.json` | new | the no-reference frame graph | T026 (storyboard.md §6) |
 | `infra/nebius/README.md` | changed | installed custom nodes, model files, their licences and versions | T003 |
-| `services/api/tests/characters/` | new | §9 | T025 |
+| `services/api/tests/characters/` | new | §9 (redaction cases: T008) | T008, T025 |
 
 ## 8. Decisions & alternatives
 

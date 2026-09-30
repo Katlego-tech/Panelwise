@@ -490,6 +490,8 @@ def build_frame_prompt(shot: Shot, screenplay: Screenplay, extraction: Extractio
 
 # app/storyboard/prompts.py — T008's live check (python -m app.storyboard.prompts <script.pdf> [--style KEY])
 async def main(argv: list[str]) -> int: ...             # parse, extract, plan; print each shot's parts, kinds and spans
+#   run as `sys.exit(asyncio.run(main(sys.argv[1:])))` under `if __name__ == "__main__"`, like app/shots/run.py;
+#   max_words = Settings().comfyui_max_words (COMFYUI_MAX_WORDS, T008), the same value T026's load_workflow receives
 
 # app/storyboard/workflow.py — pure
 @dataclass(frozen=True) class Workflow: name: str; graph: Mapping[str, Any]; native_area: int; max_words: int
@@ -569,7 +571,7 @@ def to_json(storyboard: Storyboard, plan: ShotPlan, frame_urls: Mapping[tuple[in
 `frame_url` is present only for `passed` and `warned`; a `withheld` frame has none. `source` and
 `span` are the shot's, so the web app shows "from page 1, lines 5–9" on every frame (SPEC US1).
 
-**Environment** (added to `.env.example` and deploy.md §6: styles by T008, `COMFYUI_*` and Storage by T026):
+**Environment** (added to `.env.example` and deploy.md §6: `PANELWISE_PRIVATE_STYLES` and `COMFYUI_MAX_WORDS` by T008, the other `COMFYUI_*` and Storage by T026):
 
 | Variable | Where | What |
 |---|---|---|
@@ -594,7 +596,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | `services/api/app/storyboard/document.py` | new | §3.4, §6: layout, PDF, JSON; `run` writes the PDF to `DIR` and Storage | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
 | `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (deploy.md §7), built with its first consumer, the renderer | T026 |
-| `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`), T026 (`COMFYUI_*`, `SUPABASE_STORAGE_BUCKET`) |
+| `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, `COMFYUI_MAX_WORDS`), T026 (`COMFYUI_URL`, `COMFYUI_TIMEOUT_S`, `SUPABASE_STORAGE_BUCKET`) |
 | `styles/*.toml`, `styles/README.md` | new / changed | the styles the team keeps public (§10); the file format | T008 |
 | `infra/comfyui/workflows/frame.json` | new | the frame graph, on T003's model | T026 (with T003's box) |
 | `services/api/assets/fonts/{CourierPrime-Regular,CourierPrime-Bold}.ttf`, `CourierPrime-OFL.txt` | new | the document's font and its licence | T027 |

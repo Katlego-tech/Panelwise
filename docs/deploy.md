@@ -51,7 +51,7 @@ kill %1
    |---|---|
    | `DATABASE_URL` | step 1's session-pooler string, as copied. `postgresql://…` is fine (the API adds `+asyncpg`), and so is `?sslmode=require` (the API turns it into asyncpg's `?ssl=require`) |
    | `NEBIUS_API_KEY` | your Token Factory key |
-   | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | step 1 (used from T008/T009) |
+   | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | step 1 (used from T026/T009) |
 
    Everything else has a default in `app/core/config.py` (`NEBIUS_MODEL_*`, `LLM_*`). `PORT` is set
    by Railway, and the container listens on it.
