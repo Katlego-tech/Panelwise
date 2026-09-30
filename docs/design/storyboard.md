@@ -24,7 +24,8 @@ the Nebius GPU in a chosen **style**, audited by verify.md's loop before anyone 
 **Not covered:** the audit, the re-render loop, the frame state machine and the `frame_audits`
 table (verify.md, T020/T021); reference portraits and IP-Adapter (characters.md, T025, which
 extends this renderer); comic pages (comic.md, which calls this renderer at panel size); the ComfyUI
-box itself (T003, `infra/nebius/`); the `Job` table and the web screens (T009); spend caps (T030).
+box itself (T003, `infra/nebius/`); the `Job` table, the `frames` table and the web screens
+(docs/design/web.md: T009, T043, T044, T040–T045); spend caps (T030).
 
 ## 2. Reference material
 
@@ -304,7 +305,8 @@ default = true        # exactly one PUBLIC style sets this
   changes the pixels is in the key (characters.md §6, which this makes exact).
 - **Storage paths**: `frames/<render key>.png` for every rendered attempt (the `frame_audits.frame_asset`
   column, verify.md §6, points at it, including attempts that failed their audit);
-  `storyboards/<sha256 of the PDF bytes>.pdf` for an export. Paths are content addresses: the same
+  `storyboards/<sha256 of the PDF bytes>.pdf` for an export (built on demand by T027's
+  `GET /projects/{id}/storyboard.pdf`, web.md §6). Paths are content addresses: the same
   bytes always land at the same path, so a `put` is idempotent.
 - **The store is the render cache.** Before submitting a graph, the renderer checks `exists(frames/<key>.png)`;
   a hit is read back and returned without touching the GPU (`RenderRecord.cached`). A failed job's
@@ -396,9 +398,7 @@ sequenceDiagram
         V-->>J: FrameOutcome (PASSED / WARNED / WITHHELD / FAILED)
     end
     J->>J: any FAILED → StoryboardError; else Storyboard
-    J->>J: layout_document → pages; render_pdf
-    J->>T: put(storyboards/sha.pdf)
-    J-->>J: Storyboard + PDF path
+    J-->>J: Storyboard (the PDF is built on demand by T027's endpoint, not here)
 ```
 
 - **The log adapter.** verify.md's `render_until_accepted` takes `log: Callable[[Audit],
@@ -406,6 +406,10 @@ sequenceDiagram
   T021's `frame_audits` writer needs and hands verify a wrapper, `async def _log(a): await log(a,
   renderer.record(a.shot, a.attempt).asset)`. The renderer records an attempt before returning it,
   so the lookup can't miss.
+- **Frame state for the web.** `build_storyboard` passes verify's `on_state` through as
+  `on_frame(shot, state, attempt, asset)`, with `asset` set only on a `PASSED` or `WARNED` terminal
+  state (the accepted frame's path). The pipeline runner (web.md, T026's wiring) hands it T021's
+  `frames` writer, so every `frames` row is written by exactly one path.
 - **Seeds** are verify.md's `seed_for(shot, attempt)`; the renderer never picks one. FrameFlow's
   random regenerate seed is gone: an attempt is reproducible, and "another attempt" is the next
   attempt number.
@@ -441,9 +445,9 @@ sequenceDiagram
 ## 5. State
 
 The frame's lifecycle is **verify.md §5**, unchanged; not redrawn here. A storyboard is produced by
-a `Job` (deploy.md §5: `QUEUED → RUNNING → DONE | FAILED`); `progress` = frames finished (any
-terminal frame state) × 99 ÷ shots, rounded down, so it reaches 99 when the last frame finishes and
-100 only when the PDF is stored. The style registry is loaded
+the upload's `Job` in its `RENDERING` stage (web.md §3, §5); `build_storyboard` reports
+`progress(settled, total)` after each frame reaches a terminal state, and the runner maps it into the
+job's 60–100 band. The PDF is not part of the job. The style registry is loaded
 once at start-up and immutable.
 
 ## 6. Contracts
@@ -539,7 +543,9 @@ def frame_of(outcome: FrameOutcome, record: RenderRecord | None) -> StoryboardFr
 async def build_storyboard(model: NebiusChatModel, renderer: ComfyRenderer, plan: ShotPlan,
                            screenplay: Screenplay, extraction: Extraction, *,
                            log: Callable[[Audit, str], Awaitable[None]],      # (audit, frame_asset) → the frame_audits row; §4's adapter
-                           progress: Callable[[int], Awaitable[None]] | None = None,
+                           on_frame: Callable[[tuple[int, int], FrameState, int, str | None], Awaitable[None]] | None = None,
+                           #   (shot, state, attempt, asset) on every verify.md §5 transition; asset only on PASSED/WARNED → the `frames` row (web.md §3)
+                           progress: Callable[[int, int], Awaitable[None]] | None = None,   # (settled, total) after each terminal frame
                            width: int = 1280, height: int = 720, concurrency: int = 2,
                            max_renders: int = 3) -> Storyboard: ...
 
@@ -551,7 +557,7 @@ def render_pdf(pages: Sequence[StoryboardPage], storyboard: Storyboard, plan: Sh
 def to_json(storyboard: Storyboard, plan: ShotPlan, frame_urls: Mapping[tuple[int, int], str]) -> dict[str, object]: ...
 ```
 
-**Storyboard JSON** (T009's input, verbatim shape):
+**Storyboard JSON** (an export, written by `run` and T027; the web pages read `frames` rows instead, web.md §6):
 
 ```json
 {
@@ -595,7 +601,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | `services/api/app/storyboard/{model,workflow,render,build,run}.py` | new | §3.3, §4, §6: the workflow helpers, `ComfyRenderer`, `build_storyboard`, and `python -m app.storyboard.run <script.pdf> [--style KEY] --out DIR` (renders and audits on the real account and GPU, stores the frames, prints each shot's state and prompt) | T026 |
 | `services/api/app/storyboard/document.py` | new | §3.4, §6: layout, PDF, JSON; `run` writes the PDF to `DIR` and Storage | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
-| `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (deploy.md §7), built with its first consumer, the renderer | T026 |
+| `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames | T009 |
 | `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, `COMFYUI_MAX_WORDS`), T026 (`COMFYUI_URL`, `COMFYUI_TIMEOUT_S`, `SUPABASE_STORAGE_BUCKET`) |
 | `styles/*.toml`, `styles/README.md` | new / changed | the styles the team keeps public (§10); the file format | T008 |
 | `infra/comfyui/workflows/frame.json` | new | the frame graph, on T003's model | T026 (with T003's box) |
@@ -680,8 +686,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - **`build_storyboard`** with a fake renderer and a mocked audit: one frame per shot in plan order;
   every attempt logged with its asset; `PASSED`, `WARNED` (soft checks noted) and `WITHHELD` (hard
   checks noted, `asset` `None`) frames; a `FAILED` frame raising `StoryboardError` naming the shot
-  after in-flight shots finish; the log adapter passing each attempt's asset; progress reaching 99
-  before the PDF is stored and 100 after.
+  after in-flight shots finish; the log adapter passing each attempt's asset; `on_frame` fired for
+  every transition with an asset only on PASSED/WARNED; `progress(settled, total)` after each
+  terminal frame.
 - **Document**: `layout_document` is deterministic; scenes start pages; blocks never overlap the
   header or footer; a long source continues onto the next page with every line present (the joined
   lines equal the `source` modulo wrapping); `render_pdf` makes one PDF page per `StoryboardPage` at
