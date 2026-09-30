@@ -151,6 +151,23 @@ def test_a_scenes_first_panel_carries_its_heading_caption_and_no_other_panel_doe
     assert scene_captions[0][2].text == "LIGHTHOUSE KITCHEN — NIGHT"
 
 
+def test_the_drawn_lines_are_the_texts_own_words_in_order() -> None:
+    # render.py draws `wrap(text, limit, font)`: its lines, rejoined, are the text's own words.
+    screenplay, plan, book = sample()
+    h_screenplay, h_plan, h_book = one_panel(
+        "In the teeth of a south- westerly, whatever you hear."
+    )
+    lettered = [
+        *panels(place_lettering(book, screenplay, plan, frames(book))),
+        second(place_lettering(h_book, h_screenplay, h_plan, frames(h_book))),
+    ]
+    for panel in lettered:
+        for item in (*panel.bubbles, *panel.captions):
+            font = layout.font_at(layout.FONT_PATH, item.font_px)
+            lines = layout.wrap(item.text, math.floor(panel.rect[2] * 2 / 5), font)
+            assert " ".join(lines) == " ".join(item.text.split())
+
+
 def test_placement_keeps_the_geometry_and_counts_what_it_lettered() -> None:
     screenplay, plan, book = sample()
     placed = place_lettering(book, screenplay, plan, frames(book))
