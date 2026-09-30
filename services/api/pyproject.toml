@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.141.1",
     "httpx2>=2.13.1",
     "pdfplumber>=0.11.10",
+    "pillow>=12.3.0",
     "pydantic-settings>=2.15.0",
     "sqlalchemy[asyncio]>=2.1.1",
     "uvicorn[standard]>=0.54.0",

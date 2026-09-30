@@ -25,10 +25,10 @@ invented sound effects.
 
 | Kind | Where |
 | --- | --- |
-| Visual reference | none yet; producing a reference page from the self-written sample is part of T022's Verify |
+| Visual reference | none yet. T022 is geometry only (no images), so it pins the self-written sample's page rects in a test; the rendered reference page from that sample comes with T023's `render_pages` |
 | Inputs | `ShotPlan`, `Shot` (shots.md §6); `Screenplay`, `Scene`, `Dialogue`, `Span` (script.md §6); the frame renderer and audit (verify.md §6: `Renderer`, `render_until_accepted`, `Audit.positions`). **Depends on verify.md's `Renderer.render` and `render_until_accepted` taking `width`/`height`** (added in PR #17, T010), so this doc lands after it |
 | Prior art in FrameFlow | none: FrameFlow made storyboard PDFs, never comics (its `storyboard_document.py` hand-wrote a PDF with base-14 fonts, two 16:9 panels per A4 page) |
-| Font | **Comic Neue** (SIL Open Font License 1.1), committed with its licence under `services/api/assets/fonts/` |
+| Font | **Comic Neue Regular** (`ComicNeue-Regular.ttf`, SIL Open Font License 1.1), committed with its licence under `services/api/assets/fonts/` by T022, because step 5's budget measures text with the same file the renderer letters with |
 | Page size | US comic trim, 6.625 × 10.25 in, rendered at 300 dpi = **1988 × 3075 px**; margins **120 px** (0.4 in); gutters **36 px** |
 
 ## 3. Domain model
@@ -161,7 +161,12 @@ last panel. `rect` follows from the running x and y.
 side (an ellipse is drawn inside it). If the boxes' total area exceeds **35% of the panel's area**,
 that panel's weight is raised by 0.5 and steps 2–4 rerun (a *relayout*), at most 3 passes. A panel
 still over budget gets a solo tier; if even that is over, the layout fails with `ComicError` naming
-the shot. Text is never below **28 px** (the renderer may drop from 32 to 28 to fit a box, never
+the shot. Wrapping is greedy on whitespace; a word wider than the limit keeps a line to itself
+(never split), so its box is simply wider. A block is its widest line wide and `lines × (ascent +
+descent)` tall. *Passes* are the up-to-3 raising relayouts; a panel over budget after them (one a
+late reshuffle squeezed) is given a solo tier in one more relayout, and a panel over budget that
+already has a solo tier (weight ≥ 2.0, or given one) at that point fails the layout.
+`LayoutReport.relayouts` counts every rerun of steps 2–4. Text is never below **28 px** (the renderer may drop from 32 to 28 to fit a box, never
 lower) and never truncated or reworded.
 
 **6. Frames.** Each panel's shot is rendered at `rect.w × rect.h` through verify.md's
@@ -221,12 +226,13 @@ class CaptionKind(StrEnum): SCENE = "scene"; VOICE_OVER = "voice_over"
 @dataclass(frozen=True) class Page: number: int; width: int; height: int; panels: tuple[Panel, ...]
 @dataclass(frozen=True) class LayoutReport: panels: int; bubbles: int; captions: int; relayouts: int
 @dataclass(frozen=True) class ComicBook: pages: tuple[Page, ...]; report: LayoutReport
-@dataclass(frozen=True) class PanelFrame: png: bytes; positions: Mapping[str, Position]; withheld: bool   # Position from verify.md
+@dataclass(frozen=True) class PanelFrame: png: bytes; positions: Mapping[str, Position]; withheld: bool   # Position from verify.md; lands with T023, its first consumer
 class ComicError(RuntimeError): ...
 
 # app/comic/layout.py (T022) — pure, no images
-def panel_weight(shot: Shot, scene: Scene, first_in_scene: bool, lettered_chars: int) -> float: ...
-def layout_geometry(plan: ShotPlan, screenplay: Screenplay) -> ComicBook: ...   # rects set; bubbles/captions not yet placed
+def panel_weight(shot: Shot, scene: Scene, first_in_scene: bool, lettered_chars: int) -> float: ...   # step 1; ComicError if the shot isn't in that scene
+def layout_geometry(plan: ShotPlan, screenplay: Screenplay) -> ComicBook: ...   # rects set; bubbles/captions not yet placed (empty; report counts 0 of each)
+def scene_caption(scene: Scene) -> str: ...   # the SCENE caption text (§3); weighed here, lettered by T023
 
 # app/comic/bubbles.py (T023)
 def place_lettering(book: ComicBook, screenplay: Screenplay, plan: ShotPlan,
@@ -274,7 +280,7 @@ withheld one).
 | --- | --- | --- | --- |
 | `services/api/app/comic/{__init__,model,layout}.py` | new | weights, tiers, pages, rects, lettering budget | T022 |
 | `services/api/app/comic/{bubbles,render}.py` | new | placement, tails, lettering, the withheld card, page PNGs, PDF, JSON | T023 |
-| `services/api/assets/fonts/ComicNeue-*.ttf`, `OFL.txt` | new | the lettering font and its licence | T023 |
+| `services/api/assets/fonts/ComicNeue-Regular.ttf`, `OFL.txt` | new | the lettering font and its licence (the budget measures with it; the Dockerfile copies `assets/`) | T022 |
 | `services/api/tests/comic/` | new | §9 | T022, T023 |
 
 Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, multi-page PDF via
