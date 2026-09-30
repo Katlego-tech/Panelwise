@@ -13,7 +13,7 @@ character, built only from the script's words about them, audited, and then fed 
 render as an **image reference** (IP-Adapter in ComfyUI). Also the rules every image prompt obeys
 about characters.
 
-**Not covered:** the frame renderer itself (T008), the audit (verify.md, reused here), the ComfyUI
+**Not covered:** the frame renderer itself (T026, storyboard.md), the audit (verify.md, reused here), the ComfyUI
 box (T003).
 
 ## 2. Reference material
@@ -79,7 +79,7 @@ classDiagram
     Reference --> Region
 ```
 
-**The character rules for every image prompt** (portraits and frames; T008 must follow them too):
+**The character rules for every image prompt** (portraits and frames; storyboard.md's frame prompts follow them too):
 
 1. **No character names in image prompts.** An image model reads a name as a style or likeness cue
    (a famous character's name summons a real actor's face). Names stay in the data, never in the
@@ -92,8 +92,11 @@ classDiagram
    description ("NANDI (60s, oilskin coat) pours tea…"), so before a quote enters any image prompt,
    every whole-word occurrence of a name token of *this* character is replaced by `a person`, and of
    any *other* character by `another person`. Name tokens are the words of `normalise(entity.name)`
-   (script.md), matched case-sensitively in UPPER or Title case at word boundaries, which is how
-   screenplays write names. Rule 1 therefore holds by construction; redaction only removes words,
+   (script.md) minus `NAME_STOP_WORDS` (`THE`, `A`, `OLD`, `MRS`, … : storyboard.md §3.1, so a cue
+   like `THE STRANGER` doesn't turn every "The" into a name), matched case-sensitively in UPPER or
+   Title case at word boundaries, which is how screenplays write names. A maximal run of name tokens
+   (with an optional possessive `'S`) is replaced once: "NANDI MOLEFE" → "a person", "NANDI'S" →
+   "a person's". Rule 1 therefore holds by construction; redaction only removes words,
    never adds them. The one known cost: a sentence-initial common word that is also a name ("Will")
    is redacted too, which fails safe.
 3. **Undescribed means undescribed.** A character with no descriptive quote (always true for
@@ -119,7 +122,7 @@ sequenceDiagram
     participant J as Portrait job (per character)
     participant C as ComfyUI (T003)
     participant D as Describer (verify.md)
-    participant F as Frame render (T008)
+    participant F as Frame render (T026)
     J->>J: described_by = the character's action-paragraph quotes; prompt (no name)
     loop attempt 1..3
         J->>C: portrait.json (prompt, seed, 768×1024)
@@ -139,16 +142,20 @@ failed, and then `ok` is false). Three attempts, then `WITHHELD`: frames for tha
 **without** a reference (text-only), which is what FrameFlow always did, and the UI says so.
 
 **`choose_references(shot, portraits)`** (pure, deterministic):
-1. Candidates: `shot.characters` whose portrait is `READY`.
+1. Candidates: `visible_characters(shot, scene)` (storyboard.md §3.1: on screen in the covered
+   elements, so never a `V.O.`/`O.S.` speaker) whose portrait is `READY`.
 2. Order: first, characters who **speak** in the shot's covered elements, each resolved from its
    `Dialogue.cue` with `match_speaker(cue, shot.characters)` (an unresolved cue is skipped), ordered
    by their **first** speech and listed **once** however often they speak; then the remaining
    candidates in `shot.characters` order. Each character appears in the order exactly once.
 3. Take the first two. One → `FULL` region, weight 0.7, no placement phrase. Two → first `LEFT`,
-   second `RIGHT`, weight 0.6 each, masks splitting the frame down the middle, placement "one
-   figure on the left, one on the right".
-4. Three or more characters: only the first two get references; the rest come from the prompt
-   alone. Stated in the frame's provenance.
+   second `RIGHT`, weight 0.6 each, masks splitting the frame down the middle.
+4. `placement` is "one figure on the left, one on the right" **only** when exactly two
+   references were chosen **and** `visible_characters` has exactly two members (storyboard.md
+   §3.1 rejects a placement otherwise, so it can never contradict the frame's `COUNT`); else `None`.
+5. Three or more visible characters: only the first two get references (still masked left and
+   right), no placement phrase; the prompt's `COUNT` covers the other figures. Stated in the
+   frame's provenance.
 
 The verify audit's `positions` (verify.md) then show whether the figures landed as placed; a
 mismatch is a soft `FRAMING`-class observation, logged, not a failure (T025 decides whether to
@@ -191,12 +198,14 @@ class PortraitState(StrEnum): RENDERING = "rendering"; AUDITING = "auditing"; RE
 
 # app/characters/portraits.py (T025)
 def described_by(entity: Entity, screenplay: Screenplay) -> tuple[Quote, ...]: ...   # quotes whose span equals an Action element's span
-def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...        # rule 2's redaction; pure
 def portrait_prompt(entity: Entity, screenplay: Screenplay, characters: Sequence[str], style_prefix: str) -> tuple[str, tuple[Quote, ...], bool]: ...
 #   the redacted described_by quotes, joined; contains no name token of any character
 def portrait_seed(character: str, attempt: int) -> int: ...  # int.from_bytes(sha256(f"portrait:{normalise(character)}:{attempt}").digest()[:4], "big")
 async def make_portrait(renderer: PortraitRenderer, model: NebiusChatModel, entity: Entity,
                         screenplay: Screenplay, *, max_renders: int = 3) -> Portrait: ...
+
+# app/characters/redact.py (built by T008, which needs it for frame prompts first: storyboard.md §6)
+def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...        # rule 2's redaction; pure
 
 # app/characters/references.py (T025)
 def choose_references(shot: Shot, scene: Scene, portraits: Mapping[str, Portrait]) -> FrameReferences: ...
@@ -210,18 +219,23 @@ class PortraitRenderer(Protocol):
 IP-Adapters with left and right attention masks). Code sets inputs by node **title** (`"positive"`,
 `"seed"`, `"ref_left"`, …), never by numeric id, so a re-saved graph keeps working.
 
-**Cache and storage key**: sha256 of the prompt, seed, width × height, checkpoint name, and, for
-frames only, the IP-Adapter model name and the reference asset ids (a portrait uses neither). FrameFlow's image cache keyed on a Gemini model id even when
-ComfyUI drew the image; every input that changes the pixels is in this key.
+**Cache and storage key**: storyboard.md §3.3's render key: sha256 of the fully substituted API
+graph that is submitted (canonical JSON), then the requested width × height, `RENDER_VERSION` and
+the post-processing step. The prompt, seed, draw size, checkpoint and, for frames only, the
+IP-Adapter model and the reference image names are inputs of that graph (a portrait uses no
+IP-Adapter). FrameFlow's image cache keyed on a Gemini model id even when ComfyUI drew the image;
+every input that changes the pixels is in this key.
 
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
-| `services/api/app/characters/{__init__,model,portraits,references}.py` | new | §3–§6 | T025 |
-| `infra/comfyui/workflows/{portrait,frame,frame_ref1,frame_ref2}.json` | new | the graphs | T025 (with T003's box) |
+| `services/api/app/characters/{model,portraits,references}.py` | new | §3–§6 | T025 |
+| `services/api/app/characters/{__init__,redact}.py` | new | `redact_names` (and storyboard.md's `redact_all`) | T008 |
+| `infra/comfyui/workflows/{portrait,frame_ref1,frame_ref2}.json` | new | the graphs | T025 (with T003's box) |
+| `infra/comfyui/workflows/frame.json` | new | the no-reference frame graph | T026 (storyboard.md §6) |
 | `infra/nebius/README.md` | changed | installed custom nodes, model files, their licences and versions | T003 |
-| `services/api/tests/characters/` | new | §9 | T025 |
+| `services/api/tests/characters/` | new | §9 (redaction cases: T008) | T008, T025 |
 
 ## 8. Decisions & alternatives
 

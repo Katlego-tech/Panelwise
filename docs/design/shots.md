@@ -14,7 +14,7 @@ extracted characters and props are in it. **Every shot traces back to a verbatim
 (Non-negotiable I), and every element of a scene lands in exactly one shot, so no line of dialogue
 is left without a panel.
 
-**Not covered:** the image prompt and rendering (T008), comic page layout and panel sizing (T022),
+**Not covered:** the image prompt and rendering (T008, T026: storyboard.md), comic page layout and panel sizing (T022),
 the frame audit (T020).
 
 ## 2. Reference material
@@ -96,7 +96,7 @@ classDiagram
 - **`rationale`**: the model's one-line reason for the framing. Metadata for the reader, never
   drawn and never used in an image prompt.
 - **No free-text frame description.** FrameFlow asked for composition, lighting and placement in
-  prose, and that is where invention lives. The image prompt (T008) is built from the grounded
+  prose, and that is where invention lives. The image prompt (T008, storyboard.md §3.1) is built from the grounded
   fields above plus the entities' quotes.
 
 ## 4. Flow
