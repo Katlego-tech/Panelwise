@@ -12,7 +12,7 @@ fails, and logging every verdict. This is where Non-negotiable I is enforced **o
 that shows a person, prop or event the script doesn't put in that shot is never shown. Up to T008,
 grounding is enforced on text; this is the first check on images.
 
-**Not covered:** rendering (T008 provides the renderer this calls), comic layout (comic.md reads
+**Not covered:** rendering (T026 provides the renderer this calls: storyboard.md), comic layout (comic.md reads
 the audit's speaker positions), portraits (characters.md).
 
 ## 2. Reference material
@@ -138,7 +138,7 @@ checks are the ones that would put something unscripted on screen; soft checks a
 ```mermaid
 sequenceDiagram
     participant J as Frame job
-    participant R as Renderer (T008)
+    participant R as Renderer (T026)
     participant D as Describer (VISION)
     participant N as Judge (Nemotron, REASONING)
     participant L as Audit log (Postgres)
@@ -221,7 +221,7 @@ class PersonCall(BaseModel): person: int; character: str | None; support: str | 
 class ObjectCall(BaseModel): object: int; kind: ObjectKind; support: str | None        # object: 0-based index into description.objects
 class Judgement(BaseModel): people: list[PersonCall]; objects: list[ObjectCall]
 
-# The renderer T008 must provide (verify depends on this shape, nothing more)
+# The renderer T026 must provide (verify depends on this shape, nothing more)
 @dataclass(frozen=True) class RenderedFrame: shot: tuple[int, int]; attempt: int; seed: int; png: bytes; width: int; height: int; prompt: str
 class Renderer(Protocol):
     async def render(self, shot: Shot, attempt: int, seed: int, width: int, height: int) -> RenderedFrame: ...
@@ -240,7 +240,11 @@ async def audit_frame(model: NebiusChatModel, frame: RenderedFrame, shot: Shot, 
 # app/verify/loop.py (T021)
 async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot: Shot, screenplay: Screenplay,
                                 extraction: Extraction, *, width: int, height: int, max_renders: int = 3,
-                                log: Callable[[Audit], Awaitable[None]]) -> FrameOutcome: ...
+                                log: Callable[[Audit], Awaitable[None]],
+                                on_state: Callable[[FrameState, int], Awaitable[None]] | None = None) -> FrameOutcome: ...
+#   on_state(state, attempt) is awaited on every §5 transition, before the work of the new state:
+#   RENDERING and AUDITING for each attempt, then the terminal state. It is how web.md's `frames` rows
+#   show a frame in progress (added with docs/design/web.md, 2026-09-30).
 ```
 
 **Audit log table** (`frame_audits`, T021, one row per attempt): `id`, `job_id`, `scene_index`,

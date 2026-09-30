@@ -123,7 +123,8 @@ classDiagram
 - **`Job`** (deploy.md §3) gains `project_id` and `stage`. `kind` is `"storyboard"` (the upload's
   job) or `"frame_attempt"` (one "Try another render"). `progress` is 0–100 over the whole job:
   parsing 0–5, extracting 5–40, planning 40–60, rendering 60–100 (by frames settled).
-- **`Frame`** (table `frames`, **T021**): one row per shot that has entered verify.md's state machine,
+- **`Frame`** (table `frames`: **T044** creates the table, its model and its read; **T021** writes it
+  through the `on_state`/`on_frame` hooks, verify.md §6 and storyboard.md §6): one row per shot that has entered verify.md's state machine,
   holding its current `FrameState`, attempt number, the job that last moved it (`frame_audits.job_id`
   is that job) and, for `passed`/`warned` only, the Storage path of the accepted image. It is the
   only source of `FrameView`; `frame_audits` (verify.md §6) holds the history. **No frame reaches the
@@ -259,7 +260,9 @@ change, the client fetches `GET /api/projects/[id]/frames` and re-renders the bo
   "Planning shots", "Rendering frames"), a meter at settled ÷ total, and "{settled} of {total}
   frames settled · {withheld} withheld" while rendering (§3: withheld counts as settled).
 - **Export PDF** (bar, right): disabled with the tooltip "Available when every frame has settled"
-  until no frame is `rendering` or `auditing`; then it downloads T027's PDF.
+  until the storyboard job is `DONE` and every shot has a settled `frames` row, with no frame
+  `rendering` or `auditing`; then it downloads T027's PDF, built on demand. (A job that failed on a
+  renderer error leaves shots with no row, so Export stays disabled.)
 - **Phones** (≤ 1100 px): the lined script is hidden and every card keeps its own source and span
   (storyboard-phone.png), so a frame is still never shown without its lines. The project tabs drop
   to a second row of the bar (≤ 640 px).
@@ -323,8 +326,8 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 | `GET /projects/{id}` | — | 200 `Project` | T044 |
 | `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T044 |
 | `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T044 |
-| `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row; `[]` until T021 creates rows | T044 (reads `frames`; the table is T021's) |
-| `GET /projects/{id}/storyboard.pdf` | — | 200 PDF · 409 while a frame is unsettled | T027 |
+| `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row (no rows exist until T021 writes them) | T044 (creates and reads `frames`) |
+| `GET /projects/{id}/storyboard.pdf` | — | 200 PDF, built on demand (storyboard.md §6 `layout_document`, `render_pdf`) and stored by content hash · 409 unless the job is `DONE` and every shot is settled | T027 |
 | `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 409 in any other state | T021 |
 
 **Response types** (TypeScript in `apps/web/lib/api/types.ts`; Pydantic mirrors in
@@ -453,11 +456,13 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
 | `services/api/app/core/auth.py` | new | Supabase access-token check (a FastAPI dependency) | T009 |
-| `services/api/app/storage/` | new | Supabase Storage: the uploaded PDFs (T009); frame images added by T026 (storyboard.md §3.3) | T009, T026 |
+| `services/api/app/storage/{__init__,store}.py` | new | storyboard.md §6 `AssetStore`/`SupabaseStore`, built with the upload (T009); frame images added by T026 (storyboard.md §3.3) | T009 |
 | `services/api/app/jobs/` + migration | new | the `Job` table with `project_id`, `stage`; the restart sweep | T009 |
 | `services/api/app/projects/{model,repo}.py` + migration | new | the `projects` table | T009 |
 | `services/api/app/api/v1/projects.py` (POST, list), `schemas.py` | new | §6 rows marked T009 | T009 |
 | `services/api/app/projects/pipeline.py` | new | parse → extract → plan as a job; stage columns; failure copy by code | T043 |
+| `services/api/app/projects/pipeline.py` (RENDERING stage) | changed | call `build_storyboard` with T021's writers; map `progress(settled, total)` into 60–100; job `DONE` | T026 |
+| `services/api/app/frames/{model,repo}.py` + migration (`frames`) | new | the table and its read for `…/frames` | T044 |
 | `services/api/app/script/{model,parser}.py` | changed | `Screenplay.page_starts`, `ScriptParseError.code` (+ script.md §6) | T043 |
 | `services/api/app/api/v1/projects.py` (read endpoints) | changed | §6 rows marked T044 | T044 |
 | `apps/web/app/globals.css`, `apps/web/components/ui/*` | new | tokens as Tailwind `@theme`; shadcn/ui primitives restyled | T040 |

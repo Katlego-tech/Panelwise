@@ -1,6 +1,6 @@
 # Design — `infra` deploy (Vercel + Railway + Supabase)
 
-**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T037 (stack), T026 (Storage), T009/T030 (Auth)
+**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T037 (stack), T009 (Storage, first for uploads; T026 adds frames), T009/T030 (Auth)
 · **Spec:** cross-cutting (hosting for every story in [SPEC.md](../../SPEC.md))
 · **Decided:** 2026-09-29 by Katlego, adopting the Hackathon kit's REACT + FASTAPI stack
 
@@ -114,7 +114,7 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | Variable | Where | What |
 |---|---|---|
 | `DATABASE_URL` | API (Railway, local) | `postgresql+asyncpg://…` — locally the compose Postgres; deployed, the Supabase **session pooler** URL (port 5432) |
-| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | API only | Storage (T026), verifying users (T009) |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | API only | Storage (T009 for uploads, T026 for frames), verifying users (T009) |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | web (Vercel) | Auth in the browser (T009) |
 | `API_URL` | web, server-side only | the Railway domain, no trailing slash |
 | `NEBIUS_*`, `LLM_*` | API only | unchanged (docs/design/llm.md) |
@@ -155,7 +155,7 @@ Railway is configured in its dashboard (root `/services/api`, Dockerfile, health
 | Redis | removed; job state in Postgres | keep Redis: a second hosted service for one table's worth of state |
 | Browser → API | always through Next.js server-side | direct browser calls: CORS, and the API URL and tokens in the browser |
 | Local development | compose Postgres, no Supabase needed for tests | the Supabase CLI locally: heavier, and tests never touch the network |
-| Storage and Auth timing | built with their first consumer (T026, T009/T030) | now: a module with no caller is a placeholder (AGENTS.md §2a) |
+| Storage and Auth timing | built with their first consumer (Storage: T009's upload; Auth: T009/T030) | now: a module with no caller is a placeholder (AGENTS.md §2a) |
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): "Docker for every
 service" still holds (both services have Dockerfiles; Vercel builds the web app itself). No
