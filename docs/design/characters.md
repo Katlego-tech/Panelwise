@@ -92,8 +92,11 @@ classDiagram
    description ("NANDI (60s, oilskin coat) pours tea…"), so before a quote enters any image prompt,
    every whole-word occurrence of a name token of *this* character is replaced by `a person`, and of
    any *other* character by `another person`. Name tokens are the words of `normalise(entity.name)`
-   (script.md), matched case-sensitively in UPPER or Title case at word boundaries, which is how
-   screenplays write names. Rule 1 therefore holds by construction; redaction only removes words,
+   (script.md) minus `NAME_STOP_WORDS` (`THE`, `A`, `OLD`, `MRS`, … : storyboard.md §3.1, so a cue
+   like `THE STRANGER` doesn't turn every "The" into a name), matched case-sensitively in UPPER or
+   Title case at word boundaries, which is how screenplays write names. A maximal run of name tokens
+   (with an optional possessive `'S`) is replaced once: "NANDI MOLEFE" → "a person", "NANDI'S" →
+   "a person's". Rule 1 therefore holds by construction; redaction only removes words,
    never adds them. The one known cost: a sentence-initial common word that is also a name ("Will")
    is redacted too, which fails safe.
 3. **Undescribed means undescribed.** A character with no descriptive quote (always true for
@@ -225,7 +228,7 @@ drew the image; every input that changes the pixels is in this key.
 | `services/api/app/characters/{model,portraits,references}.py` | new | §3–§6 | T025 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `redact_names` (and storyboard.md's `redact_all`) | T008 |
 | `infra/comfyui/workflows/{portrait,frame_ref1,frame_ref2}.json` | new | the graphs | T025 (with T003's box) |
-| `infra/comfyui/workflows/frame.json` | new | the no-reference frame graph | T008 (storyboard.md §6) |
+| `infra/comfyui/workflows/frame.json` | new | the no-reference frame graph | T026 (storyboard.md §6) |
 | `infra/nebius/README.md` | changed | installed custom nodes, model files, their licences and versions | T003 |
 | `services/api/tests/characters/` | new | §9 | T025 |
 
