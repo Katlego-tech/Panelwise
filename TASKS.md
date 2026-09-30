@@ -170,7 +170,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 ## Phase 4 — US2 frame audit · US3 comic · US4 consistent characters
 
-- [ ] T020 [US2] Frame audit: a vision model describes the frame; Nemotron judges it against the shot spec and returns a verdict. Depends on T010. Lane `verify`.
+- [ ] T020 [US2] **Frame audit:** a vision model describes the frame blind, Nemotron judges it against the shot, code runs the checks and returns a verdict. Depends on T010. Lane `verify`.
+      Design:  docs/design/verify.md §3 (model, the checks table), §4 (describe → judge → check), §6
+      Files:   services/api/app/verify/{__init__,model,schema,prompts,audit,run}.py; services/api/tests/verify/*; docs/design/verify.md (§7 run.py row, §10 measured answers)
+      Contract:docs/design/verify.md §6 `model.py`, `schema.py`, the renderer shapes and `audit.py`, verbatim
+      Verify:  bash scripts/gate.sh (no network in tests: run_checks on hand-built descriptions for every check's pass and fail; audit_frame via MockTransport proves the describer call carries the image and no shot details); `uv run python -m app.verify.run <script.pdf> <scene>.<shot> <frame.png>` on the real account prints the description, the judgement, every check and the verdict
+      Done:    T021 can call `await audit_frame(model, frame, shot, screenplay, extraction)` and get an `Audit` whose verdict is FAIL for an unscripted person or object, text in frame or a contradicted setting, and ERROR (never PASS) when either model call fails
 - [ ] T021 [US2] Re-render on mismatch, cap retries, log every verdict; show the log in the web app. Lane `verify`.
 - [ ] T022 [US3] Comic page layout + panel sizing from the shot list. Depends on T011. Lane `comic`.
 - [ ] T023 [US3] Speech bubbles from linked dialogue, placed in empty space; comic PDF export. Lane `comic`.

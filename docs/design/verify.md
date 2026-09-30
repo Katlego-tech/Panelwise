@@ -19,7 +19,7 @@ the audit's speaker positions), portraits (characters.md).
 
 | Kind | Where |
 | --- | --- |
-| The vision decision | docs/nebius-findings.md § The vision decision: **option A**: no Nemotron model on Token Factory accepts images (U7), so a vision model (`NEBIUS_MODEL_VISION`, GLM-5.3-Flash) *describes* the frame and Nemotron *judges* it. Option B, a self-hosted NVIDIA VLM on the ComfyUI GPU, is a stretch |
+| The vision decision | docs/nebius-findings.md § The vision decision: **option A**: no Nemotron model on Token Factory accepts images (U7), so a vision model (`NEBIUS_MODEL_VISION`, DeepSeek-V4.1-Flash since 2026-09-30: GLM-5.3-Flash stopped receiving images, findings § U7 re-check) *describes* the frame and Nemotron *judges* it. Option B, a self-hosted NVIDIA VLM on the ComfyUI GPU, is a stretch |
 | Prior art in FrameFlow | **none**: FrameFlow had no image audit, no verdicts and no automatic re-render; "regenerate" was a user button with a random seed |
 | Inputs | `Shot` (shots.md §6: framing, characters, props, time_of_day, source, span); `Entity` quotes (grounding.md §6); `Scene.int_ext`, `location` (script.md §6); the rendered frame (T008) |
 | LLM seam | `structured_chat`, `Tier.VISION` and `Tier.REASONING` (llm.md §6). Image content parts are OpenAI-style (`image_url` data URLs), as probed in U7 |
@@ -250,6 +250,7 @@ async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
 | `services/api/app/verify/{__init__,model,schema,prompts,audit}.py` | new | `describe_frame` (also used by portraits), judge, checks, verdict | T020 |
+| `services/api/app/verify/run.py` | new | live check: audit one PNG against one planned shot on the real account | T020 |
 | `services/api/app/verify/loop.py` + migration for `frame_audits` | new | render → audit → retry → state; logging | T021 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | T021's UI part, built to the web lane's design | T021 |
 | `services/api/tests/verify/` | new | §9 | T020, T021 |
@@ -292,9 +293,14 @@ it against the script."*
 
 ## 10. Open questions
 
-- [ ] Does GLM-5.3-Flash honour `json_schema`? U1 proved it for Nemotron only; the repair retry
-  covers it meanwhile. First thing T020 measures.
+- [x] Does the describer honour `json_schema`? **Answered 2026-09-30 (T020):** GLM-5.3-Flash turned out
+  not to receive images at all (findings § U7 re-check), so the describer is now DeepSeek-V4.1-Flash,
+  which returned schema-valid descriptions on every live call, no repair needed.
 - [ ] How reliable is the describer's `shot_size`? If noisy, `FRAMING` stays soft (it is) or is
-  dropped.
+  dropped. In T020's three live runs it matched what the frames show.
+- [ ] **Precision on correct frames (for T032).** Live, the describer filed plates and bowls under
+  `food`, which can never be set dressing, and set `has_text` on two of three frames whose only candidates are papers and plans on a table. Both
+  push a frame toward FAIL, the safe side, but a good frame could burn its renders. T032 measures the
+  false-FAIL rate; if it's high, the category list or the describer prompt changes, not the rule.
 - [ ] Option B (a self-hosted NVIDIA VLM on the ComfyUI GPU) would let Nemotron-family models see
   the image directly; revisit once T003's GPU exists.

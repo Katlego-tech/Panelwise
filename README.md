@@ -32,7 +32,7 @@ flowchart LR
 | Stage | NVIDIA / Nebius |
 | --- | --- |
 | Extraction, shot planning | NVIDIA Nemotron on **Nebius Token Factory** (OpenAI-compatible API) |
-| Frame audit (who's in frame, framing, time of day) | A vision model on Token Factory (`zai-org/GLM-5.3-Flash`, not NVIDIA: no Nemotron model there accepts images) describes each frame; **NVIDIA Nemotron** judges the description against the shot spec |
+| Frame audit (who's in frame, framing, time of day) | A vision model on Token Factory (`deepseek-ai/DeepSeek-V4.1-Flash`, not NVIDIA: no Nemotron model there accepts images) describes each frame; **NVIDIA Nemotron** judges the description against the shot spec |
 | Image rendering | ComfyUI on a **Nebius AI Cloud** GPU |
 
 ## Quick start

@@ -103,7 +103,7 @@ evidence in [RUBRIC.md](RUBRIC.md)):
 | Quality of the Idea | a non-obvious use of Nemotron: grounding enforced in code, Nemotron as the judge of an image-audit loop |
 
 **Honesty rule for every claim a judge reads:** no Nemotron model on Token Factory accepts images
-(findings U7), so the audit's *describe* step runs on `zai-org/GLM-5.3-Flash`, a non-NVIDIA model.
+(findings U7), so the audit's *describe* step runs on `deepseek-ai/DeepSeek-V4.1-Flash`, a non-NVIDIA model.
 The approved wording is *"a vision model describes each frame; Nemotron audits it against the
 script."* Never "Nemotron vision auditor". [verify.md §8; RUBRIC.md]
 

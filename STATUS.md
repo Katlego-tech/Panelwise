@@ -40,7 +40,7 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T024 | | | ⬜ To Do |
-| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | | | ✅ T010 design done · T020/T021 wait on frames (T008) |
+| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · 🔵 T020 in review · T021 waits on the Job table (T009) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | | | ✅ T011 design done · T022/T023 wait on frames (T008) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
 | `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035 | | | ⬜ To Do |
@@ -82,7 +82,7 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 
 ## ⚠️ Open decisions / risks
 
-- **No NVIDIA vision model on Token Factory** (T001). Decided: a Token Factory VLM (GLM-5.3-Flash) *describes* each frame and Nemotron *judges* it; self-hosting an NVIDIA VLM on the Nebius GPU is a stretch. Wording corrected everywhere to "a vision model describes each frame; Nemotron audits it against the script" (2026-09-30, `docs/spec`); `services/api/app/verify/README.md` is left to the `feat/verify` branch.
+- **No NVIDIA vision model on Token Factory** (T001). Decided: a Token Factory VLM (DeepSeek-V4.1-Flash since 2026-09-30; GLM-5.3-Flash stopped receiving images) *describes* each frame and Nemotron *judges* it; self-hosting an NVIDIA VLM on the Nebius GPU is a stretch. Wording corrected everywhere to "a vision model describes each frame; Nemotron audits it against the script" (2026-09-30, `docs/spec`); `services/api/app/verify/README.md` is left to the `feat/verify` branch.
 - **Which styles stay private?** Decide before T008 moves styles over. The demo may only use public styles.
 - **Repo is private.** It must be public before submission (T035).
 - **`main` is unprotected on the server** (private + GitHub Free; decided 2026-09-28 to leave it). Only the pre-push hook and AGENTS.md §4 guard it; Tumo must run `bash install-hooks.sh`. Once the repo is public (T035), protection is free — turn it on then.
@@ -129,3 +129,4 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 - 2026-09-29 — Katlego (via Claude) — T012: `docs/design/characters.md` — portraits from action-paragraph quotes only (no names in any image prompt; undescribed stays undescribed), audited; IP-Adapter references (≤2 per frame, left/right masks), Apache-licensed adapter over insightface-based FaceID. Phase 3 designs all in review. Next: merge reviews. Blocked on: GPU (T003).
 - 2026-09-29 — Katlego (via Claude) — T007 merged (PR #15). T011: `docs/design/comic.md` — verbatim-only lettering with spans, deterministic tiers/weights, ≤20% crop, bubbles by image detail + reading order, grow-don't-shrink fit. Next: T010, T012. Blocked on: GPU (T003) for any rendering.
 - 2026-09-30 — Katlego (via Claude) — SPEC.md filled from PLAN.md and the agreed design docs (US1 P1; US2–US4 P2; Given/When/Then per story incl. withheld text card, unscripted person → re-render, verbatim lettering, undescribed stays undescribed; 8 open questions); "Nemotron vision auditor" corrected to the option A wording in README, PLAN, CLAUDE/GEMINI/AI_ENTRYPOINT, CHANGES-FROM-FRAMEFLOW, project-structure, RUBRIC, TASKS (T020). Next: review + merge (docs/spec). Blocked on: nothing.
+- 2026-09-30 — Katlego (via Claude) — T020 frame audit: `app/verify` (blind describer, Nemotron judge, 7 checks in code, ERROR never passes), 92 tests; live on 3 real storyboard frames against the lighthouse kitchen shot: 3 correct FAILs. **GLM-5.3-Flash no longer receives images** (answers from a 31-token text-only prompt, invents scenes); describer switched to DeepSeek-V4.1-Flash (findings § U7 re-check). Local `.env` sets `NEBIUS_MODEL_VISION=` empty, which overrides the default: set it or delete the line. Next: T008 design doc. Blocked on: nothing.
