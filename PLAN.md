@@ -9,9 +9,10 @@
 
 A FastAPI service and a Next.js web app. The screenplay is parsed, entities and shots are
 extracted by NVIDIA Nemotron on Nebius Token Factory with verbatim source spans, frames are rendered
-by ComfyUI on a Nebius AI Cloud GPU, and a Nemotron vision model audits every frame against its shot
-spec before it reaches a storyboard or comic page. The key bet: **grounding plus an auditor loop**
-makes generated panels trustworthy, which is what the judges score. Hard constraints: submission by
+by ComfyUI on a Nebius AI Cloud GPU, and every frame is audited before it reaches a storyboard or comic
+page: a vision model describes it and Nemotron judges it against its shot spec. The key bet:
+**grounding plus an auditor loop** makes generated panels trustworthy, which is what the judges
+score. Hard constraints: submission by
 30 Oct 2026 10:00 PDT, the demo stays up until 15 Dec, about $50 of Token Factory credit, and the
 public repo must run everything the demo shows.
 
@@ -89,7 +90,7 @@ panelwise/
 │   │   ├── grounding/           # extraction, grounding filter, faithfulness
 │   │   ├── shots/               # shot planner
 │   │   ├── storyboard/          # frame gen, styles registry, PDF        (headline)
-│   │   ├── verify/              # Nemotron vision frame auditor + re-render loop
+│   │   ├── verify/              # frame audit (vision model describes, Nemotron judges) + re-render loop
 │   │   ├── comic/               # page layout, panel sizing, bubbles, lettering
 │   │   ├── characters/          # reference portraits for consistent characters
 │   │   ├── images/              # provider chain + cache

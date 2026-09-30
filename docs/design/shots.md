@@ -1,7 +1,7 @@
 # Design — `shots` (the shot planner)
 
-**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T007 · **Spec:** US1 (script → grounded
-storyboard); SPEC.md's stories are still the template
+**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T007 · **Spec:** [SPEC.md](../../SPEC.md) US1 (script →
+grounded storyboard)
 
 ---
 

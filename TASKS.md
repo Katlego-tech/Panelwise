@@ -170,9 +170,9 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 ## Phase 4 — US2 frame audit · US3 comic · US4 consistent characters
 
-- [ ] T020 [US2] Frame audit: vision model compares frame with shot spec, returns a verdict. Depends on T010. Lane `verify`.
+- [ ] T020 [US2] Frame audit: a vision model describes the frame; Nemotron judges it against the shot spec and returns a verdict. Depends on T010. Lane `verify`.
 - [ ] T021 [US2] Re-render on mismatch, cap retries, log every verdict; show the log in the web app. Lane `verify`.
-- [ ] T022 [US3] **Comic page layout + panel sizing from the shot list.** Depends on T007, T011. Lane `comic`.
+- [x] T022 [US3] **Comic page layout + panel sizing from the shot list.** Depends on T007, T011. Lane `comic`.
       Design:  docs/design/comic.md §3 (model), §4 steps 1–5 (weights, tiers, pages, panels, lettering budget), §6, §9 (Geometry)
       Files:   services/api/app/comic/{__init__,model,layout}.py; services/api/tests/comic/*; services/api/assets/fonts/{ComicNeue-Regular.ttf,OFL.txt} (the budget measures text with it); services/api/pyproject.toml + uv.lock (pillow); services/api/Dockerfile (copies assets/); docs/design/comic.md (clarifications)
       Contract:docs/design/comic.md §6 `app/comic/model.py` and `app/comic/layout.py`, verbatim (`PanelFrame` lands with T023, which consumes it)

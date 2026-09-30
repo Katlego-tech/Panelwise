@@ -41,7 +41,7 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008 | | | ⬜ To Do |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T024 | | | ⬜ To Do |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | | | ✅ T010 design done · T020/T021 wait on frames (T008) |
-| `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | 🔵 T022 in review · T023 waits on frames (T008) |
+| `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · T023 waits on frames (T008) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
 | `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035 | | | ⬜ To Do |
 
@@ -83,7 +83,7 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 
 ## ⚠️ Open decisions / risks
 
-- **No NVIDIA vision model on Token Factory** (T001). Decided: a Token Factory VLM (GLM-5.3-Flash) *describes* each frame and Nemotron *judges* it; self-hosting an NVIDIA VLM on the Nebius GPU is a stretch. SPEC, README and the Devpost draft still say "Nemotron vision auditor" and must be corrected.
+- **No NVIDIA vision model on Token Factory** (T001). Decided: a Token Factory VLM (GLM-5.3-Flash) *describes* each frame and Nemotron *judges* it; self-hosting an NVIDIA VLM on the Nebius GPU is a stretch. Wording corrected everywhere to "a vision model describes each frame; Nemotron audits it against the script" (2026-09-30, `docs/spec`); `services/api/app/verify/README.md` is left to the `feat/verify` branch.
 - **Which styles stay private?** Decide before T008 moves styles over. The demo may only use public styles.
 - **Repo is private.** It must be public before submission (T035).
 - **`main` is unprotected on the server** (private + GitHub Free; decided 2026-09-28 to leave it). Only the pre-push hook and AGENTS.md §4 guard it; Tumo must run `bash install-hooks.sh`. Once the repo is public (T035), protection is free — turn it on then.
@@ -129,4 +129,5 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 - 2026-09-29 — Katlego (via Claude) — T010: `docs/design/verify.md` — blind describer (GLM) + Nemotron judge + code checks; "supported by the script" needs a verified verbatim quote; hard/soft checks; failed frames withheld, never shown; audit log per attempt. Next: T012. Blocked on: GPU (T003).
 - 2026-09-29 — Katlego (via Claude) — T012: `docs/design/characters.md` — portraits from action-paragraph quotes only (no names in any image prompt; undescribed stays undescribed), audited; IP-Adapter references (≤2 per frame, left/right masks), Apache-licensed adapter over insightface-based FaceID. Phase 3 designs all in review. Next: merge reviews. Blocked on: GPU (T003).
 - 2026-09-29 — Katlego (via Claude) — T007 merged (PR #15). T011: `docs/design/comic.md` — verbatim-only lettering with spans, deterministic tiers/weights, ≤20% crop, bubbles by image detail + reading order, grow-don't-shrink fit. Next: T010, T012. Blocked on: GPU (T003) for any rendering.
-- 2026-09-30 — Katlego (via Claude) — T022 comic layout: `app/comic` model + `layout_geometry`/`panel_weight`/`scene_caption`, 30 tests (158 total); Comic Neue Regular + Pillow added (the budget measures text); comic.md clarified (wrapping, passes, forced solo tier, font moved to T022, reference page with T023). Gate 10 checks green. Next: review + merge, then T023 (needs frames). Blocked on: nothing for T022; T023 on T008/T003.
+- 2026-09-30 — Katlego (via Claude) — SPEC.md filled from PLAN.md and the agreed design docs (US1 P1; US2–US4 P2; Given/When/Then per story incl. withheld text card, unscripted person → re-render, verbatim lettering, undescribed stays undescribed; 8 open questions); "Nemotron vision auditor" corrected to the option A wording in README, PLAN, CLAUDE/GEMINI/AI_ENTRYPOINT, CHANGES-FROM-FRAMEFLOW, project-structure, RUBRIC, TASKS (T020). Next: review + merge (docs/spec). Blocked on: nothing.
+- 2026-09-30 — Katlego (via Claude) — T022 comic layout: `app/comic` model + `layout_geometry`/`panel_weight`/`scene_caption`, 30 tests (158 total); Comic Neue Regular + Pillow added (the budget measures text); comic.md clarified (wrapping, passes, forced solo tier, font moved to T022, reference page with T023). Gate 10 checks green. PR #20, reviewed clean, merged. Next: T023 (needs frames). Blocked on: nothing for T022; T023 on T008/T003.

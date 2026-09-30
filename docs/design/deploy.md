@@ -1,7 +1,7 @@
 # Design — `infra` deploy (Vercel + Railway + Supabase)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T037 (stack), T008 (Storage), T009/T030 (Auth)
-· **Spec:** cross-cutting (hosting for every story; SPEC.md's stories are still the template)
+· **Spec:** cross-cutting (hosting for every story in [SPEC.md](../../SPEC.md))
 · **Decided:** 2026-09-29 by Katlego, adopting the Hackathon kit's REACT + FASTAPI stack
 
 ---
