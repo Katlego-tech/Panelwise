@@ -17,3 +17,4 @@ assistant can read and write them.
 | `characters` | [characters.md](characters.md) | agreed | portrait + references classes, portrait and frame flow, portrait state machine, prompt rules (no names, script words only), IP-Adapter choice, contracts |
 | `comic` | [comic.md](comic.md) | agreed | class (book, pages, panels, bubbles, captions), weights, tiers, lettering budget, frames rendered at panel size, bubble placement, withheld card, contracts, reader JSON |
 | `infra` | [deploy.md](deploy.md) | agreed | where each piece runs, env contract, browser → web → API flow, Job state, decisions |
+| `web` | [web.md](web.md) | proposed | visual reference (web/*.png + mockups, tokens), lined-script storyboard, Project + Job stage, upload → job flow, API §6 types, component tree, copy |

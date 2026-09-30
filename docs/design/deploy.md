@@ -38,13 +38,16 @@ compute. Panelwise makes both (Nemotron calls, ComfyUI GPU). Hosting the app els
 ## 3. Domain model
 
 One new entity, built with its first consumer (T009): a job row, so progress survives an API
-restart and needs no Redis.
+restart and needs no Redis. `project_id` and `stage` (and the `Project` it belongs to) are defined in
+[web.md](web.md) §3.
 
 ```mermaid
 classDiagram
     class Job {
         +uuid id
+        +uuid project_id
         +str kind
+        +Stage|None stage
         +JobState state
         +int progress
         +str|None error
