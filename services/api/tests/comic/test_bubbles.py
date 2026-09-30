@@ -1,0 +1,412 @@
+"""place_lettering: comic.md §3 (extension → kind, SCENE caption), §4 steps 5-8, §9 (Traceability,
+Extension mapping, Placement)."""
+
+import math
+import random
+from io import BytesIO
+from itertools import pairwise
+
+import pytest
+from PIL import Image, ImageDraw, ImageFont
+
+from app.comic import (
+    Bubble,
+    BubbleKind,
+    Caption,
+    CaptionKind,
+    ComicBook,
+    ComicError,
+    LayoutReport,
+    Page,
+    Panel,
+    PanelFrame,
+    Rect,
+    WithheldCard,
+    layout,
+    layout_geometry,
+    place_lettering,
+    scene_caption,
+)
+from app.script import Dialogue, Scene, Screenplay, Span, parse_text
+from app.shots import Framing, Shot, ShotPlan
+from app.verify import Position
+from tests.comic.conftest import FLAT, busy, busy_left, busy_top, frames, png, solid
+from tests.comic.test_layout import plan_of, say, scene, shot
+from tests.script.conftest import two_page_text
+
+INSET = 16
+
+
+def sample() -> tuple[Screenplay, ShotPlan, ComicBook]:
+    """T022's sample plan over the two-page test screenplay: every element in one shot."""
+    screenplay = parse_text(*two_page_text())
+    plan = plan_of(
+        shot(0, 1, Framing.WIDE, 0, 1),
+        shot(0, 2, Framing.CLOSE_UP, 2, 3),
+        shot(1, 1, Framing.WIDE, 0),
+        shot(1, 2, Framing.MEDIUM, 1, 2, 3),
+        shot(2, 1, Framing.MEDIUM, 0),
+    )
+    return screenplay, plan, layout_geometry(plan, screenplay)
+
+
+def panels(book: ComicBook) -> list[Panel]:
+    return [p for page in book.pages for p in page.panels]
+
+
+def boxes(panel: Panel) -> list[Rect]:
+    return [c.rect for c in panel.captions] + [b.rect for b in panel.bubbles]
+
+
+def one_panel(
+    text: str, extension: str | None = None, rect: Rect = (120, 120, 900, 700)
+) -> tuple[Screenplay, ShotPlan, ComicBook]:
+    """One scene whose second shot letters one line: a hand-built book (no scene caption)."""
+    s = scene(0, say(text, extension))
+    screenplay = Screenplay("", 1, (s,), (1,))
+    plan = plan_of(shot(0, 1, Framing.WIDE), shot(0, 2, Framing.MEDIUM, 0))
+    wide = Panel(0, 1, (120, 2000, 900, 700), (), ())
+    book = ComicBook(
+        (Page(1, 1988, 3075, (wide, Panel(0, 2, rect, (), ()))),), LayoutReport(2, 0, 0, 0)
+    )
+    return screenplay, plan, book
+
+
+def lettered(panel: Panel) -> Bubble | Caption:
+    (only,) = (*panel.bubbles, *panel.captions)
+    return only
+
+
+def second(book: ComicBook) -> Panel:
+    return book.pages[0].panels[1]
+
+
+def overlap(a: Rect, b: Rect) -> bool:
+    return a[0] < b[0] + b[2] and b[0] < a[0] + a[2] and a[1] < b[1] + b[3] and b[1] < a[1] + a[3]
+
+
+def cell(panel: Panel, box: Rect) -> tuple[int, int]:
+    """The grid cell (row, col) whose corner is the box's top-left (comic.md §4 step 7)."""
+    x, y, w, h = panel.rect
+    ix, iy, iw, ih = x + INSET, y + INSET, w - 2 * INSET, h - 2 * INSET
+    corners = {
+        (ix + col * iw // 12, iy + row * ih // 8): (row, col)
+        for row in range(8)
+        for col in range(12)
+    }
+    return corners[box[0], box[1]]
+
+
+# ------------------------------------------------------------------ traceability
+
+
+def test_every_line_of_dialogue_is_lettered_once_verbatim_with_its_span() -> None:
+    screenplay, plan, book = sample()
+    placed = place_lettering(book, screenplay, plan, frames(book))
+
+    scenes = {s.index: s for s in screenplay.scenes}
+    expected = sorted(
+        (sh.scene_index, i, e.text, e.span)
+        for sh in plan.shots
+        for i in sh.elements
+        if isinstance(e := scenes[sh.scene_index].elements[i], Dialogue)
+    )
+    got = sorted(
+        [(p.scene_index, b.element, b.text, b.span) for p in panels(placed) for b in p.bubbles]
+        + [
+            (p.scene_index, c.element, c.text, c.span)
+            for p in panels(placed)
+            for c in p.captions
+            if c.kind is CaptionKind.VOICE_OVER
+        ]
+    )
+    assert got == expected
+    # The speaker is the cue verbatim; parentheticals ("without turning", "beat") are not lettered.
+    for p in panels(placed):
+        for b in p.bubbles:
+            spoken = scenes[p.scene_index].elements[b.element]
+            assert isinstance(spoken, Dialogue) and b.speaker == spoken.cue
+    words = [t.text for p in panels(placed) for t in (*p.bubbles, *p.captions)]
+    assert not any("without turning" in w or "beat" in w or "DOORS SLAM" in w for w in words)
+
+
+def test_a_scenes_first_panel_carries_its_heading_caption_and_no_other_panel_does() -> None:
+    screenplay, plan, book = sample()
+    placed = place_lettering(book, screenplay, plan, frames(book))
+
+    scene_captions = [
+        (p.scene_index, p.shot_number, c)
+        for p in panels(placed)
+        for c in p.captions
+        if c.kind is CaptionKind.SCENE
+    ]
+    assert [(s, n) for s, n, _ in scene_captions] == [(0, 1), (1, 1), (2, 1)]
+    for (s, _, caption), heading in zip(scene_captions, screenplay.scenes, strict=True):
+        assert caption.text == scene_caption(heading)
+        assert caption.element is None
+        assert caption.span == Span(
+            heading.span.page, heading.span.line_start, heading.span.line_start
+        )
+        assert s == heading.index
+    assert scene_captions[0][2].text == "LIGHTHOUSE KITCHEN — NIGHT"
+
+
+def test_placement_keeps_the_geometry_and_counts_what_it_lettered() -> None:
+    screenplay, plan, book = sample()
+    placed = place_lettering(book, screenplay, plan, frames(book))
+
+    assert [p.rect for p in panels(placed)] == [p.rect for p in panels(book)]
+    bubbles = sum(len(p.bubbles) for p in panels(placed))
+    captions = sum(len(p.captions) for p in panels(placed))
+    assert (bubbles, captions) == (5, 3)  # six lines, THABO (O.S.) among them; 3 scene captions
+    assert placed.report == LayoutReport(5, bubbles, captions, book.report.relayouts)
+    assert place_lettering(book, screenplay, plan, frames(book)) == placed  # deterministic
+
+
+def test_a_line_break_hyphen_is_lettered_as_the_element_has_it() -> None:
+    # samples/README.md finding 5: the parser's element text keeps it; lettering never rewrites.
+    text = "In the teeth of a south- westerly."
+    screenplay, plan, book = one_panel(text)
+    placed = place_lettering(book, screenplay, plan, frames(book))
+    assert lettered(second(placed)).text == text
+
+
+# -------------------------------------------------------------- extension → kind
+
+
+@pytest.mark.parametrize(
+    ("extension", "kind"),
+    [
+        (None, BubbleKind.SPEECH),
+        ("CONT'D", BubbleKind.SPEECH),
+        ("FILTERED", BubbleKind.SPEECH),
+        ("PRE-LAP", BubbleKind.SPEECH),
+        ("ON P.A.", BubbleKind.SPEECH),
+        ("O.S.", BubbleKind.OFF_PANEL),
+        ("O.C.", BubbleKind.OFF_PANEL),
+        ("OFF SCREEN", BubbleKind.OFF_PANEL),
+        ("o.s.", BubbleKind.OFF_PANEL),
+        ("V.O.", CaptionKind.VOICE_OVER),
+        ("V.O./CONT'D", CaptionKind.VOICE_OVER),
+    ],
+)
+def test_the_extension_decides_the_kind(
+    extension: str | None, kind: BubbleKind | CaptionKind
+) -> None:
+    screenplay, plan, book = one_panel("Hold the light steady.", extension)
+    placed = lettered(second(place_lettering(book, screenplay, plan, frames(book))))
+    assert placed.kind is kind
+    assert placed.text == "Hold the light steady."
+    if isinstance(placed, Caption):
+        assert placed.element == 0  # a voice-over caption is still that element, with its span
+
+
+# --------------------------------------------------------------------- placement
+
+
+def test_a_bubble_lands_in_the_frames_empty_half() -> None:
+    screenplay, plan, book = one_panel("You came back.")
+    x, _, w, _ = second(book).rect
+    left = lettered(second(place_lettering(book, screenplay, plan, frames(book, busy_left))))
+    assert left.rect[0] >= x + w // 2  # the left half is all edges; the right is flat
+
+    top = lettered(second(place_lettering(book, screenplay, plan, frames(book, busy_top))))
+    _, y, _, h = second(book).rect
+    assert top.rect[1] >= y + h // 2
+
+
+def test_a_flat_frame_takes_the_first_cell_so_detail_is_what_moves_it() -> None:
+    screenplay, plan, book = one_panel("You came back.")
+    x, y, _, _ = second(book).rect
+    flat = lettered(second(place_lettering(book, screenplay, plan, frames(book))))
+    assert flat.rect[:2] == (x + INSET, y + INSET)
+
+
+def test_a_bubble_keeps_off_its_speakers_third_and_points_at_them() -> None:
+    screenplay, plan, book = one_panel("You came back.")
+    x, y, w, h = second(book).rect
+    seen = {(0, 2): {"NANDI": Position.LEFT}}
+    bubble = lettered(second(place_lettering(book, screenplay, plan, frames(book, solid, seen))))
+    assert isinstance(bubble, Bubble) and bubble.kind is BubbleKind.SPEECH
+    assert bubble.rect[0] >= x + w // 3  # off the left third
+    assert bubble.tail == (x + w // 6, y + math.floor(h * 0.45))
+
+    right = {(0, 2): {"Nandi": Position.RIGHT}}  # found by match_speaker, not by exact key
+    bubble = lettered(second(place_lettering(book, screenplay, plan, frames(book, solid, right))))
+    assert isinstance(bubble, Bubble)
+    assert bubble.tail == (x + 5 * w // 6, y + math.floor(h * 0.45))
+    assert bubble.rect[0] + bubble.rect[2] <= x + 2 * w // 3
+
+
+def test_an_unknown_speaker_points_at_the_bottom_centre() -> None:
+    screenplay, plan, book = one_panel("You came back.")
+    x, y, w, h = second(book).rect
+    bubble = lettered(second(place_lettering(book, screenplay, plan, frames(book))))
+    assert isinstance(bubble, Bubble) and bubble.tail == (x + w // 2, y + h - 1)
+
+
+@pytest.mark.parametrize(
+    ("seen", "edge"),
+    [({"NANDI": Position.LEFT}, "left"), ({"NANDI": Position.CENTRE}, "right"), ({}, "right")],
+)
+def test_an_off_panel_tail_ends_on_the_edge_of_the_speakers_side(
+    seen: dict[str, Position], edge: str
+) -> None:
+    screenplay, plan, book = one_panel("You came back.", "O.S.")
+    x, _, w, _ = second(book).rect
+    placed = place_lettering(book, screenplay, plan, frames(book, solid, {(0, 2): seen}))
+    bubble = lettered(second(placed))
+    assert isinstance(bubble, Bubble) and bubble.kind is BubbleKind.OFF_PANEL
+    bx, by, _, bh = bubble.rect
+    assert bubble.tail == (x if edge == "left" else x + w - 1, by + bh // 2)
+    assert bx >= x
+
+
+def test_boxes_stay_inside_never_overlap_and_keep_reading_order() -> None:
+    rng = random.Random(23)
+    framings = list(Framing)
+    lines = [
+        "You came back.",
+        "The boat didn't. I walked the last mile along the cliff.",
+        "No.",
+        "Hold the light steady, and whatever you hear, do not look down at the water.",
+    ]
+    for _ in range(12):
+        scenes: list[Scene] = []
+        shots: list[Shot] = []
+        for index in range(rng.randint(1, 3)):
+            spoken = [say(rng.choice(lines), rng.choice([None, "O.S.", "V.O."])) for _ in range(5)]
+            scenes.append(scene(index, *spoken, location=f"DECK {index}"))
+            start = 0
+            for number in range(1, rng.randint(2, 4)):
+                count = rng.randint(0, 2)
+                shots.append(
+                    shot(index, number, rng.choice(framings), *range(start, start + count))
+                )
+                start += count
+        screenplay = Screenplay("", 1, tuple(scenes), (1,))
+        plan = plan_of(*shots)
+        book = layout_geometry(plan, screenplay)
+        draw = rng.choice([solid, busy_left, busy_top])
+        placed = place_lettering(book, screenplay, plan, frames(book, draw))
+
+        for panel in panels(placed):
+            x, y, w, h = panel.rect
+            order = [c for c in panel.captions if c.kind is CaptionKind.SCENE] + sorted(
+                [*panel.bubbles, *(c for c in panel.captions if c.kind is not CaptionKind.SCENE)],
+                key=lambda t: t.element if t.element is not None else -1,
+            )
+            rects = [t.rect for t in order]
+            for bx, by, bw, bh in rects:
+                assert x + INSET <= bx and bx + bw <= x + w - INSET
+                assert y + INSET <= by and by + bh <= y + h - INSET
+            for i, a in enumerate(rects):
+                assert not any(overlap(a, b) for b in rects[i + 1 :])
+            cells = [cell(panel, r) for r in rects]
+            assert all(a < b for a, b in pairwise(cells))  # strictly row-major, in element order
+            assert all(t.font_px in (28, 32) for t in order)
+
+
+def test_a_box_with_no_room_at_32_px_is_lettered_at_28() -> None:
+    word = "Lighthouse"
+    small = ImageFont.truetype(layout.FONT_PATH, 28)
+    ascent, descent = small.getmetrics()
+    w = math.ceil(small.getlength(word)) + 2 * 16 + 2 * INSET
+    h = ascent + descent + 2 * 16 + 2 * INSET
+    screenplay, plan, book = one_panel(word, rect=(120, 120, w, h))
+    placed = lettered(second(place_lettering(book, screenplay, plan, frames(book))))
+    assert placed.font_px == 28
+    assert placed.rect == (120 + INSET, 120 + INSET, w - 2 * INSET, h - 2 * INSET)
+
+
+def test_no_admissible_spot_fails_naming_the_shot_and_never_cuts_the_line() -> None:
+    text = "The boat didn't. I walked the last mile along the cliff."
+    screenplay, plan, book = one_panel(text, rect=(120, 120, 300, 160))
+    with pytest.raises(ComicError, match="scene 0, shot 2"):
+        place_lettering(book, screenplay, plan, frames(book))
+
+
+def test_a_character_the_font_cannot_draw_fails_rather_than_letter_a_box() -> None:
+    screenplay, plan, book = one_panel("Ngiyabonga 謝謝")
+    with pytest.raises(ComicError, match="scene 0, shot 2"):
+        place_lettering(book, screenplay, plan, frames(book))
+
+
+def test_reading_order_is_hard_even_when_an_earlier_spot_is_cheaper() -> None:
+    # A frame busy everywhere but two flat patches: a small one at the top-left that only the
+    # short second line fits, and one at row 4 exactly the first line's size. The first line
+    # takes row 4; the second may not go before it, so it pays for detail instead.
+    s = scene(0, say("You came back to the lighthouse."), say("No."))
+    screenplay = Screenplay("", 1, (s,), (1,))
+    plan = plan_of(shot(0, 1, Framing.WIDE), shot(0, 2, Framing.MEDIUM, 0, 1))
+    rect = (120, 120, 1300, 700)
+    wide = Panel(0, 1, (120, 2000, 1300, 700), (), ())
+    book = ComicBook(
+        (Page(1, 1988, 3075, (wide, Panel(0, 2, rect, (), ()))),), LayoutReport(2, 0, 0, 0)
+    )
+
+    font = ImageFont.truetype(layout.FONT_PATH, 32)
+    ascent, descent = font.getmetrics()
+    long_w = math.ceil(font.getlength("You came back to the lighthouse.")) + 32
+    short_w = math.ceil(font.getlength("No.")) + 32
+    box_h = ascent + descent + 32
+    row4 = INSET + 4 * (700 - 2 * INSET) // 8
+    assert long_w <= 520  # one line at the 40% wrap
+
+    def two_patches(r: Rect) -> bytes:
+        image = Image.open(BytesIO(busy(r, lambda w, h: (0, 0, w, h)))).convert("RGB")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((0, 0, INSET + short_w + 8, INSET + box_h + 8), fill=FLAT)
+        draw.rectangle((INSET, row4, INSET + long_w - 1, row4 + box_h - 1), fill=FLAT)
+        return png(image)
+
+    placed = second(place_lettering(book, screenplay, plan, frames(book, two_patches)))
+    first, then = placed.bubbles
+    assert first.text == "You came back to the lighthouse." and then.text == "No."
+    assert cell(placed, first.rect) == (4, 0)
+    assert cell(placed, then.rect) > (4, 0)  # not the cheap top-left patch
+
+
+# ------------------------------------------------------------------------ frames
+
+
+def test_a_withheld_card_letters_in_grid_order_with_the_cards_tails() -> None:
+    s = scene(0, say("You came back."), say("Where?", "O.S."))
+    screenplay = Screenplay("", 1, (s,), (1,))
+    plan = plan_of(shot(0, 1, Framing.WIDE), shot(0, 2, Framing.MEDIUM, 0, 1))
+    book = layout_geometry(plan, screenplay)
+    given = frames(book, busy_left)
+    card = WithheldCard("unscripted person", Span(1, 1, 1))
+    # Even if positions and pixels were passed, a card has no detail and no known speaker.
+    given[(0, 2)] = PanelFrame(busy_left(second(book).rect), {"NANDI": Position.LEFT}, True, card)
+    placed = second(place_lettering(book, screenplay, plan, given))
+
+    x, y, w, _ = placed.rect
+    speech, off = placed.bubbles
+    assert speech.rect[:2] == (x + INSET, y + INSET)  # the earliest cell: detail is 0
+    assert speech.tail is None  # no one to point at; a tail would cross the card's lines
+    assert off.tail == (x + w - 1, off.rect[1] + off.rect[3] // 2)
+    assert cell(placed, speech.rect) < cell(placed, off.rect)
+
+
+def test_a_panel_without_a_frame_fails_naming_the_shot() -> None:
+    screenplay, plan, book = sample()
+    given = frames(book)
+    del given[(1, 2)]
+    with pytest.raises(ComicError, match="scene 1, shot 2"):
+        place_lettering(book, screenplay, plan, given)
+
+
+def test_a_frame_not_at_its_panels_size_fails_rather_than_being_cropped() -> None:
+    screenplay, plan, book = one_panel("You came back.")
+    given = frames(book)
+    x, y, w, h = second(book).rect
+    given[(0, 2)] = PanelFrame(solid((x, y, w, h - 1)), {}, False)
+    with pytest.raises(ComicError, match="scene 0, shot 2"):
+        place_lettering(book, screenplay, plan, given)
+
+
+def test_a_panel_the_plan_does_not_have_fails() -> None:
+    screenplay, _, book = one_panel("You came back.")
+    with pytest.raises(ComicError, match="scene 0, shot 2"):
+        place_lettering(book, screenplay, plan_of(shot(0, 1, Framing.WIDE)), frames(book))

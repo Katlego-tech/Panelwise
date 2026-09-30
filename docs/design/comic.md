@@ -25,7 +25,7 @@ invented sound effects.
 
 | Kind | Where |
 | --- | --- |
-| Visual reference | [`docs/design/comic/the-red-kite-page-*.png`](comic/): the self-written sample `samples/the-red-kite.pdf` rendered by T023's `render_pages`, built by `services/api/tools/build_comic_reference.py` from the real parser, a hand-planned shot list (every element in one shot) and **fixture frames** drawn with Pillow, each marked `TEST FIXTURE - not a render` (the real frames wait on T026). One panel is withheld, to show the card. The gate re-renders it and compares pixels (`tests/comic/test_reference.py`). T022's geometry test pins the rects |
+| Visual reference | [`docs/design/comic/the-red-kite-page-*.png`](comic/): the self-written sample `samples/the-red-kite.pdf` rendered by T023's `render_pages`, built by `services/api/tools/build_comic_reference.py` from the real parser, a hand-planned shot list (every element in one shot) and **fixture frames** drawn with Pillow, each marked `TEST FIXTURE - not a render` (the real frames wait on T026). Six pages, 20 panels; one panel (scene 3, shot 3) is withheld, to show the card. The gate re-renders it and compares pixels (`tests/comic/test_reference.py`). T022's geometry test pins the rects |
 | Inputs | `ShotPlan`, `Shot` (shots.md §6); `Screenplay`, `Scene`, `Dialogue`, `Span` (script.md §6); the frame renderer and audit (verify.md §6: `Renderer`, `render_until_accepted`, `Audit.positions`). **Depends on verify.md's `Renderer.render` and `render_until_accepted` taking `width`/`height`** (added in PR #17, T010), so this doc lands after it |
 | Prior art in FrameFlow | none: FrameFlow made storyboard PDFs, never comics (its `storyboard_document.py` hand-wrote a PDF with base-14 fonts, two 16:9 panels per A4 page) |
 | Font | **Comic Neue Regular** (`ComicNeue-Regular.ttf`, SIL Open Font License 1.1), committed with its licence under `services/api/assets/fonts/` by T022, because step 5's budget measures text with the same file the renderer letters with |
@@ -190,8 +190,10 @@ the comic's **withheld card** instead, and its lettering is still placed:
   text is never lettered. (The storyboard's card, which verify.md §4 describes, does show the
   source; the storyboard has no bubbles.)
 - Placement on a card: `detail` is 0 everywhere, so boxes go to the earliest admissible cells;
-  `positions` is empty (a failed attempt's positions describe a frame no one sees), so `SPEECH`
-  tails point at the panel's bottom centre and `OFF_PANEL` tails at the right edge.
+  `positions` is empty (a failed attempt's positions describe a frame no one sees), so
+  `OFF_PANEL` tails point at the right edge, and a `SPEECH` bubble has **no tail** (`tail` is
+  `null`): no one is in the panel to point at, and a tail to the bottom centre crosses the card's
+  own two lines (T023 found this on the reference page; the rule was "the bottom centre" before).
 - `panel_frame(outcome, shot)` turns verify's `FrameOutcome` into a `PanelFrame`: `PASSED` or
   `WARNED` → the accepted frame's PNG and its (last) audit's `positions`; `WITHHELD` → no PNG, no
   positions, and a `WithheldCard` (`withheld_checks(last audit)`, the shot's span); any other state
@@ -230,7 +232,7 @@ then every text, so a tail passing under another bubble never covers its words.
 
 **8. Tails.** `SPEECH`: from the bubble's nearest edge to the speaker's point: horizontal centre of
 their third (`left`/`centre`/`right`) at 45% of the panel height; when the position is unknown, the
-panel's bottom centre. `OFF_PANEL`: to the panel edge on the speaker's side, else the right edge.
+panel's bottom centre (on a withheld card: no tail, step 6). `OFF_PANEL`: to the panel edge on the speaker's side, else the right edge.
 Captions: no tail. `Bubble.tail` is the tip, in page pixels, always inside the panel: a third's
 centre is `x + ⌊w/6⌋`, `x + ⌊w/2⌋` or `x + ⌊5w/6⌋`, at `y + ⌊0.45 h⌋`; the bottom centre is
 `(x + ⌊w/2⌋, y + h − 1)`; an `OFF_PANEL` tip is on the left (`x`) or right (`x + w − 1`) edge at
@@ -240,7 +242,7 @@ the tip to the tip; a tip inside the box draws no tail.
 
 **Failure paths:** layout over budget after the passes → `ComicError` (shot named); no admissible
 spot for a box → `ComicError` (shot named); the renderer failing → the frame job fails (verify.md);
-the font file missing → `ComicError` at start-up, never a fallback font. A missing line is worse than
+the font file missing → `ComicError` at start-up, never a fallback font; a character the font has no glyph for (it would letter as an empty box) → `ComicError` naming the shot (T023). A missing line is worse than
 a failed job.
 
 ## 5. State
@@ -362,7 +364,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   px; `O.S.` tails on the edge; `V.O.` as captions; no admissible spot → `ComicError`.
 - **Frames:** each panel's render request is exactly its `rect` size; a withheld frame yields the
   card (its two lines, the failed hard checks in enum order, `audit error` for an ERROR audit, no
-  source text) plus its lettering, placed in grid order with default tails.
+  source text) plus its lettering, placed in grid order, `OFF_PANEL` tails to the right edge and no `SPEECH` tail.
 - **Export:** one PDF page per `Page` at 1988 × 3075; the JSON matches §6's shape and round-trips
   every span.
 - **Visual:** T022/T023 render the self-written sample's comic and commit the page PNGs as the

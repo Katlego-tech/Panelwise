@@ -72,7 +72,7 @@ def scene_caption(scene: Scene) -> str:
 def layout_geometry(plan: ShotPlan, screenplay: Screenplay) -> ComicBook:
     """Rects for one panel per shot, in plan order. Bubbles and captions are placed later
     (T023), so every panel's are empty and the report counts none yet."""
-    font = _font(FONT_PATH)
+    font = font_at(FONT_PATH)
     beats = _beats(plan, screenplay)
     weights = [beat.weight for beat in beats]
     forced: set[int] = set()
@@ -91,7 +91,7 @@ def layout_geometry(plan: ShotPlan, screenplay: Screenplay) -> ComicBook:
             for i in over:
                 if i in forced or weights[i] >= FULL_TIER:
                     raise ComicError(
-                        f"{_name(beats[i].shot)}: its lettering needs more than 35% of the "
+                        f"{shot_name(beats[i].shot)}: its lettering needs more than 35% of the "
                         "panel even in a solo tier"
                     )
             forced.update(over)
@@ -112,7 +112,7 @@ def layout_geometry(plan: ShotPlan, screenplay: Screenplay) -> ComicBook:
 
 def _weight(shot: Shot, scene: Scene, first_in_scene: bool, lettered_chars: int) -> Fraction:
     if shot.scene_index != scene.index:
-        raise ComicError(f"{_name(shot)} weighed against scene {scene.index}")
+        raise ComicError(f"{shot_name(shot)} weighed against scene {scene.index}")
     weight = BASE_WEIGHT[shot.framing] + (ESTABLISHING if first_in_scene else 0)
     return weight + LETTERING_STEP * -(-lettered_chars // LETTERING_CHARS)
 
@@ -124,7 +124,7 @@ def _beats(plan: ShotPlan, screenplay: Screenplay) -> list[_Beat]:
     for shot in plan.shots:
         scene = scenes.get(shot.scene_index)
         if scene is None or not all(0 <= i < len(scene.elements) for i in shot.elements):
-            raise ComicError(f"{_name(shot)} cites a scene or element the screenplay lacks")
+            raise ComicError(f"{shot_name(shot)} cites a scene or element the screenplay lacks")
         first = shot.scene_index not in seen
         seen.add(shot.scene_index)
         caption = [scene_caption(scene)] if first else []
@@ -189,19 +189,19 @@ def _tier_rects(indices: Sequence[int], weights: Sequence[Fraction], y: int, h: 
 def _fits(texts: Sequence[str], rect: Rect, font: ImageFont.FreeTypeFont) -> bool:
     _, _, w, h = rect
     limit = math.floor(w * WRAP_SHARE)
-    area = sum(bw * bh for bw, bh in (_box(text, limit, font) for text in texts))
+    area = sum(bw * bh for bw, bh in (box_size(text, limit, font) for text in texts))
     return area <= BUDGET_SHARE * w * h
 
 
-def _box(text: str, limit: int, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
-    """The wrapped block at the nominal size, plus padding: the rect a bubble's ellipse fills."""
-    lines = _wrap(text, limit, font)
+def box_size(text: str, limit: int, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
+    """The wrapped block at the font's size, plus padding: the rect a bubble or caption fills."""
+    lines = wrap(text, limit, font)
     ascent, descent = font.getmetrics()
     width = max(math.ceil(font.getlength(line)) for line in lines)
     return width + 2 * PADDING, len(lines) * (ascent + descent) + 2 * PADDING
 
 
-def _wrap(text: str, limit: int, font: ImageFont.FreeTypeFont) -> list[str]:
+def wrap(text: str, limit: int, font: ImageFont.FreeTypeFont) -> list[str]:
     """Greedy on whitespace. A word wider than the limit keeps a line to itself: text is
     never split mid-word, cut or reworded, so such a box is simply wider."""
     lines: list[str] = []
@@ -215,11 +215,11 @@ def _wrap(text: str, limit: int, font: ImageFont.FreeTypeFont) -> list[str]:
 
 
 @cache
-def _font(path: Path) -> ImageFont.FreeTypeFont:
+def font_at(path: Path, size: int = FONT_PX) -> ImageFont.FreeTypeFont:
     if not path.is_file():
         raise ComicError(f"lettering font missing: {path}; there is no fallback font")
-    return ImageFont.truetype(path, FONT_PX)
+    return ImageFont.truetype(path, size)
 
 
-def _name(shot: Shot) -> str:
+def shot_name(shot: Shot) -> str:
     return f"scene {shot.scene_index}, shot {shot.number}"
