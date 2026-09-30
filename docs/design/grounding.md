@@ -171,7 +171,9 @@ class Source(StrEnum): MODEL = "model"; CUE = "cue"; HEADING = "heading"
 @dataclass(frozen=True) class Dropped: name: str; kind: EntityKind; reason: str
 @dataclass(frozen=True) class GroundingReport: entities_proposed: int; entities_grounded: int; faithfulness: float; quotes_proposed: int; quotes_located: int; dropped: tuple[Dropped, ...]; cues_total: int; cues_found_by_model: int; recall: float
 @dataclass(frozen=True) class Extraction: entities: tuple[Entity, ...]; report: GroundingReport; models: tuple[str, ...]; usage: Usage
-class ExtractionError(RuntimeError): ...
+class ExtractionError(RuntimeError):
+    def __init__(self, message: str, *, scene: str | None = None) -> None: ...
+    scene: str | None   # the `number` of the first scene in the failed chunk; None only for the max_chunks budget (web.md §4.1)
 
 # app/grounding/text.py
 def normalize_for_grounding(text: str) -> str: ...        # FrameFlow's (join line-break hyphens that touch a word, collapse whitespace, upper-case) + fold curly quotes/dashes/ellipsis to ASCII and collapse dash runs, on both sides

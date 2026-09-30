@@ -158,8 +158,14 @@ class IntExt(StrEnum): INT = "INT"; EXT = "EXT"; INT_EXT = "INT/EXT"
 @dataclass(frozen=True) class Dialogue: cue: str; extension: str | None; parenthetical: str | None; text: str; span: Span
 type Element = Action | Dialogue
 @dataclass(frozen=True) class Scene: index: int; number: str; heading: str; int_ext: IntExt; location: str; time_of_day: str | None; elements: tuple[Element, ...]; span: Span
-@dataclass(frozen=True) class Screenplay: text: str; page_count: int; scenes: tuple[Scene, ...]
-class ScriptParseError(ValueError): ...
+@dataclass(frozen=True) class Screenplay: text: str; page_count: int; scenes: tuple[Scene, ...]; page_starts: tuple[int, ...]
+#   page_starts: the 1-based first line of each page in `text`: page_starts[0] == 1, len == page_count,
+#   (1, *page_breaks) (web.md §3; the lined script breaks pages where the PDF did)
+type ParseErrorCode = Literal["not_a_pdf", "no_text_layer", "no_headings"]
+class ScriptParseError(ValueError):
+    def __init__(self, code: ParseErrorCode, message: str) -> None: ...
+    code: ParseErrorCode   # one per raise: parse_pdf can't open it → "not_a_pdf"; no page has text → "no_text_layer";
+                           # parse_text finds no heading → "no_headings". Callers branch on `code`, never on the message.
 
 # app/script/parser.py
 def parse_pdf(data: bytes) -> Screenplay: ...

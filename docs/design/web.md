@@ -1,7 +1,7 @@
 # Design — `web` (sign-in, projects, script, storyboard, frame detail)
 
-**Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T043, T044 (API: projects and
-upload, the pipeline runner, the read endpoints), T040–T042, T045 (the screens), T021 (frame state, the
+**Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T043, T046, T044 (API: projects and
+upload, the pipeline core, the pipeline as a job, the read endpoints), T040–T042, T045 (the screens), T021 (frame state, the
 audit section of the frame sheet, "Try another render"), T026 (the rendering stage), T027 (the storyboard PDF) ·
 **Spec:** US1, and US2's "the audit log is visible in the app" ([SPEC.md](../../SPEC.md))
 
@@ -114,7 +114,7 @@ classDiagram
     Job --> Stage
 ```
 
-- **`Project`** (T009, table `projects`): `owner` is the Supabase Auth user id. `pdf_path` is the
+- **`Project`** (T009, table `projects`; T046 writes the stage columns): `owner` is the Supabase Auth user id. `pdf_path` is the
   upload's path in Supabase Storage (`scripts/{owner}/{project_id}.pdf`). `screenplay`,
   `extraction` and `plan` are each stage's result, serialised from the dataclasses in script.md,
   grounding.md and shots.md §6. A stage writes its column in the same transaction that advances the
@@ -122,7 +122,9 @@ classDiagram
   defaulting to the file name without `.pdf`.
 - **`Job`** (deploy.md §3) gains `project_id` and `stage`. `kind` is `"storyboard"` (the upload's
   job) or `"frame_attempt"` (one "Try another render"). `progress` is 0–100 over the whole job:
-  parsing 0–5, extracting 5–40, planning 40–60, rendering 60–100 (by frames settled).
+  parsing 0–5, extracting 5–40, planning 40–60, rendering 60–100 (by frames settled). The bands
+  are `BANDS` in `app/projects/pipeline.py` (§6); a stage reports its band's start when it begins,
+  and a job that stops after planning ends `DONE` at 60 until the rendering stage exists (T026).
 - **`Frame`** (table `frames`: **T044** creates the table, its model and its read; **T021** writes it
   through the `on_state`/`on_frame` hooks, verify.md §6 and storyboard.md §6): one row per shot that has entered verify.md's state machine,
   holding its current `FrameState`, attempt number, the job that last moved it (`frame_audits.job_id`
@@ -133,7 +135,7 @@ classDiagram
 - **Settled** means `passed`, `warned`, `withheld` or `failed`: nothing more will happen to the
   frame without a user action. `withheld` is a subset of settled. Every count in the app uses this
   definition.
-- **`Screenplay.page_starts`** (new field, T009 adds it and updates script.md §6 in the same PR):
+- **`Screenplay.page_starts`** (new field, T043 adds it and updates script.md §6 in the same PR):
   `tuple[int, ...]`, the 1-based first line of each page in `Screenplay.text`, so
   `page_starts[0] == 1` and `len(page_starts) == page_count`. The parser's `page_breaks` omits page
   1; `page_starts` is `(1, *page_breaks)`. The lined script needs it to break pages where the PDF did.
@@ -191,11 +193,20 @@ sequenceDiagram
   - `"no_headings"` → "No scene headings found. Panelwise reads screenplays formatted with
     headings like INT. KITCHEN - NIGHT."
   - extraction or planning failed (`ExtractionError`, `ShotError`) → "Reading the script failed at
-    scene {n}. Nothing was saved from this run. Upload the script again to retry."
+    scene {n}. Nothing was saved from this run. Upload the script again to retry." `{n}` is the
+    scene's `number` as the script prints it (`12A`), from the error's `scene` attribute
+    (grounding.md and shots.md §6): for an extraction chunk, the first scene in the chunk.
   - over the extraction budget: `extract()` raises `ExtractionError` before any model call when the
     script splits into more than `max_chunks` (40) chunks (`app/grounding/extract.py`). T043
-    checks the chunk count itself before calling, so this case is told apart from a failed call →
-    "This script is longer than this demo reads. Upload a shorter one."
+    checks the chunk count itself (`chunk_scenes`) before calling, so this case is told apart from
+    a failed call and no model is called → "This script is longer than this demo reads. Upload a
+    shorter one." (An `ExtractionError` whose `scene` is `None` is this budget error, so it maps
+    to the same copy.)
+  - anything else is a bug, not a user error: `run_pipeline` lets it propagate, and T046 logs it
+    with its traceback and fails the job with "Something went wrong on our side while reading this
+    script. Upload it again to retry." The exception text never reaches the user.
+  - The copy is chosen from `ScriptParseError.code`, the exception type and `scene`, **never from
+    an exception's message text**. Each string is a constant in `app/projects/pipeline.py`.
   - the API restarted mid-job: on startup every `QUEUED` or `RUNNING` job, of either kind, becomes
     `FAILED` with "The server restarted while this ran. Upload the script again." (deploy.md §5: a
     retry is a new job), and every `frames` row in `rendering` or `auditing` becomes `failed` (verify.md §5's
@@ -330,6 +341,64 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 | `GET /projects/{id}/storyboard.pdf` | — | 200 PDF, built on demand (storyboard.md §6 `layout_document`, `render_pdf`) and stored by content hash · 409 unless the job is `DONE` and every shot is settled | T027 |
 | `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 409 in any other state | T021 |
 
+**The pipeline core** (T043; no database: T046 runs it as a job and writes what it reports, T026
+adds the rendering stage):
+
+```python
+# app/projects/pipeline.py
+class Stage(StrEnum):
+    PARSING = "parsing"; EXTRACTING = "extracting"; PLANNING = "planning"; RENDERING = "rendering"
+BANDS: Mapping[Stage, tuple[int, int]]   # §3: PARSING (0, 5), EXTRACTING (5, 40), PLANNING (40, 60), RENDERING (60, 100)
+type StageResult = Screenplay | Extraction | ShotPlan
+type OnAdvance = Callable[[Stage, int, StageResult | None], Awaitable[None]]
+
+@dataclass(frozen=True)
+class PipelineResult:
+    screenplay: Screenplay; extraction: Extraction; plan: ShotPlan
+
+class PipelineError(RuntimeError):
+    def __init__(self, stage: Stage, message: str) -> None: ...
+    stage: Stage       # the stage that failed
+    message: str       # == str(self): one §4.1 string, verbatim; the cause is __cause__, for the log only
+
+# §4.1 copy, verbatim
+NOT_A_PDF: str; NO_TEXT_LAYER: str; NO_HEADINGS: str; TOO_LONG: str
+READ_FAILED: str   # "Reading the script failed at scene {n}. …", filled with str.format(n=...)
+
+async def run_pipeline(
+    pdf: bytes, model: NebiusChatModel, *, on_advance: OnAdvance,
+    chunk_chars: int = 12_000, max_chunks: int = 40,
+) -> PipelineResult: ...
+```
+
+`run_pipeline` awaits `on_advance(stage, progress, finished)` as each stage **begins**, with the
+band's start and the result of the stage before it, and does not start the stage until the hook
+returns (an exception from the hook propagates unchanged):
+
+| Call | Means | T046 writes, in one transaction |
+|---|---|---|
+| `(PARSING, 0, None)` | parsing begins | job `RUNNING`, stage, progress |
+| `(EXTRACTING, 5, screenplay)` | parsed; extraction begins | `projects.screenplay`, stage, progress |
+| `(PLANNING, 40, extraction)` | extracted; planning begins | `projects.extraction`, stage, progress |
+| returns `PipelineResult` | planned | `projects.plan`, progress 60, job `DONE` |
+
+One hook, not separate progress and result hooks, so a stage's column and the job's advance are one
+write and a page never sees one without the other (§3). The chunk budget is checked with
+`chunk_scenes(screenplay, chunk_chars)` before `extract` is called with the same `chunk_chars` and
+`max_chunks`. Every failure in §4.1 is raised as `PipelineError` (from the original, as its
+`__cause__`); nothing else is caught. `python -m app.projects.run <pdf>` runs it on the real
+account and prints each advance and a summary (T043's live check).
+
+```python
+# app/projects/job.py (T046)
+async def run_job(job_id: uuid.UUID, *, sessions: async_sessionmaker[AsyncSession],
+                  store: AssetStore, model: NebiusChatModel) -> None: ...
+#   reads the job's project and its PDF (store.get(project.pdf_path)), then run_pipeline with an
+#   on_advance that makes the writes in the table above; PipelineError → FAILED, stage=error.stage,
+#   error=error.message, the columns already written kept; any other exception → logged with its
+#   traceback, FAILED with §4.1's "went wrong on our side" copy. Never raises.
+```
+
 **Response types** (TypeScript in `apps/web/lib/api/types.ts`; Pydantic mirrors in
 `services/api/app/api/v1/schemas.py`; field names identical):
 
@@ -460,7 +529,12 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `services/api/app/jobs/` + migration | new | the `Job` table with `project_id`, `stage`; the restart sweep | T009 |
 | `services/api/app/projects/{model,repo}.py` + migration | new | the `projects` table | T009 |
 | `services/api/app/api/v1/projects.py` (POST, list), `schemas.py` | new | §6 rows marked T009 | T009 |
-| `services/api/app/projects/pipeline.py` | new | parse → extract → plan as a job; stage columns; failure copy by code | T043 |
+| `services/api/app/projects/{__init__,pipeline}.py` | new | `run_pipeline`: parse → extract → plan, the chunk-budget pre-check, `on_advance` per stage, §4.1 copy by code and type (§6); no database | T043 |
+| `services/api/app/projects/run.py` | new | `python -m app.projects.run <pdf>`: the pipeline on the real account, printing each advance and a summary | T043 |
+| `services/api/app/grounding/{model,extract}.py`, `services/api/app/shots/{model,planner}.py` | changed | `ExtractionError.scene`, `ShotError.scene`, the scene number the §4.1 copy names (+ grounding.md, shots.md §6) | T043 |
+| `services/api/app/projects/job.py` | new | `run_job` (§6): the upload's job runs `run_pipeline`, each stage's column written with the job's advance in one transaction; failures to `FAILED` with the copy | T046 |
+| `services/api/app/projects/codec.py` | new | the stage columns' jsonb: `Screenplay`, `Extraction`, `ShotPlan` to JSON and back, lossless (the read endpoints load them, T044) | T046 |
+| `services/api/app/api/v1/projects.py` (POST starts the job) | changed | the upload schedules `run_job` as an asyncio task after its commit (§4.1) | T046 |
 | `services/api/app/projects/pipeline.py` (RENDERING stage) | changed | call `build_storyboard` with T021's writers; map `progress(settled, total)` into 60–100; job `DONE` | T026 |
 | `services/api/app/frames/{model,repo}.py` + migration (`frames`) | new | the table and its read for `…/frames` | T044 |
 | `services/api/app/script/{model,parser}.py` | changed | `Screenplay.page_starts`, `ScriptParseError.code` (+ script.md §6) | T043 |
@@ -494,7 +568,12 @@ restyled).
 
 ## 9. How this is verified
 
-- **API (T009, T043, T044):** pytest with a fake Supabase token verifier and the compose Postgres:
+- **Pipeline core (T043):** pytest, no database, models via `httpx2.MockTransport`: a good PDF
+  advances `(PARSING, 0, None)` → `(EXTRACTING, 5, screenplay)` → `(PLANNING, 40, extraction)` and
+  returns the plan; each `ScriptParseError.code`, the chunk budget (with no model call), a failed
+  extraction chunk and a failed planning call give their §4.1 copy and stage; `page_starts` on
+  every sample. Live: `python -m app.projects.run samples/the-red-kite.pdf` on the real account.
+- **API (T009, T046, T044):** pytest with a fake Supabase token verifier and the compose Postgres:
   upload → job runs the stages with `httpx2.MockTransport` models → `GET` endpoints return §6 shapes;
   another user's project is 404; each `ScriptParseError.code` gives its copy; a failed stage leaves
   the columns before it and the user-facing error; the restart sweep fails `QUEUED`/`RUNNING` jobs

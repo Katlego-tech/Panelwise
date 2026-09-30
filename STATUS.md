@@ -39,7 +39,7 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039 | Katlego | Claude | ✅ T005, T006, T039 done |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | 🔵 design in review ([storyboard.md](docs/design/storyboard.md)) · T008 (styles, prompts) buildable, needs the public-styles decision · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 · T027 (PDF) after T026 |
-| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T044, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · T009 next · T040+ need a Supabase project (T037) |
+| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T046, T044, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · 🟡 T043 pipeline core (no database) · ⏸️ T009 suspended by Katlego until a Supabase project exists (the gate and CI have no Postgres); T046 (the pipeline as a job) follows it · T040+ need a Supabase project (T037) |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · T021 waits on T009, T044, T045 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · T023 waits on frames (T026) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
