@@ -50,7 +50,7 @@ spending 509 input and 157 output tokens with 0 reasoning tokens (STATUS.md log,
 sample is tiny; feature-length numbers come from T031 and T032. We report precision and recall
 together because FrameFlow once scored a perfect 1.0 faithfulness while its recall was at most ~6%.
 Every push runs the gate: ruff, pyright, pytest, eslint + tsc, vitest, next build, and placeholder,
-secret, vulnerability and duplication scans (10 checks). Frame-audit accuracy is measured in T032.
+secret, vulnerability and duplication scans (10 checks). Frame-audit accuracy is measured in T049 (needs renders, T026).
 
 ### 5. "What did you deliberately cut, and why?"
 Frame it as scope control: pruned at the midpoint so the golden path has no defects.
@@ -66,4 +66,4 @@ the event ([SCOPE.md](SCOPE.md) § Out of scope).
 
 - [ ] The data model: the class diagrams in [docs/design/script.md](docs/design/script.md) and [docs/design/grounding.md](docs/design/grounding.md), plus verify and comic (T010, T011)
 - [ ] Edge cases, and how they're handled: dropped quotes, parse errors, audit retry cap (T021)
-- [ ] Unit economics: measured Token Factory cost per full script (the Devpost draft's catalog-price estimate is ~$0.05; measured on a full script in T032) and expected renders per frame from the audit loop (T021)
+- [ ] Unit economics: measured Token Factory cost per full script (the Devpost draft's catalog-price estimate is ~$0.05; token counts per sample run are recorded by T032) and expected renders per frame from the audit loop (T021)

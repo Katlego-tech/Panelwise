@@ -213,7 +213,7 @@ as a base64 `data:` URL in an OpenAI-style content part:
 
 All four Nemotron models are `text->text` in the catalog. **No NVIDIA vision model is served on
 Token Factory.** A two-shape test proves the plumbing works, not that a model can audit a storyboard
-frame — frame-audit accuracy is measured in T032.
+frame — frame-audit accuracy is measured in T049.
 
 ### U7 re-check (2026-09-30)
 
@@ -237,7 +237,7 @@ nothing upstream can tell. The audit would have judged made-up frames.
 **Consequence:** `NEBIUS_MODEL_VISION` is now `deepseek-ai/DeepSeek-V4.1-Flash` ($0.30 · $1.20,
 3000 RPM), the cheapest model that read both the U7 image and a real storyboard frame correctly.
 Its structured output held on every describer call in T020's live runs (`json_schema`, no repair
-needed). Option A is unchanged: only the describer's model moved. T032 should re-check whichever
+needed). Option A is unchanged: only the describer's model moved. T049 should re-check whichever
 describer is configured, since this changed silently between two dates.
 
 ### The vision decision

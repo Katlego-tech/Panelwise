@@ -26,7 +26,7 @@ any copyrighted script, ever.
 
 | Kind | Where |
 | --- | --- |
-| Metric definitions | grounding.md §4 (faithfulness, recall), shots.md §9 (partition), verify.md §9 (accuracy) |
+| Metric definitions | grounding.md §4 (faithfulness) and `GroundingReport` §6 (recall), shots.md §9 (partition), verify.md §9 (accuracy) |
 | Inputs | `samples/*.pdf` (T031); `extract` (grounding.md §6), `plan_shots` (shots.md §6) |
 | Existing one-run CLIs | `app.grounding.run`, `app.shots.run` (same calls; eval repeats them and aggregates) |
 | Previous numbers | samples/README.md § Live runs (one run each, T039, T048) |
@@ -82,8 +82,15 @@ classDiagram
   numbers, and is **counted** in `failed`, never silently dropped.
 - **`ungrounded_kept`** re-checks Non-negotiable I in code, independently of the filter: the number
   of kept quotes whose `text` is not inside their `span`'s lines (`normalize_for_grounding`), plus
-  shots whose `source` is not the covered elements' text. It must be 0; anything else is a bug, and
-  the eval exits non-zero.
+  shots that don't cite exactly what they cover. A shot with elements cites them when its `source`
+  is `"\n".join(e.text for e in covered)` (planner, shots.md), its `span` runs from the first
+  covered element's start to the last one's end, and each covered element's text normalises to its
+  own span's lines (script.md §3). A shot with **no** elements (the establishing shot of a
+  heading-only scene) cites the heading: `source == scene.heading` and `span` is the heading line.
+  It must be 0; anything else is a bug, and the eval exits non-zero.
+- **Field mapping:** `cues_found` is `GroundingReport.cues_found_by_model`; `tokens_in` /
+  `tokens_out` are extraction's plus planning's `prompt_tokens` / `completion_tokens`
+  (`reasoning_tokens` is left out: thinking is off on the fast tier, llm.md).
 - **`names_dropped`** = the planner's `characters_dropped + props_dropped` (names the model put in a
   shot that aren't extracted for that scene; dropped by code, shots.md §4).
 - **`SampleSummary`** is computed from the runs that didn't fail. `Stat` is mean / min / max.
@@ -155,6 +162,7 @@ labels, and the false-FAIL rate on correct frames (verify.md §10). Same file an
 | Path | New/changed | What |
 | --- | --- | --- |
 | `services/api/tools/evaluate.py` | new | §6 |
+| `services/api/tests/tools/__init__.py` | new | package marker, as `tests/samples/` has |
 | `services/api/tests/tools/test_evaluate.py` | new | pure functions; the README table equals `table(from_json(latest))` |
 | `eval/README.md` | changed | what is measured, the command, the latest table, what the numbers don't show |
 | `eval/results/extraction-<date>.json` | new | raw runs |
@@ -169,10 +177,14 @@ labels, and the false-FAIL rate on correct frames (verify.md §10). Same file an
 | Failed runs | counted and shown | dropped: hides the case a judge most needs to see |
 | Gate | recomputes the table from JSON, offline | runs the eval: costs credit and isn't deterministic |
 
+Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none.
+
 ## 9. How this is verified
 
 - `check_run` on hand-built extractions and plans: a quote moved to the wrong span and a shot
-  whose `source` was edited each count as `ungrounded_kept`; an unpartitioned plan reads `False`.
+  whose `source` was edited or whose `span` was moved each count as `ungrounded_kept`; a
+  heading-only scene's establishing shot (no elements, cites the heading) does not; an
+  unpartitioned plan reads `False`.
 - `summarise` / `table` on fixed runs: mean/min/max, a failed run excluded from stats but counted,
   pooled micro averages.
 - `to_json` / `from_json` round-trip; the committed README table equals the table recomputed from

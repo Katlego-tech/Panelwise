@@ -703,7 +703,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   matches §6's shape and omits `frame_url` for a withheld frame.
 - **Live** (T026/T027; needs T003, T021): `python -m app.storyboard.run` on the self-written sample in the default
   public style: every shot ends `PASSED`, `WARNED` or `WITHHELD`; the PDF and frames are in Storage;
-  seconds per frame and renders per frame are recorded in `infra/nebius/README.md` for T032; the
+  seconds per frame and renders per frame are recorded in `infra/nebius/README.md` (render cost; T049 uses the same renders); the
   pages are committed as the visual reference.
 
 ## 10. Open questions
@@ -729,7 +729,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   agreed verify.md (no frame shown without `PASS` or `WARN`), so T026 depends on T021's loop. Confirm
   the US1 checkpoint waits for T021 rather than showing unaudited frames.
 - [ ] **Dialogue-only shots before T025**: with no entity quotes (§8), such a shot is drawn from its
-  setting, time and figure count. If T032's samples show these frames are too generic, the team
+  setting, time and figure count. If T049's renders of the samples show these frames are too generic, the team
   decides between waiting for T025's references and allowing a narrowly defined descriptive phrase
   (never a whole sentence) from a character's introduction.
 - [ ] **Off-screen speakers and `MISSING_CHARACTER`** (§8): every shot with a `V.O.`/`O.S.` speaker

@@ -14,8 +14,8 @@ artist, time and money. Image models could draw it, but they invent: ask for "a 
 and you get a third person or a window that isn't in the scene, and a storyboard that shows the
 crew something the writer never wrote is worse than none. The cost Panelwise measures is that
 invention: every panel must trace to a verbatim span of the script (PLAN.md Non-negotiable 1), and
-faithfulness, recall and frame-audit accuracy are reported as numbers (T006 today, T032 for
-feature length).
+faithfulness, recall and frame-audit accuracy are reported as numbers (T006 today; T032 for
+extraction over the samples, T049 for the audit).
 
 ## Who it's for
 
