@@ -111,7 +111,15 @@ probing Token Factory, and several answers contradicted what the documentation s
 
 ## Accomplishments that we're proud of
 
-⟨TBD: faithfulness and recall on the full sample script; frame-audit accuracy from `eval/`.⟩
+- Across 15 live runs on three self-written screenplays (5 each), **nothing ungrounded ever reached
+  a panel**: every kept quote and every shot's cited text was re-checked in code against the
+  script lines it names, and all 15 runs came back at 0. Every action paragraph and speech landed
+  in exactly one shot, in every run.
+- Nemotron 3.5 Lightning's own proposals were 89.8% faithful (246 of 274 entities fully grounded);
+  the filter dropped the rest. It found 94.4% of speaking characters itself (85 of 90), and the
+  script's cues supply the one it misses. Numbers and method: [`eval/`](../../eval/README.md).
+
+⟨TBD: frame-audit accuracy from `eval/` (T049, needs renders).⟩
 
 ## What we learned
 
