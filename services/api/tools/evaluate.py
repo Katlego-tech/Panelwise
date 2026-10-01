@@ -13,16 +13,16 @@ import json
 import sys
 import time
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import date
 from pathlib import Path
 
 from app.core.config import Settings
-from app.grounding import ExtractionError, extract, normalize_for_grounding
+from app.grounding import extract, normalize_for_grounding
 from app.grounding.model import Extraction
 from app.llm import LLMError, NebiusChatModel
-from app.script import Screenplay, Span, parse_pdf
-from app.shots import Shot, ShotError, ShotPlan, plan_shots
+from app.script import Screenplay, ScriptParseError, Span, parse_pdf
+from app.shots import Shot, ShotPlan, plan_shots
 from tools.build_samples import OPTIONS, SAMPLES
 
 EVAL = SAMPLES.parent / "eval"
@@ -249,25 +249,37 @@ async def _one(model: NebiusChatModel, screenplay: Screenplay, sample: str, run:
     try:
         extraction = await extract(model, screenplay)
         plan = await plan_shots(model, screenplay, extraction)
-    except (ExtractionError, ShotError, LLMError) as exc:
+    except Exception as exc:
         return failed_run(sample, run, f"{type(exc).__name__}: {exc}", time.monotonic() - start)
     seconds = round(time.monotonic() - start, 1)
     return check_run(screenplay, extraction, plan, sample=sample, run=run, seconds=seconds)
 
 
 def _parse_args(argv: list[str]) -> tuple[int, Path | None, list[str]] | None:
+    """(runs, out, samples), or None for anything malformed: usage, before any paid call."""
     runs, out, samples = 5, None, list[str]()
     args = iter(argv)
     for arg in args:
         if arg == "--runs":
-            runs = int(next(args, "0"))
+            value = next(args, "")
+            if not value.isdigit():
+                return None
+            runs = int(value)
         elif arg == "--out":
-            out = Path(next(args, ""))
+            value = next(args, "")
+            if not value or value.startswith("--") or value.endswith(("/", "\\")):
+                return None
+            out = Path(value)
         elif arg in OPTIONS:
             samples.append(arg)
         else:
             return None
     return (runs, out, samples or sorted(OPTIONS)) if runs > 0 else None
+
+
+def _save(path: Path, report: EvalReport) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(to_json(report), encoding="utf-8")
 
 
 async def main(argv: list[str]) -> int:
@@ -276,9 +288,17 @@ async def main(argv: list[str]) -> int:
         print(__doc__)
         return 2
     runs, out, samples = parsed
-    screenplays = {s: parse_pdf((SAMPLES / f"{s}.pdf").read_bytes()) for s in samples}
-    model = NebiusChatModel.from_settings(Settings())
-    results: list[EvalRun] = []
+    try:
+        screenplays = {s: parse_pdf((SAMPLES / f"{s}.pdf").read_bytes()) for s in samples}
+        settings = Settings()
+        model = NebiusChatModel.from_settings(settings)
+    except (OSError, ScriptParseError, LLMError) as exc:
+        print(f"FAIL  {exc}")
+        return 1
+    day = date.today().isoformat()
+    path = out or result_path(day)
+    command = " ".join(["uv run python -m tools.evaluate", *argv])
+    report = EvalReport(day, (settings.nebius_model_fast,), command, ())
     try:
         for sample in samples:  # sequential: no rate-limit surprises
             for n in range(1, runs + 1):
@@ -292,17 +312,13 @@ async def main(argv: list[str]) -> int:
                     ),
                     flush=True,
                 )
-                results.append(result)
+                # Saved after every run, so an interrupted eval keeps what it has paid for.
+                report = replace(report, runs=(*report.runs, result))
+                _save(path, report)
     finally:
         await model.aclose()
-    day = date.today().isoformat()
-    command = "uv run python -m tools.evaluate " + " ".join(argv)
-    report = EvalReport(day, (Settings().nebius_model_fast,), command.strip(), tuple(results))
-    path = out or result_path(day)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(to_json(report), encoding="utf-8")
     print(f"\nwrote {path}\n\n{table(report)}")
-    return 1 if any(r.ungrounded_kept for r in results) else 0
+    return 1 if any(r.ungrounded_kept for r in report.runs) else 0
 
 
 if __name__ == "__main__":

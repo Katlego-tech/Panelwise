@@ -16,6 +16,7 @@ from tools.evaluate import (
     EvalReport,
     EvalRun,
     Stat,
+    _parse_args,  # pyright: ignore[reportPrivateUsage]
     check_run,
     from_json,
     summarise,
@@ -251,3 +252,29 @@ def test_the_readme_table_is_the_newest_committed_result() -> None:
     assert table(report) in readme
     assert newest_result().name in readme
     assert all(r.ungrounded_kept == 0 for r in report.runs)
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--runs"],
+        ["--runs", "abc"],
+        ["--runs", "2.5"],
+        ["--runs", "0"],
+        ["--out"],
+        ["--out", "--runs", "2"],
+        ["--out", "results/"],
+        ["nonsense"],
+    ],
+)
+def test_malformed_arguments_give_usage_before_any_paid_call(argv: list[str]) -> None:
+    assert _parse_args(argv) is None
+
+
+def test_arguments_parse() -> None:
+    assert _parse_args([]) == (5, None, ["lost-property", "sipho-and-siphokazi", "the-red-kite"])
+    assert _parse_args(["--runs", "2", "--out", "x.json", "the-red-kite"]) == (
+        2,
+        Path("x.json"),
+        ["the-red-kite"],
+    )

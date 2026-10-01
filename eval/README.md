@@ -34,7 +34,8 @@ How to read it:
 - **Faithfulness** is the share of the entities the model proposed whose name and every quote
   were found verbatim in the script (grounding.md §4). Below 1.0 means the model proposed
   something the script doesn't say — a paraphrased quote, a name the script never writes — and the
-  grounding filter **dropped** it. It measures the model, not what reaches a panel.
+  grounding filter **dropped what didn't ground** (the unlocated quotes, or the whole entity when
+  its name or every quote is missing). It measures the model, not what reaches a panel.
 - **Ungrounded kept** is what reaches a panel: every kept quote and every shot's cited text,
   re-checked here in code, independently of the filter, against the script lines its span names.
   It is 0 in every run; the eval exits non-zero if it ever isn't (Non-negotiable I).
