@@ -41,6 +41,14 @@ NAME_STOP_WORDS = frozenset(
     }
 )
 
+# Forms of address: stop words on their own, but redacted with the name they precede, so
+# "MR. DUBE" becomes "a person", not "MR. a person" (T050, storyboard.md §3.1).
+TITLE_WORDS = frozenset(
+    {"MR", "MRS", "MS", "MISS", "DR", "SIR", "LADY", "OFFICER", "NURSE", "DOCTOR"}
+)
+# Only abbreviations take a full stop: "the OFFICER. Moloi turns" is a sentence end, not a title.
+_ABBREVIATIONS = frozenset({"MR", "MRS", "MS", "DR"})
+
 # Word characters except U+02BC, the modifier-letter apostrophe that \w counts as a letter:
 # NANDI\u02bcS must tokenise as NANDI then S, like NANDI'S (PR #27 review).
 _WORD = re.compile(r"[^\W\u02bc]+")
@@ -92,6 +100,7 @@ def _redact(text: str, tokens: Collection[str], label: Callable[[list[str]], str
                 break
             j += 1
         replacement = label([w.group().upper() for w in words[i : j + 1]])
+        start = _title_start(text, words, i, pos)
         end = words[j].end()
         after = j + 1
         # "NANDI'S": the tokeniser sees NANDI, then S after an apostrophe.
@@ -103,7 +112,26 @@ def _redact(text: str, tokens: Collection[str], label: Callable[[list[str]], str
             replacement += text[end] + "s"
             end = words[after].end()
             after += 1
-        out += [text[pos : words[i].start()], replacement]
+        out += [text[pos:start], replacement]
         pos, i = end, after
     out.append(text[pos:])
     return "".join(out)
+
+
+def _title_start(text: str, words: list[re.Match[str]], i: int, floor: int) -> int:
+    """Where the name run at word `i` starts once the titles directly before it join it: each a
+    capitalised title word (an abbreviation optionally with a ".") separated by whitespace, and
+    never reaching back before `floor`, the end of the last replacement. (Defensive: titles are
+    stop words, never name tokens, so a walk back stops at the previous run anyway.)"""
+    start = words[i].start()
+    k = i - 1
+    while k >= 0 and words[k].start() >= floor:
+        word = words[k].group()
+        gap = text[words[k].end() : start]
+        if gap.startswith(".") and word.upper() in _ABBREVIATIONS:
+            gap = gap[1:]
+        if not (word[0].isupper() and word.upper() in TITLE_WORDS and gap and gap.isspace()):
+            break
+        start = words[k].start()
+        k -= 1
+    return start
