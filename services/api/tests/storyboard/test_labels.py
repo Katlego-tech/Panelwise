@@ -238,3 +238,17 @@ def test_stop_words_never_become_labels(office: Screenplay, extraction: Extracti
 def test_a_speaking_animal_cued_cat_is_the_cat(office: Screenplay) -> None:
     labels = redaction_labels(hand(entity(EntityKind.CHARACTER, "CAT", species="cat")), office)
     assert labels == {"CAT": "the cat"}
+
+
+def test_scene_words_are_computed_once_per_screenplay(
+    office: Screenplay, extraction: Extraction
+) -> None:
+    from app.characters import labels as module
+
+    first = redaction_labels(extraction, office)
+    cached = module._cache[0][1]  # pyright: ignore[reportPrivateUsage]
+    assert redaction_labels(extraction, office) == first
+    assert module._cache[0][1] is cached  # pyright: ignore[reportPrivateUsage]
+    other = screenplay_of(ROWS)  # equal text, a different object: recomputed, not reused
+    redaction_labels(extraction, other)
+    assert module._cache[0][0] is other  # pyright: ignore[reportPrivateUsage]

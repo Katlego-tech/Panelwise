@@ -81,12 +81,22 @@ def _words(text: str) -> str:
     return f" {' '.join(re.findall(r'[^\W_]+', normalize_for_grounding(text)))} "
 
 
+# The last screenplay's scene words: a prompt run asks for labels once per shot and character,
+# and re-normalising a whole feature each time would be quadratic in its length (PR #43 review).
+# Held by identity, with the screenplay itself, so a new screenplay never reads a stale entry.
+_cache: list[tuple[Screenplay, list[str]]] = []
+
+
 def _scene_words(screenplay: Screenplay) -> list[str]:
     """Each scene's heading and element text, as padded words for whole-word tests."""
-    return [
+    if _cache and _cache[0][0] is screenplay:
+        return _cache[0][1]
+    words = [
         _words(" ".join([scene.heading, *(e.text for e in scene.elements)]))
         for scene in screenplay.scenes
     ]
+    _cache[:] = [(screenplay, words)]
+    return words
 
 
 def _paired(other: str, entity: Entity, species: str | None, scenes: list[str]) -> bool:

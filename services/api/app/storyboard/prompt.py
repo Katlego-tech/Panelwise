@@ -115,6 +115,7 @@ def visible_characters(
     its name or a paired other name. People only: an animal is never a figure (T052)."""
     scene = screenplay.scenes[shot.scene_index]
     beings = animals(extraction)
+    own = {c: _own_labels(c, screenplay, extraction) for c in shot.characters}
     shown: set[str] = set()
     for i in shot.elements:
         element = scene.elements[i]
@@ -126,11 +127,7 @@ def visible_characters(
                 shown.add(who)
         else:
             # Named in the line exactly when redacting that one character changes it.
-            shown.update(
-                c
-                for c in shot.characters
-                if redact(element.text, _own_labels(c, screenplay, extraction)) != element.text
-            )
+            shown.update(c for c in shot.characters if redact(element.text, own[c]) != element.text)
     return tuple(c for c in shot.characters if c in shown and c not in beings)
 
 
