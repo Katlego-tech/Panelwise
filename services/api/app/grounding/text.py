@@ -15,9 +15,10 @@ import re
 from app.script import Dialogue, Screenplay, Span
 
 _WHITESPACE = re.compile(r"\s+")
-# Only a hyphen touching the word before it: "sea-" / "green" is one word, but a spaced dash at
-# the end of a line ("LOST PROPERTY -" / "PLATFORM 9") is punctuation and keeps its space (T039).
-_LINEBREAK_HYPHEN = re.compile(r"(?<=\S)-[ \t]*\r?\n[ \t]*")
+# Only a dash run touching the word before it: "sea-" / "green" is one word, but a spaced dash at
+# the end of a line ("LOST PROPERTY -" / "PLATFORM 9", "WAIT --" / "NO") is punctuation and keeps
+# its space (T039, T048). The parser joins element text by the same rule (script.md §3).
+_LINEBREAK_HYPHEN = re.compile(r"(?<=[^\s-])(-+)[ \t]*\r?\n[ \t]*")
 _DASH_RUN = re.compile(r"-{2,}")
 # Typographic punctuation a model "prettifies" into: the same quote, so fold it to plain ASCII.
 # Applied to both the quote and the script, so it can only ever match what the script says.
@@ -37,7 +38,7 @@ _TYPOGRAPHIC = str.maketrans(
 
 def normalize_for_grounding(text: str) -> str:
     folded = (text or "").translate(_TYPOGRAPHIC)
-    joined = _LINEBREAK_HYPHEN.sub("-", folded)
+    joined = _LINEBREAK_HYPHEN.sub(r"\1", folded)
     # "--" and an em dash are the same dash in a screenplay.
     return _WHITESPACE.sub(" ", _DASH_RUN.sub("-", joined)).strip().upper()
 

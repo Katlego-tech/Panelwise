@@ -3,6 +3,7 @@ parses with the real parser, and reads the way samples/README.md says it does.""
 
 import pytest
 
+from app.grounding.text import locate, normalize_for_grounding
 from app.script import Dialogue, Screenplay, parse_pdf
 from tools.build_samples import OPTIONS, SAMPLES, build, speakers
 
@@ -43,14 +44,55 @@ def test_counts_match_the_readme(name: str) -> None:
     assert int(row["Speaking characters"]) == len(speakers(screenplay))
 
 
+# The elements whose text is not their span's lines joined by plain spaces: each one joins a
+# line-break hyphen, and nothing else (script.md §3, §9; T048). Keyed by the span's first line.
+JOINED_AT_A_HYPHEN = {
+    "the-red-kite": {},
+    "lost-property": {440: "on the nine-fifteen."},
+    "sipho-and-siphokazi": {
+        79: "a sea-green oilskin",
+        88: "nineteen-ninety-something",
+        213: "in the teeth of a south-westerly.",
+    },
+}
+
+
 @pytest.mark.parametrize("name", NAMES)
-def test_every_element_span_slices_back_to_its_text(name: str) -> None:
+def test_only_a_line_break_hyphen_changes_an_element_from_its_span_lines(name: str) -> None:
+    screenplay = committed(name)
+    lines = screenplay.text.split("\n")
+    changed: dict[int, str] = {}
+    for scene in screenplay.scenes:
+        for element in scene.elements:
+            source = lines[element.span.line_start - 1 : element.span.line_end]
+            if " ".join(line.strip() for line in source) != element.text:
+                changed[element.span.line_start] = element.text
+    expected = JOINED_AT_A_HYPHEN[name]
+    assert changed.keys() == expected.keys()
+    for line, words in expected.items():
+        assert words in changed[line]
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_every_element_normalises_to_its_span_lines(name: str) -> None:
+    # script.md §9 (T048): a quote copied from element text is always located at its span.
     screenplay = committed(name)
     lines = screenplay.text.split("\n")
     for scene in screenplay.scenes:
         for element in scene.elements:
-            source = lines[element.span.line_start - 1 : element.span.line_end]
-            assert " ".join(line.strip() for line in source) == element.text
+            source = "\n".join(lines[element.span.line_start - 1 : element.span.line_end])
+            assert normalize_for_grounding(element.text) == normalize_for_grounding(source)
+            # The first match in script order: a repeated line may sit at an earlier span.
+            assert locate(element.text, screenplay) is not None
+
+
+def test_line_break_hyphens_are_joined_in_the_tricky_sample() -> None:
+    texts = [e.text for s in committed("sipho-and-siphokazi").scenes for e in s.elements]
+    assert any("a sea-green oilskin" in t for t in texts)
+    assert any("in the teeth of a south-westerly." in t for t in texts)
+    assert not any(" sea- " in t or "south- " in t for t in texts)
+    signs = [e.text for s in committed("lost-property").scenes for e in s.elements]
+    assert any("LOST PROPERTY - PLATFORM 9" in t for t in signs)
 
 
 @pytest.mark.parametrize("name", NAMES)

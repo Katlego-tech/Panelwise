@@ -49,6 +49,7 @@ _KNOWN_TIMES = ABSOLUTE_TIMES | RELATIVE_TIMES
 # 12 pt apart (6 lines an inch), so at 13 some one-line gaps round away and two action paragraphs
 # read as one. At 12 every blank line of the three samples survives (T039).
 _ROW_POINTS = 12
+_DASHES = "-\u2013\u2014\u2212"  # what grounding folds to ASCII dashes
 _INDENT_PAST_MARGIN = 4  # a line this far right of the action margin belongs to dialogue
 _FAR_RIGHT = 60  # page numbers and CONTINUED live out here; never the action margin
 
@@ -95,7 +96,7 @@ class _Open:
 
     def close(self) -> Element:
         span = Span(page=self.page, line_start=self.first, line_end=self.last)
-        text = " ".join(self.lines)
+        text = _join(self.lines)
         if self.kind is Dialogue:
             assert self.cue is not None
             return Dialogue(self.cue, self.extension, self.parenthetical, text, span)
@@ -174,7 +175,7 @@ class _Parser:
             self.cue = self.parenthetical = None
             return
         indent = len(raw) - len(raw.lstrip())
-        # Never rewrite a line: an element's text must be exactly the lines its span names.
+        # Never rewrite a line: an element's text is the lines its span names, joined (`_join`).
         # A "CONTINUED: (2)" line is furniture and dropped whole; "Continued gunfire" is action.
         line = raw.strip()
         if _FURNITURE.match(line):
@@ -290,6 +291,20 @@ class _Parser:
         if self.scene is not None:
             self.scenes.append(self.scene.close())
         self.scene = None
+
+
+def _join(lines: Sequence[str]) -> str:
+    """Wrapped lines as one text: a space between lines, except after a line-break hyphen -- a
+    dash run touching the word before it, so `sea-` / `green` is `sea-green` -- while a spaced
+    dash (`LOST PROPERTY -` / `PLATFORM 9`) or a line of dashes alone keeps its space. Grounding's
+    rule for the raw lines (`_LINEBREAK_HYPHEN`), so element text and span lines normalise alike
+    (script.md §3, T048)."""
+    text = lines[0] if lines else ""
+    for line in lines[1:]:
+        word = text.rstrip(_DASHES)
+        hyphen = word != text and word != "" and not word[-1].isspace()
+        text += line if hyphen else f" {line}"
+    return text
 
 
 def _split_time(rest: str) -> tuple[str, str]:

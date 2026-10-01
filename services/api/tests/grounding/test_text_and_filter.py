@@ -41,6 +41,14 @@ def test_a_spaced_dash_at_the_end_of_a_line_is_not_a_line_break_hyphen() -> None
     # T039: "sign: LOST PROPERTY -" / "PLATFORM 9." was joined to "PROPERTY -PLATFORM", so the
     # sign's own words were "not found in the script". Only a hyphen touching a word is joined.
     assert normalize_for_grounding("LOST PROPERTY -\nPLATFORM 9") == "LOST PROPERTY - PLATFORM 9"
+
+
+def test_a_dash_run_joins_only_when_it_touches_a_word() -> None:
+    # T048: the parser joins element text by the same rule (script.md §3).
+    assert normalize_for_grounding("stops--\nthen") == "STOPS-THEN"
+    assert normalize_for_grounding("wait\u2014\nwhat") == "WAIT-WHAT"
+    assert normalize_for_grounding("WAIT --\nNO") == "WAIT - NO"
+    assert normalize_for_grounding("--\nNO") == "- NO"
     assert normalize_for_grounding("sea-\n  green") == "SEA-GREEN"
     assert normalize_for_grounding("wait--\nnow") == "WAIT-NOW"
 

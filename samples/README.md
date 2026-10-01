@@ -92,11 +92,15 @@ parentheticals (13, 3, 4).
 4. **A parenthetical that wraps was read as dialogue** — fixed. Both speeches in
    `sipho-and-siphokazi` (three and four lines) now have their parenthetical, and dialogue text
    without it ([docs/design/script.md](../docs/design/script.md) §4).
-5. **A line-break hyphen stays in the element text** (`sea- green`, `south- westerly`) — open.
-   Grounding joins it in the script's raw lines, but the model is shown the element text and
-   copies `sea- green`, which is then not located (2 of 36 quotes in the 2026-09-30 T039 run of
-   `sipho-and-siphokazi`). Comic lettering (T023) needs it joined too; the fix belongs in the
-   parser's element text, which changes the span-to-text contract, so it is its own task.
+5. **A line-break hyphen stayed in the element text** (`sea- green`, `south- westerly`) — fixed by
+   T048. Grounding joined it in the script's raw lines, but the model was shown the element text
+   and copied `sea- green`, which was then not located (2 of 36 quotes in the 2026-09-30 T039 run
+   of `sipho-and-siphokazi`), and comic lettering showed the space. The parser now joins a dash
+   run that touches the word before it with no space (`sea-green`, `south-westerly`,
+   `nineteen-ninety-something`, and `nine-fifteen` in `lost-property`); a spaced dash
+   (`LOST PROPERTY - PLATFORM 9`) keeps its space ([docs/design/script.md](../docs/design/script.md)
+   §3). Live after T048, two runs: faithfulness 0.846 (11/13; 33/34 quotes) and 0.944 (17/18;
+   39/40 quotes), recall 4/4 both; the `sea-green` quote was copied joined and located.
 
 Handled correctly: (MORE) / (CONT'D) splits, `(CONTINUED)` / `CONTINUED:`, page numbers,
 transitions, `4A` scene numbers, a heading with no time (`None`, not an invented `DAY`), `--` as
