@@ -38,7 +38,7 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039 | Katlego | Claude | ✅ T005, T006, T039 done |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
-| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 · T027 (PDF) after T026 |
+| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU), T021 and T046 · T027 (PDF) after T026 |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ⏸️ T009 suspended until the Supabase account/project exists (user, 2026-09-30); gate/CI have no Postgres for its DB tests; T046 (the pipeline as a job) follows it · T040+ need a Supabase project (T037) |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · T021 waits on T009, T045, T047 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
@@ -47,10 +47,10 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 
 ## ⏭️ Next action
 
-Everything buildable without a database, a GPU or hosting accounts is done. What's left waits on three things the team owns:
+Apart from the three items under "Buildable now" below, the remaining work waits on three things the team owns:
 
 1. **Supabase project (user).** Unblocks T009 (sign-in check, projects, upload), then T046 (the pipeline as a job) → T047 (read endpoints, `frames` table) → T040–T045 (the web screens) → T021 (re-render loop). **Decide with it how the gate runs T009's DB tests:** a Postgres service in `ci.yml` + `gate.sh` (needs AGENTS.md §4 authorization) or a Supabase test database.
-2. **GPU access for T003 (Katlego).** Unblocks T026 (ComfyUI renderer, Storage, the RENDERING stage) → T027 (storyboard PDF), the comic on real renders, and T025 (portraits).
+2. **GPU access for T003 (Katlego).** Needed by T026 (ComfyUI renderer, Storage, the RENDERING stage), which also needs item 1's chain (T046, T021); then T027 (storyboard PDF), the comic on real renders, and T025 (portraits).
 3. **Vercel + Railway accounts (Katlego)** for T037's deploy check, then T030 (hosted demo).
 
 Buildable now, no external dependency: **T032** (eval numbers on the samples), the **line-break-hyphen parser fix** (samples/README.md finding 5; it also changes comic lettering), and the two wording calls in ⚠️ below.
