@@ -203,8 +203,9 @@ truncates drops the tail.
 
 **The invariant** (tested, §9): for every part whose `span` is not `None`, that span is this scene's
 heading span, the heading span of `time_source`'s scene (only for `TIME`), or the span of an element
-the shot covers; and the part's text (after the `SETTING` part's leading preposition) is, under `normalize_for_grounding`, a substring of `redact_all`
-applied to that heading or element text. Every part whose `span` is `None` is from the fixed tables
+the shot covers; and the part's text (after the `SETTING` part's leading preposition) is, under `normalize_for_grounding`, a substring of `redact(text,
+redaction_labels(extraction, screenplay))` applied to that heading or element text (`redact_all`
+before T052). Every part whose `span` is `None` is from the fixed tables
 above or the style. So a prompt says nothing that isn't in this shot's lines or its heading, except
 the style's medium words and the code's fixed framing, preposition, count and placement vocabulary,
 none of which names a person, prop or event.
@@ -219,7 +220,8 @@ none of which names a person, prop or event.
 - **Movement never enters a prompt.** A still can't show a pan; FrameFlow's movement words
   ("handheld", "tracking with the subject") read as motion blur. Movement is printed under the frame.
 - **Names never enter a prompt** (characters.md rule 1). Every script-derived part is redacted
-  **before** any lower-casing, with `redact_all`, which follows characters.md rule 2's matching:
+  **before** any lower-casing, with `redact(text, redaction_labels(extraction, screenplay))` (T052;
+  `redact_all` before it), which follows characters.md rule 2's matching:
   - **Name tokens** are the words of `normalise(name)` for every `CHARACTER` entity in the extraction,
     **minus `NAME_STOP_WORDS`**, a fixed list of words that are not names on their own (`THE`, `A`,
     `AN`, `OLD`, `YOUNG`, `LITTLE`, `BIG`, `MR`, `MRS`, `MS`, `MISS`, `DR`, `SIR`, `LADY`, `MAN`,
@@ -686,7 +688,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | Figure count | `visible_characters`: planner characters the covered elements show on screen. Loose on shared name tokens ("JOHN SMITH"/"JOHN DOE") and possessives ("reads NANDI's letter"); both only change the count word | `len(shot.characters)`: the planner lists who it thinks fits, and `V.O.`/`O.S.` speakers aren't in the frame. **Known effect:** verify.md's soft `MISSING_CHARACTER` checks `shot.characters`, so a shot with an off-screen speaker ends `WARNED` with a `missing_character` note; accepted (it's soft and true), see §10 |
 | Unextracted names | accepted residual risk, pinned by a test | redacting every ALL-CAPS word: sound effects and emphasis ("SLAM", "NOW") are written the same way and would become "a person" |
 | Over-long prompts | drop whole parts from the tail, then cut the last kept part at a sentence end or word | cutting mid-word or mid-quote at random; letting the encoder truncate silently (it drops the end, whatever is there) |
-| Names | redacted to "a person" in every script part (`redact_all`) | names in the prompt: characters.md rule 1 |
+| Names | redacted in every script part with `redact`: a person → "a person", an animal → "the <species>", a named prop's other name → "the <prop>", else "it" (T052; `redact_all`, "a person" only, before it) | names in the prompt: characters.md rule 1 |
 | Style format | one TOML per style, stdlib `tomllib`, validated at start-up | FrameFlow's Python dict: a private pack would have to be code, imported from outside the repo |
 | Public / private split | two directories, same validation, private can't shadow or be default | a `private = true` flag in the file: one directory, so a private file could land in the public repo by accident |
 | FrameFlow's `classic` style | dropped | it kept a pre-styles cache key and its prompt used the negations CLIP can't read ("no borders", "Do not add characters") |
