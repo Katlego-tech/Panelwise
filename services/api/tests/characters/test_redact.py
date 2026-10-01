@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.characters import NAME_STOP_WORDS, name_tokens, redact_all, redact_names
+from app.characters import NAME_STOP_WORDS, TITLE_WORDS, name_tokens, redact_all, redact_names
 
 
 def test_name_tokens_are_the_normalised_words_minus_stop_words() -> None:
@@ -66,7 +66,6 @@ def test_lower_case_common_words_are_untouched_but_a_title_case_one_is_not() -> 
 def test_stop_words_are_left_alone() -> None:
     assert redact_all("The kettle screams.", ["THE STRANGER"]) == "The kettle screams."
     assert redact_all("Old nets hang there.", ["OLD MAN"]) == "Old nets hang there."
-    assert redact_all("MR. DUBE (50s) waits.", ["MR. DUBE"]) == "MR. a person (50s) waits."
 
 
 def test_only_whole_words_match() -> None:
@@ -104,3 +103,64 @@ def test_non_latin_capitals_are_names_too() -> None:
     assert redact_all("\u00c9MILE sits. \u00c9mile's cap.", ["\u00c9MILE"]) == (
         "a person sits. a person's cap."
     )
+
+
+# --- T050: a title goes with the name it precedes (storyboard.md §3.1) ----------------------
+
+
+def test_title_words_are_the_designed_forms_of_address() -> None:
+    assert TITLE_WORDS == {
+        "MR",
+        "MRS",
+        "MS",
+        "MISS",
+        "DR",
+        "SIR",
+        "LADY",
+        "OFFICER",
+        "NURSE",
+        "DOCTOR",
+    }
+    assert TITLE_WORDS <= NAME_STOP_WORDS
+
+
+@pytest.mark.parametrize(
+    ("text", "redacted"),
+    [
+        ("MR. DUBE (50s) waits.", "a person (50s) waits."),
+        ("Mr Dube waits.", "a person waits."),
+        ("Dr. Khumalo nods.", "a person nods."),
+        ("OFFICER VAN WYK'S torch.", "a person's torch."),
+        ("LADY MOLOI sits.", "a person sits."),
+        ("MRS. DR. KHUMALO arrives.", "a person arrives."),
+    ],
+)
+def test_a_title_before_a_name_is_redacted_with_it(text: str, redacted: str) -> None:
+    names = ["MR. DUBE", "DR. KHUMALO", "OFFICER VAN WYK", "MOLOI"]
+    assert redact_all(text, names) == redacted
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The OFFICER nods.",  # a title alone
+        "Mr. Nobody waits.",  # NOBODY is not a name
+        "she calls the doctor Dube",  # a lower-case title is a common word
+        "He salutes the OFFICER. Moloi turns.",  # only abbreviations take a '.'
+    ],
+)
+def test_a_title_not_directly_before_a_name_is_left_alone(text: str) -> None:
+    out = redact_all(text, ["MR. DUBE", "MOLOI"])
+    for title in ("OFFICER", "Mr.", "doctor"):
+        assert (title in out) == (title in text)
+
+
+def test_a_title_does_not_change_whose_name_it_is() -> None:
+    assert redact_names("MR. DUBE greets OFFICER MOLOI.", "MR. DUBE", ["OFFICER MOLOI"]) == (
+        "a person greets another person."
+    )
+
+
+def test_a_title_joined_to_another_title_by_a_word_that_is_not_one_stays() -> None:
+    # "AND" is neither a title nor a name: MR. has no name run directly after it (§3.1).
+    assert redact_all("MR. AND MRS. DUBE wave.", ["MRS. DUBE"]) == "MR. AND a person wave."
