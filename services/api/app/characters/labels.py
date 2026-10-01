@@ -89,8 +89,9 @@ _cache: list[tuple[Screenplay, list[str]]] = []
 
 def _scene_words(screenplay: Screenplay) -> list[str]:
     """Each scene's heading and element text, as padded words for whole-word tests."""
-    if _cache and _cache[0][0] is screenplay:
-        return _cache[0][1]
+    entry = _cache[0] if _cache else None  # one read: another thread may replace it
+    if entry is not None and entry[0] is screenplay:
+        return entry[1]
     words = [
         _words(" ".join([scene.heading, *(e.text for e in scene.elements)]))
         for scene in screenplay.scenes
