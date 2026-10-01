@@ -4,6 +4,7 @@ The describer never sees the shot: told what to expect, it would agree. The judg
 grounded spec and the description, never the image, and may only call and quote.
 """
 
+from app.characters.labels import animals
 from app.grounding import EntityKind, Extraction
 from app.script import Scene
 from app.shots import Shot
@@ -35,6 +36,9 @@ JUDGE_PROMPT = (
     "quote from the shot text or from a quote below that names it; `set_dressing` when it is an "
     "ordinary furnishing the location in the scene heading would hold, with `support` the "
     "heading's words for that location; `unscripted` otherwise.\n"
+    "An animal listed under 'Animals in this shot' is described among the objects: call it "
+    "`scripted_prop`, with `support` a verbatim quote that names it. A person is never one of "
+    "those animals.\n"
     "Quote exactly, never paraphrase. Anything you can't support with a quote is unscripted."
 )
 
@@ -48,9 +52,24 @@ def _quoted(extraction: Extraction, kind: EntityKind, names: tuple[str, ...]) ->
     return lines or ["- none"]
 
 
+def _animals(extraction: Extraction, pets: tuple[str, ...], beings: dict[str, str]) -> list[str]:
+    """Each animal as `- NAME (species): "quote"`, like the characters' lines."""
+    lines = _quoted(extraction, EntityKind.CHARACTER, pets)
+    if not pets:
+        return lines
+    return [
+        line.replace(f"- {name}", f"- {name} ({beings[name]})", 1)
+        for name, line in zip(pets, lines, strict=True)
+    ]
+
+
 def render_spec(
     shot: Shot, scene: Scene, extraction: Extraction, description: FrameDescription
 ) -> str:
+    # Animals are described as objects, so the judge sees them apart from the people (T052).
+    beings = animals(extraction)
+    people = tuple(c for c in shot.characters if c not in beings)
+    pets = tuple(c for c in shot.characters if c in beings)
     lines = [
         f"Scene heading: {scene.heading}",
         f"Time of day: {shot.time_of_day or 'not stated'}",
@@ -59,7 +78,9 @@ def render_spec(
         shot.source,
         "",
         "Characters in this shot:",
-        *_quoted(extraction, EntityKind.CHARACTER, shot.characters),
+        *_quoted(extraction, EntityKind.CHARACTER, people),
+        "Animals in this shot:",
+        *_animals(extraction, pets, beings),
         "Props in this shot:",
         *_quoted(extraction, EntityKind.PROP, shot.props),
         "",

@@ -14,7 +14,8 @@ import re
 import sys
 from pathlib import Path
 
-from app.characters import name_tokens, redact_all
+from app.characters import name_tokens, redact
+from app.characters.labels import redaction_labels
 from app.core.config import Settings
 from app.grounding import EntityKind, Extraction, ExtractionError, extract, normalize_for_grounding
 from app.llm import LLMError, NebiusChatModel
@@ -65,7 +66,7 @@ def cites_this_shot(
     if source is not None:
         clock = heading_span(screenplay.scenes[source])
         allowed[PartKind.TIME] = {clock: lines[clock.line_start - 1]}
-    names = _characters(extraction)
+    labels = redaction_labels(extraction, screenplay)
     for p in prompt.parts:
         if p.span is None:
             if p.kind in _SCRIPT_KINDS:
@@ -83,15 +84,17 @@ def cites_this_shot(
             continue
         # SETTING's leading preposition is the code's word, not the script's.
         text = p.text.split(" ", 1)[-1] if p.kind is PartKind.SETTING else p.text
-        if normalize_for_grounding(text) not in normalize_for_grounding(redact_all(cited, names)):
+        if normalize_for_grounding(text) not in normalize_for_grounding(redact(cited, labels)):
             return False
     return True
 
 
 def names_in(prompt: FramePrompt, extraction: Extraction) -> list[str]:
     """Words of the prompt written the way screenplays write names (capitalised) that are a
-    name token of an extracted character."""
-    tokens = name_tokens(_characters(extraction))
+    name token of an extracted character, or of any character's or prop's other name (T052)."""
+    tokens = name_tokens(
+        _characters(extraction) + [o for e in extraction.entities for o in e.other_names]
+    )
     return [
         w
         for w in re.findall(r"[^\W\u02bc]+", prompt.text())

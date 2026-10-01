@@ -5,8 +5,9 @@ from app.characters.redact import (
     NAME_STOP_WORDS,
     TITLE_WORDS,
     name_tokens,
+    redact,
     redact_all,
     redact_names,
 )
 
-__all__ = ["NAME_STOP_WORDS", "TITLE_WORDS", "name_tokens", "redact_all", "redact_names"]
+__all__ = ["NAME_STOP_WORDS", "TITLE_WORDS", "name_tokens", "redact", "redact_all", "redact_names"]

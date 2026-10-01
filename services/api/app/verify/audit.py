@@ -12,6 +12,7 @@ from collections.abc import Sequence
 
 from pydantic import ValidationError
 
+from app.characters.labels import animals
 from app.grounding import EntityKind, Extraction, normalize_for_grounding
 from app.llm import ChatResult, LLMError, NebiusChatModel, Tier, Usage, structured_chat
 from app.script import IntExt, Scene, Screenplay, match_speaker
@@ -95,6 +96,9 @@ def run_checks(
     ):
         return (), Verdict.ERROR, {}
 
+    # An animal character is described as an object: people are matched to people only (T052).
+    beings = animals(extraction)
+    people = tuple(c for c in shot.characters if c not in beings)
     in_shot = {(EntityKind.CHARACTER, n) for n in shot.characters} | {
         (EntityKind.PROP, n) for n in shot.props
     }
@@ -111,7 +115,7 @@ def run_checks(
     for call in sorted(judgement.people, key=lambda c: c.person):
         person = description.people[call.person]
         who = f"person {call.person} ({person.position}, {person.appearance})"
-        name = match_speaker(call.character, shot.characters) if call.character else None
+        name = match_speaker(call.character, people) if call.character else None
         if name is not None and name in positions:
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: {name} is already another person")
         elif name is not None:
@@ -144,7 +148,7 @@ def run_checks(
         failures[Check.SETTING].append(f"{description.setting} in a {scene.int_ext} scene")
 
     failures[Check.MISSING_CHARACTER] += [
-        f"{name} not seen" for name in shot.characters if name not in positions
+        f"{name} not seen" for name in people if name not in positions
     ]
 
     time = (shot.time_of_day or "").upper()
