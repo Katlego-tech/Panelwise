@@ -307,7 +307,7 @@ it against the script."*
   dropped. In T020's three live runs it matched what the frames show.
 - [ ] **Precision on correct frames (for T049).** Live, the describer filed plates and bowls under
   `food`, which can never be set dressing, and set `has_text` on two of three frames whose only candidates are papers and plans on a table. Both
-  push a frame toward FAIL, the safe side, but a good frame could burn its renders. T032 measures the
+  push a frame toward FAIL, the safe side, but a good frame could burn its renders. T049 measures the
   false-FAIL rate; if it's high, the category list or the describer prompt changes, not the rule.
 - [ ] Option B (a self-hosted NVIDIA VLM on the ComfyUI GPU) would let Nemotron-family models see
   the image directly; revisit once T003's GPU exists.
