@@ -187,9 +187,11 @@ truncates drops the tail.
 - **`visible_characters(shot, scene)`**: the members of `shot.characters`, in that order, that the
   covered elements put on screen. A character is on screen if a covered `Dialogue` cue resolves to
   them with `match_speaker` and its extension, upper-cased, contains none of `V.O.`, `O.S.`, `O.C.`,
-  `OFF` (comic.md's list), or if one of their name tokens (below) appears in a covered `Action`
-  text. A planner-listed character the covered text never shows is not counted, and neither is an
-  off-screen or voice-over speaker.
+  `OFF` (comic.md's list), or if one of their name tokens (below, `other_names` included) appears in
+  a covered `Action` text. A planner-listed character the covered text never shows is not counted,
+  and neither is an off-screen or voice-over speaker. **`COUNT` and `PLACEMENT` count people only**
+  (T052): a character with a `species` (grounding.md §3) is not a figure; the action line that
+  names it already says "a cat" after redaction.
 - **Entity quotes from outside the shot never enter a prompt.** A character's introduction ("NANDI
   (60s, oilskin coat) pours tea…") or a prop's first mention carries that moment's event, so quoting
   it into another shot draws an event this shot doesn't have. A quote located *inside* a covered
@@ -224,6 +226,18 @@ none of which names a person, prop or event.
   - A **maximal run** of name tokens (with an optional possessive `'S` on its last token), in UPPER
     or Title case at word boundaries, becomes one `a person` (`a person's` for a possessive): "NANDI
     MOLEFE pours" → "a person pours", "NANDI'S KITCHEN" → "a person's kitchen".
+  - **Labels, not only "a person" (T052).** Redaction covers every character's name **and its
+    `other_names`**, and every prop's `other_names` (a prop's own name, "VIOLIN", is a thing to draw
+    and stays). Each name's tokens carry a label: a person's is `a person`; an animal's is its
+    `species` with an article (`a cat`, `an owl`: `an` before a vowel letter); a named prop's is its
+    entity name, lower-cased, with an article (`a giraffe`). "Even Marmalade comes back to the
+    doorway" → "Even a cat comes back…"; "Amahle dances with Gerald" → "a person dances with a
+    giraffe". A token that belongs to more than one entity takes the first label in the order
+    person, animal, prop (a person's name is never relabelled as a thing); a run's label is the
+    first of its tokens' labels in that order. Possessives and titles as above. Every label word is
+    either `a`/`an`/`person` or a word the script itself writes (the species is in the entity's own
+    quote; a prop name is found in the script), so the invariant below still compares against the
+    same redaction.
   - **A title goes with the name it precedes** (T050). One or more of `TITLE_WORDS` (`MR`, `MRS`,
     `MS`, `MISS`, `DR`, `SIR`, `LADY`, `OFFICER`, `NURSE`, `DOCTOR`: the stop words that are forms
     of address), each in UPPER or Title case and separated from the next by whitespace, directly
@@ -483,6 +497,8 @@ NAME_STOP_WORDS: frozenset[str]                                # §3.1's list
 def name_tokens(names: Sequence[str]) -> frozenset[str]: ...   # words of normalise(name), for each name, minus NAME_STOP_WORDS
 def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...   # characters.md rule 2: this character → "a person", others → "another person"
 def redact_all(text: str, characters: Sequence[str]) -> str: ...                 # every character's name tokens → "a person"
+def redaction_labels(extraction: Extraction) -> dict[str, str]: ...             # T052: name or other name → label (§3.1 Labels); characters and their other names, props' other names
+def redact(text: str, labels: Mapping[str, str]) -> str: ...                    # T052: redact_all's matching, each run → its label
 
 # app/storyboard/prompt.py — pure
 class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; PLACEMENT = "placement"; ACTION = "action"
@@ -682,6 +698,13 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   named non-speaking person whom the fixture's extraction omits **is** left in the prompt (the
   residual risk, pinned so any change to it is deliberate).
 - **`redact_names` / `redact_all`**: characters.md §9's redaction cases, plus `redact_all`, runs and stop words.
+- **Labels (T052)**: on `lost-property`'s own lines with a hand-built extraction (MARMALADE with
+  species `cat`, GIRAFFE with other name `Gerald`): "A ginger cat, MARMALADE, sleeps" → "A ginger
+  cat, a cat, sleeps"; "Amahle dances with Gerald" → "a person dances with a giraffe";
+  "Marmalade's tail" → "a cat's tail"; "VIOLIN" untouched; a token shared by a person and an animal
+  labelled `a person`; `an` before a vowel; `COUNT` ignores the cat ("Even Marmalade comes back" is
+  no figure) and `PLACEMENT` needs two *people*; the §9 invariant and `names_in` hold with the
+  labels and other names (no prompt contains "Gerald" or "Marmalade").
 - **`load_styles`**: the repo's `styles/` loads with exactly one public default; each §3.2 failure
   raises `StyleError` naming the file (a private key shadowing a public one, a private default, a
   subject word in `medium`, weight syntax, a missing field, an unknown field).

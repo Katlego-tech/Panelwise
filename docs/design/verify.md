@@ -125,7 +125,7 @@ classDiagram
 | `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon`, `screen_or_sign` or `food`, or its `support` isn't found in the heading |
 | `TEXT_IN_FRAME` | code | **hard** | `has_text` (letters in the art could be words the script never said) |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
-| `MISSING_CHARACTER` | code | soft | a shot character matched to no described person |
+| `MISSING_CHARACTER` | code | soft | a shot character **who is a person** matched to no described person (an animal character, `species` set, is described as an object: T052) |
 | `LIGHT` | code | soft | `light` is `day` and the shot's time is night-family (`NIGHT`, `MIDNIGHT`, `EVENING`), or `light` is `night` and the time is day-family (`DAY`, `MORNING`, `AFTERNOON`). Transitional times (`DAWN`, `DUSK`, `SUNRISE`, `SUNSET`, `MAGIC HOUR`), a `None` time, `dawn_or_dusk` and `unclear` always pass |
 | `FRAMING` | code | soft | `shot_size` is two or more steps from the shot's framing on wide → medium → close → extreme_close (`over_shoulder`, `pov` count as medium; `insert` as close); `unclear` passes |
 
@@ -170,6 +170,14 @@ sequenceDiagram
 repair retry) → that attempt's audit is `ERROR`, logged, and the frame is **withheld**, never passed
 unaudited. The renderer fails → the frame job fails (a `Job` `FAILED`). A frame is never shown
 without a `PASS` or `WARN` audit.
+
+**Animal characters (T052).** A character with a `species` (grounding.md §3) is drawn as an
+animal, and the describer files an animal under objects (`ObjectCategory.ANIMAL`). So the judge's
+spec lists it under **"Animals in this shot"** (name, species, its quotes), not under "Characters
+in this shot"; the judge prompt says an animal listed there is called `scripted_prop` with a
+verbatim support quote that names it; people are matched only against the shot's person
+characters (`match_speaker` over those); and `MISSING_CHARACTER` checks person characters only.
+An unscripted animal is still `UNSCRIPTED_OBJECT` (hard), as before.
 
 ## 5. State
 

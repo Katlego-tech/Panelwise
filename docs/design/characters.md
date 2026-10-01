@@ -96,7 +96,9 @@ classDiagram
    like `THE STRANGER` doesn't turn every "The" into a name), matched case-sensitively in UPPER or
    Title case at word boundaries, which is how screenplays write names. A maximal run of name tokens
    (with an optional possessive `'S`) is replaced once: "NANDI MOLEFE" → "a person", "NANDI'S" →
-   "a person's". A title directly before the run (`MR.`, `OFFICER`, …: storyboard.md §3.1, T050)
+   "a person's". An animal character (a `species`, grounding.md §3) is labelled with it instead
+   ("a cat"), and other names are redacted with the name (storyboard.md §3.1 Labels, T052); its
+   portrait prompt says the species, not "a person". A title directly before the run (`MR.`, `OFFICER`, …: storyboard.md §3.1, T050)
    is replaced with it: "MR. DUBE" → "a person". Rule 1 therefore holds by construction; redaction only removes words,
    never adds them. The one known cost: a sentence-initial common word that is also a name ("Will")
    is redacted too, which fails safe.

@@ -40,6 +40,8 @@ classDiagram
         +tuple~Quote~ quotes
         +tuple~int~ scenes
         +Source source
+        +str|None species
+        +tuple~str~ other_names
     }
     class Quote {
         +str text
@@ -93,6 +95,24 @@ classDiagram
   script". The one exception to "the model's quote": a dialogue quote the model led with its
   speech's own header (§4, *Cue headers*) is kept **without** that header, so `Quote.text` is
   always text inside `Quote.span`.
+- **Animals and other names (T051).** Two things the parser can't know and redaction needs
+  (storyboard.md §3.1). Both are copied words, grounded in code, never inferred attributes:
+  - **`species`**: for a `CHARACTER` that is an animal, the word the script uses for what it is
+    ("A ginger cat, MARMALADE, sleeps…" → `cat`). Kept only when it is 1–3 words, has a letter, and
+    appears as whole words (`normalize_for_grounding`) inside one of that entity's **located**
+    quotes; otherwise `None`, and the character is treated as a person. Always `None` for props,
+    locations and `Source.CUE` backfills. Across chunks, the first grounded species in proposal
+    order wins.
+  - **`other_names`**: other names the script gives the same character or prop: a nickname
+    (SIPHOKAZI's "Kazi"), a pet's or a toy's name (the GIRAFFE called "Gerald"). Each is kept when
+    the script mentions it as a whole word (the same test as an entity name), it differs from the
+    entity's name under `normalise`, and it has at least one name token (characters' redact.py:
+    stop words alone, like "Mr.", are not a name). The pairing with the entity is the model's
+    word, unverified, like a quote's (§8); it only chooses which label redaction writes, and a name
+    the script contains is never left in a prompt because of it. Union across chunks, first
+    appearance first. `()` for locations and `CUE` backfills.
+  - Neither affects faithfulness or recall (they are about the entity, not whether it exists), and
+    a species or other name that fails its test is simply not kept.
 - **`Entity.scenes`**: 0-based scene indexes, derived from where its quotes and (for characters)
   its matched cues sit. Never taken from the model's say-so.
 - **Speaking characters the model missed** are added with `Source.CUE`, quoting their first
@@ -157,6 +177,12 @@ chunk is billed). A chunk whose call fails (an `LLMError`, or a `ValidationError
 retry) fails the whole extraction with `ExtractionError` naming the chunk's scene range — a silent
 gap in the cast is worse than a loud failure. No partial results are returned.
 
+**What the model is asked for (T051).** Besides name, kind and quotes, each proposal carries
+`species` (for an animal character, the script's word for what it is, copied from one of its
+quotes; else null) and `other_names` (any other name the script gives the same character or prop,
+copied exactly; else empty). The system prompt says so in those words; the filter (§3) decides what
+is kept.
+
 ## 5. State
 
 None. `extract` is a pure async function of its inputs plus the model calls.
@@ -168,7 +194,7 @@ None. `extract` is a pure async function of its inputs plus the model calls.
 class EntityKind(StrEnum): CHARACTER = "character"; PROP = "prop"; LOCATION = "location"
 class Source(StrEnum): MODEL = "model"; CUE = "cue"; HEADING = "heading"
 @dataclass(frozen=True) class Quote: text: str; scene_index: int; span: Span
-@dataclass(frozen=True) class Entity: kind: EntityKind; name: str; quotes: tuple[Quote, ...]; scenes: tuple[int, ...]; source: Source
+@dataclass(frozen=True) class Entity: kind: EntityKind; name: str; quotes: tuple[Quote, ...]; scenes: tuple[int, ...]; source: Source; species: str | None = None; other_names: tuple[str, ...] = ()   # §3, T051
 @dataclass(frozen=True) class Dropped: name: str; kind: EntityKind; reason: str
 @dataclass(frozen=True) class GroundingReport: entities_proposed: int; entities_grounded: int; faithfulness: float; quotes_proposed: int; quotes_located: int; dropped: tuple[Dropped, ...]; cues_total: int; cues_found_by_model: int; recall: float
 @dataclass(frozen=True) class Extraction: entities: tuple[Entity, ...]; report: GroundingReport; models: tuple[str, ...]; usage: Usage
@@ -190,7 +216,7 @@ def locate(quote: str, screenplay: Screenplay) -> tuple[int, Span] | None: ...  
 
 # app/grounding/schema.py — what the model is asked for (strict json_schema via structured_chat).
 # Its own module because both extract and filter use it.
-class ProposedEntity(BaseModel): name: str; kind: Literal["character", "prop"]; quotes: list[str]
+class ProposedEntity(BaseModel): name: str; kind: Literal["character", "prop"]; quotes: list[str]; species: str | None; other_names: list[str]   # T051: both required in the schema (null / [] when none)
 class ChunkEntities(BaseModel): entities: list[ProposedEntity]
 
 # app/grounding/extract.py
@@ -229,6 +255,8 @@ the parser, so a faithful quote is always locatable.
 | Concurrency | 4 chunks at once | sequential (FrameFlow): Lightning allows 600 RPM / 400K TPM (U4) |
 | Quote ↔ name pairing | not checked: a kept quote is verbatim and located, but nothing proves it is *about* the entity it's paired with | a semantic check: needs another model call and can't be exact. Nothing unscripted can be shown either way; a mis-paired quote is still a real line |
 | Aliases ("THABO" vs "THABO MOLEFE" proposed separately) | kept as two entries | fuzzy merge: risks fusing two people. `match_speaker` still binds cues correctly, so scenes and recall are unaffected |
+| Animals (T051) | a `species` word, grounded in the entity's own located quote | an `ANIMAL` entity kind: every consumer of `CHARACTER` (planner, cues, audit) would need a second branch, and an animal that speaks or acts is cast like a character; a model `is_animal` flag: an inferred attribute, ungroundable |
+| Other names (T051) | `other_names`, kept when the script mentions them | merging them as entities: "Gerald" isn't a separate thing; requiring the name inside the entity's own quote: the model often quotes the description, not the naming line, and a dropped other name is a name left in a prompt |
 | Chunk size | 12,000 chars | FrameFlow's 20,000: smaller chunks help recall, and Lightning is cheap |
 
 ## 9. How this is verified
@@ -239,6 +267,10 @@ the parser, so a faithful quote is always locatable.
   cases that must still fail — another speaker's cue, a wrong extension or parenthetical, nothing
   after the header, a cue not on its own line, a quote stitched across speeches, a heading or an
   action line as the "header", a name that is no cue.
+- `ground` (T051): a species found in the entity's own located quote kept, one only in another
+  entity's quote or nowhere dropped to `None`, a species on a prop ignored; an other name the script
+  mentions kept, one it doesn't (or equal to the name, or only stop words) dropped; both merge across
+  chunks; CUE backfills have neither.
 - `ground`: bad quote dropped but entity kept; entity whose name isn't in the script dropped with a
   reason; merge across chunks; HEADING locations; CUE backfill; faithfulness and recall arithmetic.
 - `extract`: chunks never split a scene; `max_chunks` refusal makes no call; a failing chunk fails
