@@ -106,6 +106,36 @@ def test_elements_keep_script_order_and_join_wrapped_lines(screenplay: Screenpla
     assert kinds == [Action, Action, Dialogue, Dialogue]
 
 
+def test_a_line_break_hyphen_joins_with_no_space_and_a_spaced_dash_keeps_its_space() -> None:
+    # T048, script.md §3: the same rule grounding applies to the raw lines.
+    rows = [
+        heading("1", "EXT. JETTY - DAY"),
+        None,
+        (ACTION, "A fisherman in a sea-"),
+        (ACTION, "green oilskin. A sign: LOST PROPERTY -"),
+        (ACTION, "PLATFORM 9. He stops--"),
+        (ACTION, "then turns. Wait\u2014"),
+        (ACTION, "what? WAIT --"),
+        (ACTION, "NO."),
+        (ACTION, "-"),
+        (ACTION, "Gone."),
+        None,
+        (CUE, "SIPHO"),
+        (DIALOGUE, "In the teeth of a south-"),
+        (DIALOGUE, "westerly."),
+    ]
+    action, speech = parse_text(layout(rows)).scenes[0].elements
+
+    assert action.text == (
+        "A fisherman in a sea-green oilskin. A sign: LOST PROPERTY - PLATFORM 9. "
+        "He stops--then turns. Wait\u2014what? WAIT -- NO. - Gone."
+    )
+    assert speech.text == "In the teeth of a south-westerly."
+    # Spans are unchanged: still the eight and two lines the element came from.
+    assert (action.span.line_start, action.span.line_end) == (3, 10)
+    assert (speech.span.line_start, speech.span.line_end) == (13, 14)
+
+
 def test_an_all_caps_line_at_the_action_margin_is_action_not_a_character(
     screenplay: Screenplay,
 ) -> None:

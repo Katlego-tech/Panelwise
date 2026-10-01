@@ -27,12 +27,13 @@ from app.comic import (
     place_lettering,
     scene_caption,
 )
-from app.script import Dialogue, Scene, Screenplay, Span, parse_text
+from app.script import Dialogue, Scene, Screenplay, Span, parse_pdf, parse_text
 from app.shots import Framing, Shot, ShotPlan
 from app.verify import Position
 from tests.comic.conftest import FLAT, busy, busy_left, busy_top, frames, png, solid
 from tests.comic.test_layout import plan_of, say, scene, shot
 from tests.script.conftest import two_page_text
+from tools.build_samples import SAMPLES
 
 INSET = 16
 
@@ -181,11 +182,26 @@ def test_placement_keeps_the_geometry_and_counts_what_it_lettered() -> None:
 
 
 def test_a_line_break_hyphen_is_lettered_as_the_element_has_it() -> None:
-    # samples/README.md finding 5: the parser's element text keeps it; lettering never rewrites.
+    # Lettering never rewrites: whatever the element text says is what is lettered.
     text = "In the teeth of a south- westerly."
     screenplay, plan, book = one_panel(text)
     placed = place_lettering(book, screenplay, plan, frames(book))
     assert lettered(second(placed)).text == text
+
+
+def test_the_parsed_sample_letters_south_westerly_joined() -> None:
+    # T048: the parser joins the line-break hyphen, and the bubble letters the element text.
+    pdf = (SAMPLES / "sipho-and-siphokazi.pdf").read_bytes()
+    (text,) = [
+        e.text
+        for s in parse_pdf(pdf).scenes
+        for e in s.elements
+        if isinstance(e, Dialogue) and "westerly" in e.text
+    ]
+    screenplay, plan, book = one_panel(text)
+    placed = place_lettering(book, screenplay, plan, frames(book))
+    assert lettered(second(placed)).text == text
+    assert "in the teeth of a south-westerly." in text
 
 
 # -------------------------------------------------------------- extension → kind
