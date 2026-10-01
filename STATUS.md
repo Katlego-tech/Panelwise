@@ -38,7 +38,7 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
-| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · 🔵 T050 title redaction (design PR #37 merged; code in review) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU), T021 and T046 · T027 (PDF) after T026 |
+| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU), T021 and T046 · T027 (PDF) after T026 |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ⏸️ T009 suspended until the Supabase account/project exists (user, 2026-09-30); gate/CI have no Postgres for its DB tests; T046 (the pipeline as a job) follows it · T040+ need a Supabase project (T037) |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · T021 waits on T009, T045, T047 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
@@ -47,13 +47,13 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 
 ## ⏭️ Next action
 
-Apart from the three items under "Buildable now" below, the remaining work waits on three things the team owns:
+All remaining work waits on three things the team owns, or on a team decision (below the list):
 
 1. **Supabase project (user).** Unblocks T009 (sign-in check, projects, upload), then T046 (the pipeline as a job) → T047 (read endpoints, `frames` table) → T040–T045 (the web screens) → T021 (re-render loop). **Decide with it how the gate runs T009's DB tests:** a Postgres service in `ci.yml` + `gate.sh` (needs AGENTS.md §4 authorization) or a Supabase test database.
 2. **GPU access for T003 (Katlego).** Needed by T026 (ComfyUI renderer, Storage, the RENDERING stage), which also needs item 1's chain (T046, T021); then T027 (storyboard PDF), the comic on real renders, and T025 (portraits).
 3. **Vercel + Railway accounts (Katlego)** for T037's deploy check, then T030 (hosted demo).
 
-Buildable now, no external dependency: **T050** (title redaction, code in review). Waiting on the team, no code: T033's feedback section (PR #36), the two wording calls and the **non-human characters and named props** decision in ⚠️ below. T049 (audit accuracy) waits on T026.
+Buildable now, no external dependency: nothing left that doesn't need a decision. Late-stage tasks wait on the above: T034 (video, needs a working demo), T035 (go public, submit), T036 (final placeholder sweep; the gate already sweeps every push). T038 needs each contributor's time zone and hours. Waiting on the team, no code: T033's feedback section (PR #36), the two wording calls and the **non-human characters and named props** decision in ⚠️ below. T049 (audit accuracy) waits on T026.
 
 ## 🗓️ Timeline to 2026-10-30 10:00 PDT (19:00 SAST)
 
@@ -165,3 +165,4 @@ Buildable now, no external dependency: **T050** (title redaction, code in review
 - 2026-10-01 — Katlego (via Claude) — T032 merged (PR #34; review found arg-parsing that could lose a paid run — fixed, results now saved after every run). Devpost draft's faithfulness/recall ⟨TBD⟩ filled from eval/. Note: PR #31 was merged before its CI finished (a watch command failed silently); CI then passed on it. Next: T033 or the ⚠️ decisions. Blocked on: Supabase, GPU, hosting accounts for the rest.
 - 2026-10-01 — Katlego (via Claude) — T033 README drafted (draft PR #36): two independent reviews, every claim checked against code, fixes in (render loop's real dependency is the Supabase chain, not the GPU). Waits on the team's feedback section. Started T050 (title redaction). Found and recorded a design decision: non-human characters (MARMALADE → "a person") and named props ("Gerald") in frame prompts. Next: T050. Blocked on: the team for T033's feedback and that decision.
 - 2026-10-01 — Katlego (via Claude) — T050: design PR #37 (review found a '.' after OFFICER would join across a sentence end — only MR/MRS/MS/DR take one now; re-review clean; merged). Code: `TITLE_WORDS`, a title joins the name run it precedes; 13 new redaction tests; 587 API tests. Live on lost-property: 48 prompts, no title left ("MR. DUBE (60s)…" → "a person (60s)…"), 0 names, every part cited. Next: review + merge. Blocked on: nothing.
+- 2026-10-01 — Katlego (via Claude) — T050 merged (PR #38; review clean, nits taken). Everything buildable without the team is now done. Next: the team's calls — T033 feedback section (PR #36), the non-human characters / named props decision, the two wording calls — and the external unblocks (Supabase, GPU, hosting). Blocked on: those.
