@@ -324,4 +324,4 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 - [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
 - [ ] T035 [POL] gitleaks over history, make the repo public, submit on Devpost by 29 Oct. Lane `eval+submission`.
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
-- [ ] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
+- [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
