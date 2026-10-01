@@ -80,7 +80,12 @@ classDiagram
 - **`Scene.elements`** keeps action and dialogue **in script order** (a comic needs the
   interleaving). Consecutive action lines form one `Action` until a blank line or a non-action
   line. Consecutive dialogue lines under one cue form one `Dialogue`; a parenthetical starts a new
-  one for the same cue. Wrapped lines are joined with a single space.
+  one for the same cue. Wrapped lines are joined with a single space, except across a
+  **line-break hyphen** (T048): a line ending in `-` that touches the word before it joins the next
+  line with no space (`sea-` / `green` → `sea-green`, `south-` / `westerly` → `south-westerly`). A
+  spaced dash at a line's end (`LOST PROPERTY -` / `PLATFORM 9`) keeps its space. This is the same
+  rule grounding's `normalize_for_grounding` applies to the raw lines (grounding.md §4), so an
+  element's text and its span's lines normalise to the same string.
 - **`Scene.number`**: the number printed in the script ("12A") when there is one, else the 1-based
   sequence. `index` is always the 0-based position.
 - **`time_of_day`** is the heading's time as written, upper-cased (`NIGHT`, `CONTINUOUS`), or
@@ -202,6 +207,7 @@ def match_speaker(cue: str, names: Sequence[str]) -> str | None: ...
 | Source positions | page + line range per element | FrameFlow's none: Non-negotiable I needs a verbatim span per panel |
 | Element order | one ordered `elements` tuple | FrameFlow's separate action/dialogue lists: loses the interleaving a comic page needs |
 | Wrapped lines | joined into one element | FrameFlow's one entry per printed line: a speech bubble needs the whole speech |
+| Line-break hyphen | joined with no space when it touches the word before it (`sea-green`); a spaced dash keeps its space | joined with a space (`sea- green`): a model copies it and the quote is not located, and a bubble letters it; dropping the hyphen (`seagreen`): a compound split at its hyphen would lose it, and grounding keeps it |
 | Missing time of day | `None` | FrameFlow's `DAY` default: invents a fact |
 | Page numbers | real, from per-page extraction | FrameFlow's proportional estimate: a span must point at the actual page |
 | Eighths / page-length estimates | dropped | scheduling data; Panelwise doesn't schedule |
@@ -216,9 +222,13 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 ## 9. How this is verified
 
 - Layout-text unit tests: every classification rule in §4, each field in §3 (including `None` time,
-  cue extensions, parenthetical splitting, wrapped-line joining, furniture and transitions dropped,
+  cue extensions, parenthetical splitting, wrapped-line joining (line-break hyphen joined, spaced
+  dash kept), furniture and transitions dropped,
   scene numbers on either side), and **every element's `Span` slicing back to text that contains the
   element's words**.
+- **Every element of every sample normalises to its span's lines**: `normalize_for_grounding(e.text)
+  == normalize_for_grounding("\n".join(span lines))` (T048), so a quote copied from element text
+  is always located.
 - End-to-end: a 3-scene, 2-page self-written screenplay rendered to PDF with fpdf2 parses into the
   expected scenes, with the second-page element reporting `page == 2`.
 - Error paths: an image-only PDF and a text with no headings raise `ScriptParseError`.
