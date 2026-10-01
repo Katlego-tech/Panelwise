@@ -10,7 +10,7 @@ every "The" would become a person.
 """
 
 import re
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 
 from app.script import normalise
 
@@ -76,6 +76,13 @@ def redact_all(text: str, characters: Sequence[str]) -> str:
     return _redact(text, name_tokens(characters), lambda _: "a person")
 
 
+def redact(text: str, labels: Mapping[str, str]) -> str:
+    """`redact_all`'s matching with a label per name token (storyboard.md §3.1 Labels, T052).
+    `labels` is in rank order, and a run takes the label of its token that comes first in it."""
+    rank = {token: i for i, token in enumerate(labels)}
+    return _redact(text, labels.keys(), lambda run: labels[min(run, key=rank.__getitem__)])
+
+
 def _is_name(word: str, tokens: Collection[str]) -> bool:
     # UPPER or Title case: a capital first letter. "McDONALD" counts too; "will" never does.
     return word[0].isupper() and word.upper() in tokens
@@ -109,7 +116,8 @@ def _redact(text: str, tokens: Collection[str], label: Callable[[list[str]], str
             and words[after].group() in ("s", "S")
             and text[end : words[after].start()] in _APOSTROPHES
         ):
-            replacement += text[end] + "s"
+            # `it` has no apostrophe in its possessive: "Gerald's leg" -> "its leg".
+            replacement += "s" if replacement == "it" else text[end] + "s"
             end = words[after].end()
             after += 1
         out += [text[pos:start], replacement]

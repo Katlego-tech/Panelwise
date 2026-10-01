@@ -238,7 +238,7 @@ def test_count_is_the_characters_the_covered_elements_put_on_screen(
     screenplay = screenplay_of(CROWD_ROWS)
     extraction = extraction_of(screenplay, [(n, f"{n}") for n in ("BEN",)])
     shot = shot_of(screenplay, 0, elements, characters=CROWD, time_of_day="DAY")
-    assert visible_characters(shot, screenplay.scenes[0]) == visible
+    assert visible_characters(shot, screenplay, extraction) == visible
     prompt = build_frame_prompt(shot, screenplay, extraction, STYLE, max_words=100)
     counts = [p.text for p in prompt.parts if p.kind is K.COUNT]
     assert counts == ([count] if count else [])
