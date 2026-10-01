@@ -164,10 +164,9 @@ still over budget gets a solo tier; if even that is over, the layout fails with 
 the shot. Wrapping is greedy on whitespace; a word wider than the limit keeps a line to itself
 (never split), so its box is simply wider. A block is its widest line wide and `lines × (ascent +
 descent)` tall. Wrapping splits on whitespace and rejoins with one space, so a run of whitespace
-letters as one space (typography, not wording). **A line-break hyphen still in the element text**
-(`south- westerly`, samples/README.md finding 5) **is lettered as the element text has it**, space
-and all: the bubble's `text` is `Dialogue.text` byte for byte, and the fix belongs in the parser's
-element text (its own task), which the lettering then picks up unchanged. Joining it here would
+letters as one space (typography, not wording). **A line-break hyphen** (`south-` / `westerly`, samples/README.md finding 5) is joined by the
+parser in the element text (`south-westerly`; script.md §3, T048), and lettered as the element
+text has it: the bubble's `text` is `Dialogue.text` byte for byte. Joining it here instead would
 make the lettered words differ from `text` and its span's contract (T023). *Passes* are the up-to-3 raising relayouts; a panel over budget after them (one a
 late reshuffle squeezed) is given a solo tier in one more relayout, and a panel over budget that
 already has a solo tier (weight ≥ 2.0, or given one) at that point fails the layout.
@@ -375,8 +374,8 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - [ ] Sound effects from all-caps action ("DOORS SLAM.") would suit comics, but lettering them is a
   styling choice; decide with a sample page in hand. T023 letters none (§8); the reference page is
   now the sample page to decide with.
-- [ ] A line-break hyphen still in element text (`south- westerly`) is lettered with its space
-  until the parser joins it at source (samples/README.md finding 5, its own task; §4 step 5).
+- [x] A line-break hyphen in element text (`south- westerly`) was lettered with its space; the
+  parser joins it at source since T048 (samples/README.md finding 5; §4 step 5).
 - [ ] Dual dialogue isn't parsed (script.md §10), so two simultaneous speeches read as sequential
   bubbles.
 - [ ] Right-to-left reading order: not planned.

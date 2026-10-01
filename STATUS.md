@@ -36,7 +36,7 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
-| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039 | Katlego | Claude | ✅ T005, T006, T039 done |
+| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039 done · 🟡 T048 line-break hyphen (design PR, then code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU), T021 and T046 · T027 (PDF) after T026 |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ⏸️ T009 suspended until the Supabase account/project exists (user, 2026-09-30); gate/CI have no Postgres for its DB tests; T046 (the pipeline as a job) follows it · T040+ need a Supabase project (T037) |

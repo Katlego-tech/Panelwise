@@ -144,9 +144,10 @@ faithfulness fell to 0.14–0.63 and recall to 0/3. Two changes, in this order o
    the model copied what it was shown, word for word. The same text at the same span, given with
    and without its header, is kept once.
 
-**Line-break hyphen (T039).** Only a hyphen touching the word before it is joined across a line
-break (`sea-` / `green` → `SEA-GREEN`). A spaced dash at a line's end (`LOST PROPERTY -` /
-`PLATFORM 9`) keeps its space; joining it made the sign's own words unfindable.
+**Line-break hyphen (T039, T048).** Only a dash run touching the word before it is joined across a
+line break (`sea-` / `green` → `SEA-GREEN`). A spaced dash at a line's end (`LOST PROPERTY -` /
+`PLATFORM 9`, and since T048 a spaced `--`) keeps its space; joining it made the sign's own words
+unfindable. The parser joins element text by the same rule (script.md §3).
 
 **Recall** = distinct speaking cues matched (`match_speaker`) by a model-proposed, grounded
 character ÷ distinct speaking cues. 1.0 when the script has no dialogue.
