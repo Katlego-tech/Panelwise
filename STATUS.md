@@ -36,14 +36,14 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
-| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039 done · 🔵 T048 line-break hyphen (design merged, PR #31; code in review) |
+| `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU), T021 and T046 · T027 (PDF) after T026 |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ⏸️ T009 suspended until the Supabase account/project exists (user, 2026-09-30); gate/CI have no Postgres for its DB tests; T046 (the pipeline as a job) follows it · T040+ need a Supabase project (T037) |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · T021 waits on T009, T045, T047 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
-| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035 | Katlego | Claude | ✅ T031 done (PR #21) · T032 next |
+| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · 🟡 T032 extraction numbers (design PR) · 🔴 T049 audit accuracy blocked on T026 |
 
 ## ⏭️ Next action
 
@@ -72,7 +72,7 @@ Buildable now, no external dependency: **T032** (eval numbers on the samples) an
 - **Web** (`apps/web`, Next.js 16, pnpm): `GET /api/health` reports web + API health; 502 when the API is unreachable. No pages yet (T040).
 - **Gate:** 10 checks across 2 projects (ruff, pyright, pytest, eslint+tsc, vitest, next build, placeholder, secrets, osv-scanner, jscpd).
 - **Token Factory findings (T001):** [docs/nebius-findings.md](docs/nebius-findings.md).
-- **Script module (T005):** `app/script` — `parse_pdf` → ordered scenes; every action/dialogue element carries its page and line span. `resolve_times`, `match_speaker`. Design: [docs/design/script.md](docs/design/script.md).
+- **Script module (T005):** `app/script` — `parse_pdf` → ordered scenes; every action/dialogue element carries its page and line span; a line-break hyphen joins with no space (`sea-green`, T048). `resolve_times`, `match_speaker`. Design: [docs/design/script.md](docs/design/script.md).
 - **Shot planner (T007):** `app/shots` — each scene becomes shots that cover every element exactly once, cite their page/line span and verbatim text, and name only extracted characters/props present in the scene; time of day from `resolve_times`. Live: `uv run python -m app.shots.run <script.pdf>`.
 - **Comic layout (T022):** `app/comic` — `layout_geometry(plan, screenplay)` → pages of panels, one per shot in plan order, sized by framing, establishing beat and lettered text; tiers fill each 1988 × 3075 page exactly; every panel's lettering (Comic Neue, measured) within 35% of its area, or `ComicError` naming the shot. Pure: no frames yet. Design: [docs/design/comic.md](docs/design/comic.md).
 - **Frame prompts and styles (T008):** `app/storyboard` — `load_styles` (public `styles/clean|ink|pencil.toml`, optional private pack, every storyboard.md §3.2 rule checked at start-up) and `build_frame_prompt`: tagged parts (style, framing, setting, time, figure count, the covered action lines) where every script part cites this shot's heading, its clock's heading or a covered element; no dialogue, parentheticals, movement or rationale; names redacted by `app/characters/redact.py`; a word budget that only drops or cuts script words. Live: `uv run python -m app.storyboard.prompts <script.pdf> [--style KEY]`.
@@ -98,7 +98,7 @@ Buildable now, no external dependency: **T032** (eval numbers on the samples) an
 
 - **No NVIDIA vision model on Token Factory** (T001). Decided: a Token Factory VLM (DeepSeek-V4.1-Flash since 2026-09-30; GLM-5.3-Flash stopped receiving images) *describes* each frame and Nemotron *judges* it; self-hosting an NVIDIA VLM on the Nebius GPU is a stretch. Wording corrected everywhere to "a vision model describes each frame; Nemotron audits it against the script" (2026-09-30, `docs/spec`), and in `services/api/app/verify/README.md` by T020.
 - ~~**Which styles stay private?**~~ **Closed 2026-09-30, decided by the user in session:** none. `clean` (the default), `ink` and `pencil` are public in `styles/`; `classic` is dropped (storyboard.md §8); the private pack is empty. Built by T008.
-- **Sign text in frame prompts vs the audit.** T008 passes signs the script spells out ("LOST PROPERTY - PLATFORM 9") into prompts verbatim, but verify's `TEXT_IN_FRAME` is a hard fail, so such frames will likely be withheld. Decide before the demo (verify or T032).
+- **Sign text in frame prompts vs the audit.** T008 passes signs the script spells out ("LOST PROPERTY - PLATFORM 9") into prompts verbatim, but verify's `TEXT_IN_FRAME` is a hard fail, so such frames will likely be withheld. Decide before the demo (verify or T049).
 - **Two copy calls (web.md §4.1).** "Nothing was saved from this run" contradicts keeping earlier stage columns on failure (T046); and the new unexpected-error copy ("Something went wrong on our side while reading this script. Upload it again to retry.") needs a read.
 - **Smaller open items from this session:** named props aren't redacted from prompts ("Gerald"); "MR. DUBE" → "MR. a person"; the API image doesn't ship `styles/` yet (T026); sound effects in the comic undecided (comic.md §10).
 - **Repo is private.** It must be public before submission (T035).

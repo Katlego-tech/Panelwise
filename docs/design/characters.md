@@ -274,6 +274,6 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - [ ] The base checkpoint (T003) decides which IP-Adapter files fit (SD 1.5 vs SDXL families);
   record the exact files and licences in `infra/nebius/README.md`.
 - [ ] An automatic consistency score (image-embedding similarity between a portrait and each
-  frame's figure) would be a good eval number (T032); it needs a CLIP model on the GPU.
+  frame's figure) would be a good eval number (an eval task after T049, not T032); it needs a CLIP model on the GPU.
 - [ ] Should a director be able to add appearance notes? Only as explicitly user-entered, labelled
   fields, never as generated ones; out of scope until someone asks.
