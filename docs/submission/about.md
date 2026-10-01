@@ -118,8 +118,9 @@ probing Token Factory, and several answers contradicted what the documentation s
   image shows only what the shot says is the frame audit's job, measured once frames render.)
 - Nemotron 3.5 Lightning's own proposals were 89.8% faithful (246 of 274 entities fully grounded);
   the filter dropped what didn't ground (the unlocated quotes, or the whole entity). It found 85 of
-  the 90 speaking-character appearances itself; the only miss, in every run, was a station
-  announcer heard in voice-over, whom the script's dialogue cues supply. Numbers and method:
+  the 90 speaking-character appearances itself; the only miss was the same one in each run of
+  the largest script, a station announcer heard in voice-over, whom the script's dialogue cues
+  supply. Numbers and method:
   [`eval/`](../../eval/README.md).
 
 ⟨TBD: frame-audit accuracy from `eval/` (T049, needs renders).⟩
