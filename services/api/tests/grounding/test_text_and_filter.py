@@ -1,5 +1,6 @@
 """normalize_for_grounding, locate, ground: grounding.md §3, §4, §9. Pure, no network."""
 
+import random
 from collections.abc import Sequence
 
 import pytest
@@ -49,6 +50,22 @@ def test_a_dash_run_joins_only_when_it_touches_a_word() -> None:
     assert normalize_for_grounding("wait\u2014\nwhat") == "WAIT-WHAT"
     assert normalize_for_grounding("WAIT --\nNO") == "WAIT - NO"
     assert normalize_for_grounding("--\nNO") == "- NO"
+
+
+def test_element_text_and_its_span_lines_normalise_alike_on_any_dashes() -> None:
+    # T048 invariant (script.md §3), on random action lines of letters, spaces and dashes,
+    # including dash-only lines after a hyphenated one ("x-" / "-" / "y", PR #32 review).
+    rng = random.Random(48)
+    for _ in range(3000):
+        lines: list[str] = []
+        while len(lines) < rng.randint(2, 5):
+            line = "".join(rng.choice("ab -\u2014\u2013") for _ in range(rng.randint(1, 5))).strip()
+            if line:
+                lines.append(line)
+        text = "\n".join(f"          {line}" for line in ["INT. ROOM - DAY", "", *lines])
+        (element,) = parse_text(text).scenes[0].elements
+        source = "\n".join(lines)
+        assert normalize_for_grounding(element.text) == normalize_for_grounding(source), lines
     assert normalize_for_grounding("sea-\n  green") == "SEA-GREEN"
     assert normalize_for_grounding("wait--\nnow") == "WAIT-NOW"
 

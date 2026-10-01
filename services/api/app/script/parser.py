@@ -15,6 +15,7 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from itertools import pairwise
 
 import pdfplumber
 
@@ -300,9 +301,10 @@ def _join(lines: Sequence[str]) -> str:
     rule for the raw lines (`_LINEBREAK_HYPHEN`), so element text and span lines normalise alike
     (script.md §3, T048)."""
     text = lines[0] if lines else ""
-    for line in lines[1:]:
-        word = text.rstrip(_DASHES)
-        hyphen = word != text and word != "" and not word[-1].isspace()
+    for previous, line in pairwise(lines):
+        # The previous *line*, as grounding sees it: a dash-only line after `x-` is not a word.
+        word = previous.rstrip(_DASHES)
+        hyphen = word != previous and word != "" and not word[-1].isspace()
         text += line if hyphen else f" {line}"
     return text
 
