@@ -224,6 +224,14 @@ none of which names a person, prop or event.
   - A **maximal run** of name tokens (with an optional possessive `'S` on its last token), in UPPER
     or Title case at word boundaries, becomes one `a person` (`a person's` for a possessive): "NANDI
     MOLEFE pours" → "a person pours", "NANDI'S KITCHEN" → "a person's kitchen".
+  - **A title goes with the name it precedes** (T050). One or more of `TITLE_WORDS` (`MR`, `MRS`,
+    `MS`, `MISS`, `DR`, `SIR`, `LADY`, `OFFICER`, `NURSE`, `DOCTOR`: the stop words that are forms
+    of address), each in UPPER or Title case and separated from the next by whitespace, directly
+    before a name run, join that run: "MR. DUBE" → "a person", "Officer Van Wyk's" → "a person's".
+    Only the abbreviations `MR`, `MRS`, `MS`, `DR` may carry a `.`: "…the OFFICER. Moloi turns" is
+    a sentence end, so the title stays and only "Moloi" is redacted. Before T050 the title stayed
+    ("MR. a person"). A title with no name run directly after it is left alone ("the OFFICER",
+    "Mr. Nobody" when NOBODY isn't a name, the "MR." of "MR. AND MRS. DUBE").
   - Speaking characters are always in the extraction (grounding.md backfills every cue as a
     `Source.CUE` entity), so every speaker's name is covered. **Residual risk:** a named person who
     never speaks and whom extraction missed isn't known to be a name, so it is not redacted. §9 pins
@@ -668,7 +676,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   budget raising `PromptError`;
   "NANDI'S KITCHEN" in the raw heading → "inside a person's kitchen".
 - **Redaction, adversarial**: a two-word name as one "a person"; possessives; `THE STRANGER` and
-  `OLD MAN` cues leaving "The" and "Old" alone; a lower-case common word equal to a name untouched; a
+  `OLD MAN` cues leaving "The" and "Old" alone; a title before a name taken with it ("MR. DUBE",
+  "Dr Khumalo", "OFFICER VAN WYK'S") but a title alone, a title at a sentence end ("the OFFICER.
+  Moloi turns") and the "MR." of "MR. AND MRS. DUBE" left alone (T050); a lower-case common word equal to a name untouched; a
   named non-speaking person whom the fixture's extraction omits **is** left in the prompt (the
   residual risk, pinned so any change to it is deliberate).
 - **`redact_names` / `redact_all`**: characters.md §9's redaction cases, plus `redact_all`, runs and stop words.
