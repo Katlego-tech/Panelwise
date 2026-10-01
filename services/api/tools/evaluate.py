@@ -262,12 +262,17 @@ def _parse_args(argv: list[str]) -> tuple[int, Path | None, list[str]] | None:
     for arg in args:
         if arg == "--runs":
             value = next(args, "")
-            if not value.isdigit():
+            if not (value.isascii() and value.isdigit()):
                 return None
             runs = int(value)
         elif arg == "--out":
             value = next(args, "")
-            if not value or value.startswith("--") or value.endswith(("/", "\\")):
+            if (
+                not value
+                or value.startswith("--")
+                or value.endswith(("/", "\\"))
+                or Path(value).is_dir()
+            ):
                 return None
             out = Path(value)
         elif arg in OPTIONS:

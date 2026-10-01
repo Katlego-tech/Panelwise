@@ -264,6 +264,8 @@ def test_the_readme_table_is_the_newest_committed_result() -> None:
         ["--out"],
         ["--out", "--runs", "2"],
         ["--out", "results/"],
+        ["--out", "."],
+        ["--runs", "\u00b2"],
         ["nonsense"],
     ],
 )
