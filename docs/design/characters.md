@@ -147,7 +147,7 @@ failed, and then `ok` is false). Three attempts, then `WITHHELD`: frames for tha
 **without** a reference (text-only), which is what FrameFlow always did, and the UI says so.
 
 **`choose_references(shot, portraits)`** (pure, deterministic):
-1. Candidates: `visible_characters(shot, scene)` (storyboard.md §3.1: on screen in the covered
+1. Candidates: `visible_characters(shot, screenplay, extraction)` (storyboard.md §3.1: on screen in the covered
    elements, so never a `V.O.`/`O.S.` speaker) whose portrait is `READY`.
 2. Order: first, characters who **speak** in the shot's covered elements, each resolved from its
    `Dialogue.cue` with `match_speaker(cue, shot.characters)` (an unresolved cue is skipped), ordered

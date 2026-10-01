@@ -172,7 +172,7 @@ truncates drops the tail.
 | `FRAMING` | a fixed table in code, keyed by `shot.framing` | `wide` → "wide shot", `medium` → "medium shot", `close_up` → "close-up", `extreme_close_up` → "extreme close-up", `over_shoulder` → "over-the-shoulder shot", `pov` → "point-of-view shot", `insert` → "close-up insert shot" | `None` |
 | `SETTING` | this scene's heading | `inside` / `outside` / `at` (from `scene.int_ext`: `INT`, `EXT`, `INT_EXT`) + `scene.location`, **redacted, then** lower-cased | this scene's heading span |
 | `TIME` | `shot.time_of_day` (resolved, shots.md) | lower-cased; omitted when `None` | the heading span of the scene that **supplied** the clock (`time_source`, below) |
-| `COUNT` | code, from `visible_characters(shot, scene)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
+| `COUNT` | code, from `visible_characters(shot, screenplay, extraction)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
 | `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`), and is accepted only when `visible_characters` has exactly two members (else `ValueError`), so it can never contradict `COUNT` | the phrase; T026's renderer passes `None`, T025 passes it | `None` |
 | `ACTION` | a covered `Action` element's text | verbatim, whitespace collapsed, redacted | the element's span |
 
@@ -184,7 +184,7 @@ truncates drops the tail.
   heading that says NIGHT. The image uses a borrowed clock and the comic caption doesn't (comic.md
   §3) because they answer different questions: the caption quotes *this* heading's words, while the
   image must not draw a night scene in daylight (shots.md §2: the reason `resolve_times` exists).
-- **`visible_characters(shot, scene)`**: the members of `shot.characters`, in that order, that the
+- **`visible_characters(shot, screenplay, extraction)`**: the members of `shot.characters`, in that order, that the
   covered elements put on screen. A character is on screen if a covered `Dialogue` cue resolves to
   them with `match_speaker` and its extension, upper-cased, contains none of `V.O.`, `O.S.`, `O.C.`,
   `OFF` (comic.md's list), or if one of their name tokens (below, `other_names` included) appears in
@@ -230,7 +230,10 @@ none of which names a person, prop or event.
     MOLEFE pours" → "a person pours", "NANDI'S KITCHEN" → "a person's kitchen".
   - **Labels, not only "a person" (T052).** Redaction covers every character's name **and its
     `other_names`**, and every prop's `other_names` (a prop's own name, "VIOLIN", is a thing to draw
-    and stays). `redaction_labels(extraction)` gives **token → label**:
+    and stays). `redaction_labels(extraction, screenplay)` gives **token → label**, inserted in rank
+    order (persons, animals, named props, `it`; extraction order within each), and a token is placed
+    at the position of the label that wins it; `redact` gives a run the label of its token that comes
+    first:
     - **Animals.** A character is an animal when it has a `species`, or when `match_speaker` binds
       its name to an animal's name (so a CUE backfill or a second entry of the same cat, which has
       no species of its own, is still the cat). Its label is `the <species>`, lower-cased.
@@ -259,7 +262,9 @@ none of which names a person, prop or event.
       **Known cost:** an appositive repeats the species, "A ginger cat, MARMALADE, sleeps" → "A
       ginger cat, the cat, sleeps"; the definite article keeps it one cat in English, and the
       audit catches a frame with two (an unscripted animal is `UNSCRIPTED_OBJECT`).
-    Every label word is `a`, `person`, `the`, `it` or a word the script itself writes (the species
+    A possessive keeps its `'s` (`a person's`, `the cat's`), except `it`, whose possessive is `its`
+    ("Gerald's leg", unpaired → "its leg").
+    Every label word is `a`, `person`, `the`, `it`, `its` or a word the script itself writes (the species
     is in the entity's own description; a prop name is found in the script), so the invariant below
     still compares against the same redaction (`cites_this_shot` and `build_frame_prompt` call the
     same `redact` with the same labels), and `names_in` checks every labelled name and other name.
@@ -731,7 +736,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   species `cat`, a CUE-style second entry `MARMALADE` with none, GIRAFFE with other name `Gerald`):
   "Even Marmalade comes back" → "Even the cat comes back"; "Amahle dances with Gerald" → "a person
   dances with the giraffe"; "Marmalade's tail" → "the cat's tail"; "VIOLIN" untouched; an
-  unpaired other name (no shared scene) → `it`, and "Gerald" paired through scene 11 on the real
+  unpaired other name (no shared scene) → `it`, and its possessive → `its`, and "Gerald" paired through scene 11 on the real
   sample's lines; a prop named "NANDI'S UMBRELLA" labelled `it`; a token shared by a
   person and an animal → `a person`; two animals sharing a token → the earlier entity's label;
   `COUNT` ignores the cat and `PLACEMENT` needs two *people*; the §9 invariant and `names_in` hold
