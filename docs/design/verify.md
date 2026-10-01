@@ -171,8 +171,8 @@ repair retry) → that attempt's audit is `ERROR`, logged, and the frame is **wi
 unaudited. The renderer fails → the frame job fails (a `Job` `FAILED`). A frame is never shown
 without a `PASS` or `WARN` audit.
 
-**Animal characters (T052).** A character with a `species` (grounding.md §3) is drawn as an
-animal, and the describer files an animal under objects (`ObjectCategory.ANIMAL`). So the judge's
+**Animal characters (T052).** An animal character (`animals(extraction)`, storyboard.md §3.1:
+its own `species`, or bound to an animal by `match_speaker`) is drawn as an animal, and the describer files an animal under objects (`ObjectCategory.ANIMAL`). So the judge's
 spec lists it under **"Animals in this shot"** (name, species, its quotes), not under "Characters
 in this shot"; the judge prompt says an animal listed there is called `scripted_prop` with a
 verbatim support quote that names it; people are matched only against the shot's person

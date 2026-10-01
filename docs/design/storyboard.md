@@ -189,9 +189,11 @@ truncates drops the tail.
   them with `match_speaker` and its extension, upper-cased, contains none of `V.O.`, `O.S.`, `O.C.`,
   `OFF` (comic.md's list), or if one of their name tokens (below, `other_names` included) appears in
   a covered `Action` text. A planner-listed character the covered text never shows is not counted,
-  and neither is an off-screen or voice-over speaker. **`COUNT` and `PLACEMENT` count people only**
-  (T052): a character with a `species` (grounding.md §3) is not a figure; the action line that
-  names it already says "a cat" after redaction.
+  and neither is an off-screen or voice-over speaker. **People only (T052):** the signature becomes
+  `visible_characters(shot, scene, extraction)`, it skips every *animal* (below), and it detects an
+  action-line mention with that one character's labels (its name and paired other names). `COUNT`
+  and `PLACEMENT`'s "exactly two" both use it, so a cat is never a figure; the action line that
+  names it already says "the cat" after redaction.
 - **Entity quotes from outside the shot never enter a prompt.** A character's introduction ("NANDI
   (60s, oilskin coat) pours tea…") or a prop's first mention carries that moment's event, so quoting
   it into another shot draws an event this shot doesn't have. A quote located *inside* a covered
@@ -228,16 +230,37 @@ none of which names a person, prop or event.
     MOLEFE pours" → "a person pours", "NANDI'S KITCHEN" → "a person's kitchen".
   - **Labels, not only "a person" (T052).** Redaction covers every character's name **and its
     `other_names`**, and every prop's `other_names` (a prop's own name, "VIOLIN", is a thing to draw
-    and stays). Each name's tokens carry a label: a person's is `a person`; an animal's is its
-    `species` with an article (`a cat`, `an owl`: `an` before a vowel letter); a named prop's is its
-    entity name, lower-cased, with an article (`a giraffe`). "Even Marmalade comes back to the
-    doorway" → "Even a cat comes back…"; "Amahle dances with Gerald" → "a person dances with a
-    giraffe". A token that belongs to more than one entity takes the first label in the order
-    person, animal, prop (a person's name is never relabelled as a thing); a run's label is the
-    first of its tokens' labels in that order. Possessives and titles as above. Every label word is
-    either `a`/`an`/`person` or a word the script itself writes (the species is in the entity's own
-    quote; a prop name is found in the script), so the invariant below still compares against the
-    same redaction.
+    and stays). `redaction_labels(extraction)` gives **token → label**:
+    - **Animals.** A character is an animal when it has a `species`, or when `match_speaker` binds
+      its name to an animal's name (so a CUE backfill or a second entry of the same cat, which has
+      no species of its own, is still the cat). Its label is `the <species>`, lower-cased.
+    - **Persons.** Every other character: `a person`, as before.
+    - **Named props.** A prop's label is `the <prop name>`, lower-cased, with a leading
+      `a`/`an`/`the` stripped from the name. The definite article throughout means no
+      `a`/`an` rule and no plural problem ("the umbrellas"), and it reads as the thing already
+      in the frame, not a second one.
+    - **Fallback `it`.** A label whose words include any name token of any character or other name
+      ("NANDI'S UMBRELLA" → would be "the nandi's umbrella") is `it` instead, so a lower-cased
+      label can never carry a name past `names_in`.
+    - **Pairing.** An other name gets its entity's label only when it appears in an element (or
+      heading) that also holds one of that entity's located quotes ("A toy one. His name is
+      Gerald." holds GIRAFFE's quote, so Gerald → `the giraffe`). An unpaired other name is still
+      redacted, to `it`: the model's pairing is unverified (grounding.md §8), and `it` adds no
+      person and no thing.
+    - **Conflicts.** A token claimed by several entities takes, in this order, a person's label, then
+      an animal's, then a prop's, then `it`; between two of the same kind, the earlier entity in
+      `extraction.entities`. A run's label is the highest-ranked of its tokens' labels by the same
+      order. **Accepted:** a run that mixes a person and an animal ("Nandi Marmalade") is one
+      `a person`, and the cat is lost from that line.
+    - "Even Marmalade comes back to the doorway" → "Even the cat comes back…"; "Amahle dances with
+      Gerald" → "a person dances with the giraffe"; "Marmalade's tail" → "the cat's tail".
+      **Known cost:** an appositive repeats the species, "A ginger cat, MARMALADE, sleeps" → "A
+      ginger cat, the cat, sleeps"; the definite article keeps it one cat in English, and the
+      audit catches a frame with two (an unscripted animal is `UNSCRIPTED_OBJECT`).
+    Every label word is `a`, `person`, `the`, `it` or a word the script itself writes (the species
+    is in the entity's own description; a prop name is found in the script), so the invariant below
+    still compares against the same redaction (`cites_this_shot` and `build_frame_prompt` call the
+    same `redact` with the same labels), and `names_in` checks every labelled name and other name.
   - **A title goes with the name it precedes** (T050). One or more of `TITLE_WORDS` (`MR`, `MRS`,
     `MS`, `MISS`, `DR`, `SIR`, `LADY`, `OFFICER`, `NURSE`, `DOCTOR`: the stop words that are forms
     of address), each in UPPER or Title case and separated from the next by whitespace, directly
@@ -497,8 +520,11 @@ NAME_STOP_WORDS: frozenset[str]                                # §3.1's list
 def name_tokens(names: Sequence[str]) -> frozenset[str]: ...   # words of normalise(name), for each name, minus NAME_STOP_WORDS
 def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...   # characters.md rule 2: this character → "a person", others → "another person"
 def redact_all(text: str, characters: Sequence[str]) -> str: ...                 # every character's name tokens → "a person"
-def redaction_labels(extraction: Extraction) -> dict[str, str]: ...             # T052: name or other name → label (§3.1 Labels); characters and their other names, props' other names
-def redact(text: str, labels: Mapping[str, str]) -> str: ...                    # T052: redact_all's matching, each run → its label
+# app/characters/labels.py (T052; its own module because it imports app.grounding, which imports redact.py: no cycle)
+def animals(extraction: Extraction) -> dict[str, str]: ...                      # character name → species, for every animal (§3.1 Labels: own species, or bound to one by match_speaker)
+def redaction_labels(extraction: Extraction, only: str | None = None) -> dict[str, str]: ...  # name token → label (§3.1 Labels); `only` limits it to one character's name and paired other names
+# app/characters/redact.py
+def redact(text: str, labels: Mapping[str, str]) -> str: ...                    # T052: redact_all's matching (runs, possessives, titles), each run → its highest-ranked token label
 
 # app/storyboard/prompt.py — pure
 class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; PLACEMENT = "placement"; ACTION = "action"
@@ -514,7 +540,7 @@ PLACEMENT_PHRASES: frozenset[str] = frozenset({"one figure on the left, one on t
 OFF_SCREEN_MARKS: tuple[str, ...] = ("V.O.", "O.S.", "O.C.", "OFF")   # comic.md §3's list
 def heading_span(scene: Scene) -> Span: ...             # Span(scene.span.page, scene.span.line_start, scene.span.line_start)
 def time_source(scenes: Sequence[Scene], scene_index: int) -> int | None: ...   # the scene resolve_times took the clock from
-def visible_characters(shot: Shot, scene: Scene) -> tuple[str, ...]: ...        # §3.1; subset of shot.characters, same order
+def visible_characters(shot: Shot, scene: Scene, extraction: Extraction) -> tuple[str, ...]: ...  # §3.1; people in shot.characters (no animals), same order (T052: extraction added)
 def build_frame_prompt(shot: Shot, screenplay: Screenplay, extraction: Extraction, style: Style, *,
                        max_words: int, placement: str | None = None) -> FramePrompt: ...
 #   placement must be in PLACEMENT_PHRASES (else ValueError); T026 passes None, T025 passes
@@ -699,12 +725,13 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   residual risk, pinned so any change to it is deliberate).
 - **`redact_names` / `redact_all`**: characters.md §9's redaction cases, plus `redact_all`, runs and stop words.
 - **Labels (T052)**: on `lost-property`'s own lines with a hand-built extraction (MARMALADE with
-  species `cat`, GIRAFFE with other name `Gerald`): "A ginger cat, MARMALADE, sleeps" → "A ginger
-  cat, a cat, sleeps"; "Amahle dances with Gerald" → "a person dances with a giraffe";
-  "Marmalade's tail" → "a cat's tail"; "VIOLIN" untouched; a token shared by a person and an animal
-  labelled `a person`; `an` before a vowel; `COUNT` ignores the cat ("Even Marmalade comes back" is
-  no figure) and `PLACEMENT` needs two *people*; the §9 invariant and `names_in` hold with the
-  labels and other names (no prompt contains "Gerald" or "Marmalade").
+  species `cat`, a CUE-style second entry `MARMALADE` with none, GIRAFFE with other name `Gerald`):
+  "Even Marmalade comes back" → "Even the cat comes back"; "Amahle dances with Gerald" → "a person
+  dances with the giraffe"; "Marmalade's tail" → "the cat's tail"; "VIOLIN" untouched; an
+  unpaired other name → `it`; a prop named "NANDI'S UMBRELLA" labelled `it`; a token shared by a
+  person and an animal → `a person`; two animals sharing a token → the earlier entity's label;
+  `COUNT` ignores the cat and `PLACEMENT` needs two *people*; the §9 invariant and `names_in` hold
+  with labels and other names (no prompt contains "Gerald" or "Marmalade").
 - **`load_styles`**: the repo's `styles/` loads with exactly one public default; each §3.2 failure
   raises `StyleError` naming the file (a private key shadowing a public one, a private default, a
   subject word in `medium`, weight syntax, a missing field, an unknown field).

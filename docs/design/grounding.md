@@ -98,19 +98,25 @@ classDiagram
 - **Animals and other names (T051).** Two things the parser can't know and redaction needs
   (storyboard.md §3.1). Both are copied words, grounded in code, never inferred attributes:
   - **`species`**: for a `CHARACTER` that is an animal, the word the script uses for what it is
-    ("A ginger cat, MARMALADE, sleeps…" → `cat`). Kept only when it is 1–3 words, has a letter, and
-    appears as whole words (`normalize_for_grounding`) inside one of that entity's **located**
-    quotes; otherwise `None`, and the character is treated as a person. Always `None` for props,
-    locations and `Source.CUE` backfills. Across chunks, the first grounded species in proposal
-    order wins.
+    ("A ginger cat, MARMALADE, sleeps…" → `cat`). A leading `a` / `an` / `the` is stripped first.
+    It is kept only when the rest is 1–3 words with a letter; none of its words is in
+    `PERSON_WORDS` (`NAME_STOP_WORDS` plus `PERSON`, `PEOPLE`, `MEN`, `WOMEN`, `CHILD`,
+    `CHILDREN`, `KID`, `KIDS`, `BABY`, `TEENAGER`, `FIGURE`, `CROWD`) or is a name token of any
+    character; and it appears as whole words (`normalize_for_grounding`) inside one of that
+    entity's located quotes **whose span is an `Action` element** (a description, not someone's
+    speech). Otherwise `None`, and the character is treated as a person. Always `None` for props,
+    locations and `Source.CUE` backfills. Across chunks, the first species that passes, in
+    proposal order, wins. **Residual risk:** the test proves the word is in a description the
+    model tied to this entity, not that it describes *this* entity ("NANDI strokes the cat" with
+    species `cat` on NANDI would pass): a person read as an animal is drawn as one. Rare (it needs
+    the model to call a person an animal), and recorded in §8.
   - **`other_names`**: other names the script gives the same character or prop: a nickname
     (SIPHOKAZI's "Kazi"), a pet's or a toy's name (the GIRAFFE called "Gerald"). Each is kept when
     the script mentions it as a whole word (the same test as an entity name), it differs from the
     entity's name under `normalise`, and it has at least one name token (characters' redact.py:
-    stop words alone, like "Mr.", are not a name). The pairing with the entity is the model's
-    word, unverified, like a quote's (§8); it only chooses which label redaction writes, and a name
-    the script contains is never left in a prompt because of it. Union across chunks, first
-    appearance first. `()` for locations and `CUE` backfills.
+    stop words alone, like "Mr.", are not a name). A kept other name is always redacted; whether
+    it gets its entity's label is decided by storyboard.md §3.1 (*paired*). Union across chunks,
+    first appearance first. `()` for locations and `CUE` backfills.
   - Neither affects faithfulness or recall (they are about the entity, not whether it exists), and
     a species or other name that fails its test is simply not kept.
 - **`Entity.scenes`**: 0-based scene indexes, derived from where its quotes and (for characters)
@@ -256,7 +262,8 @@ the parser, so a faithful quote is always locatable.
 | Quote ↔ name pairing | not checked: a kept quote is verbatim and located, but nothing proves it is *about* the entity it's paired with | a semantic check: needs another model call and can't be exact. Nothing unscripted can be shown either way; a mis-paired quote is still a real line |
 | Aliases ("THABO" vs "THABO MOLEFE" proposed separately) | kept as two entries | fuzzy merge: risks fusing two people. `match_speaker` still binds cues correctly, so scenes and recall are unaffected |
 | Animals (T051) | a `species` word, grounded in the entity's own located quote | an `ANIMAL` entity kind: every consumer of `CHARACTER` (planner, cues, audit) would need a second branch, and an animal that speaks or acts is cast like a character; a model `is_animal` flag: an inferred attribute, ungroundable |
-| Other names (T051) | `other_names`, kept when the script mentions them | merging them as entities: "Gerald" isn't a separate thing; requiring the name inside the entity's own quote: the model often quotes the description, not the naming line, and a dropped other name is a name left in a prompt |
+| Other names (T051) | `other_names`, kept when the script mentions them; the label is decided downstream by pairing (storyboard.md §3.1) | merging them as entities: "Gerald" isn't a separate thing; dropping one not inside the entity's own quote: a dropped other name is a name left in a prompt, so it is kept and redacted to the neutral `it` instead. **Cost:** a common capitalised word given as another name ("Mum", "Captain") is redacted wherever the script capitalises it |
+| Species test (T051) | in an Action quote of the entity, not a person word, not a name token | any located quote: a person's speech mentioning "the cat" would pass; no word list: `species: "man"` would turn a person into an object for the audit. **Residual risk:** a person the model calls an animal, with that animal word in their own description line |
 | Chunk size | 12,000 chars | FrameFlow's 20,000: smaller chunks help recall, and Lightning is cheap |
 
 ## 9. How this is verified
@@ -267,8 +274,10 @@ the parser, so a faithful quote is always locatable.
   cases that must still fail — another speaker's cue, a wrong extension or parenthetical, nothing
   after the header, a cue not on its own line, a quote stitched across speeches, a heading or an
   action line as the "header", a name that is no cue.
-- `ground` (T051): a species found in the entity's own located quote kept, one only in another
-  entity's quote or nowhere dropped to `None`, a species on a prop ignored; an other name the script
+- `ground` (T051): a species found in the entity's own located Action quote kept (a leading
+  article stripped: "a cat" → `cat`), one only in a dialogue quote, in another entity's quote, a
+  person word (`man`, `girl`, `figure`) or a character's name token dropped to `None`, a species on
+  a prop ignored; an other name the script
   mentions kept, one it doesn't (or equal to the name, or only stop words) dropped; both merge across
   chunks; CUE backfills have neither.
 - `ground`: bad quote dropped but entity kept; entity whose name isn't in the script dropped with a
