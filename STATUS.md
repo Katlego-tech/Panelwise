@@ -47,13 +47,13 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 
 ## ⏭️ Next action
 
-Apart from the three items under "Buildable now" below, the remaining work waits on three things the team owns:
+All remaining work waits on three things the team owns, or on a team decision (below the list):
 
 1. **Supabase project (user).** Unblocks T009 (sign-in check, projects, upload), then T046 (the pipeline as a job) → T047 (read endpoints, `frames` table) → T040–T045 (the web screens) → T021 (re-render loop). **Decide with it how the gate runs T009's DB tests:** a Postgres service in `ci.yml` + `gate.sh` (needs AGENTS.md §4 authorization) or a Supabase test database.
 2. **GPU access for T003 (Katlego).** Needed by T026 (ComfyUI renderer, Storage, the RENDERING stage), which also needs item 1's chain (T046, T021); then T027 (storyboard PDF), the comic on real renders, and T025 (portraits).
 3. **Vercel + Railway accounts (Katlego)** for T037's deploy check, then T030 (hosted demo).
 
-Buildable now, no external dependency: nothing left that doesn't need a decision. Waiting on the team, no code: T033's feedback section (PR #36), the two wording calls and the **non-human characters and named props** decision in ⚠️ below. T049 (audit accuracy) waits on T026.
+Buildable now, no external dependency: nothing left that doesn't need a decision. Late-stage tasks wait on the above: T034 (video, needs a working demo), T035 (go public, submit), T036 (final placeholder sweep; the gate already sweeps every push). T038 needs each contributor's time zone and hours. Waiting on the team, no code: T033's feedback section (PR #36), the two wording calls and the **non-human characters and named props** decision in ⚠️ below. T049 (audit accuracy) waits on T026.
 
 ## 🗓️ Timeline to 2026-10-30 10:00 PDT (19:00 SAST)
 
