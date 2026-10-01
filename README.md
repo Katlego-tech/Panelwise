@@ -8,7 +8,8 @@ characters, props and locations and plans the shots. Code then checks every quot
 against the script, and anything it can't find is dropped. Each frame is rendered, a vision model
 describes it, and Nemotron audits that description against the shot. A frame that shows something
 the script doesn't is re-rendered, and after the last try it is withheld, never shown. (The audit
-and the withheld card are built and tested; rendering and the re-render loop land with GPU access.)
+and the withheld card are built and tested. Rendering waits on GPU access, and the re-render loop
+on the database-backed jobs it records its attempts in.)
 
 Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/)
 (Best Apps and Agents track). Panelwise builds on FrameFlow, an earlier private project by the same
@@ -24,7 +25,8 @@ team: [CHANGES-FROM-FRAMEFLOW.md](CHANGES-FROM-FRAMEFLOW.md) says what was porte
 | Frame prompts from the shot's own script words, names redacted | built | `app.storyboard.prompts` |
 | Frame audit: a vision model describes, Nemotron judges, code runs the checks | built, run on real frames | `app.verify.run` |
 | Comic layout and lettering: panels sized by shot, dialogue lettered verbatim | built, on test-fixture frames | `tools.build_comic_reference` |
-| Rendering frames (ComfyUI on a Nebius AI Cloud GPU), the re-render loop, the storyboard PDF | waiting on GPU access | — |
+| Rendering frames (ComfyUI on a Nebius AI Cloud GPU), the storyboard PDF | waiting on GPU access | — |
+| The re-render loop and its audit log (every attempt kept and shown) | designed; waiting on the Supabase project (it writes to the `frames` table) | — |
 | Web app (upload → shots → storyboard → comic reader), hosted demo | designed; waiting on the Supabase project and hosting accounts | — |
 
 [STATUS.md](STATUS.md) is the live board. The order of what's left is in its *Next action* section.
