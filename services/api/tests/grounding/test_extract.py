@@ -130,3 +130,9 @@ async def test_a_failing_chunk_fails_the_extraction_and_names_its_scenes(
     with pytest.raises(ExtractionError, match="scenes 2") as caught:
         await extract(make(Scripted(fail_on="GALLERY")), screenplay, chunk_chars=1)
     assert caught.value.scene == "2"
+
+
+def test_the_prompt_asks_for_species_and_other_names() -> None:
+    # T051: the model is told what each field is; the filter grounds what comes back.
+    assert "species" in SYSTEM_PROMPT and "other_names" in SYSTEM_PROMPT
+    assert "even if only in dialogue" in SYSTEM_PROMPT

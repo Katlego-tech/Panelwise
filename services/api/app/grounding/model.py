@@ -46,6 +46,9 @@ class Entity:
     quotes: tuple[Quote, ...]
     scenes: tuple[int, ...]
     source: Source
+    # T051, grounding.md §3: the script's word for an animal character; other names it gives.
+    species: str | None = None
+    other_names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

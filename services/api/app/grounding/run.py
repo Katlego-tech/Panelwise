@@ -23,8 +23,12 @@ def report(result: Extraction, numbers: list[str]) -> str:
         q = e.quotes[0]
         where = f"p.{q.span.page} l.{q.span.line_start}-{q.span.line_end}"
         scenes = ",".join(numbers[i] for i in e.scenes)
+        extra = (f"  [species: {e.species}]" if e.species else "") + (
+            f"  [also: {', '.join(e.other_names)}]" if e.other_names else ""
+        )
         out.append(
             f"{e.kind:<9} {e.name:<24} {e.source:<7} scenes {scenes:<10} {where:<12} “{q.text}”"
+            + extra
         )
     r = result.report
     out += [
