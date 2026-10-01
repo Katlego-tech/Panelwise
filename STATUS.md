@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-09-30 — by Katlego (via Claude)_
+_Last updated: 2026-10-01 — by Katlego (via Claude)_
 
 ---
 
@@ -35,10 +35,10 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | 🔵 T037 code in review · 🔴 its deploy check blocked on accounts · T003 needs GPU access |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039 | Katlego | Claude | ✅ T005, T006, T039 done |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
-| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 · T027 (PDF) after T026 |
+| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU), T021 and T046 · T027 (PDF) after T026 |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ⏸️ T009 suspended until the Supabase account/project exists (user, 2026-09-30); gate/CI have no Postgres for its DB tests; T046 (the pipeline as a job) follows it · T040+ need a Supabase project (T037) |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · T021 waits on T009, T045, T047 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
@@ -47,24 +47,28 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 
 ## ⏭️ Next action
 
-1. **T037** — deploy stack (Vercel + Railway + Supabase, Redis out): the code now; the deploy check needs Katlego's three accounts ([docs/design/deploy.md](docs/design/deploy.md)).
-2. **T007** — shot planner (Phase 2), on the grounded entities from T006.
-3. **T003** — ComfyUI on a Nebius GPU: blocked on GPU access (Katlego). Every rendering task waits on it.
+Apart from the three items under "Buildable now" below, the remaining work waits on three things the team owns:
+
+1. **Supabase project (user).** Unblocks T009 (sign-in check, projects, upload), then T046 (the pipeline as a job) → T047 (read endpoints, `frames` table) → T040–T045 (the web screens) → T021 (re-render loop). **Decide with it how the gate runs T009's DB tests:** a Postgres service in `ci.yml` + `gate.sh` (needs AGENTS.md §4 authorization) or a Supabase test database.
+2. **GPU access for T003 (Katlego).** Needed by T026 (ComfyUI renderer, Storage, the RENDERING stage), which also needs item 1's chain (T046, T021); then T027 (storyboard PDF), the comic on real renders, and T025 (portraits).
+3. **Vercel + Railway accounts (Katlego)** for T037's deploy check, then T030 (hosted demo).
+
+Buildable now, no external dependency: **T032** (eval numbers on the samples), the **line-break-hyphen parser fix** (samples/README.md finding 5; it also changes comic lettering), and the two wording calls in ⚠️ below.
 
 ## 🗓️ Timeline to 2026-10-30 10:00 PDT (19:00 SAST)
 
 | Week | What | Target window | Status |
 |-------|------|---------------|--------|
-| 1 | Token Factory check; versions + compose; ComfyUI on Nebius GPU; port llm, script, grounding | 28 Sep – 4 Oct | ⬜ |
-| 2 | **US1**: script → grounded storyboard on Nemotron, end to end in the web app. Design docs for verify + comic | 5 – 11 Oct | ⬜ |
-| 3 | **US2**: frame audit + re-render + audit log. **US4**: reference portraits | 12 – 18 Oct | ⬜ |
-| 4 | **US3**: comic pages + reader. Hosted demo live | 19 – 25 Oct | ⬜ |
+| 1 | Token Factory check; versions + compose; ComfyUI on Nebius GPU; port llm, script, grounding | 28 Sep – 4 Oct | 🟡 all but T003 (GPU) and T037's deploy check (accounts) |
+| 2 | **US1**: script → grounded storyboard on Nemotron, end to end in the web app. Design docs for verify + comic | 5 – 11 Oct | 🟡 designs done (verify, comic, characters, storyboard, web); pipeline core, prompts, schemas built; blocked on Supabase + GPU |
+| 3 | **US2**: frame audit + re-render + audit log. **US4**: reference portraits | 12 – 18 Oct | 🟡 frame audit (T020) done early |
+| 4 | **US3**: comic pages + reader. Hosted demo live | 19 – 25 Oct | 🟡 comic layout + lettering + PDF (T022, T023) done early; reader (T024) not started |
 | 5 | Hardening, eval numbers, video, README, repo public, **submit by 29 Oct** (one day of buffer) | 26 – 30 Oct | ⬜ |
 
 ## 🧱 What's built so far
 
 - **Local stack (T002, T037):** `docker compose up --build --wait` runs postgres, api and web on pinned versions (PLAN.md § Technical Context); no Redis since T037. Host ports default to 5432/8000/3000 and can be overridden in `.env` (FrameFlow's containers hold 5432 on Katlego's machine). Deploy config: `apps/web/vercel.json`; Railway is set in its dashboard (`docs/deploy.md`: `railway.json` is deprecated, closed to new services, dead on 2026-12-01).
-- **API** (`services/api`, FastAPI, uv): `GET /api/v1/health` pings Postgres and Redis; 503 + exception type on failure, with a timeout.
+- **API** (`services/api`, FastAPI, uv): `GET /api/v1/health` pings Postgres (Redis removed in T037); 503 + exception type on failure, with a timeout.
 - **Web** (`apps/web`, Next.js 16, pnpm): `GET /api/health` reports web + API health; 502 when the API is unreachable. No pages yet (T040).
 - **Gate:** 10 checks across 2 projects (ruff, pyright, pytest, eslint+tsc, vitest, next build, placeholder, secrets, osv-scanner, jscpd).
 - **Token Factory findings (T001):** [docs/nebius-findings.md](docs/nebius-findings.md).
@@ -76,12 +80,17 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 - **Samples (T031):** `samples/` — three self-written screenplays (demo `the-red-kite`, 11-speaker `lost-property`, tricky-format `sipho-and-siphokazi`) as Fountain source + PDF, rebuilt by `uv run python -m tools.build_samples`; parser findings in `samples/README.md`.
 - **Pipeline core (T043):** `app/projects/pipeline.py` — `run_pipeline(pdf, model, on_advance=...)` parses, extracts and plans, announcing each stage with its web.md §3 progress band and the result before it; every failure is a `PipelineError(stage, message)` with web.md §4.1's copy, chosen by code or type (the chunk budget is checked before any model call). No database: T046 runs it as a job. `Screenplay.page_starts`, `ScriptParseError.code`, `ExtractionError.scene`, `ShotError.scene`. Live: `uv run python -m app.projects.run <script.pdf>`.
 - **API schemas and views (T044):** `app/api/v1/schemas.py` — every web.md §6 response type as a Pydantic model (a test parses the doc's TypeScript and compares fields, nesting, nullability and unions); `FrameView` refuses an image outside passed/warned. `app/projects/views.py` — pure builders for lines, scenes (`time_carried`), entities, report and shots (`segments`, off-screen dialogue marked). T047 serves them.
+- **Frame audit (T020):** `app/verify` — `audit_frame`: a vision model (DeepSeek-V4.1-Flash) describes the frame blind to the shot, Nemotron 3 Super judges it against the shot's grounded spec, code runs the 7 checks (hard: unscripted person/object, text in frame, setting; soft: missing character, light, framing) and gives PASS / WARN / FAIL; any failed call is ERROR, never a pass. Live: `uv run python -m app.verify.run <script.pdf> <scene>.<shot> <frame.png>`. Design: [docs/design/verify.md](docs/design/verify.md).
+- **Comic lettering and export (T023):** `app/comic/{bubbles,render}.py` — every covered line of dialogue lettered verbatim with its span (speech, off-panel, voice-over caption; scene captions), placed by image detail on a 12 × 8 grid, 32 then 28 px or `ComicError`; withheld frames drawn as the card, never their pixels; pages → PNG, 300 dpi PDF, reader JSON. Reference pages: `docs/design/comic/the-red-kite-page-*.png` (fixture frames). Real renders wait on T026.
+- **Designs (all agreed):** script, grounding, llm, shots, verify, comic, characters, deploy, storyboard, **web** ([docs/design/web.md](docs/design/web.md): visual reference `docs/design/web/*.png` + HTML mockups; the storyboard is a lined script).
 - **LLM seam (T004):** `app/llm` — `NebiusChatModel` (fast / reasoning / vision tiers, retries with `Retry-After`, thinking off on fast) and `structured_chat` (strict `json_schema`, one repair retry). Design: [docs/design/llm.md](docs/design/llm.md). Live check: `cd services/api && uv run python -m app.llm.smoke`.
 
 ## 🛠️ Environment & access
 
 - FrameFlow (private, `Katlego-tech/FrameFlow`) is the source for every ported module. Both of us have access.
 - Nebius Token Factory: $25 promo (`NEBIUS-DEVPOST-GLOBAL26`) + $25 from the AI Builder Program. Keys go in `.env`, never in the repo.
+- **Local machine, 2026-09-30:** at the user's request, the Lefika Logic dev servers (ports 3000, 3001) were stopped and FrameFlow's `frameflow-db` / `frameflow-cache` containers were stopped (not removed; `docker start frameflow-db frameflow-cache` brings them back). Panelwise's own stack is down too.
+- **Local `.env`:** `NEBIUS_MODEL_VISION=` is set but empty, which overrides the default. Set it to `deepseek-ai/DeepSeek-V4.1-Flash` or delete the line before running the audit.
 - The original Nebius migration plan (unknowns U1–U6, model tiers, costs) is in
   `~/Documents/projects/personal/frameflow-nebius-hackathon/PLAN.md` on Katlego's machine.
 
@@ -89,6 +98,9 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 
 - **No NVIDIA vision model on Token Factory** (T001). Decided: a Token Factory VLM (DeepSeek-V4.1-Flash since 2026-09-30; GLM-5.3-Flash stopped receiving images) *describes* each frame and Nemotron *judges* it; self-hosting an NVIDIA VLM on the Nebius GPU is a stretch. Wording corrected everywhere to "a vision model describes each frame; Nemotron audits it against the script" (2026-09-30, `docs/spec`), and in `services/api/app/verify/README.md` by T020.
 - ~~**Which styles stay private?**~~ **Closed 2026-09-30, decided by the user in session:** none. `clean` (the default), `ink` and `pencil` are public in `styles/`; `classic` is dropped (storyboard.md §8); the private pack is empty. Built by T008.
+- **Sign text in frame prompts vs the audit.** T008 passes signs the script spells out ("LOST PROPERTY - PLATFORM 9") into prompts verbatim, but verify's `TEXT_IN_FRAME` is a hard fail, so such frames will likely be withheld. Decide before the demo (verify or T032).
+- **Two copy calls (web.md §4.1).** "Nothing was saved from this run" contradicts keeping earlier stage columns on failure (T046); and the new unexpected-error copy ("Something went wrong on our side while reading this script. Upload it again to retry.") needs a read.
+- **Smaller open items from this session:** named props aren't redacted from prompts ("Gerald"); "MR. DUBE" → "MR. a person"; the API image doesn't ship `styles/` yet (T026); sound effects in the comic undecided (comic.md §10); the parser keeps line-break hyphens in element text.
 - **Repo is private.** It must be public before submission (T035).
 - **`main` is unprotected on the server** (private + GitHub Free; decided 2026-09-28 to leave it). Only the pre-push hook and AGENTS.md §4 guard it; Tumo must run `bash install-hooks.sh`. Once the repo is public (T035), protection is free — turn it on then.
 - **No copyrighted scripts** in the repo, demo or video. Only public-domain or self-written samples.
@@ -145,3 +157,4 @@ _Last updated: 2026-09-30 — by Katlego (via Claude)_
 - 2026-09-30 — Katlego (via Claude) — T043 pipeline core (no database; T009 suspended by Katlego until a Supabase project exists): `run_pipeline` + `PipelineError` with §4.1 copy by code/type, chunk budget pre-checked, `on_advance` per stage (one hook so T046 writes a stage's column with the job's advance in one transaction); `page_starts`, `ScriptParseError.code`, `.scene` on extraction/plan errors; T046 added for the job half. 332 tests, gate 10 checks green. Live on the-red-kite: 10.1 s, 5 pages / 5 scenes / 43 elements, 8 entities (faithfulness 1.000, recall 3/3), 21 shots, every element once. Next: review, then T044 (view layer). Blocked on: nothing for T043; T046 on T009.
 - 2026-09-30 — Katlego (via Claude) — T044 rescoped to the §6 schemas and pure view builders (no database); T047 added for the read endpoints and the `frames` table (T041, T021 now depend on it). `schemas.py` + `views.py`, 46 new tests (492 in the API), gate 10 checks green; code-reviewer clean (PR #28). Next: then T040 or T032 while T009 waits. Blocked on: nothing for T044; T046, T047 on T009 (a Supabase project).
 - 2026-09-30 — Katlego (via Claude) — T023 comic lettering + export (PR #29): `place_lettering` (verbatim `Dialogue.text` + span per bubble/caption, 12×8 inset grid, detail + speaker cost, reading order hard, 32→28 px, else `ComicError`), `panel_frame`/`withheld_checks`/withheld card (withheld pixels never decoded), `render_pages`, `to_pdf`, `to_json`; reference `docs/design/comic/the-red-kite-page-1..6.png` (fixture frames marked, one card) re-rendered by the gate. comic.md pinned: hyphen lettered as the element has it, rounded-rect bubbles, no SPEECH tail on a card, missing glyph → `ComicError`, drawing order. 52 new tests (544 in the API); gate 10 checks green; code-reviewer clean. Next: T032. Blocked on: nothing for T023; the comic job and a check on real renders wait on T026 (GPU, T003). Open: sound effects (comic.md §10); parser join of line-break hyphens.
+- 2026-10-01 — Katlego (via Claude) — Session close (28 Sep – 1 Oct). Merged this session: SPEC (#19), T022 (#20), T031 (#21), T020 + vision-model switch (#22), storyboard design (#23), web design (#24), T039 (#25), T043 (#26), T008 (#27), T044 (#28), T023 (#29). Next: the three external unblocks in ⏭️ (Supabase project + DB-test decision, GPU, Vercel/Railway). Blocked on: those.
