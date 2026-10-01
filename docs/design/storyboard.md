@@ -190,7 +190,7 @@ truncates drops the tail.
   `OFF` (comic.md's list), or if one of their name tokens (below, `other_names` included) appears in
   a covered `Action` text. A planner-listed character the covered text never shows is not counted,
   and neither is an off-screen or voice-over speaker. **People only (T052):** the signature becomes
-  `visible_characters(shot, scene, extraction)`, it skips every *animal* (below), and it detects an
+  `visible_characters(shot, screenplay, extraction)` (the screenplay for pairing, below), it skips every *animal* (below), and it detects an
   action-line mention with that one character's labels (its name and paired other names). `COUNT`
   and `PLACEMENT`'s "exactly two" both use it, so a cat is never a figure; the action line that
   names it already says "the cat" after redaction.
@@ -525,9 +525,9 @@ def redact_all(text: str, characters: Sequence[str]) -> str: ...                
 # app/characters/labels.py (T052; its own module because it imports app.grounding, whose filter imports redact.py.
 # app/characters/__init__.py must never import labels, or app.grounding -> filter -> app.characters -> labels -> app.grounding cycles)
 def animals(extraction: Extraction) -> dict[str, str]: ...                      # character name → species, for every animal (§3.1 Labels: own species, or bound to one by match_speaker)
-def redaction_labels(extraction: Extraction, only: str | None = None) -> dict[str, str]: ...  # name token → label (§3.1 Labels); `only` limits it to one character's name and paired other names
+def redaction_labels(extraction: Extraction, screenplay: Screenplay, only: str | None = None) -> dict[str, str]: ...  # name token → label (§3.1 Labels), in rank order (persons, animals, named props, `it`; extraction order within each); `only` limits it to one character's name and paired other names. The screenplay is for pairing (a shared scene)
 # app/characters/redact.py
-def redact(text: str, labels: Mapping[str, str]) -> str: ...                    # T052: redact_all's matching (runs, possessives, titles), each run → its highest-ranked token label
+def redact(text: str, labels: Mapping[str, str]) -> str: ...                    # T052: redact_all's matching (runs, possessives, titles), each run → the label of its token that comes first in `labels` (rank order); a possessive `it` is `its`
 
 # app/storyboard/prompt.py — pure
 class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; PLACEMENT = "placement"; ACTION = "action"
@@ -543,7 +543,7 @@ PLACEMENT_PHRASES: frozenset[str] = frozenset({"one figure on the left, one on t
 OFF_SCREEN_MARKS: tuple[str, ...] = ("V.O.", "O.S.", "O.C.", "OFF")   # comic.md §3's list
 def heading_span(scene: Scene) -> Span: ...             # Span(scene.span.page, scene.span.line_start, scene.span.line_start)
 def time_source(scenes: Sequence[Scene], scene_index: int) -> int | None: ...   # the scene resolve_times took the clock from
-def visible_characters(shot: Shot, scene: Scene, extraction: Extraction) -> tuple[str, ...]: ...  # §3.1; people in shot.characters (no animals), same order (T052: extraction added)
+def visible_characters(shot: Shot, screenplay: Screenplay, extraction: Extraction) -> tuple[str, ...]: ...  # §3.1; people in shot.characters (no animals), same order (T052: the screenplay, for pairing, and the extraction)
 def build_frame_prompt(shot: Shot, screenplay: Screenplay, extraction: Extraction, style: Style, *,
                        max_words: int, placement: str | None = None) -> FramePrompt: ...
 #   placement must be in PLACEMENT_PHRASES (else ValueError); T026 passes None, T025 passes
