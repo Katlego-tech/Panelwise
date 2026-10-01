@@ -121,7 +121,8 @@ def _redact(text: str, tokens: Collection[str], label: Callable[[list[str]], str
 def _title_start(text: str, words: list[re.Match[str]], i: int, floor: int) -> int:
     """Where the name run at word `i` starts once the titles directly before it join it: each a
     capitalised title word (an abbreviation optionally with a ".") separated by whitespace, and
-    never reaching back before `floor`, the end of the last replacement."""
+    never reaching back before `floor`, the end of the last replacement. (Defensive: titles are
+    stop words, never name tokens, so a walk back stops at the previous run anyway.)"""
     start = words[i].start()
     k = i - 1
     while k >= 0 and words[k].start() >= floor:

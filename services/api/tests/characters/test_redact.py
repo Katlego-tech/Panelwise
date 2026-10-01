@@ -141,18 +141,16 @@ def test_a_title_before_a_name_is_redacted_with_it(text: str, redacted: str) -> 
 
 
 @pytest.mark.parametrize(
-    "text",
+    ("text", "redacted"),
     [
-        "The OFFICER nods.",  # a title alone
-        "Mr. Nobody waits.",  # NOBODY is not a name
-        "she calls the doctor Dube",  # a lower-case title is a common word
-        "He salutes the OFFICER. Moloi turns.",  # only abbreviations take a '.'
+        ("The OFFICER nods.", "The OFFICER nods."),  # a title alone
+        ("Mr. Nobody waits.", "Mr. Nobody waits."),  # NOBODY is not a name
+        ("she calls the doctor Dube", "she calls the doctor a person"),  # lower case: a common word
+        ("He salutes the OFFICER. Moloi turns.", "He salutes the OFFICER. a person turns."),
     ],
 )
-def test_a_title_not_directly_before_a_name_is_left_alone(text: str) -> None:
-    out = redact_all(text, ["MR. DUBE", "MOLOI"])
-    for title in ("OFFICER", "Mr.", "doctor"):
-        assert (title in out) == (title in text)
+def test_a_title_not_directly_before_a_name_is_left_alone(text: str, redacted: str) -> None:
+    assert redact_all(text, ["MR. DUBE", "MOLOI"]) == redacted
 
 
 def test_a_title_does_not_change_whose_name_it_is() -> None:
