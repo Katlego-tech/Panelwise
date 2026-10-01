@@ -172,7 +172,7 @@ truncates drops the tail.
 | `FRAMING` | a fixed table in code, keyed by `shot.framing` | `wide` → "wide shot", `medium` → "medium shot", `close_up` → "close-up", `extreme_close_up` → "extreme close-up", `over_shoulder` → "over-the-shoulder shot", `pov` → "point-of-view shot", `insert` → "close-up insert shot" | `None` |
 | `SETTING` | this scene's heading | `inside` / `outside` / `at` (from `scene.int_ext`: `INT`, `EXT`, `INT_EXT`) + `scene.location`, **redacted, then** lower-cased | this scene's heading span |
 | `TIME` | `shot.time_of_day` (resolved, shots.md) | lower-cased; omitted when `None` | the heading span of the scene that **supplied** the clock (`time_source`, below) |
-| `COUNT` | code, from `visible_characters(shot, scene)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
+| `COUNT` | code, from `visible_characters(shot, screenplay, extraction)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
 | `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`), and is accepted only when `visible_characters` has exactly two members (else `ValueError`), so it can never contradict `COUNT` | the phrase; T026's renderer passes `None`, T025 passes it | `None` |
 | `ACTION` | a covered `Action` element's text | verbatim, whitespace collapsed, redacted | the element's span |
 
@@ -184,13 +184,13 @@ truncates drops the tail.
   heading that says NIGHT. The image uses a borrowed clock and the comic caption doesn't (comic.md
   §3) because they answer different questions: the caption quotes *this* heading's words, while the
   image must not draw a night scene in daylight (shots.md §2: the reason `resolve_times` exists).
-- **`visible_characters(shot, scene)`**: the members of `shot.characters`, in that order, that the
+- **`visible_characters(shot, screenplay, extraction)`**: the members of `shot.characters`, in that order, that the
   covered elements put on screen. A character is on screen if a covered `Dialogue` cue resolves to
   them with `match_speaker` and its extension, upper-cased, contains none of `V.O.`, `O.S.`, `O.C.`,
   `OFF` (comic.md's list), or if one of their name tokens (below, `other_names` included) appears in
   a covered `Action` text. A planner-listed character the covered text never shows is not counted,
   and neither is an off-screen or voice-over speaker. **People only (T052):** the signature becomes
-  `visible_characters(shot, scene, extraction)`, it skips every *animal* (below), and it detects an
+  `visible_characters(shot, screenplay, extraction)` (the screenplay for pairing, below), it skips every *animal* (below), and it detects an
   action-line mention with that one character's labels (its name and paired other names). `COUNT`
   and `PLACEMENT`'s "exactly two" both use it, so a cat is never a figure; the action line that
   names it already says "the cat" after redaction.
@@ -203,8 +203,9 @@ truncates drops the tail.
 
 **The invariant** (tested, §9): for every part whose `span` is not `None`, that span is this scene's
 heading span, the heading span of `time_source`'s scene (only for `TIME`), or the span of an element
-the shot covers; and the part's text (after the `SETTING` part's leading preposition) is, under `normalize_for_grounding`, a substring of `redact_all`
-applied to that heading or element text. Every part whose `span` is `None` is from the fixed tables
+the shot covers; and the part's text (after the `SETTING` part's leading preposition) is, under `normalize_for_grounding`, a substring of `redact(text,
+redaction_labels(extraction, screenplay))` applied to that heading or element text (`redact_all`
+before T052). Every part whose `span` is `None` is from the fixed tables
 above or the style. So a prompt says nothing that isn't in this shot's lines or its heading, except
 the style's medium words and the code's fixed framing, preposition, count and placement vocabulary,
 none of which names a person, prop or event.
@@ -219,7 +220,8 @@ none of which names a person, prop or event.
 - **Movement never enters a prompt.** A still can't show a pan; FrameFlow's movement words
   ("handheld", "tracking with the subject") read as motion blur. Movement is printed under the frame.
 - **Names never enter a prompt** (characters.md rule 1). Every script-derived part is redacted
-  **before** any lower-casing, with `redact_all`, which follows characters.md rule 2's matching:
+  **before** any lower-casing, with `redact(text, redaction_labels(extraction, screenplay))` (T052;
+  `redact_all` before it), which follows characters.md rule 2's matching:
   - **Name tokens** are the words of `normalise(name)` for every `CHARACTER` entity in the extraction,
     **minus `NAME_STOP_WORDS`**, a fixed list of words that are not names on their own (`THE`, `A`,
     `AN`, `OLD`, `YOUNG`, `LITTLE`, `BIG`, `MR`, `MRS`, `MS`, `MISS`, `DR`, `SIR`, `LADY`, `MAN`,
@@ -230,7 +232,10 @@ none of which names a person, prop or event.
     MOLEFE pours" → "a person pours", "NANDI'S KITCHEN" → "a person's kitchen".
   - **Labels, not only "a person" (T052).** Redaction covers every character's name **and its
     `other_names`**, and every prop's `other_names` (a prop's own name, "VIOLIN", is a thing to draw
-    and stays). `redaction_labels(extraction)` gives **token → label**:
+    and stays). `redaction_labels(extraction, screenplay)` gives **token → label**, inserted in rank
+    order (persons, animals, named props, `it`; extraction order within each), and a token is placed
+    at the position of the label that wins it; `redact` gives a run the label of its token that comes
+    first:
     - **Animals.** A character is an animal when it has a `species`, or when `match_speaker` binds
       its name to an animal's name (so a CUE backfill or a second entry of the same cat, which has
       no species of its own, is still the cat). Its label is `the <species>`, lower-cased.
@@ -259,7 +264,9 @@ none of which names a person, prop or event.
       **Known cost:** an appositive repeats the species, "A ginger cat, MARMALADE, sleeps" → "A
       ginger cat, the cat, sleeps"; the definite article keeps it one cat in English, and the
       audit catches a frame with two (an unscripted animal is `UNSCRIPTED_OBJECT`).
-    Every label word is `a`, `person`, `the`, `it` or a word the script itself writes (the species
+    A possessive keeps its `'s` (`a person's`, `the cat's`), except `it`, whose possessive is `its`
+    ("Gerald's leg", unpaired → "its leg").
+    Every label word is `a`, `person`, `the`, `it`, `its` or a word the script itself writes (the species
     is in the entity's own description; a prop name is found in the script), so the invariant below
     still compares against the same redaction (`cites_this_shot` and `build_frame_prompt` call the
     same `redact` with the same labels), and `names_in` checks every labelled name and other name.
@@ -525,9 +532,9 @@ def redact_all(text: str, characters: Sequence[str]) -> str: ...                
 # app/characters/labels.py (T052; its own module because it imports app.grounding, whose filter imports redact.py.
 # app/characters/__init__.py must never import labels, or app.grounding -> filter -> app.characters -> labels -> app.grounding cycles)
 def animals(extraction: Extraction) -> dict[str, str]: ...                      # character name → species, for every animal (§3.1 Labels: own species, or bound to one by match_speaker)
-def redaction_labels(extraction: Extraction, only: str | None = None) -> dict[str, str]: ...  # name token → label (§3.1 Labels); `only` limits it to one character's name and paired other names
+def redaction_labels(extraction: Extraction, screenplay: Screenplay, only: str | None = None) -> dict[str, str]: ...  # name token → label (§3.1 Labels), in rank order (persons, animals, named props, `it`; extraction order within each); `only` limits it to one character's name and paired other names. The screenplay is for pairing (a shared scene)
 # app/characters/redact.py
-def redact(text: str, labels: Mapping[str, str]) -> str: ...                    # T052: redact_all's matching (runs, possessives, titles), each run → its highest-ranked token label
+def redact(text: str, labels: Mapping[str, str]) -> str: ...                    # T052: redact_all's matching (runs, possessives, titles), each run → the label of its token that comes first in `labels` (rank order); a possessive `it` is `its`
 
 # app/storyboard/prompt.py — pure
 class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; PLACEMENT = "placement"; ACTION = "action"
@@ -543,7 +550,7 @@ PLACEMENT_PHRASES: frozenset[str] = frozenset({"one figure on the left, one on t
 OFF_SCREEN_MARKS: tuple[str, ...] = ("V.O.", "O.S.", "O.C.", "OFF")   # comic.md §3's list
 def heading_span(scene: Scene) -> Span: ...             # Span(scene.span.page, scene.span.line_start, scene.span.line_start)
 def time_source(scenes: Sequence[Scene], scene_index: int) -> int | None: ...   # the scene resolve_times took the clock from
-def visible_characters(shot: Shot, scene: Scene, extraction: Extraction) -> tuple[str, ...]: ...  # §3.1; people in shot.characters (no animals), same order (T052: extraction added)
+def visible_characters(shot: Shot, screenplay: Screenplay, extraction: Extraction) -> tuple[str, ...]: ...  # §3.1; people in shot.characters (no animals), same order (T052: the screenplay, for pairing, and the extraction)
 def build_frame_prompt(shot: Shot, screenplay: Screenplay, extraction: Extraction, style: Style, *,
                        max_words: int, placement: str | None = None) -> FramePrompt: ...
 #   placement must be in PLACEMENT_PHRASES (else ValueError); T026 passes None, T025 passes
@@ -681,7 +688,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | Figure count | `visible_characters`: planner characters the covered elements show on screen. Loose on shared name tokens ("JOHN SMITH"/"JOHN DOE") and possessives ("reads NANDI's letter"); both only change the count word | `len(shot.characters)`: the planner lists who it thinks fits, and `V.O.`/`O.S.` speakers aren't in the frame. **Known effect:** verify.md's soft `MISSING_CHARACTER` checks `shot.characters`, so a shot with an off-screen speaker ends `WARNED` with a `missing_character` note; accepted (it's soft and true), see §10 |
 | Unextracted names | accepted residual risk, pinned by a test | redacting every ALL-CAPS word: sound effects and emphasis ("SLAM", "NOW") are written the same way and would become "a person" |
 | Over-long prompts | drop whole parts from the tail, then cut the last kept part at a sentence end or word | cutting mid-word or mid-quote at random; letting the encoder truncate silently (it drops the end, whatever is there) |
-| Names | redacted to "a person" in every script part (`redact_all`) | names in the prompt: characters.md rule 1 |
+| Names | redacted in every script part with `redact`: a person → "a person", an animal → "the <species>", a named prop's other name → "the <prop>", else "it" (T052; `redact_all`, "a person" only, before it) | names in the prompt: characters.md rule 1 |
 | Style format | one TOML per style, stdlib `tomllib`, validated at start-up | FrameFlow's Python dict: a private pack would have to be code, imported from outside the repo |
 | Public / private split | two directories, same validation, private can't shadow or be default | a `private = true` flag in the file: one directory, so a private file could land in the public repo by accident |
 | FrameFlow's `classic` style | dropped | it kept a pre-styles cache key and its prompt used the negations CLIP can't read ("no borders", "Do not add characters") |
@@ -731,7 +738,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   species `cat`, a CUE-style second entry `MARMALADE` with none, GIRAFFE with other name `Gerald`):
   "Even Marmalade comes back" → "Even the cat comes back"; "Amahle dances with Gerald" → "a person
   dances with the giraffe"; "Marmalade's tail" → "the cat's tail"; "VIOLIN" untouched; an
-  unpaired other name (no shared scene) → `it`, and "Gerald" paired through scene 11 on the real
+  unpaired other name (no shared scene) → `it`, and its possessive → `its`, and "Gerald" paired through scene 11 on the real
   sample's lines; a prop named "NANDI'S UMBRELLA" labelled `it`; a token shared by a
   person and an animal → `a person`; two animals sharing a token → the earlier entity's label;
   `COUNT` ignores the cat and `PLACEMENT` needs two *people*; the §9 invariant and `names_in` hold
