@@ -314,7 +314,7 @@ def office() -> Screenplay:
     rows: list[Row] = [
         heading("1", "INT. LOST PROPERTY OFFICE - NIGHT"),
         None,
-        (ACTION, "A ginger cat, MARMALADE, sleeps on a pile of scarves. A man naps."),
+        (ACTION, "A ginger cat, MARMALADE, sleeps on a pile of scarves. A man naps. Bin 42."),
         None,
         (ACTION, "AMAHLE holds a toy giraffe."),
         None,
@@ -363,6 +363,7 @@ def test_a_species_in_the_entitys_own_located_quote_is_kept(office: Screenplay) 
         (["AMAHLE holds a toy giraffe."], "Amahle"),  # a different character's name token
         (["A ginger cat, MARMALADE, sleeps"], "a very old ginger cat"),  # over 3 words
         (["A ginger cat, MARMALADE, sleeps"], "..."),  # no letter
+        (["A man naps. Bin 42."], "42"),  # no letter, though located in an Action quote
     ],
 )
 def test_an_ungrounded_species_is_not_kept(

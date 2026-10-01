@@ -184,7 +184,8 @@ def _species(
     for proposed in group.species:
         species = _ARTICLE.sub("", proposed.strip())
         words = _words(species)
-        if not 1 <= len(words.split()) <= 3 or set(words.split()) & not_species:
+        has_letter = any(c.isalpha() for c in words)
+        if not has_letter or not 1 <= len(words.split()) <= 3 or set(words.split()) & not_species:
             continue
         if any(words in d for d in descriptions):
             return species
