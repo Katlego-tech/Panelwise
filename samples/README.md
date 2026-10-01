@@ -145,3 +145,19 @@ speech's own parenthetical (`"(reading)\nThree umbrellas. …"`) — and the fil
 speech without it. What still fails: names the script never writes (`NOTEPAD`, `GURGLE`: dropped),
 a model paraphrase (`"He plays a VIOLIN."`: dropped), finding 5 above, and the ANNOUNCER in
 `lost-property`, a V.O. voice the model doesn't list (added from its cue, not counted to recall).
+
+### Animals and other names (T051, 2026-10-01)
+
+`uv run python -m app.grounding.run ../../samples/lost-property.pdf`, Lightning. The extraction
+now carries a grounded `species` for an animal character and `other_names` for a character or prop
+([docs/design/grounding.md](../docs/design/grounding.md) §3), so frame prompts can draw MARMALADE as
+a cat and redact the toy giraffe's name, "Gerald" (T052).
+
+| Prompt | Runs | MARMALADE `species` | "Gerald" in the giraffe's `other_names` |
+| --- | --- | --- | --- |
+| first wording ("list any other name … such as a nickname or the name of a pet or a toy") | 5 | `ginger cat` 5/5 | 1/5 (the model also invented a "GERRY THE GIRAFFE", dropped: not in the script) |
+| final wording ("a name someone gives a pet, a toy or a vehicle, even if only in dialogue") | 4 | `ginger cat` 4/4 | **4/4** |
+
+On the other samples (final wording, one run each) no character got a species and faithfulness and
+recall were unchanged (`sipho-and-siphokazi` 0.929, 4/4; `the-red-kite` 1.000, 3/3). SIPHOKAZI's
+nickname "Kazi" isn't captured; it is only ever spoken, and dialogue never enters a frame prompt.

@@ -28,7 +28,12 @@ SYSTEM_PROMPT = (
     "capitalisation: quotes are matched against the screenplay, and one that is not word for "
     "word in the text is discarded. Quote dialogue without the speaker's name above it and "
     "without its parenthetical: only the words spoken. Never join a scene heading, a second "
-    "paragraph or another speech onto a quote."
+    "paragraph or another speech onto a quote. "
+    "If a character is an animal, give in species the word the screenplay uses for what it is, "
+    "copied from one of its quotes; otherwise species is null. Whenever the screenplay gives a "
+    "character or a prop a name of its own besides the one you list it under -- a nickname, or "
+    "a name someone gives a pet, a toy or a vehicle, even if only in dialogue -- put that name "
+    "in the entity's other_names, copied exactly; otherwise leave other_names empty."
 )
 
 

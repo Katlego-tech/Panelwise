@@ -18,7 +18,7 @@ from app.grounding import (
     normalize_for_grounding,
 )
 from app.script import Screenplay, Span, parse_text
-from tests.script.conftest import two_page_text
+from tests.script.conftest import ACTION, CUE, DIALOGUE, Row, heading, layout, two_page_text
 
 
 @pytest.fixture
@@ -304,3 +304,164 @@ def test_nothing_proposed_scores_one_not_zero(screenplay: Screenplay) -> None:
     _, report = ground([], screenplay)
     assert report.faithfulness == 1.0
     assert report.entities_proposed == 0
+
+
+# --- T051: animals and other names (grounding.md §3) ------------------------------------------
+
+
+@pytest.fixture
+def office() -> Screenplay:
+    rows: list[Row] = [
+        heading("1", "INT. LOST PROPERTY OFFICE - NIGHT"),
+        None,
+        (ACTION, "A ginger cat, MARMALADE, sleeps on a pile of scarves. A man naps."),
+        None,
+        (ACTION, "AMAHLE holds a toy giraffe."),
+        None,
+        (CUE, "AMAHLE"),
+        (DIALOGUE, "A toy one. His name is Gerald. Look at the cat."),
+        None,
+        (ACTION, "Amahle dances with Gerald. Marmalade watches. Kazi waves."),
+        None,
+        (CUE, "SIPHOKAZI"),
+        (DIALOGUE, "Mr. Nobody took it."),
+    ]
+    return parse_text(layout(rows))
+
+
+def full(
+    kind: str, name: str, quotes: list[str], species: str | None, other: list[str]
+) -> ProposedEntity:
+    return ProposedEntity.model_validate(
+        {"kind": kind, "name": name, "quotes": quotes, "species": species, "other_names": other}
+    )
+
+
+def test_the_schema_requires_species_and_other_names_for_strict_mode() -> None:
+    schema = ProposedEntity.model_json_schema()
+    assert set(schema["required"]) == {"name", "kind", "quotes", "species", "other_names"}
+
+
+def test_a_species_in_the_entitys_own_located_quote_is_kept(office: Screenplay) -> None:
+    entities, _ = ground(
+        [full("character", "MARMALADE", ["A ginger cat, MARMALADE, sleeps"], "cat", [])], office
+    )
+    assert by_name(entities, EntityKind.CHARACTER)["MARMALADE"].species == "cat"
+
+
+@pytest.mark.parametrize(
+    ("quotes", "species"),
+    [
+        (["A ginger cat, MARMALADE, sleeps"], "dog"),  # not in its quote
+        (["Marmalade watches."], "cat"),  # "cat" is in the script, but not in this quote
+        (["A ginger cat, MARMALADE, sleeps", "an invented quote"], "giraffe"),
+        (["Look at the cat."], "cat"),  # in a located quote, but a speech: not a description
+        (
+            ["A ginger cat, MARMALADE, sleeps on a pile of scarves. A man naps."],
+            "man",
+        ),  # a person word
+        (["AMAHLE holds a toy giraffe."], "Amahle"),  # a different character's name token
+        (["A ginger cat, MARMALADE, sleeps"], "a very old ginger cat"),  # over 3 words
+        (["A ginger cat, MARMALADE, sleeps"], "..."),  # no letter
+    ],
+)
+def test_an_ungrounded_species_is_not_kept(
+    office: Screenplay, quotes: list[str], species: str
+) -> None:
+    entities, _ = ground([full("character", "MARMALADE", quotes, species, [])], office)
+    assert by_name(entities, EntityKind.CHARACTER)["MARMALADE"].species is None
+
+
+def test_a_leading_article_is_stripped_from_a_species(office: Screenplay) -> None:
+    entities, _ = ground(
+        [full("character", "MARMALADE", ["A ginger cat, MARMALADE, sleeps"], "a ginger cat", [])],
+        office,
+    )
+    assert by_name(entities, EntityKind.CHARACTER)["MARMALADE"].species == "ginger cat"
+
+
+def test_a_species_is_whole_words_only(office: Screenplay) -> None:
+    # "ca" is inside "cat" but is not a word of the quote.
+    entities, _ = ground(
+        [full("character", "MARMALADE", ["A ginger cat, MARMALADE, sleeps"], "ca", [])], office
+    )
+    assert by_name(entities, EntityKind.CHARACTER)["MARMALADE"].species is None
+
+
+def test_a_prop_never_has_a_species(office: Screenplay) -> None:
+    entities, _ = ground([full("prop", "scarves", ["a pile of scarves"], "scarves", [])], office)
+    assert by_name(entities, EntityKind.PROP)["scarves"].species is None
+
+
+def test_the_first_grounded_species_wins_across_chunks(office: Screenplay) -> None:
+    quote = ["A ginger cat, MARMALADE, sleeps"]
+    entities, _ = ground(
+        [
+            full("character", "MARMALADE", ["Marmalade watches."], None, []),
+            full("character", "MARMALADE", quote, "dog", []),
+            full("character", "MARMALADE", quote, "ginger cat", []),
+            full("character", "MARMALADE", quote, "cat", []),
+        ],
+        office,
+    )
+    assert by_name(entities, EntityKind.CHARACTER)["MARMALADE"].species == "ginger cat"
+
+
+def test_other_names_the_script_mentions_are_kept_and_merged(office: Screenplay) -> None:
+    entities, _ = ground(
+        [
+            full("prop", "GIRAFFE", ["holds a toy giraffe"], None, ["Gerald"]),
+            full("prop", "GIRAFFE", ["holds a toy giraffe"], None, ["Gerald", "Geraldine"]),
+            full("character", "SIPHOKAZI", ["Mr. Nobody took it."], None, ["Kazi"]),
+        ],
+        office,
+    )
+    assert by_name(entities, EntityKind.PROP)["GIRAFFE"].other_names == ("Gerald",)
+    siphokazi = by_name(entities, EntityKind.CHARACTER)["SIPHOKAZI"]
+    assert siphokazi.other_names == ("Kazi",)
+
+
+@pytest.mark.parametrize(
+    "other",
+    [
+        "Geraldine",  # not in the script
+        "Gera",  # not a whole word
+        "GIRAFFE",  # the name itself
+        "Mr.",  # only a stop word: no name token
+        "",
+    ],
+)
+def test_an_other_name_that_fails_is_not_kept(office: Screenplay, other: str) -> None:
+    entities, _ = ground([full("prop", "GIRAFFE", ["holds a toy giraffe"], None, [other])], office)
+    assert by_name(entities, EntityKind.PROP)["GIRAFFE"].other_names == ()
+
+
+def test_cue_backfills_and_locations_have_neither(office: Screenplay) -> None:
+    entities, _ = ground([], office)
+    assert entities
+    assert all(e.species is None and e.other_names == () for e in entities)
+
+
+def test_species_and_other_names_leave_faithfulness_and_recall_alone(office: Screenplay) -> None:
+    quote = ["A ginger cat, MARMALADE, sleeps"]
+    _, plain = ground([full("character", "MARMALADE", quote, None, [])], office)
+    _, rich = ground([full("character", "MARMALADE", quote, "dog", ["Nobody"])], office)
+    assert plain == rich
+
+
+def test_a_speaking_animal_keeps_its_own_name_as_its_species() -> None:
+    # Cued CAT: CAT is its own name token, not a different character's (grounding.md §3).
+    screenplay = parse_text(
+        layout(
+            [
+                heading("1", "INT. KITCHEN - DAY"),
+                None,
+                (ACTION, "A grey CAT yawns."),
+                None,
+                (CUE, "CAT"),
+                (DIALOGUE, "Feed me."),
+            ]
+        )
+    )
+    entities, _ = ground([full("character", "CAT", ["A grey CAT yawns."], "cat", [])], screenplay)
+    assert by_name(entities, EntityKind.CHARACTER)["CAT"].species == "cat"
