@@ -18,4 +18,5 @@ assistant can read and write them.
 | `comic` | [comic.md](comic.md) | agreed | class (book, pages, panels, bubbles, captions), weights, tiers, lettering budget, frames rendered at panel size, bubble placement, withheld card, contracts, reader JSON |
 | `storyboard` | [storyboard.md](storyboard.md) | draft | class (styles, prompt parts, renderer, storyboard, pages), plan → render → audit → Storage → PDF sequence, grounded prompt rules and invariant, public/private style validation, render key and cache, contracts, JSON |
 | `infra` | [deploy.md](deploy.md) | agreed | where each piece runs, env contract, browser → web → API flow, Job state, decisions |
+| `eval+submission` | [eval.md](eval.md) | proposed | run/summary/report classes, sample × runs sequence, in-code grounding re-check, table recomputed by the gate, T049's report shape |
 | `web` | [web.md](web.md) | proposed | visual reference (web/*.png + mockups, tokens), lined-script storyboard, Project + Job stage, upload → job flow, API §6 types, component tree, copy |

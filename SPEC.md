@@ -99,7 +99,7 @@ evidence in [RUBRIC.md](RUBRIC.md)):
 |---|---|
 | Technological Implementation | Nebius Token Factory and Nemotron used effectively: extraction, shot planning and the audit judge on Nemotron; rendering on a Nebius AI Cloud GPU |
 | Design | a complete product experience, not a proof of concept: US1–US4 in the web app, both PDFs, the audit log |
-| Potential Impact | evidence it works for the persona, on public-domain or self-written scripts: faithfulness, recall and frame-audit accuracy numbers (T032) |
+| Potential Impact | evidence it works for the persona, on public-domain or self-written scripts: faithfulness, recall and frame-audit accuracy numbers (T032, T049) |
 | Quality of the Idea | a non-obvious use of Nemotron: grounding enforced in code, Nemotron as the judge of an image-audit loop |
 
 **Honesty rule for every claim a judge reads:** no Nemotron model on Token Factory accepts images
@@ -230,7 +230,7 @@ Scenario: A frame that matches its shot is shown, with its audit
 - [ ] At most 3 renders per frame by default; every attempt, pass or fail, is a row in the audit log.
 - [ ] Every audit decision is Nemotron's or code's; the vision model only describes.
 - [ ] Frame-audit precision and recall are measured on a labelled set with injected extra people and
-  objects, and reported in the README. [verify.md §9; T032]
+  objects, and reported in the README. [verify.md §9; T049]
 
 ### US3 — Lay the script out as comic pages with speech bubbles (P2)
 
@@ -339,7 +339,7 @@ Scenario: A reference portrait keeps a character consistent
   [PLAN.md § Technical Context; SCOPE.md]
 - [ ] **Hosted demo** on Vercel + Railway + Supabase, with a seeded judge account whose project is
   pre-rendered, spend caps and upload limits, up until 15 Dec 2026. [deploy.md; DEMO.md; T030]
-- [ ] **Measured:** faithfulness, recall and frame-audit accuracy numbers in the README. [T032]
+- [ ] **Measured:** faithfulness, recall and frame-audit accuracy numbers in the README. [T032 extraction, T049 audit]
 - [ ] **Submission:** a video of 3 minutes or less, submitted on Devpost by 29 Oct 2026 (deadline
   30 Oct 10:00 PDT). [PLAN.md § Summary; event.toml]
 
@@ -361,7 +361,7 @@ Undecided in PLAN.md and the design docs; listed here so no implementer decides 
 4. **Spend cap and upload limit values** for the hosted demo: PLAN.md sets the goal (about $0.10 a
    script) but not the caps, nor how many extra attempts a user may ask for on a withheld frame or
    portrait. Decide in T030.
-5. **Frame-audit accuracy bar.** T032 measures precision and recall, but no target is agreed. (If
+5. **Frame-audit accuracy bar.** T049 measures precision and recall, but no target is agreed. (If
    recall is poor, the remedy is decided: a new describer prompt or model, or option B; verify.md §8.)
 6. **Who can see a project.** Row-level security for projects, Storage and the `Job` table is
    undecided (deploy.md §10): decide with Auth in T009.

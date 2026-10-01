@@ -160,7 +160,7 @@ sequenceDiagram
 
 - **Seeds** are deterministic: `seed(shot, attempt)`, so an attempt can be reproduced.
 - **`max_renders` = 3** (the first render plus two re-renders, `k = 2`). With a pass rate `p = 0.6`
-  that's `E[N] ≈ 1.56` renders per frame; the real `p` comes from T032's measurement.
+  that's `E[N] ≈ 1.56` renders per frame; the real `p` comes from T049's measurement.
 - **A withheld frame is never shown.** The storyboard shows its shot as a text card:
   the verbatim `source`, the span, and "Frame withheld: failed audit (unscripted person)". The user
   can ask for more attempts later; each is audited the same way. The comic has its own withheld
@@ -276,7 +276,7 @@ async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot
 | Hard vs soft | hard = would show something unscripted; soft = quality | failing on every soft miss: burns renders on lighting a storyboard can live with |
 
 **Accepted residual risk:** the audit can only judge what the describer reports. A person or object
-the describer misses passes unseen. T032 measures exactly this (recall on frames with a deliberately
+the describer misses passes unseen. T049 measures exactly this (recall on frames with a deliberately
 injected extra person or object); if it's poor, the describer prompt or model changes, or option B.
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none. Wording for the
@@ -295,7 +295,7 @@ it against the script."*
   details; the judge call carries the spec and the description; `VISION` then `REASONING` tiers.
 - `render_until_accepted` with a fake renderer: pass first time; fail then pass; three fails →
   `WITHHELD`; an audit error → `WITHHELD`; every attempt logged; deterministic seeds.
-- **Accuracy (T032):** a labelled set of frames, including ones rendered with a deliberately
+- **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 
 ## 10. Open questions
@@ -305,7 +305,7 @@ it against the script."*
   which returned schema-valid descriptions on every live call, no repair needed.
 - [ ] How reliable is the describer's `shot_size`? If noisy, `FRAMING` stays soft (it is) or is
   dropped. In T020's three live runs it matched what the frames show.
-- [ ] **Precision on correct frames (for T032).** Live, the describer filed plates and bowls under
+- [ ] **Precision on correct frames (for T049).** Live, the describer filed plates and bowls under
   `food`, which can never be set dressing, and set `has_text` on two of three frames whose only candidates are papers and plans on a table. Both
   push a frame toward FAIL, the safe side, but a good frame could burn its renders. T032 measures the
   false-FAIL rate; if it's high, the category list or the describer prompt changes, not the rule.

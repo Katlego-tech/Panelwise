@@ -43,7 +43,7 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · T021 waits on T009, T045, T047 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
-| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035 | Katlego | Claude | ✅ T031 done (PR #21) · T032 next |
+| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · 🟡 T032 extraction numbers (design PR) · 🔴 T049 audit accuracy blocked on T026 |
 
 ## ⏭️ Next action
 
