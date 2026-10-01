@@ -101,8 +101,9 @@ classDiagram
     ("A ginger cat, MARMALADE, sleeps…" → `cat`). A leading `a` / `an` / `the` is stripped first.
     It is kept only when the rest is 1–3 words with a letter; none of its words is in
     `PERSON_WORDS` (`NAME_STOP_WORDS` plus `PERSON`, `PEOPLE`, `MEN`, `WOMEN`, `CHILD`,
-    `CHILDREN`, `KID`, `KIDS`, `BABY`, `TEENAGER`, `FIGURE`, `CROWD`) or is a name token of any
-    character; and it appears as whole words (`normalize_for_grounding`) inside one of that
+    `CHILDREN`, `KID`, `KIDS`, `BABY`, `TEENAGER`, `FIGURE`, `CROWD`) or is a name token of a
+    *different* character (a speaking animal cued `CAT` keeps `cat`; NANDI can't be `species:
+    "thabo"`); and it appears as whole words (`normalize_for_grounding`) inside one of that
     entity's located quotes **whose span is an `Action` element** (a description, not someone's
     speech). Otherwise `None`, and the character is treated as a person. Always `None` for props,
     locations and `Source.CUE` backfills. Across chunks, the first species that passes, in
@@ -117,6 +118,9 @@ classDiagram
     stop words alone, like "Mr.", are not a name). A kept other name is always redacted; whether
     it gets its entity's label is decided by storyboard.md §3.1 (*paired*). Union across chunks,
     first appearance first. `()` for locations and `CUE` backfills.
+  - The filter now imports `name_tokens` / `NAME_STOP_WORDS` from `app/characters/redact.py`
+    (a pure module that imports only `app.script`); `app/characters/__init__.py` must never import
+    `labels.py`, which imports `app.grounding` (storyboard.md §6).
   - Neither affects faithfulness or recall (they are about the entity, not whether it exists), and
     a species or other name that fails its test is simply not kept.
 - **`Entity.scenes`**: 0-based scene indexes, derived from where its quotes and (for characters)

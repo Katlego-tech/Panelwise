@@ -242,11 +242,13 @@ none of which names a person, prop or event.
     - **Fallback `it`.** A label whose words include any name token of any character or other name
       ("NANDI'S UMBRELLA" → would be "the nandi's umbrella") is `it` instead, so a lower-cased
       label can never carry a name past `names_in`.
-    - **Pairing.** An other name gets its entity's label only when it appears in an element (or
-      heading) that also holds one of that entity's located quotes ("A toy one. His name is
-      Gerald." holds GIRAFFE's quote, so Gerald → `the giraffe`). An unpaired other name is still
-      redacted, to `it`: the model's pairing is unverified (grounding.md §8), and `it` adds no
-      person and no thing.
+    - **Pairing.** An other name gets its entity's label only when it shares a **scene** with
+      that entity: some scene whose heading or elements mention the other name as a whole word
+      also mentions the entity's name, its species, or holds one of its located quotes. On
+      `lost-property`, "Gerald" and "giraffe" share scenes 6 and 11, so Gerald → `the giraffe`.
+      An unpaired other name is still redacted, to `it`: the model's pairing is otherwise
+      unverified (grounding.md §8), and `it` adds no person and no thing. An other name claimed by
+      two paired entities follows **Conflicts** below.
     - **Conflicts.** A token claimed by several entities takes, in this order, a person's label, then
       an animal's, then a prop's, then `it`; between two of the same kind, the earlier entity in
       `extraction.entities`. A run's label is the highest-ranked of its tokens' labels by the same
@@ -520,7 +522,8 @@ NAME_STOP_WORDS: frozenset[str]                                # §3.1's list
 def name_tokens(names: Sequence[str]) -> frozenset[str]: ...   # words of normalise(name), for each name, minus NAME_STOP_WORDS
 def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...   # characters.md rule 2: this character → "a person", others → "another person"
 def redact_all(text: str, characters: Sequence[str]) -> str: ...                 # every character's name tokens → "a person"
-# app/characters/labels.py (T052; its own module because it imports app.grounding, which imports redact.py: no cycle)
+# app/characters/labels.py (T052; its own module because it imports app.grounding, whose filter imports redact.py.
+# app/characters/__init__.py must never import labels, or app.grounding -> filter -> app.characters -> labels -> app.grounding cycles)
 def animals(extraction: Extraction) -> dict[str, str]: ...                      # character name → species, for every animal (§3.1 Labels: own species, or bound to one by match_speaker)
 def redaction_labels(extraction: Extraction, only: str | None = None) -> dict[str, str]: ...  # name token → label (§3.1 Labels); `only` limits it to one character's name and paired other names
 # app/characters/redact.py
@@ -728,7 +731,8 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   species `cat`, a CUE-style second entry `MARMALADE` with none, GIRAFFE with other name `Gerald`):
   "Even Marmalade comes back" → "Even the cat comes back"; "Amahle dances with Gerald" → "a person
   dances with the giraffe"; "Marmalade's tail" → "the cat's tail"; "VIOLIN" untouched; an
-  unpaired other name → `it`; a prop named "NANDI'S UMBRELLA" labelled `it`; a token shared by a
+  unpaired other name (no shared scene) → `it`, and "Gerald" paired through scene 11 on the real
+  sample's lines; a prop named "NANDI'S UMBRELLA" labelled `it`; a token shared by a
   person and an animal → `a person`; two animals sharing a token → the earlier entity's label;
   `COUNT` ignores the cat and `PLACEMENT` needs two *people*; the §9 invariant and `names_in` hold
   with labels and other names (no prompt contains "Gerald" or "Marmalade").
