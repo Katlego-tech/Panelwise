@@ -7,7 +7,8 @@ traces back to a verbatim span of the script. NVIDIA Nemotron on Nebius Token Fa
 characters, props and locations and plans the shots. Code then checks every quote the model gives
 against the script, and anything it can't find is dropped. Each frame is rendered, a vision model
 describes it, and Nemotron audits that description against the shot. A frame that shows something
-the script doesn't is re-rendered, and after the last try it is withheld, never shown.
+the script doesn't is re-rendered, and after the last try it is withheld, never shown. (The audit
+and the withheld card are built and tested; rendering and the re-render loop land with GPU access.)
 
 Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/)
 (Best Apps and Agents track). Panelwise builds on FrameFlow, an earlier private project by the same
@@ -37,7 +38,7 @@ flowchart LR
   G --> F{Every quote<br/>found in the script?}
   F -- no --> X[Dropped, reported]
   F -- yes --> S[Shot planning<br/>Nemotron 3.5 Lightning]
-  S --> R[Render frame<br/>ComfyUI on a Nebius GPU]
+  S --> R[Render frame<br/>ComfyUI on a Nebius GPU<br/><i>waiting on GPU access</i>]
   R --> D[Describe frame<br/>vision model]
   D --> V{Audit<br/>Nemotron 3 Super judges}
   V -- mismatch --> R
@@ -69,7 +70,7 @@ prompt:
 
 <p align="center">
   <img src="docs/design/comic/the-red-kite-page-1.png" width="420"
-       alt="Comic page 1 of the sample the-red-kite: panels laid out by shot, with the dialogue lettered verbatim in bubbles. The frames are grey test-fixture figures, not renders.">
+       alt="Comic page 1 of the sample the-red-kite: panels laid out by shot, with the dialogue lettered verbatim in bubbles. The frames are hatched test-fixture figures, not renders.">
   <br><sub>A comic page from the sample <code>the-red-kite</code>. The layout, captions and bubbles are produced by the real code; the
   frames are test fixtures, labelled as such, until rendering lands.</sub>
 </p>
@@ -85,7 +86,7 @@ the catalog, and the design follows the answers.
 | --- | --- | --- | --- |
 | fast | `nvidia/Nemotron-3_5-Lightning` | extraction, shot planning | Token Factory **enforces** a strict `json_schema` on it (U1), which schema-bound extraction needs. It allows 600 requests and 400K tokens a minute (U4) at $0.06 / $0.24 per million tokens. Thinking is switched off: that took a one-number answer from 271 output tokens to 4 (U2) |
 | reasoning | `nvidia/nemotron-3-super-120b-a12b` | the frame-audit verdict | A judgement call over the shot's grounded spec and the frame's description, with thinking on |
-| vision | `deepseek-ai/DeepSeek-V4.1-Flash` | describing a rendered frame, blind to the shot | **No Nemotron model on Token Factory accepts images** (U7), so this non-NVIDIA model only describes. Nemotron makes the call |
+| vision | `deepseek-ai/DeepSeek-V4.1-Flash` | describing a rendered frame, blind to the shot | **No Nemotron model on Token Factory accepts images** (U7), so this non-NVIDIA model only describes. Nemotron judges; code applies the checks |
 
 Images render on ComfyUI on a **Nebius AI Cloud** GPU, because Token Factory serves no
 image-generation model (U5).
@@ -111,7 +112,7 @@ Nemotron 3.5 Lightning (2026-10-01):
 | --- | --- |
 | Ungrounded quotes or shot citations kept, re-checked in code | **0** in all 15 runs |
 | Every action paragraph and speech in exactly one shot | all 15 runs |
-| Faithfulness: the model's proposals fully found in the script (the rest is dropped) | 0.898 (246 of 274 entities) |
+| Faithfulness: the model's proposals fully found in the script (the rest loses its unfound quotes, or is dropped whole if its name or every quote is missing) | 0.898 (246 of 274 entities) |
 | Recall: speaking characters the model found itself (cues supply the rest) | 0.944 (85 of 90) |
 | Tokens per run | about 9,700 in and 3,800 out (≈ $0.0015 at catalog prices) |
 
@@ -140,7 +141,7 @@ uv run python -m app.grounding.run ../../samples/the-red-kite.pdf   # entities w
 uv run python -m app.shots.run ../../samples/the-red-kite.pdf       # shots with the verbatim text each one cites
 uv run python -m app.projects.run ../../samples/the-red-kite.pdf    # the pipeline core, stage by stage
 uv run python -m app.storyboard.prompts ../../samples/the-red-kite.pdf --style ink   # frame prompts, each part citing its line
-uv run python -m app.verify.run ../../samples/the-red-kite.pdf 1.2 path/to/frame.png # audit one frame against shot 2 of scene 1
+uv run python -m app.verify.run ../../samples/the-red-kite.pdf 1.2 frame.png  # audit a PNG against shot 2 of scene 1 (any PNG works as a smoke test; real frames come with rendering)
 uv run python -m tools.evaluate --runs 5                            # the measured results above
 ```
 
