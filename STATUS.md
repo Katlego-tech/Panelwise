@@ -43,7 +43,7 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · T021 waits on T009, T045, T047 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
-| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · 🔵 T032 extraction numbers (design PR #33 merged; code in review) · 🔴 T049 audit accuracy blocked on T026 |
+| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔴 T049 audit accuracy blocked on T026 |
 
 ## ⏭️ Next action
 
@@ -53,7 +53,7 @@ Apart from the three items under "Buildable now" below, the remaining work waits
 2. **GPU access for T003 (Katlego).** Needed by T026 (ComfyUI renderer, Storage, the RENDERING stage), which also needs item 1's chain (T046, T021); then T027 (storyboard PDF), the comic on real renders, and T025 (portraits).
 3. **Vercel + Railway accounts (Katlego)** for T037's deploy check, then T030 (hosted demo).
 
-Buildable now, no external dependency: the two wording calls in ⚠️ below (a decision, not code), and filling the faithfulness/recall ⟨TBD⟩ in `docs/submission/about.md` from `eval/README.md` (T033). T049 (audit accuracy) waits on T026.
+Buildable now, no external dependency: the two wording calls in ⚠️ below (a decision, not code), and T033 (README) — it can already cite `eval/README.md`. T049 (audit accuracy) waits on T026.
 
 ## 🗓️ Timeline to 2026-10-30 10:00 PDT (19:00 SAST)
 
@@ -161,3 +161,4 @@ Buildable now, no external dependency: the two wording calls in ⚠️ below (a 
 - 2026-10-01 — Katlego (via Claude) — Session close (28 Sep – 1 Oct). Merged this session: SPEC (#19), T022 (#20), T031 (#21), T020 + vision-model switch (#22), storyboard design (#23), web design (#24), T039 (#25), T043 (#26), T008 (#27), T044 (#28), T023 (#29). Next: the three external unblocks in ⏭️ (Supabase project + DB-test decision, GPU, Vercel/Railway). Blocked on: those.
 - 2026-10-01 — Katlego (via Claude) — T048 line-break hyphen: design PR #31 (reviewed clean twice, merged); parser joins a dash run touching a word (`sea-green`, `south-westerly`), a spaced dash keeps its space, grounding's rule matches (a spaced `--` no longer joins); invariant: every sample element normalises to its span lines; exactly 4 sample elements change. 551 API tests. Live on sipho-and-siphokazi: 0.846 / 0.944 faithfulness, 4/4 recall, `sea-green` located. Next: T032. Blocked on: nothing.
 - 2026-10-01 — Katlego (via Claude) — T032 (design PR #33, reviewed clean twice, merged; code PR open): `tools.evaluate` over 3 samples × 5 runs on Lightning: faithfulness lost-property 0.877 (0.808–0.962), sipho 0.939, red-kite 0.918 (0.714–1.000); recall 0.909 / 1.0 / 1.0; every element once in all runs; 0 ungrounded kept; 146k in / 57k out tokens. Frame-audit accuracy split to T049 (blocked on T026). Next: review + merge. Blocked on: nothing.
+- 2026-10-01 — Katlego (via Claude) — T032 merged (PR #34; review found arg-parsing that could lose a paid run — fixed, results now saved after every run). Devpost draft's faithfulness/recall ⟨TBD⟩ filled from eval/. Note: PR #31 was merged before its CI finished (a watch command failed silently); CI then passed on it. Next: T033 or the ⚠️ decisions. Blocked on: Supabase, GPU, hosting accounts for the rest.
