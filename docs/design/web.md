@@ -624,7 +624,8 @@ restyled).
 - [ ] How many extra attempts "Try another render" may start per frame (SPEC open question 4).
 - [ ] Who can see a project beyond its owner (SPEC open question 6); this doc assumes owner only.
 - [x] Sign-up: **decided 2026-10-02 by Katlego: off.** Supabase's "Allow new users to sign up" is
-  disabled, so the sign-up endpoint refuses everyone, publishable key or not; only the secret key
+  switched off in the dashboard (Katlego; required before the demo URL is public), so the sign-up
+  endpoint refuses everyone, publishable key or not; only the secret key
   creates users. Accounts: the contributors' (dashboard), the dev-check user, and the judge
   account(s), seeded by T030's script and given to judges in Devpost's testing instructions, never
   in the repo. The app is unchanged: it has a sign-in page only (§4). Judges sharing one account see
