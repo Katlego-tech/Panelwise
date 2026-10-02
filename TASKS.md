@@ -301,7 +301,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 
 ## Phase 5 — Hardening and submission
 
-- [ ] T030 [POL] Hosted demo on Vercel + Railway + Supabase (docs/design/deploy.md), seeded judge account (Supabase Auth), LLM + image spend caps, upload limits. Stays up to 15 Dec. Lane `infra`.
+- [ ] T030 [POL] Hosted demo on Vercel + Railway + Supabase (docs/design/deploy.md), seeded judge account (Supabase Auth), LLM + image spend caps, upload limits. Stays up to 15 Dec. Lane `infra`. Sign-up is **off** (Katlego, 2026-10-02; web.md §10): the judge account(s) come from an idempotent seed script using the secret key, with a pre-rendered sample project, and the credentials go only in Devpost's testing instructions. Whoever claims T030 expands it to the full Design/Files/Contract/Verify/Done form first, saying where usage is counted and what happens at a cap (`.env.example`'s two monthly caps are read by no code yet). Check the Devpost rules accept a login for the demo before relying on it.
 - [x] T031 [P] [POL] Public-domain / self-written sample screenplays in `samples/`. Lane `eval+submission`.
       Design:  none (no new entities). Layout follows docs/design/script.md §2–§4 (action at the margin, dialogue ~2.5", parenthetical ~3.1", cue ~3.7", transitions right; page furniture the parser drops). No copyrighted script: every sample is self-written for this repo (Apache-2.0)
       Files:   samples/{the-red-kite,lost-property,sipho-and-siphokazi}.fountain + .pdf; samples/README.md; services/api/tools/{__init__,build_samples}.py; services/api/tests/samples/*; services/api/pyproject.toml (pyright includes tools)

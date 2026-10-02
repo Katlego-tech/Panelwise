@@ -623,5 +623,10 @@ restyled).
 - [ ] Upload limits (bytes, pages) and the extraction budget message's page figure: T030 sets them.
 - [ ] How many extra attempts "Try another render" may start per frame (SPEC open question 4).
 - [ ] Who can see a project beyond its owner (SPEC open question 6); this doc assumes owner only.
-- [ ] Sign-up: the demo uses the seeded judge account (T030); whether anyone else may sign up is a
-  deploy decision.
+- [x] Sign-up: **decided 2026-10-02 by Katlego: off.** Supabase's "Allow new users to sign up" is
+  disabled, so the sign-up endpoint refuses everyone, publishable key or not; only the secret key
+  creates users. Accounts: the contributors' (dashboard), the dev-check user, and the judge
+  account(s), seeded by T030's script and given to judges in Devpost's testing instructions, never
+  in the repo. The app is unchanged: it has a sign-in page only (§4). Judges sharing one account see
+  each other's uploads; T030 may seed several (`judge1`…) instead. Privacy rests on the API's owner
+  check (§6); the row-level-security design is T009's (deploy.md §10, still open).
