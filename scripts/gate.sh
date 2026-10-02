@@ -671,8 +671,72 @@ install_deps() {
   fi
 }
 
+# ------------------------------------------------------------ test Postgres --
+# docs/design/deploy.md §6 (T009; option A, Postgres 17.11): the database tests need a real
+# Postgres, and the gate provides it, so the hook and CI run the same thing (CI's runner has
+# Docker). TEST_DATABASE_URL wins if set; else a throwaway container; else the gate FAILS -- a
+# database test is never silently skipped here (PANELWISE_REQUIRE_DB=1 makes pytest fail, not skip).
+TEST_PG_IMAGE="postgres:17.11-trixie"
+test_pg_container=""
+
+stop_test_postgres() {
+  if [ -n "$test_pg_container" ]; then
+    docker rm -f "$test_pg_container" >/dev/null 2>&1 || true
+    test_pg_container=""
+  fi
+}
+
+start_test_postgres() {
+  export PANELWISE_REQUIRE_DB=1
+  if [ -n "${TEST_DATABASE_URL:-}" ]; then
+    say "   test Postgres: TEST_DATABASE_URL (set by the caller)"
+    return 0
+  fi
+  if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+    bad "No Postgres for the database tests: start Docker, or set TEST_DATABASE_URL"
+    bad "   (a database whose name ends in _test; docs/design/deploy.md §6)."
+    fail=1
+    return 0
+  fi
+  local password port i
+  password="gate-$RANDOM$RANDOM"
+  test_pg_container="$(docker run -d --rm -e POSTGRES_PASSWORD="$password" \
+      -e POSTGRES_DB=panelwise_test -p 127.0.0.1::5432 "$TEST_PG_IMAGE" 2>/dev/null)" || {
+    bad "Could not start $TEST_PG_IMAGE for the database tests."
+    fail=1
+    test_pg_container=""
+    return 0
+  }
+  trap stop_test_postgres EXIT
+  for i in $(seq 1 60); do
+    # pg_isready over TCP: the image's first, socket-only start is not the real server.
+    if docker exec "$test_pg_container" pg_isready -h 127.0.0.1 -U postgres -d panelwise_test \
+        >/dev/null 2>&1; then
+      port="$(docker port "$test_pg_container" 5432/tcp | head -n1 | sed 's/.*://')"
+      export TEST_DATABASE_URL="postgresql://postgres:$password@127.0.0.1:$port/panelwise_test"
+      say "   test Postgres: $TEST_PG_IMAGE on 127.0.0.1:$port (removed on exit)"
+      return 0
+    fi
+    sleep 1
+  done
+  bad "$TEST_PG_IMAGE did not become ready within 60 s."
+  fail=1
+}
+
 # ------------------------------------------------------------------ run -----
 say "== gate: $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD) =="
+
+# Once, before the per-project checks, so every pyrun subshell inherits TEST_DATABASE_URL; never
+# for --list or --install-deps.
+if [ "$install_only" -eq 0 ] && [ "$list_only" -eq 0 ]; then
+  while IFS= read -r dir; do
+    if is_python_project "$dir"; then
+      step "test Postgres"
+      start_test_postgres
+      break
+    fi
+  done < <(project_dirs)
+fi
 
 while IFS= read -r dir; do
   rel="${dir#"$root"/}"
