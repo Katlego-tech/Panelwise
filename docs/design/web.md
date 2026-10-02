@@ -333,7 +333,7 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 
 | Method, path | Body | Response | Task |
 |---|---|---|---|
-| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 400 `{error: "no_file"}` · 411 `{error: "length_required"}` · 413 `{error: "too_large"}` · 401 `{error: "unauthorized"}` · 503 `{error: "auth_unavailable" \| "storage_unavailable"}` (§6 *API internals*) | T053 |
+| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 400 `{error: "no_file" \| "bad_form"}` · 411 `{error: "length_required"}` · 413 `{error: "too_large"}` · 401 `{error: "unauthorized"}` · 503 `{error: "auth_unavailable" \| "storage_unavailable"}` (§6 *API internals*) | T053 |
 | `GET /projects` | — | 200 `ProjectSummary[]`, newest first · 401 · 503 `auth_unavailable` | T053 |
 | `GET /projects/{id}` | — | 200 `Project` | T047 |
 | `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T047 |
@@ -458,8 +458,9 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
   (2) `Content-Length` missing → 411 `{"error": "length_required"}`; above `upload_max_bytes` plus
   64 KiB of multipart framing → 413 `{"error": "too_large"}`, nothing read; (3)
   `await request.form(max_files=1, max_fields=1)`, with Starlette's form-limit `HTTPException`
-  (raised as 400) mapped to the contracted codes: too many files or fields → 400 `no_file`; no
-  `file` part → 400 `{"error": "no_file"}`; then the file's own size (`UploadFile.size`; Starlette's
+  (raised as 400) mapped: too many files or fields → 400 `{"error": "bad_form"}`; no `file` part,
+  or a `file` part that isn't a file (sent without a filename, Starlette parses it as text: check
+  `isinstance(form.get("file"), UploadFile)`) → 400 `{"error": "no_file"}`; then the file's own size (`UploadFile.size`; Starlette's
   `max_part_size` bounds text fields only, never a file) above `upload_max_bytes` → 413 `too_large`,
   and a `title` field over 1 KiB → 413 `too_large`; (4) bytes not starting `%PDF-` → 400
   `{"error": "not_a_pdf"}`; `title` = the form field, else the file name without `.pdf`, trimmed,
