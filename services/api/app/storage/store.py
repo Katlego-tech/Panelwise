@@ -40,7 +40,9 @@ def _inner_status(response: httpx2.Response) -> str | None:
 
 
 class SupabaseStore:
-    def __init__(self, *, url: str, secret_key: str, bucket: str, client: httpx2.AsyncClient) -> None:
+    def __init__(
+        self, *, url: str, secret_key: str, bucket: str, client: httpx2.AsyncClient
+    ) -> None:
         self._base = f"{url.rstrip('/')}/storage/v1"
         self._bucket = bucket
         self._client = client
@@ -81,7 +83,9 @@ class SupabaseStore:
 
     async def signed_url(self, path: str, expires_in_s: int) -> str:
         response = await self._client.post(
-            self._object(path, "object/sign"), json={"expiresIn": expires_in_s}, headers=self._headers
+            self._object(path, "object/sign"),
+            json={"expiresIn": expires_in_s},
+            headers=self._headers,
         )
         if response.status_code != 200:
             raise StorageError(f"signed_url: storage answered {response.status_code}")
