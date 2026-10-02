@@ -179,7 +179,7 @@ has Docker; `ci.yml` needs no service of its own):
   TEST_DATABASE_URL"). Never a silent skip.
 - The gate exports `PANELWISE_REQUIRE_DB=1`. Tests marked `db` use `TEST_DATABASE_URL`; without it
   they **skip** when run by hand and **fail** under the gate. The `db` fixture upgrades a fresh
-  database to `head` once per session and truncates every table before each test.
+  database to `head` once per session and truncates every table except `alembic_version` before each test.
 - **Safety:** the fixture refuses (fails) any `TEST_DATABASE_URL` whose database name doesn't end
   in `_test`, so pointing it at Supabase or the dev database can never wipe it. The gate's container
   creates `panelwise_test`.

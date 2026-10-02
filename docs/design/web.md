@@ -453,16 +453,20 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
   reports it), and the next start sweeps.
 - **`POST /projects`, in order** (T053). The route takes `request: Request` and no `UploadFile`
   or `Form` parameter, because FastAPI reads a body parameter before any dependency runs, which
-  would spool an unlimited upload before the caller is checked: (1) `current_caller` (401/503);
+  would spool an unlimited upload before the caller is checked: (1) `current_caller` (401/503), and
+  no storage configured → 503 `{"error": "storage_unavailable"}`, both before any body is read;
   (2) `Content-Length` missing → 411 `{"error": "length_required"}`; above `upload_max_bytes` plus
   64 KiB of multipart framing → 413 `{"error": "too_large"}`, nothing read; (3)
-  `await request.form(max_files=1, max_fields=2, max_part_size=upload_max_bytes)`; a part over the
-  limit → 413 `too_large`; no `file` part → 400 `{"error": "no_file"}`; (4) bytes not starting
-  `%PDF-` → 400 `{"error": "not_a_pdf"}`; `title` = the form field, else the file name without `.pdf`, trimmed,
+  `await request.form(max_files=1, max_fields=1)`, with Starlette's form-limit `HTTPException`
+  (raised as 400) mapped to the contracted codes: too many files or fields → 400 `no_file`; no
+  `file` part → 400 `{"error": "no_file"}`; then the file's own size (`UploadFile.size`; Starlette's
+  `max_part_size` bounds text fields only, never a file) above `upload_max_bytes` → 413 `too_large`,
+  and a `title` field over 1 KiB → 413 `too_large`; (4) bytes not starting `%PDF-` → 400
+  `{"error": "not_a_pdf"}`; `title` = the form field, else the file name without `.pdf`, trimmed,
   at most 200 characters, else `"Untitled"`; a new `project_id`; `store.put(f"scripts/{owner}/{project_id}.pdf",
   data, "application/pdf")`; then `create_upload` and commit; 202 `{project, job}`. Storage first,
   so a row never points at a missing file; a failed insert leaves an unreferenced file, which is
-  harmless. No storage configured → 503 `{"error": "storage_unavailable"}`.
+  harmless.
 - **Settings** (T009/T053): `supabase_url`, `supabase_secret_key`, `supabase_storage_bucket`
   (default `panelwise`; `panelwise-dev` in a local `.env`), `upload_max_bytes` (default 4,000,000:
   under Vercel's ~4.5 MB function body limit, §4.1; T030 may lower it).
