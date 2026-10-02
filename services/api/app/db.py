@@ -4,6 +4,10 @@ docs/design/deploy.md §6 (T009). Migrations are Alembic's (migrations/); the ap
 tables itself.
 """
 
+from datetime import datetime
+from typing import Any, ClassVar
+
+from sqlalchemy import DateTime, Text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -16,7 +20,12 @@ from app.core.config import Settings
 
 
 class Base(DeclarativeBase):
-    pass
+    # The migrations' types: text, never VARCHAR, and timezone-aware timestamps (deploy.md §6).
+    # tests/db/test_schema.py fails if a model and the migrations ever disagree.
+    type_annotation_map: ClassVar[dict[Any, Any]] = {
+        str: Text(),
+        datetime: DateTime(timezone=True),
+    }
 
 
 def make_engine(settings: Settings) -> AsyncEngine:

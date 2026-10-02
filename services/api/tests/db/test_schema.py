@@ -147,3 +147,29 @@ def test_the_fixture_refuses_a_database_not_named_test(monkeypatch: pytest.Monke
     monkeypatch.setenv("TEST_DATABASE_URL", "postgresql://u:p@db.example.com:5432/postgres")
     with pytest.raises(pytest.fail.Exception, match="_test"):
         database_url()
+
+
+def test_the_models_match_the_migrations(migrated: str) -> None:
+    # Drift guard: autogenerate against the migrated database must find nothing to change.
+    import asyncio
+
+    from alembic.autogenerate import compare_metadata
+    from alembic.migration import MigrationContext
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from app.db import Base
+    from app.jobs.model import JobRow
+    from app.projects.model import ProjectRow
+
+    assert {JobRow.__tablename__, ProjectRow.__tablename__} <= set(Base.metadata.tables)
+
+    async def diff() -> list[object]:
+        engine = create_async_engine(migrated)
+        async with engine.connect() as conn:
+            changes = await conn.run_sync(
+                lambda sync: compare_metadata(MigrationContext.configure(sync), Base.metadata)
+            )
+        await engine.dispose()
+        return list(changes)
+
+    assert asyncio.run(diff()) == []

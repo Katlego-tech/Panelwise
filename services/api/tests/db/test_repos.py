@@ -109,12 +109,17 @@ async def test_the_sweep_fails_queued_and_running_jobs_and_keeps_the_rest(
         s.add_all([running, done, failed])
         await s.commit()
     async with sessions() as s:
+        stamped = await s.get(JobRow, running.id)
+        assert stamped is not None
+        before = stamped.updated_at
+    async with sessions() as s:
         assert await fail_interrupted(s) == 2
         await s.commit()
     async with sessions() as s:
         rows = {j.id: j for j in (await s.execute(select(JobRow))).scalars()}
     assert rows[running.id].state == JobState.FAILED and rows[running.id].error == RESTARTED
     assert rows[running.id].stage == Stage.EXTRACTING  # the stage it stopped in is kept
+    assert rows[running.id].updated_at > before  # the sweep is a change, so it is stamped
     assert rows[done.id].state == JobState.DONE and rows[failed.id].error == "earlier"
     queued = [j for j in rows.values() if j.id not in (running.id, done.id, failed.id)]
     assert [(j.state, j.error) for j in queued] == [(JobState.FAILED, RESTARTED)]

@@ -698,15 +698,19 @@ start_test_postgres() {
     fail=1
     return 0
   fi
-  local password port i
+  local password port i err
   password="gate-$RANDOM$RANDOM"
+  err="$(mktemp)"
   test_pg_container="$(docker run -d --rm -e POSTGRES_PASSWORD="$password" \
-      -e POSTGRES_DB=panelwise_test -p 127.0.0.1::5432 "$TEST_PG_IMAGE" 2>/dev/null)" || {
-    bad "Could not start $TEST_PG_IMAGE for the database tests."
+      -e POSTGRES_DB=panelwise_test -p 127.0.0.1::5432 "$TEST_PG_IMAGE" 2>"$err")" || {
+    bad "Could not start $TEST_PG_IMAGE for the database tests:"
+    sed 's/^/     /' "$err"
+    rm -f "$err"
     fail=1
     test_pg_container=""
     return 0
   }
+  rm -f "$err"
   trap stop_test_postgres EXIT
   for i in $(seq 1 60); do
     # pg_isready over TCP: the image's first, socket-only start is not the real server.
