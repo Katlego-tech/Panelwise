@@ -31,6 +31,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://panelwise:panelwise@postgres:5432/panelwise
     ports: ["${API_HOST_PORT:-8000}:8000"]
+    # Migrations first, as Railway's pre-deploy command does (docs/design/deploy.md §6).
+    command: ["sh", "-c", ".venv/bin/alembic upgrade head && exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     depends_on:
       postgres: { condition: service_healthy }
 
