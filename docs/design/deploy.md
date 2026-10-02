@@ -135,6 +135,46 @@ Railway is configured in its dashboard (root `/services/api`, Dockerfile, health
 **API health** (`GET /api/v1/health`, T002 contract) keeps its shape; its checks become
 `{"postgres": …}` only.
 
+**Schema and migrations (T009).** SQLAlchemy 2 async models; **Alembic** migrations in
+`services/api/migrations/` (`alembic.ini` beside `pyproject.toml`; an async `env.py` that reads
+`Settings().database_url`). Tables live in Supabase's `public` schema. Enumerations are `text` with a
+`CHECK` constraint, not Postgres enums, so a later state (T021's) is one migration that swaps a
+constraint. Migration `0001` creates:
+
+| Table | Columns | Constraints and indexes |
+|---|---|---|
+| `projects` | `id uuid pk`, `owner uuid not null`, `title text not null`, `pdf_path text not null`, `screenplay jsonb`, `extraction jsonb`, `plan jsonb`, `created_at timestamptz not null default now()` | index `(owner, created_at desc)` |
+| `jobs` | `id uuid pk`, `project_id uuid not null references projects(id) on delete cascade`, `kind text not null`, `state text not null`, `stage text`, `progress int not null default 0`, `error text`, `created_at`, `updated_at timestamptz not null default now()` | `kind in ('storyboard','frame_attempt')`; `state in ('queued','running','done','failed')`; `stage in ('parsing','extracting','planning','rendering')` or null; `progress between 0 and 100`; index `(project_id, created_at desc)` |
+
+`owner` is not a foreign key to `auth.users`: that schema exists only on Supabase, and the compose
+Postgres and the test Postgres must run the same migration. **Who runs migrations:** never the app
+at startup (two replicas would race). Railway runs `.venv/bin/alembic upgrade head` as its
+**pre-deploy command** (dashboard, `docs/deploy.md` step 2), so a failed migration stops the
+deploy; compose's `api` runs it before uvicorn; the DB tests run it once per test session, which
+also tests the migration.
+
+**Row-level security (T009; closes §10).** Every table the API creates gets `ENABLE ROW LEVEL
+SECURITY` and **no policies**, and its privileges are revoked from Supabase's `anon` and
+`authenticated` roles when those roles exist (a `DO` block; they don't exist in the compose or
+test Postgres). So the publishable key reads nothing through Supabase's Data API. The API connects
+as the tables' owner, which RLS does not restrict unless forced, and enforces ownership itself
+(web.md §6: another user's project is a 404). Storage: the bucket is private and has no policies;
+only the secret key reads or writes it, and the browser sees images only through signed URLs
+(storyboard.md §8).
+
+**Test Postgres (T009; option A, decided by Katlego 2026-10-01, Postgres 17.11 on 2026-10-02).**
+`scripts/gate.sh` provides it, so the hook and CI run the same thing (CI's `ubuntu-latest` runner
+has Docker; `ci.yml` needs no service of its own):
+- `TEST_DATABASE_URL` set → use it.
+- else Docker available → `docker run -d --rm -p 127.0.0.1::5432 postgres:17.11-trixie` with a
+  throwaway password, wait for `pg_isready` (60 s at most), export `TEST_DATABASE_URL`, and stop the
+  container on exit (a `trap`).
+- else → the gate **fails** ("no Postgres for the database tests: start Docker or set
+  TEST_DATABASE_URL"). Never a silent skip.
+- The gate exports `PANELWISE_REQUIRE_DB=1`. Tests marked `db` use `TEST_DATABASE_URL`; without it
+  they **skip** when run by hand and **fail** under the gate. The `db` fixture upgrades a fresh
+  database to `head` once per session and truncates every table before each test.
+
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
@@ -177,4 +217,6 @@ message broker, as before.
 - [x] Storage in local development: a dev bucket in the same Supabase project, or a local
   filesystem adapter behind the same interface? **Decided (storyboard.md §8):** a dev bucket through
   the same `SupabaseStore`; tests use an in-memory fake.
-- [ ] Row-level security policies for Storage and the `Job` table: decide with Auth in T009.
+- [x] Row-level security policies for Storage and the `Job` table: **decided in T009's design
+  (2026-10-02):** RLS on, no policies, privileges revoked from `anon`/`authenticated`; private bucket,
+  secret key only (§6 *Row-level security*).

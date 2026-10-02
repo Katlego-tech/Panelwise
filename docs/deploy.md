@@ -40,6 +40,7 @@ kill %1
    | Builder | Dockerfile (Railway detects `services/api/Dockerfile`) |
    | Healthcheck path | `/api/v1/health` (timeout 60 s) |
    | Restart policy | On failure, 3 retries |
+   | Pre-deploy command | `.venv/bin/alembic upgrade head` (T009: migrations run before the new version starts; a failed one stops the deploy) |
 
    *Why no `railway.json`:* Railway deprecated Config as Code. New services can't opt into it, and
    existing files stop working on **2026-12-01**, before judging ends on 15 Dec

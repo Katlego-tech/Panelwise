@@ -401,6 +401,63 @@ async def run_job(job_id: uuid.UUID, *, sessions: async_sessionmaker[AsyncSessio
 #   traceback, FAILED with §4.1's "went wrong on our side" copy. Never raises.
 ```
 
+**API internals: auth, storage, upload** (T009 builds the data layer, T053 the rest):
+
+```python
+# app/core/auth.py (T053)
+@dataclass(frozen=True)
+class Caller:
+    user_id: uuid.UUID                     # the token's `sub`: the Supabase Auth user id, `projects.owner`
+class AuthError(Exception): ...            # any reason a token is refused; never says which to the client
+class TokenVerifier(Protocol):
+    async def verify(self, token: str) -> Caller: ...
+class SupabaseJwtVerifier:                 # TokenVerifier
+    def __init__(self, *, supabase_url: str, client: httpx2.AsyncClient, jwks_ttl_s: float = 600) -> None: ...
+#   Verifies locally with PyJWT against {supabase_url}/auth/v1/.well-known/jwks.json (cached
+#   jwks_ttl_s; an unknown `kid` refetches it once, then fails). Algorithms: only ES256 and RS256,
+#   and only as the matching JWK says; HS256 and `none` are refused (the project signs with ES256,
+#   checked 2026-10-02). Claims: aud == "authenticated", iss == f"{supabase_url}/auth/v1", exp and
+#   iat with 30 s leeway, role == "authenticated", sub a UUID, is_anonymous not true.
+async def current_caller(request: Request) -> Caller: ...   # FastAPI dependency
+#   `Authorization: Bearer <token>` → app.state.verifier.verify; missing or refused → 401
+#   {"error": "unauthorized"} with `WWW-Authenticate: Bearer`; no verifier configured (no
+#   SUPABASE_URL) → 503 {"error": "auth_unavailable"}.
+
+# app/storage/store.py (T053): storyboard.md §6 `AssetStore` / `SupabaseStore`, verbatim.
+
+# app/projects/model.py, app/jobs/model.py (T009): SQLAlchemy rows for deploy.md §6's tables
+class JobState(StrEnum): QUEUED = "queued"; RUNNING = "running"; DONE = "done"; FAILED = "failed"
+class JobKind(StrEnum): STORYBOARD = "storyboard"; FRAME_ATTEMPT = "frame_attempt"
+RESTARTED: str   # §4.1, verbatim: "The server restarted while this ran. Upload the script again."
+
+# app/projects/repo.py, app/jobs/repo.py (T009); every function takes an AsyncSession and doesn't commit
+async def create_upload(session, *, project_id: uuid.UUID, owner: uuid.UUID, title: str,
+                        pdf_path: str) -> tuple[ProjectRow, JobRow]: ...   # the project and its STORYBOARD job, QUEUED
+async def list_summaries(session, owner: uuid.UUID) -> list[ProjectSummary]: ...   # newest first, each with its latest job
+async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job → FAILED, error RESTARTED, stage kept; returns the count
+```
+
+- **`ProjectSummary` before T046.** `pages`, `scenes` and `shots` are `null` until T046 writes the
+  stage columns (it fills them from `codec.py`), and `frames` is `null` until T047/T021 add the
+  `frames` table. That is the real state of a project nothing has processed, not a stand-in: T009's
+  jobs stay `QUEUED` until T046 runs them.
+- **The startup sweep** (§4.1): the API's lifespan calls `fail_interrupted` in its own transaction
+  before serving. If the database is unreachable then, it logs and starts anyway (the health check
+  reports it), and the next start sweeps.
+- **`POST /projects`, in order** (T053): verify the caller (401); read the multipart `file` up to
+  `upload_max_bytes + 1` bytes and refuse more with 413 `{"error": "too_large"}` before storing
+  anything; no `file` part → 400 `{"error": "no_file"}`; bytes not starting `%PDF-` → 400
+  `{"error": "not_a_pdf"}`; `title` = the form field, else the file name without `.pdf`, trimmed,
+  at most 200 characters, else `"Untitled"`; a new `project_id`; `store.put(f"scripts/{owner}/{project_id}.pdf",
+  data, "application/pdf")`; then `create_upload` and commit; 202 `{project, job}`. Storage first,
+  so a row never points at a missing file; a failed insert leaves an unreferenced file, which is
+  harmless. No storage configured → 503 `{"error": "storage_unavailable"}`.
+- **Settings** (T009/T053): `supabase_url`, `supabase_secret_key`, `supabase_storage_bucket`
+  (default `panelwise`; `panelwise-dev` in a local `.env`), `upload_max_bytes` (default 4,000,000:
+  under Vercel's ~4.5 MB function body limit, §4.1; T030 may lower it).
+- **New dependencies:** `alembic`, `pyjwt[crypto]` (PyJWT and `cryptography`), `python-multipart`
+  (FastAPI's form parsing).
+
 **Response types** (TypeScript in `apps/web/lib/api/types.ts`; Pydantic mirrors in
 `services/api/app/api/v1/schemas.py`, T044: one model per interface and per nested object, `Job`
 and `ProjectSummary` included; field names identical):
@@ -548,11 +605,11 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
-| `services/api/app/core/auth.py` | new | Supabase access-token check (a FastAPI dependency) | T009 |
-| `services/api/app/storage/{__init__,store}.py` | new | storyboard.md §6 `AssetStore`/`SupabaseStore`, built with the upload (T009); frame images added by T026 (storyboard.md §3.3) | T009 |
+| `services/api/app/core/auth.py` | new | Supabase access-token check (a FastAPI dependency), §6 *API internals* | T053 |
+| `services/api/app/storage/{__init__,store}.py` | new | storyboard.md §6 `AssetStore`/`SupabaseStore`, built with the upload (T053); frame images added by T026 (storyboard.md §3.3) | T053 |
 | `services/api/app/jobs/` + migration | new | the `Job` table with `project_id`, `stage`; the restart sweep | T009 |
 | `services/api/app/projects/{model,repo}.py` + migration | new | the `projects` table | T009 |
-| `services/api/app/api/v1/projects.py` (POST, list) | new | §6 rows marked T009 | T009 |
+| `services/api/app/api/v1/projects.py` (POST, list) | new | §6 rows marked T009 | T053 |
 | `services/api/app/api/v1/schemas.py` | new | every §6 response type as a Pydantic model, field names identical | T044 |
 | `services/api/app/projects/views.py` | new | the view builders (§6): scenes, entities, report, lines, shots with `segments` | T044 |
 | `services/api/app/projects/{__init__,pipeline}.py` | new | `run_pipeline`: parse → extract → plan, the chunk-budget pre-check, `on_advance` per stage, §4.1 copy by code and type (§6); no database | T043 |
