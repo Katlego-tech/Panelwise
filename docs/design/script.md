@@ -104,7 +104,7 @@ classDiagram
 
 ```mermaid
 sequenceDiagram
-    participant U as Caller (upload endpoint, T009)
+    participant U as Caller (upload endpoint, T053)
     participant P as parse_pdf
     participant L as pdfplumber
     participant T as parse_text

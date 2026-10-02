@@ -1,6 +1,6 @@
 # Design — `web` (sign-in, projects, script, storyboard, frame detail)
 
-**Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T043, T046, T044, T047 (API: projects
+**Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T053, T043, T046, T044, T047 (API: projects
 and upload, the pipeline core, the pipeline as a job, the response schemas and view builders, the
 read endpoints), T040–T042, T045 (the screens), T021 (frame state, the
 audit section of the frame sheet, "Try another render"), T026 (the rendering stage), T027 (the storyboard PDF) ·
@@ -333,8 +333,8 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 
 | Method, path | Body | Response | Task |
 |---|---|---|---|
-| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 413 `{error: "too_large"}` | T009 |
-| `GET /projects` | — | 200 `ProjectSummary[]`, newest first | T009 |
+| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 400 `{error: "no_file"}` · 411 `{error: "length_required"}` · 413 `{error: "too_large"}` · 401 `{error: "unauthorized"}` · 503 `{error: "auth_unavailable" \| "storage_unavailable"}` (§6 *API internals*) | T053 |
+| `GET /projects` | — | 200 `ProjectSummary[]`, newest first · 401 · 503 `auth_unavailable` | T053 |
 | `GET /projects/{id}` | — | 200 `Project` | T047 |
 | `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T047 |
 | `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T047 |
@@ -413,11 +413,18 @@ class TokenVerifier(Protocol):
     async def verify(self, token: str) -> Caller: ...
 class SupabaseJwtVerifier:                 # TokenVerifier
     def __init__(self, *, supabase_url: str, client: httpx2.AsyncClient, jwks_ttl_s: float = 600) -> None: ...
-#   Verifies locally with PyJWT against {supabase_url}/auth/v1/.well-known/jwks.json (cached
-#   jwks_ttl_s; an unknown `kid` refetches it once, then fails). Algorithms: only ES256 and RS256,
-#   and only as the matching JWK says; HS256 and `none` are refused (the project signs with ES256,
-#   checked 2026-10-02). Claims: aud == "authenticated", iss == f"{supabase_url}/auth/v1", exp and
-#   iat with 30 s leeway, role == "authenticated", sub a UUID, is_anonymous not true.
+#   Verifies locally with PyJWT against {supabase_url}/auth/v1/.well-known/jwks.json. The token's
+#   header must carry a string `kid`; the key is the JWK with that `kid`, and the algorithm is the
+#   one that key implies (its `alg`, or ES256 for an EC P-256 key with none), never the header's
+#   claim alone. Allowed: ES256 and RS256 only; HS256 and `none` are refused (the project signs
+#   with ES256, checked 2026-10-02). Required claims, present and valid: exp, iat (30 s leeway),
+#   aud == "authenticated", iss == f"{supabase_url}/auth/v1", sub a UUID, role == "authenticated",
+#   and is_anonymous not true. **JWKS cache:** kept jwks_ttl_s; an unknown `kid` refetches at most
+#   once per 60 s, shared across requests behind one lock (a flood of random `kid`s makes one
+#   request a minute, not one each); a failed fetch keeps serving the cached keys, and with no
+#   cached keys at all the request is 503 {"error": "auth_unavailable"}, never a 401 (a 401 would
+#   sign the user out for Supabase's outage). **Accepted:** verification is local, so a token stays
+#   valid until its `exp` (at most an hour) after sign-out or revocation.
 async def current_caller(request: Request) -> Caller: ...   # FastAPI dependency
 #   `Authorization: Bearer <token>` → app.state.verifier.verify; missing or refused → 401
 #   {"error": "unauthorized"} with `WWW-Authenticate: Bearer`; no verifier configured (no
@@ -438,16 +445,20 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
 ```
 
 - **`ProjectSummary` before T046.** `pages`, `scenes` and `shots` are `null` until T046 writes the
-  stage columns (it fills them from `codec.py`), and `frames` is `null` until T047/T021 add the
-  `frames` table. That is the real state of a project nothing has processed, not a stand-in: T009's
-  jobs stay `QUEUED` until T046 runs them.
+  stage columns and makes `list_summaries` read them (`codec.py`; T046's Files and Done), and
+  `frames` is `null` until T047/T021 add the `frames` table. That is the real state of a project
+  nothing has processed, not a stand-in: T053's jobs stay `QUEUED` until T046 runs them.
 - **The startup sweep** (§4.1): the API's lifespan calls `fail_interrupted` in its own transaction
   before serving. If the database is unreachable then, it logs and starts anyway (the health check
   reports it), and the next start sweeps.
-- **`POST /projects`, in order** (T053): verify the caller (401); read the multipart `file` up to
-  `upload_max_bytes + 1` bytes and refuse more with 413 `{"error": "too_large"}` before storing
-  anything; no `file` part → 400 `{"error": "no_file"}`; bytes not starting `%PDF-` → 400
-  `{"error": "not_a_pdf"}`; `title` = the form field, else the file name without `.pdf`, trimmed,
+- **`POST /projects`, in order** (T053). The route takes `request: Request` and no `UploadFile`
+  or `Form` parameter, because FastAPI reads a body parameter before any dependency runs, which
+  would spool an unlimited upload before the caller is checked: (1) `current_caller` (401/503);
+  (2) `Content-Length` missing → 411 `{"error": "length_required"}`; above `upload_max_bytes` plus
+  64 KiB of multipart framing → 413 `{"error": "too_large"}`, nothing read; (3)
+  `await request.form(max_files=1, max_fields=2, max_part_size=upload_max_bytes)`; a part over the
+  limit → 413 `too_large`; no `file` part → 400 `{"error": "no_file"}`; (4) bytes not starting
+  `%PDF-` → 400 `{"error": "not_a_pdf"}`; `title` = the form field, else the file name without `.pdf`, trimmed,
   at most 200 characters, else `"Untitled"`; a new `project_id`; `store.put(f"scripts/{owner}/{project_id}.pdf",
   data, "application/pdf")`; then `create_upload` and commit; 202 `{project, job}`. Storage first,
   so a row never points at a missing file; a failed insert leaves an unreferenced file, which is
@@ -609,7 +620,7 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `services/api/app/storage/{__init__,store}.py` | new | storyboard.md §6 `AssetStore`/`SupabaseStore`, built with the upload (T053); frame images added by T026 (storyboard.md §3.3) | T053 |
 | `services/api/app/jobs/` + migration | new | the `Job` table with `project_id`, `stage`; the restart sweep | T009 |
 | `services/api/app/projects/{model,repo}.py` + migration | new | the `projects` table | T009 |
-| `services/api/app/api/v1/projects.py` (POST, list) | new | §6 rows marked T009 | T053 |
+| `services/api/app/api/v1/projects.py` (POST, list) | new | §6 rows marked T053 | T053 |
 | `services/api/app/api/v1/schemas.py` | new | every §6 response type as a Pydantic model, field names identical | T044 |
 | `services/api/app/projects/views.py` | new | the view builders (§6): scenes, entities, report, lines, shots with `segments` | T044 |
 | `services/api/app/projects/{__init__,pipeline}.py` | new | `run_pipeline`: parse → extract → plan, the chunk-budget pre-check, `on_advance` per stage, §4.1 copy by code and type (§6); no database | T043 |
@@ -659,7 +670,7 @@ restyled).
 - **Schemas and views (T044):** pytest, pure: every builder on the self-written samples;
   `segments` marks an off-screen speaker's dialogue; each model's JSON field names equal this
   section's TypeScript, parsed from this file.
-- **API (T009, T046, T047):** pytest with a fake Supabase token verifier and the compose Postgres:
+- **API (T009, T053, T046, T047):** pytest with a fake Supabase token verifier and the compose Postgres:
   upload → job runs the stages with `httpx2.MockTransport` models → `GET` endpoints return §6 shapes;
   another user's project is 404; each `ScriptParseError.code` gives its copy; a failed stage leaves
   the columns before it and the user-facing error; the restart sweep fails `QUEUED`/`RUNNING` jobs
@@ -687,4 +698,4 @@ restyled).
   account(s), seeded by T030's script and given to judges in Devpost's testing instructions, never
   in the repo. The app is unchanged: it has a sign-in page only (§4). Judges sharing one account see
   each other's uploads; T030 may seed several (`judge1`…) instead. Privacy rests on the API's owner
-  check (§6); the row-level-security design is T009's (deploy.md §10, still open).
+  check (§6), backed by row-level security with no policies (deploy.md §6, decided in T009's design).
