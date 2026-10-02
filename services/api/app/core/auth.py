@@ -10,7 +10,7 @@ import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import httpx2
 import jwt
@@ -115,8 +115,18 @@ class SupabaseJwtVerifier:
             try:
                 response = await self._client.get(self._jwks_url, timeout=10)
                 response.raise_for_status()
-                keys = {k["kid"]: jwt.PyJWK(k) for k in response.json()["keys"] if "kid" in k}
-            except httpx2.HTTPError, ValueError, KeyError, TypeError, jwt.PyJWTError:
+                published: object = response.json()["keys"]
+            except httpx2.HTTPError, ValueError, KeyError, TypeError:
+                return
+            keys: dict[str, jwt.PyJWK] = {}
+            for entry in cast(
+                list[dict[str, Any]], published if isinstance(published, list) else []
+            ):
+                try:  # one key we can't read (a new key type) must not hide the others
+                    keys[entry["kid"]] = jwt.PyJWK(entry)
+                except KeyError, TypeError, jwt.PyJWTError:
+                    continue
+            if not keys:
                 return
             self._keys, self._fetched_at = keys, now
 

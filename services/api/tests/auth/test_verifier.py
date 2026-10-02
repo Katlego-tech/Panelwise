@@ -193,3 +193,8 @@ async def test_no_keys_at_all_is_unavailable_not_unauthorized() -> None:
     jwks.down = True
     with pytest.raises(AuthUnavailable):
         await verifier(jwks).verify(token())
+
+
+async def test_one_unparseable_key_does_not_hide_the_good_ones() -> None:
+    jwks = Jwks({"kid": "weird", "kty": "OKP", "crv": "X448", "x": "AAAA"}, jwk(KEY, "k1"))
+    assert await verifier(jwks).verify(token()) == Caller(user_id=USER)
