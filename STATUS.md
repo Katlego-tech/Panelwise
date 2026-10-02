@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-01 — by Katlego (via Claude)_
+_Last updated: 2026-10-02 — by Katlego (via Claude)_
 
 ---
 
@@ -39,7 +39,7 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU), T021 and T046 · T027 (PDF) after T026 |
-| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ⬜ T009 unblocked (Supabase project exists, 2026-10-02); gate/CI get a Postgres service with its first DB test (option A); T046 (the pipeline as a job) follows it · T040+ need a Supabase project (T037) |
+| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ⬜ T009: the Supabase project exists (2026-10-02); its first migration waits on the Postgres 17/18 decision and its gate.sh change on the review route (⚠️); gate/CI get a Postgres service with its first DB test (option A); T046 (the pipeline as a job) follows it · T040+ follow T009 |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · T021 waits on T009, T045, T047 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
@@ -47,7 +47,7 @@ _Last updated: 2026-10-01 — by Katlego (via Claude)_
 
 ## ⏭️ Next action
 
-All remaining work waits on three things the team owns, or on a team decision (below the list):
+All remaining work waits on things the team owns — the Supabase project (now done), GPU access, hosting accounts — or on a team decision (below the list):
 
 1. **Supabase project — exists since 2026-10-02.** Unblocks T009 (sign-in check, projects, upload), then T046 (the pipeline as a job) → T047 (read endpoints, `frames` table) → T040–T045 (the web screens) → T021 (re-render loop). **DB tests: decided 2026-10-01 by Katlego — option A**, a Postgres 18.6 service in `ci.yml` + `gate.sh` (the compose version; offline, free, deterministic), built with T009's first DB test. The `gate.sh` change still needs Tumo's review, or Katlego's explicit AGENTS.md §4 exception logged here before it merges. Supabase setup steps: `docs/deploy.md` step 1, plus T009's needs (email/password Auth, private buckets `panelwise` and `panelwise-dev`, no policies).
 2. **GPU access for T003 (Katlego).** Needed by T026 (ComfyUI renderer, Storage, the RENDERING stage), which also needs item 1's chain (T046, T021); then T027 (storyboard PDF), the comic on real renders, and T025 (portraits).
@@ -60,7 +60,7 @@ Buildable now, no external dependency: nothing left that doesn't need a decision
 | Week | What | Target window | Status |
 |-------|------|---------------|--------|
 | 1 | Token Factory check; versions + compose; ComfyUI on Nebius GPU; port llm, script, grounding | 28 Sep – 4 Oct | 🟡 all but T003 (GPU) and T037's deploy check (accounts) |
-| 2 | **US1**: script → grounded storyboard on Nemotron, end to end in the web app. Design docs for verify + comic | 5 – 11 Oct | 🟡 designs done (verify, comic, characters, storyboard, web); pipeline core, prompts, schemas built; blocked on Supabase + GPU |
+| 2 | **US1**: script → grounded storyboard on Nemotron, end to end in the web app. Design docs for verify + comic | 5 – 11 Oct | 🟡 designs done (verify, comic, characters, storyboard, web); pipeline core, prompts, schemas built; Supabase ready 2 Oct, T009 next; rendering blocked on GPU |
 | 3 | **US2**: frame audit + re-render + audit log. **US4**: reference portraits | 12 – 18 Oct | 🟡 frame audit (T020) done early |
 | 4 | **US3**: comic pages + reader. Hosted demo live | 19 – 25 Oct | 🟡 comic layout + lettering + PDF (T022, T023) done early; reader (T024) not started |
 | 5 | Hardening, eval numbers, video, README, repo public, **submit by 29 Oct** (one day of buffer) | 26 – 30 Oct | 🟡 eval numbers (T032) done early; README drafted (T033, needs the team's feedback section) |
@@ -89,7 +89,7 @@ Buildable now, no external dependency: nothing left that doesn't need a decision
 
 ## 🛠️ Environment & access
 
-- **Supabase project (2026-10-02, created by Katlego, checked by Claude):** region **eu-west-1 (Ireland)**, so pick Railway's EU region (T037); Postgres **17.11** (see ⚠️). Session-pooler connection OK; private buckets `panelwise` and `panelwise-dev` (anonymous reads refused, signed URLs work); email/password Auth on, a dev user for end-to-end checks (`PANELWISE_DEV_EMAIL` in `.env`). Values live in each contributor's local `.env` (keys as in `.env.example`, plus `SUPABASE_DB_URL` for live checks; `DATABASE_URL` stays local). From South Africa a cold connection takes ~2–4 s, over the API's 2 s health timeout: run a local health check against Supabase with `HEALTH_CHECK_TIMEOUT_S=10`; Railway, beside the database in the EU, keeps the 2 s default.
+- **Supabase project (2026-10-02, created by Katlego, checked by Claude):** region **eu-west-1 (Ireland)**, so pick Railway's EU region (T037); Postgres **17.11** (see ⚠️). Session-pooler connection OK; private buckets `panelwise` and `panelwise-dev` (anonymous reads refused, signed URLs work); email/password Auth on, a dev user for end-to-end checks (`PANELWISE_DEV_EMAIL` in `.env`). Values live in each contributor's local `.env` (keys as in `.env.example`, plus the local-only `SUPABASE_DB_URL`, `PANELWISE_DEV_EMAIL`/`_PASSWORD` for live checks, listed at the end of `.env.example`; `DATABASE_URL` stays local). From South Africa a cold connection takes ~2–4 s, over the API's 2 s health timeout: run a local health check against Supabase with `HEALTH_CHECK_TIMEOUT_S=10`; Railway, beside the database in the EU, keeps the 2 s default.
 - **Time zones and hours (T038, 2026-10-01, from Katlego):** Katlego and Tumo are both in South Africa (SAST, UTC+2) and work flexible hours, so the overlap is the whole day; nothing needs scheduling around time zones. Hand-offs still go through STATUS.md and the ⇄ HANDOFF block.
 - FrameFlow (private, `Katlego-tech/FrameFlow`) is the source for every ported module. Both of us have access.
 - Nebius Token Factory: $25 promo (`NEBIUS-DEVPOST-GLOBAL26`) + $25 from the AI Builder Program. Keys go in `.env`, never in the repo.
