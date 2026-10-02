@@ -4,14 +4,18 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import httpx2
 from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.api.v1 import health
+from app.api import errors
+from app.api.v1 import health, projects
+from app.core.auth import SupabaseJwtVerifier, TokenVerifier
 from app.core.config import Settings
 from app.db import make_engine, make_sessions
 from app.jobs import fail_interrupted
+from app.storage import AssetStore, SupabaseStore
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +34,21 @@ async def sweep(sessions: async_sessionmaker[AsyncSession]) -> None:
         log.info("restart sweep: %d interrupted job(s) marked failed", count)
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+class _Unset:
+    pass
+
+
+UNSET = _Unset()
+
+
+def create_app(
+    settings: Settings | None = None,
+    *,
+    verifier: TokenVerifier | _Unset | None = UNSET,
+    store: AssetStore | _Unset | None = UNSET,
+) -> FastAPI:
+    """The app. `verifier` and `store` default to Supabase's, built from settings (None when
+    SUPABASE_URL or its secret key is unset: the routes then answer 503); tests pass fakes."""
     settings = settings or Settings()
 
     @asynccontextmanager
@@ -46,15 +64,36 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         app.state.health_checks = {"postgres": postgres}
         app.state.sessions = sessions
+        client = httpx2.AsyncClient(timeout=30)
+        url, key = settings.supabase_url, settings.supabase_secret_key
+        app.state.verifier = (
+            (SupabaseJwtVerifier(supabase_url=url, client=client) if url else None)
+            if isinstance(verifier, _Unset)
+            else verifier
+        )
+        app.state.store = (
+            (
+                SupabaseStore(
+                    url=url, secret_key=key, bucket=settings.supabase_storage_bucket, client=client
+                )
+                if url and key
+                else None
+            )
+            if isinstance(store, _Unset)
+            else store
+        )
         await sweep(sessions)
         try:
             yield
         finally:
+            await client.aclose()
             await engine.dispose()
 
     app = FastAPI(title="Panelwise API", lifespan=lifespan)
     app.state.settings = settings
+    errors.install(app)
     app.include_router(health.router, prefix="/api/v1")
+    app.include_router(projects.router, prefix="/api/v1")
     return app
 
 

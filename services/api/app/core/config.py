@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     # hosted demo.
     panelwise_private_styles: str = ""
 
+    # Supabase, API side only (deploy.md §6): Storage and the token check (T053).
+    supabase_url: str = ""
+    supabase_secret_key: str = ""
+    supabase_storage_bucket: str = "panelwise"  # panelwise-dev in a local .env
+    # Below Vercel's ~4.5 MB function body limit, which every upload passes through (web.md §4.1);
+    # T030 may lower it.
+    upload_max_bytes: int = 4_000_000
+
     @field_validator("database_url")
     @classmethod
     def _asyncpg_driver(cls, url: str) -> str:
