@@ -33,7 +33,7 @@ pnpm-debug.log*
 out/
 
 # Generated media -- rendered frames, portraits and comic pages are rebuilt, never committed
-storage/
+/storage/
 services/api/storage/
 *.sqlite3
 
