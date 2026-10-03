@@ -137,7 +137,7 @@ async def test_every_public_table_has_row_level_security(
             )
         )
         tables = dict(rows.all())
-    assert set(tables) == {"projects", "jobs", "alembic_version"}
+    assert set(tables) == {"projects", "jobs", "frames", "alembic_version"}
     assert all(tables.values()), tables
 
 
@@ -158,10 +158,12 @@ def test_the_models_match_the_migrations(migrated: str) -> None:
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from app.db import Base
+    from app.frames.model import FrameRow
     from app.jobs.model import JobRow
     from app.projects.model import ProjectRow
 
-    assert {JobRow.__tablename__, ProjectRow.__tablename__} <= set(Base.metadata.tables)
+    names = {JobRow.__tablename__, ProjectRow.__tablename__, FrameRow.__tablename__}
+    assert names <= set(Base.metadata.tables)
 
     async def diff() -> list[object]:
         engine = create_async_engine(migrated)
