@@ -1,5 +1,6 @@
 """The Panelwise API. Run: uv run uvicorn app.main:app"""
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -15,6 +16,7 @@ from app.core.auth import SupabaseJwtVerifier, TokenVerifier
 from app.core.config import Settings
 from app.db import make_engine, make_sessions
 from app.jobs import fail_interrupted
+from app.llm import LLMConfigError, NebiusChatModel
 from app.storage import AssetStore, SupabaseStore
 
 log = logging.getLogger(__name__)
@@ -46,9 +48,11 @@ def create_app(
     *,
     verifier: TokenVerifier | _Unset | None = UNSET,
     store: AssetStore | _Unset | None = UNSET,
+    model: NebiusChatModel | _Unset | None = UNSET,
 ) -> FastAPI:
     """The app. `verifier` and `store` default to Supabase's, built from settings (None when
-    SUPABASE_URL or its secret key is unset: the routes then answer 503); tests pass fakes."""
+    SUPABASE_URL or its secret key is unset: the routes then answer 503); `model` defaults to
+    Token Factory's (None without NEBIUS_API_KEY: a job then fails at once). Tests pass fakes."""
     settings = settings or Settings()
 
     @asynccontextmanager
@@ -82,10 +86,25 @@ def create_app(
             if isinstance(store, _Unset)
             else store
         )
+        if isinstance(model, _Unset):
+            try:
+                app.state.model = NebiusChatModel.from_settings(settings)
+            except LLMConfigError:
+                app.state.model = None
+        else:
+            app.state.model = model
+        tasks: set[asyncio.Task[None]] = set()  # running jobs: one reference each, never GC'd
+        app.state.tasks = tasks
         await sweep(sessions)
         try:
             yield
         finally:
+            # A job cut off here stays RUNNING; the next start's sweep fails it (web.md §4.1).
+            for task in list(tasks):
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            if isinstance(model, _Unset) and app.state.model is not None:
+                await app.state.model.aclose()
             await client.aclose()
             await engine.dispose()
 

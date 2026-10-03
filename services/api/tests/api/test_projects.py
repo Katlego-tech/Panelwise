@@ -3,48 +3,23 @@ verifier and an in-memory AssetStore; the real test Postgres."""
 
 import uuid
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.core.auth import AuthError, Caller
 from app.core.config import Settings
 from app.jobs import JobRow
 from app.main import create_app
 from app.projects.model import ProjectRow
+from tests.fakes import FakeVerifier, MemoryStore
 
 pytestmark = pytest.mark.db
 
 PDF = b"%PDF-1.7\n" + b"x" * 200
 LIMIT = 1_000  # upload_max_bytes in these tests
-
-
-class FakeVerifier:
-    """Token "user-<uuid>" is that user; anything else is refused."""
-
-    async def verify(self, token: str) -> Caller:
-        if not token.startswith("user-"):
-            raise AuthError("bad")
-        return Caller(user_id=uuid.UUID(token.removeprefix("user-")))
-
-
-class MemoryStore:
-    def __init__(self) -> None:
-        self.objects: dict[str, tuple[bytes, str]] = {}
-
-    async def exists(self, path: str) -> bool:
-        return path in self.objects
-
-    async def get(self, path: str) -> bytes:
-        return self.objects[path][0]
-
-    async def put(self, path: str, data: bytes, content_type: str) -> None:
-        self.objects.setdefault(path, (data, content_type))
-
-    async def signed_url(self, path: str, expires_in_s: int) -> str:
-        return f"https://signed/{path}?e={expires_in_s}"
 
 
 ME, SOMEONE = uuid.uuid4(), uuid.uuid4()
@@ -204,3 +179,56 @@ def test_the_list_is_only_the_callers_newest_first(client: TestClient) -> None:
     theirs = client.get("/api/v1/projects", headers=auth(SOMEONE)).json()
     assert [p["title"] for p in theirs] == ["Theirs"]
     assert client.get("/api/v1/projects", headers=auth(uuid.uuid4())).json() == []
+
+
+# --- T046: the upload starts its job -------------------------------------------------
+
+
+def test_an_upload_runs_its_job_to_done(
+    migrated: str, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    import time
+
+    from tests.projects.test_pipeline import GOOD_PDF, Models, make
+
+    settings = Settings(database_url=migrated, upload_max_bytes=100_000)
+    store = MemoryStore()
+    app = create_app(settings, verifier=FakeVerifier(), store=store, model=make(Models()))
+    with TestClient(app) as c:
+        files = {"file": ("lighthouse.pdf", GOOD_PDF, "application/pdf")}
+        res = c.post("/api/v1/projects", files=files, headers=auth())
+        assert res.status_code == 202
+        summary: dict[str, Any] = {}
+        for _ in range(100):
+            (summary,) = c.get("/api/v1/projects", headers=auth()).json()
+            if summary["job"]["state"] in ("done", "failed"):
+                break
+            time.sleep(0.05)
+    job = summary["job"]
+    assert (job["state"], job["stage"], job["progress"], job["error"]) == (
+        "done",
+        "planning",
+        60,
+        None,
+    )
+    assert (summary["pages"], summary["scenes"]) == (2, 3) and summary["shots"] > 0
+
+
+def test_without_a_model_the_job_fails_rather_than_waiting_forever(
+    migrated: str, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    import time
+
+    from app.projects.pipeline import UNEXPECTED
+
+    settings = Settings(database_url=migrated, upload_max_bytes=LIMIT, nebius_api_key="")
+    app = create_app(settings, verifier=FakeVerifier(), store=MemoryStore())
+    with TestClient(app) as c:
+        assert upload(c).status_code == 202
+        summary: dict[str, Any] = {}
+        for _ in range(100):
+            (summary,) = c.get("/api/v1/projects", headers=auth()).json()
+            if summary["job"]["state"] != "queued":
+                break
+            time.sleep(0.05)
+    assert (summary["job"]["state"], summary["job"]["error"]) == ("failed", UNEXPECTED)
