@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-02 — by Katlego (via Claude)_
+_Last updated: 2026-10-03 — by Katlego (via Claude)_
 
 ---
 
@@ -38,19 +38,19 @@ _Last updated: 2026-10-02 — by Katlego (via Claude)_
 | `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
-| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU), T021 and T046 · T027 (PDF) after T026 |
-| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ⬜ T040–T045 web screens next (T009 split 2026-10-02): the Supabase project exists (2026-10-02); Postgres 17.11 and the gate.sh exception decided 2026-10-02; gate/CI get a Postgres service with its first DB test (option A); T046 (the pipeline as a job) follows it · T040+ follow T009 |
-| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · T021 waits on T009, T045, T047 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
+| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
+| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ⬜ T040–T045 web screens next; T040 is buildable now |
+| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · T021 waits on T045 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
 | `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · 🔴 T049 audit accuracy blocked on T026 |
 
 ## ⏭️ Next action
 
-All remaining work waits on things the team owns — the Supabase project (now done), GPU access, hosting accounts — or on a team decision (below the list):
+Remaining work waits on things the team owns — GPU access, hosting accounts, a renderer decision — or on a team decision (below the list), except what "Buildable now" names:
 
-1. **Supabase project — exists since 2026-10-02.** Unblocks T009 (sign-in check, projects, upload), then T046 (the pipeline as a job) → T047 (read endpoints, `frames` table) → T040–T045 (the web screens) → T021 (re-render loop). **DB tests: decided 2026-10-01 by Katlego — option A**, a Postgres 17.11 service (18.6 until 2026-10-02) in `ci.yml` + `gate.sh` (the compose version; offline, free, deterministic), built with T009's first DB test. The `gate.sh` change still needs Tumo's review, or Katlego's explicit AGENTS.md §4 exception logged here before it merges. Supabase setup steps: `docs/deploy.md` step 1, plus T009's needs (email/password Auth, private buckets `panelwise` and `panelwise-dev`, no policies).
-2. **GPU access for T003 (Katlego).** Needed by T026 (ComfyUI renderer, Storage, the RENDERING stage), which also needs item 1's chain (T046, T021); then T027 (storyboard PDF), the comic on real renders, and T025 (portraits).
+1. **Supabase project — done 2026-10-02.** The US1 API on it is merged (T009, T053, T046, T047); the gate runs the database tests on its own Postgres 17.11 (option A). What it still unblocks: T040–T045 (the web screens) → T021 (re-render loop).
+2. **GPU access for T003 (Katlego).** Needed by T026 (ComfyUI renderer, Storage, the RENDERING stage), which also needs T021 (after T045); then T027 (storyboard PDF), the comic on real renders, and T025 (portraits).
 3. **Vercel + Railway accounts (Katlego)** for T037's deploy check, then T030 (hosted demo).
 
 Buildable now, no external dependency: **T040** (web: tokens, sign-in, projects, upload) → T041, T042, T045; the API they call (T009, T053, T046, T047) is merged. The interim renderer (FLUX.1 [schnell] on Cloudflare Workers AI) waits on Katlego's Cloudflare account and a plan change. Late-stage tasks wait on the above: T034 (video, needs a working demo), T035 (go public, submit), T036 (final placeholder sweep; the gate already sweeps every push). Waiting on the team, no code: T033's feedback section (PR #36) and the two wording calls in ⚠️ below. T049 (audit accuracy) waits on T026.
