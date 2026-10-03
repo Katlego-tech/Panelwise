@@ -330,5 +330,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 - [ ] T033 [POL] README: setup, how Nemotron and Token Factory are used, feedback section. Lane `eval+submission`.
 - [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
 - [ ] T035 [POL] gitleaks over history, make the repo public, submit on Devpost by 29 Oct. Lane `eval+submission`.
+- [ ] T055 [POL] **Close the `braces` advisory GHSA-vfj7-8cjw-p6xm.** Accepted in `osv-scanner.toml` on 2026-10-03 (no fixed version; dev-only, via eslint-config-next → fast-glob → micromatch). Lane `infra`.
+      Design:  none (a dependency bump)
+      Files:   apps/web/package.json / pnpm-lock.yaml (a fixed `braces`, or an `overrides` entry, or a newer eslint-config-next that drops it); osv-scanner.toml (remove the block)
+      Contract:none
+      Verify:  bash scripts/gate.sh with the exemption removed: the vulnerability scan passes
+      Done:    the exemption is gone and the gate's scan is clean; if no fix exists by 2026-10-31 the exemption expires and the gate fails, which forces this decision before submission
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

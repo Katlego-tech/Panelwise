@@ -1,0 +1,7 @@
+# Known vulnerabilities the gate accepts for now. Each block names the task that will close it
+# (scripts/gate.sh refuses a reason without one), and ignoreUntil makes it expire on its own.
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-10-31T00:00:00Z
+reason = "T055: braces <=3.0.3 stack-exhaustion DoS on deeply nested patterns (published 2026-09-18); no fixed version exists yet. Dev-only: reached through eslint-config-next -> fast-glob -> micromatch at lint time, never shipped or run on user input."
