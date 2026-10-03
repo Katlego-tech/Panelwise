@@ -2,7 +2,7 @@
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,9 +29,13 @@ async def create_upload(
 
 
 async def list_summaries(session: AsyncSession, owner: uuid.UUID) -> list[ProjectSummary]:
-    """The owner's projects, newest first, each with its latest job. `pages`, `scenes`, `shots`
-    are null until T046 writes the stage columns and `frames` until T047/T021 add the `frames`
-    table: the real state of a project nothing has processed yet (web.md §6)."""
+    """The owner's projects, newest first, each with its latest job. `pages`, `scenes` and
+    `shots` come from the stage columns (T046), counted in SQL so the list never loads a whole
+    screenplay, and are null until their stage has run; `frames` is null until T047/T021 add the
+    `frames` table (web.md §6)."""
+    pages = ProjectRow.screenplay["page_count"].as_integer()
+    scenes = func.jsonb_array_length(ProjectRow.screenplay["scenes"])
+    shots = func.jsonb_array_length(ProjectRow.plan["shots"])
     latest = (
         select(JobRow)
         .ext(distinct_on(JobRow.project_id))
@@ -39,23 +43,30 @@ async def list_summaries(session: AsyncSession, owner: uuid.UUID) -> list[Projec
         .subquery()
     )
     rows = await session.execute(
-        select(ProjectRow, JobRow)
+        select(ProjectRow, JobRow, pages, scenes, shots)
         .join(latest, latest.c.project_id == ProjectRow.id)
         .join(JobRow, JobRow.id == latest.c.id)
         .where(ProjectRow.owner == owner)
         .order_by(ProjectRow.created_at.desc(), ProjectRow.id.desc())
     )
-    return [summary(project, job) for project, job in rows]
+    return [summary(project, job, pages=p, scenes=sc, shots=sh) for project, job, p, sc, sh in rows]
 
 
-def summary(project: ProjectRow, job: JobRow) -> ProjectSummary:
+def summary(
+    project: ProjectRow,
+    job: JobRow,
+    *,
+    pages: int | None = None,
+    scenes: int | None = None,
+    shots: int | None = None,
+) -> ProjectSummary:
     return ProjectSummary(
         id=project.id,
         title=project.title,
         created_at=project.created_at,
-        pages=None,
-        scenes=None,
-        shots=None,
+        pages=pages,
+        scenes=scenes,
+        shots=shots,
         frames=None,
         # Validated from the row's text: the database's CHECK and Job's Literal agree (web.md §6).
         job=Job.model_validate(

@@ -1,5 +1,7 @@
 """POST and GET /api/v1/projects: the upload and the list (web.md §4.1, §6; T053)."""
 
+import asyncio
+import logging
 import re
 import uuid
 from pathlib import PurePath
@@ -13,10 +15,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.errors import ApiError
 from app.api.v1.schemas import ProjectSummary
 from app.core.auth import Caller, current_caller
+from app.projects.job import fail_job, run_job
+from app.projects.pipeline import UNEXPECTED
 from app.projects.repo import create_upload, list_summaries, summary
 from app.storage import AssetStore, StorageError
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 _FRAMING = 64 * 1024  # multipart boundaries and headers on top of the file itself
 _MAX_TITLE_BYTES = 1024
@@ -38,6 +43,20 @@ def _title(typed: object, filename: str | None) -> str:
     name = PurePath(filename or "").name
     text = text.strip() or re.sub(r"\.pdf$", "", name, flags=re.IGNORECASE).strip()
     return text[:_TITLE_CHARS].strip() or "Untitled"
+
+
+def start(request: Request, job_id: uuid.UUID) -> None:
+    """Run the job as a background task in this process (web.md §4.1). Without a model it fails
+    at once with the unexpected-error copy rather than sitting QUEUED until a restart."""
+    state = request.app.state
+    if state.model is None:
+        log.error("job %s cannot run: NEBIUS_API_KEY is not set", job_id)
+        work = fail_job(state.sessions, job_id, UNEXPECTED, None)
+    else:
+        work = run_job(job_id, sessions=state.sessions, store=state.store, model=state.model)
+    task = asyncio.create_task(work)
+    state.tasks.add(task)
+    task.add_done_callback(state.tasks.discard)
 
 
 @router.post("/projects", status_code=202)
@@ -81,6 +100,7 @@ async def upload(
             session, project_id=project_id, owner=caller.user_id, title=title, pdf_path=path
         )
         made = summary(project, job)
+    start(request, job.id)  # after the commit: the job reads what this transaction wrote
     body: dict[str, Any] = {"project": made, "job": made.job}
     return JSONResponse({k: v.model_dump(mode="json") for k, v in body.items()}, status_code=202)
 

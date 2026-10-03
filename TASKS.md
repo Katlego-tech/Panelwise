@@ -220,7 +220,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:web.md §6 `app/projects/pipeline.py`; script.md §6 `page_starts`, `ScriptParseError.code`; grounding.md §6 `ExtractionError.scene`; shots.md §6 `ShotError.scene`; verbatim
       Verify:  bash scripts/gate.sh (models via `httpx2.MockTransport`, no network, no database): a good PDF advances (PARSING, 0, None) → (EXTRACTING, 5, screenplay) → (PLANNING, 40, extraction) and returns the plan; each ScriptParseError code gives its copy at PARSING; an over-budget script gives the budget copy with zero model calls; a failed extraction chunk and a failed planning call give "Reading the script failed at scene {n}" with that scene's number; page_starts[0] == 1 and len == page_count on every sample. Then `uv run python -m app.projects.run samples/the-red-kite.pdf` on the real account
       Done:    T046 can call `await run_pipeline(pdf, model, on_advance=...)` and get the parse, extraction and plan with every stage announced in band order, or a `PipelineError` whose stage and message are exactly what the job row will show; the CLI prints the advances and a summary for the-red-kite on the real account
-- [ ] T046 [US1] **API: run the pipeline as a Job.** The upload's queued job runs T043's `run_pipeline`, writing each stage's column in the same transaction as the job's advance. Lane `web`. Depends on T009, T053, T043.
+- [x] T046 [US1] **API: run the pipeline as a Job.** The upload's queued job runs T043's `run_pipeline`, writing each stage's column in the same transaction as the job's advance. Lane `web`. Depends on T009, T053, T043.
       Design:  docs/design/web.md §3 (Project stage columns, Job stage and progress), §4.1 (the sequence, failures, the unexpected-error copy), §6 (`app/projects/job.py`, the `on_advance` table)
       Files:   services/api/app/projects/{job,codec}.py; services/api/app/projects/repo.py (`list_summaries` reads `pages`, `scenes`, `shots` from the stage columns); services/api/app/api/v1/projects.py (the POST schedules `run_job` after its commit); services/api/tests/projects/{test_job,test_codec}.py
       Contract:web.md §6 `run_job` and the `on_advance` table, verbatim; `codec.py` round-trips `Screenplay`, `Extraction`, `ShotPlan` to the jsonb columns losslessly (load(dump(x)) == x)
@@ -330,5 +330,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 - [ ] T033 [POL] README: setup, how Nemotron and Token Factory are used, feedback section. Lane `eval+submission`.
 - [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
 - [ ] T035 [POL] gitleaks over history, make the repo public, submit on Devpost by 29 Oct. Lane `eval+submission`.
+- [ ] T055 [POL] **Close the `braces` advisory GHSA-vfj7-8cjw-p6xm.** Accepted in `osv-scanner.toml` on 2026-10-03 (no fixed version; dev-only, via eslint-config-next → fast-glob → micromatch). Lane `infra`.
+      Design:  none (a dependency bump)
+      Files:   apps/web/package.json / pnpm-lock.yaml (a fixed `braces`, or an `overrides` entry, or a newer eslint-config-next that drops it); osv-scanner.toml (remove the block)
+      Contract:none
+      Verify:  bash scripts/gate.sh with the exemption removed: the vulnerability scan passes
+      Done:    the exemption is gone and the gate's scan is clean; if no fix exists by 2026-10-31 the exemption expires and the gate fails, which forces this decision before submission
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
