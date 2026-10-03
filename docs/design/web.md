@@ -474,6 +474,31 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
 - **New dependencies:** `alembic`, `pyjwt[crypto]` (PyJWT and `cryptography`), `python-multipart`
   (FastAPI's form parsing).
 
+**API internals: the reads and the `frames` table** (T047):
+
+- **Errors:** a project id that isn't a UUID, doesn't exist, or belongs to someone else → 404
+  `{"error": "not_found"}` (the same answer for all three, so ids can't be probed); `…/lines`
+  before the screenplay column exists, and `…/shots` before the plan column exists → 409
+  `{"error": "not_ready"}`; every route also answers 401/503 as `current_caller` does.
+- **`GET /projects/{id}`** builds `Project` from the row with T044's builders: `scene_list` =
+  `scene_views(screenplay, plan)` once the screenplay column exists, else `null`; `entities` =
+  `entity_views(extraction)` and `report` = `report_view(extraction, plan)` once the extraction
+  column exists, else `null`. The summary fields are `list_summaries`' for that project.
+- **`frames` table** (migration `0002`, `lock_down` like every table, deploy.md §6):
+  `project_id uuid references projects(id) on delete cascade`, `scene_index int`, `shot_number int`
+  (primary key the three), `state text` (`rendering`, `auditing`, `passed`, `warned`, `withheld`,
+  `failed`: verify.md §5's `FrameState`, CHECK), `attempt int ≥ 1`, `job_id uuid references
+  jobs(id) on delete cascade`, `asset text null` (CHECK: null unless `passed` or `warned`: a
+  withheld frame's file is never referenced), `withheld_check text null`, `updated_at timestamptz
+  default clock_timestamp()`. T047 creates and reads it; T021 writes it.
+- **`frame_view(row, screenplay, image_url)`** (`app/frames/views.py`, pure): `shot_id` from the
+  scene's printed number (`shot_id`, T044); `max_renders` = verify.md's 3; `image_url` only for
+  `passed`/`warned` with an asset, a signed URL valid **1 hour** (`AssetStore.signed_url`); `audits`
+  `[]` until T021. **`ProjectSummary.frames`** is `null` when the project has no `frames` rows,
+  else the counts by §3's definitions (`total` = rows).
+- **`GET /projects/{id}/frames`**: one `FrameView` per row, in `(scene_index, shot_number)` order;
+  no storage configured and a row needing a signed URL → 503 `storage_unavailable`.
+
 **Response types** (TypeScript in `apps/web/lib/api/types.ts`; Pydantic mirrors in
 `services/api/app/api/v1/schemas.py`, T044: one model per interface and per nested object, `Job`
 and `ProjectSummary` included; field names identical):
