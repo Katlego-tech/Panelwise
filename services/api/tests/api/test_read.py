@@ -197,3 +197,34 @@ async def test_a_users_extra_render_never_reads_attempt_4_of_3(
         )
     (frame,) = get(client, f"/{pid}/frames")[1]
     assert (frame["attempt"], frame["max_renders"]) == (4, 4)
+
+
+class BrokenStore(MemoryStore):
+    async def signed_url(self, path: str, expires_in_s: int) -> str:
+        from app.storage import StorageError
+
+        raise StorageError("signed_url: storage answered 500")
+
+
+@pytest.mark.parametrize("store_kind", ["none", "broken"])
+async def test_an_accepted_frame_without_working_storage_is_503(
+    migrated: str, sessions: async_sessionmaker[AsyncSession], store_kind: str
+) -> None:
+    store = MemoryStore()
+    pid, jid = await project(sessions, store, run=True)
+    async with sessions() as s, s.begin():
+        s.add(
+            FrameRow(
+                project_id=pid,
+                scene_index=0,
+                shot_number=1,
+                state="passed",
+                attempt=1,
+                job_id=jid,
+                asset="frames/a.png",
+            )
+        )
+    serving = None if store_kind == "none" else BrokenStore()
+    app = create_app(Settings(database_url=migrated), verifier=FakeVerifier(), store=serving)
+    with TestClient(app) as c:
+        assert get(c, f"/{pid}/frames") == (503, {"error": "storage_unavailable"})
