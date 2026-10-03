@@ -8,6 +8,7 @@ from alembic import context
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
+import app.frames.model
 import app.jobs.model
 import app.projects.model
 from app.core.config import Settings
@@ -18,7 +19,7 @@ if config.config_file_name is not None and not config.attributes.get("database_u
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
-_ = app.jobs.model
+_ = (app.jobs.model, app.frames.model)
 
 
 def run(connection: Connection) -> None:

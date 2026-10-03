@@ -1,0 +1,24 @@
+"""`FrameView` from a `frames` row (web.md §6 *API internals: the reads*; T047). Pure."""
+
+from app.api.v1.schemas import FrameView
+from app.frames.model import ACCEPTED, FrameRow
+from app.script import Screenplay
+
+MAX_RENDERS = 3  # verify.md: the first render and two re-renders
+
+
+def frame_view(row: FrameRow, screenplay: Screenplay, image_url: str | None) -> FrameView:
+    """`image_url` is honoured only for an accepted frame; every other state shows no image.
+    `max_renders` never reads below the attempt, so a user's extra render is "4 of 4"."""
+    accepted = row.state in ACCEPTED and row.asset is not None
+    return FrameView.model_validate(
+        {
+            "shot_id": f"{screenplay.scenes[row.scene_index].number}.{row.shot_number}",
+            "state": row.state,
+            "attempt": row.attempt,
+            "max_renders": max(MAX_RENDERS, row.attempt),
+            "image_url": image_url if accepted else None,
+            "withheld_check": row.withheld_check,
+            "audits": [],  # T021 adds the frame_audits history
+        }
+    )

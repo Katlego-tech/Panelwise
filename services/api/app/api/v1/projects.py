@@ -13,11 +13,15 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.errors import ApiError
-from app.api.v1.schemas import ProjectSummary
+from app.api.v1.schemas import FrameView, LinesView, Project, ProjectSummary, ShotView
 from app.core.auth import Caller, current_caller
+from app.frames import ACCEPTED, frame_view, frames_of
+from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.job import fail_job, run_job
+from app.projects.model import ProjectRow
 from app.projects.pipeline import UNEXPECTED
-from app.projects.repo import create_upload, list_summaries, summary
+from app.projects.repo import create_upload, get_project, list_summaries, summary
+from app.projects.views import entity_views, lines_view, report_view, scene_views, shot_views
 from app.storage import AssetStore, StorageError
 
 router = APIRouter()
@@ -111,3 +115,93 @@ async def list_projects(
 ) -> list[ProjectSummary]:
     async with request.app.state.sessions() as session:
         return await list_summaries(session, caller.user_id)
+
+
+# --- the reads (T047; web.md §6 *API internals: the reads and the frames table*) -----------
+
+_SIGNED_URL_S = 3600  # a frame's signed image URL lives an hour
+
+
+async def _owned(
+    request: Request, caller: Caller, project_id: str
+) -> tuple[ProjectRow, ProjectSummary]:
+    """The caller's project, or 404 -- the same answer for a malformed id, a missing project and
+    someone else's, so ids can't be probed. `{id}` is a str parsed here: typed UUID, FastAPI
+    would answer a malformed one with its own 422."""
+    try:
+        pid = uuid.UUID(project_id)
+    except ValueError as exc:
+        raise ApiError(404, "not_found") from exc
+    async with request.app.state.sessions() as session:
+        found = await get_project(session, caller.user_id, pid)
+    if found is None:
+        raise ApiError(404, "not_found")
+    return found
+
+
+@router.get("/projects/{project_id}")
+async def read_project(
+    request: Request, project_id: str, caller: Annotated[Caller, Depends(current_caller)]
+) -> Project:
+    row, made = await _owned(request, caller, project_id)
+    screenplay = load_screenplay(row.screenplay) if row.screenplay is not None else None
+    extraction = load_extraction(row.extraction) if row.extraction is not None else None
+    plan = load_plan(row.plan) if row.plan is not None else None
+    return Project.model_validate(
+        made.model_dump()
+        | {
+            "scene_list": scene_views(screenplay, plan) if screenplay else None,
+            "entities": entity_views(extraction) if extraction else None,
+            "report": report_view(extraction, plan) if extraction else None,
+        }
+    )
+
+
+@router.get("/projects/{project_id}/lines")
+async def read_lines(
+    request: Request, project_id: str, caller: Annotated[Caller, Depends(current_caller)]
+) -> LinesView:
+    row, _ = await _owned(request, caller, project_id)
+    if row.screenplay is None:
+        raise ApiError(409, "not_ready")
+    return lines_view(load_screenplay(row.screenplay))
+
+
+@router.get("/projects/{project_id}/shots")
+async def read_shots(
+    request: Request, project_id: str, caller: Annotated[Caller, Depends(current_caller)]
+) -> list[ShotView]:
+    row, _ = await _owned(request, caller, project_id)
+    if row.screenplay is None or row.extraction is None or row.plan is None:
+        raise ApiError(409, "not_ready")
+    return shot_views(
+        load_screenplay(row.screenplay), load_extraction(row.extraction), load_plan(row.plan)
+    )
+
+
+@router.get("/projects/{project_id}/frames")
+async def read_frames(
+    request: Request, project_id: str, caller: Annotated[Caller, Depends(current_caller)]
+) -> list[FrameView]:
+    """One FrameView per `frames` row; no rows exist until T021 writes them."""
+    row, _ = await _owned(request, caller, project_id)
+    async with request.app.state.sessions() as session:
+        frames = await frames_of(session, row.id)
+    if not frames:
+        return []
+    if row.screenplay is None:  # frames are written from a plan, which needs a screenplay
+        raise ApiError(409, "not_ready")
+    screenplay = load_screenplay(row.screenplay)
+    store: AssetStore | None = request.app.state.store
+    views: list[FrameView] = []
+    for frame in frames:
+        url: str | None = None
+        if frame.state in ACCEPTED and frame.asset is not None:
+            if store is None:
+                raise ApiError(503, "storage_unavailable")
+            try:
+                url = await store.signed_url(frame.asset, _SIGNED_URL_S)
+            except StorageError as exc:
+                raise ApiError(503, "storage_unavailable") from exc
+        views.append(frame_view(frame, screenplay, url))
+    return views
