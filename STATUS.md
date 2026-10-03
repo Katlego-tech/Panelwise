@@ -7,7 +7,7 @@ _Last updated: 2026-10-03 — by Katlego (via Claude)_
 
 ---
 
-## ⇄ HANDOFF: **none**
+## ⇄ HANDOFF: **ACTIVE**
 
 > Leave this block here even when dormant — it is the first thing every AI reads, and it only
 > works as a signal if it always lives in the same spot. Set it to `ACTIVE` and fill the rows
@@ -16,13 +16,13 @@ _Last updated: 2026-10-03 — by Katlego (via Claude)_
 
 | Field | Value |
 |---|---|
-| Status | 🟢 **none** |
-| Raised | — |
-| Reason | — |
-| Document | — |
-| Branch | — |
-| Resume at | — |
-| Blocking | — |
+| Status | 🟠 **ACTIVE** |
+| Raised | 2026-10-03, Katlego (via Claude) |
+| Reason | session limit approaching; the US1 API is complete and merged |
+| Document | [docs/HANDOFF.md](docs/HANDOFF.md) |
+| Branch | `main` (nothing unpushed) |
+| Resume at | HANDOFF §6 step 1: **T040** (web: tokens, sign-in, projects, upload), after the `frontend-design` skill |
+| Blocking | nothing for T040; the interim renderer waits on Katlego's Cloudflare decision |
 
 ---
 
@@ -39,7 +39,7 @@ _Last updated: 2026-10-03 — by Katlego (via Claude)_
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
-| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ⬜ T040–T045 web screens next; T040 is buildable now |
+| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ⬜ T040–T045 web screens next; T040 is buildable now · paused — handed off (docs/HANDOFF.md) |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · T021 waits on T045 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
@@ -188,3 +188,4 @@ Buildable now, no external dependency: **T040** (web: tokens, sign-in, projects,
 - 2026-10-03 — Katlego (via Claude) — Interim renderer researched: Token Factory still serves no image model (catalog + images endpoint re-checked), and the local AMD Barcelo iGPU can't run ComfyUI usefully; recommended FLUX.1 [schnell] on Cloudflare Workers AI (Apache-2.0; ~48 neurons ≈ $0.0005 per 1024×576 frame; ~200 frames/day inside the free 10,000 neurons, per Cloudflare's price table) as an interim `Renderer` beside ComfyUI — needs Katlego's Cloudflare account + token and a plan change. T046 code: `codec.py` (type-driven, lossless, tagged unions), `job.py` (`run_job`, one transaction per advance, §4.1 failures, never raises), the POST starts the job as a tracked task, `list_summaries` counts pages/scenes/shots in SQL. Live: the-red-kite through the real API: queued → parsing → extracting 5 → planning 40 → done 60 in 40 s, 5 pages, 5 scenes, 22 shots. Next: review; T047. Blocked on: nothing (renderer: Katlego's call).
 - 2026-10-03 — Katlego (via Claude) — T046 merged (PR #53, review clean); GHSA-vfj7 (braces, dev-only, no fix) accepted against T055 until 2026-10-31. T047: design PR #54 (review: frames.total is the plan's shot count, withheld_check's source is T021's, max_renders ≥ attempt; merged); code: migration 0002 `frames` (locked down), `frame_view`, one summary query shared by list and project with frame counts, GET project/lines/shots/frames with one 404 for malformed/missing/foreign ids and 409 not_ready. 126 API+DB tests. Live on Supabase: 0002 migrated (frames RLS on, Data API 401), the T046 red-kite project read back in full (5 scenes, 11 entities, 325 lines, 22 shots, frames []), another user 404 on every route; test data deleted. Next: review; then the web screens (T040). Blocked on: nothing; the interim renderer waits on Katlego's Cloudflare call.
 - 2026-10-03 — Katlego (via Claude) — T047 merged (PR #55; review clean, storage-503 tests added). The API for US1 is complete: upload → job → parse/extract/plan → read project, lines, shots, frames. Next: T040. Blocked on: nothing (renderer: Katlego's Cloudflare decision).
+- 2026-10-03 — Katlego (via Claude) — Handoff raised: docs/HANDOFF.md (done/not started, locked decisions, run commands, verified facts, corrections, next steps, gotchas, open questions). Resume at T040. Blocked on: nothing for T040.
