@@ -91,9 +91,9 @@ DATABASE_URL="$(grep ^SUPABASE_DB_URL= ../../.env | cut -d= -f2-)" HEALTH_CHECK_
 
 ## 6. Next steps, in order
 
-1. **T040** (web: tokens, sign-in, projects list, upload). Read TASKS.md T040 and web.md §4
-   (sign-in, §4.1 upload), §5–§7 and the visual references `docs/design/web/signin.png`,
-   `projects.png` + `tokens.css`. Load the `frontend-design` skill first (CLAUDE.md). The API it
+1. **T040** (web: tokens, sign-in, projects list, upload). Read TASKS.md T040 and web.md §4.0
+   (sign-in), §4.1 (upload), §5–§7 and the visual references `docs/design/web/signin.png`,
+   `docs/design/web/projects.png` and `docs/design/web/mockups/tokens.css`. Load the `frontend-design` skill first (CLAUDE.md). The API it
    calls is merged: `POST`/`GET /api/v1/projects` with `Authorization: Bearer <Supabase token>`;
    the browser never calls the API directly (Next.js route handlers do, server-side).
 2. T041 script page → T042 storyboard board → T045 frame sheet, each against its PNG reference.
