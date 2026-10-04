@@ -14,11 +14,31 @@
 
 name: CI
 
+# Pushes run on main only; a branch gets the gate through its PR. Running on pushes to
+# every branch as well ran it twice for each commit on a branch with an open PR -- one run
+# for the push, one for the PR, in different concurrency groups, so neither cancelled the other.
 on:
   push:
-    branches: ["**"]        # every branch (tags don't run the gate)
+    branches: [main]
+    # Not run for changes that only touch files no check reads: the shared-state boards
+    # and the AI entry points. README.md and docs/ stay in: .hack/hack.py and the tests
+    # read them.
+    paths-ignore:
+      - 'STATUS.md'
+      - 'TASKS.md'
+      - 'HANDOFF.md'
+      - 'CLAUDE.md'
+      - 'GEMINI.md'
+      - '.claude/**'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'STATUS.md'
+      - 'TASKS.md'
+      - 'HANDOFF.md'
+      - 'CLAUDE.md'
+      - 'GEMINI.md'
+      - '.claude/**'
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -58,8 +78,8 @@ jobs:
         with:
           node-version: '24.21.0'
           # Since v5 this action caches npm dependencies on its own when package.json
-          # names npm as the package manager. This workflow never cached them, and
-          # the install goes through gate.sh -- keep it that way.
+          # names npm as the package manager. Not here: the install goes through gate.sh
+          # -- keep it that way. "Cache downloads" below caches what the install fetches.
           package-manager-cache: false
 
       # pnpm and yarn come with Node through corepack; this puts them on PATH, so a
@@ -82,6 +102,24 @@ jobs:
           mkdir -p "$HOME/.local/bin"
           install -m 0755 osv-scanner_linux_amd64 "$HOME/.local/bin/osv-scanner"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Find the pnpm store
+        id: pnpm-store
+        working-directory: apps/web
+        env:
+          COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      # Caches what the installs download, never what they install: gate.sh still runs
+      # every install, so a hit only means less comes over the network. The key is the
+      # lockfile, so a dependency change starts a fresh cache from the nearest old one.
+      - name: Cache downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ${{ steps.pnpm-store.outputs.path }}
+          key: downloads-${{ runner.os }}-${{ hashFiles('apps/web/pnpm-lock.yaml') }}
+          restore-keys: downloads-${{ runner.os }}-
 
       # --- dependencies ----------------------------------------------------
       # gate.sh treats "dependencies not installed" as a failure, so this step is

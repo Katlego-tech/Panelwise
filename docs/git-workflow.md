@@ -79,8 +79,9 @@ branch, or came from a fork. Unpushed local branches are never touched. Run it b
    ```
    The installer sets the config, then fires the hook once to prove it actually rejects a push to
    `main`. A gate nobody has watched fire is indistinguishable from no gate.
-2. **CI** (`.github/workflows/ci.yml`) — runs the *same* `scripts/gate.sh` on every push and PR, on
-   hardware nobody can configure their way around.
+2. **CI** (`.github/workflows/ci.yml`) — runs the *same* `scripts/gate.sh` on every PR into `main`
+   and every push to it, on hardware nobody can configure their way around. Changes that touch only
+   files no check reads (the status board, the AI entry points) skip it; the list is in `ci.yml`.
 3. **Server-side branch protection** (GitHub/GitLab/etc.) — the real authority, since layer 1 is
    opt-in and bypassable. Turn on: require a PR before merging, require the CI status check, require
    at least one approval (team mode only — a solo project sets it to 0, see

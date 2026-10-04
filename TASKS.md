@@ -336,5 +336,15 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  bash scripts/gate.sh with the exemption removed: the vulnerability scan passes
       Done:    the exemption is gone and the gate's scan is clean; if no fix exists by 2026-10-31 the exemption expires and the gate fails, which forces this decision before submission
+- [x] T056 [POL] CI runs once per commit, not for board-only changes, with its downloads cached. Lane `infra`.
+      Design:  none (CI configuration)
+      Files:   .github/workflows/ci.yml, docs/git-workflow.md
+      Contract:none
+      Verify:  actionlint .github/workflows/ci.yml; the PR for this task starts one CI run
+               (pull_request), not two
+      Done:    a push to a branch with an open PR starts one CI run, not two (pushes run CI on
+               `main` only); a change that touches only `STATUS.md`, `TASKS.md`, `HANDOFF.md`, `CLAUDE.md`,
+               `GEMINI.md` or `.claude/` starts none;
+               the pnpm store comes from the cache
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
