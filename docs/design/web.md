@@ -148,9 +148,19 @@ classDiagram
 
 ### 4.0 Sign-in
 
-Supabase Auth, email and password (`@supabase/ssr`, cookies). Every route except `/sign-in` redirects
+Supabase Auth, email and password (`@supabase/ssr`, cookies). Every page except `/sign-in` redirects
 there when signed out. The seeded judge account is T030's. Failure copy: "That email and password
 don't match. Check both and try again." Reference: signin.png.
+
+- **`apps/web/proxy.ts`** (Next.js 16 renamed the `middleware.ts` convention to `proxy.ts`)
+  refreshes the Supabase session cookie on every request and makes the redirects: a signed-out
+  page request → `/sign-in`; a signed-in request for `/sign-in` or `/` → `/projects`.
+- It **never redirects `/api/*`**: `/api/health` stays public (deploy.md §4's check calls it), and
+  every other route handler answers a signed-out request itself with 401
+  `{"error": "unauthorized"}`, the API's own shape, so a polling client gets JSON, not a sign-in page.
+- The proxy is an optimistic check (Next.js's own guidance), not the guard: each page and route
+  handler verifies the user again server-side before it calls the API, and the API checks the
+  token itself (§6).
 
 ### 4.1 Upload and the job
 
@@ -676,7 +686,7 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `services/api/app/script/{model,parser}.py` | changed | `Screenplay.page_starts`, `ScriptParseError.code` (+ script.md §6) | T043 |
 | `services/api/app/api/v1/projects.py` (read endpoints) | changed | §6 rows marked T047 | T047 |
 | `apps/web/app/globals.css`, `apps/web/components/ui/*` | new | tokens as Tailwind `@theme`; shadcn/ui primitives restyled | T040 |
-| `apps/web/lib/{supabase,api}/*`, `apps/web/middleware.ts` | new | `@supabase/ssr` session, typed API client, §6 types | T040 |
+| `apps/web/lib/{supabase,api}/*`, `apps/web/proxy.ts` | new | `@supabase/ssr` session, typed API client, §6 types; the proxy's redirects (§4.0) | T040 |
 | `apps/web/app/(auth)/sign-in/`, `apps/web/app/projects/page.tsx`, `apps/web/app/api/projects/route.ts`, `apps/web/components/AppBar.tsx` (ProjectTabs inside), `apps/web/components/SignInForm.tsx`, `apps/web/components/projects/*` (ProjectsPage parts) | new | §4.0, §4.1 | T040 |
 | `apps/web/components/shared/{Verdict,SpanRef,Quote,Meter}.tsx` | new | used by every screen | T040 |
 | `apps/web/app/projects/[id]/script/`, `components/script/*` | new | §4.2 | T041 |
