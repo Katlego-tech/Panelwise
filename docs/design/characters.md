@@ -96,7 +96,12 @@ classDiagram
    like `THE STRANGER` doesn't turn every "The" into a name), matched case-sensitively in UPPER or
    Title case at word boundaries, which is how screenplays write names. A maximal run of name tokens
    (with an optional possessive `'S`) is replaced once: "NANDI MOLEFE" → "a person", "NANDI'S" →
-   "a person's". Rule 1 therefore holds by construction; redaction only removes words,
+   "a person's". In frame prompts (T052) an animal character is labelled `the <species>` and other
+   names are redacted too (storyboard.md §3.1 Labels). **For portraits this is T025's to build,
+   not T052's:** `redact_names` keeps its behaviour until then, and T025 must use the labels for an
+   animal's portrait prompt and replace the portrait check's `len(people) == 1` with "no person and
+   one animal object" for an animal. A title directly before the run (`MR.`, `OFFICER`, …: storyboard.md §3.1, T050)
+   is replaced with it: "MR. DUBE" → "a person". Rule 1 therefore holds by construction; redaction only removes words,
    never adds them. The one known cost: a sentence-initial common word that is also a name ("Will")
    is redacted too, which fails safe.
 3. **Undescribed means undescribed.** A character with no descriptive quote (always true for
@@ -142,7 +147,7 @@ failed, and then `ok` is false). Three attempts, then `WITHHELD`: frames for tha
 **without** a reference (text-only), which is what FrameFlow always did, and the UI says so.
 
 **`choose_references(shot, portraits)`** (pure, deterministic):
-1. Candidates: `visible_characters(shot, scene)` (storyboard.md §3.1: on screen in the covered
+1. Candidates: `visible_characters(shot, screenplay, extraction)` (storyboard.md §3.1: on screen in the covered
    elements, so never a `V.O.`/`O.S.` speaker) whose portrait is `READY`.
 2. Order: first, characters who **speak** in the shot's covered elements, each resolved from its
    `Dialogue.cue` with `match_speaker(cue, shot.characters)` (an unresolved cue is skipped), ordered
@@ -256,7 +261,8 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - `described_by`: only action-paragraph quotes; a `CUE` character is `undescribed`.
 - `redact_names`: "NANDI (60s, oilskin coat) pours tea" → "a person (60s, oilskin coat) pours tea";
   another character's name → "another person"; multi-word names token by token; lower-case common
-  words untouched ("she will stay" with a character WILL); a sentence-initial "Will" redacted.
+  words untouched ("she will stay" with a character WILL); a sentence-initial "Will" redacted; a
+  title taken with the name it precedes ("MR. DUBE" → "a person", T050).
 - `portrait_prompt`: contains no name token of any character, contains each described quote with only
   those redactions, and nothing about age, gender or ethnicity that isn't in a quote; heading- and
   dialogue-located quotes excluded.

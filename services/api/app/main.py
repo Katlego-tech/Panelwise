@@ -1,38 +1,118 @@
 """The Panelwise API. Run: uv run uvicorn app.main:app"""
 
+import asyncio
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import httpx2
 from fastapi import FastAPI
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.api.v1 import health
+from app.api import errors
+from app.api.v1 import health, projects
+from app.core.auth import SupabaseJwtVerifier, TokenVerifier
 from app.core.config import Settings
+from app.db import make_engine, make_sessions
+from app.jobs import fail_interrupted
+from app.llm import LLMConfigError, NebiusChatModel
+from app.storage import AssetStore, SupabaseStore
+
+log = logging.getLogger(__name__)
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+async def sweep(sessions: async_sessionmaker[AsyncSession]) -> None:
+    """web.md §4.1: a job still QUEUED or RUNNING at startup was cut off by the restart. If the
+    database is unreachable, log and start anyway: the health check reports it, and the next
+    start sweeps."""
+    try:
+        async with sessions() as session, session.begin():
+            count = await fail_interrupted(session)
+    except Exception as exc:
+        log.warning("restart sweep skipped: the database is unreachable (%s)", type(exc).__name__)
+        return
+    if count:
+        log.info("restart sweep: %d interrupted job(s) marked failed", count)
+
+
+class _Unset:
+    pass
+
+
+UNSET = _Unset()
+
+
+def create_app(
+    settings: Settings | None = None,
+    *,
+    verifier: TokenVerifier | _Unset | None = UNSET,
+    store: AssetStore | _Unset | None = UNSET,
+    model: NebiusChatModel | _Unset | None = UNSET,
+) -> FastAPI:
+    """The app. `verifier` and `store` default to Supabase's, built from settings (None when
+    SUPABASE_URL or its secret key is unset: the routes then answer 503); `model` defaults to
+    Token Factory's (None without NEBIUS_API_KEY: a job then fails at once). Tests pass fakes."""
     settings = settings or Settings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         # The engine connects lazily, on first use -- building it never touches the network.
         # Deployed, DATABASE_URL is Supabase's session pooler (docs/design/deploy.md §6).
-        engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+        engine = make_engine(settings)
+        sessions = make_sessions(engine)
 
         async def postgres() -> None:
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
 
         app.state.health_checks = {"postgres": postgres}
+        app.state.sessions = sessions
+        client = httpx2.AsyncClient(timeout=30)
+        url, key = settings.supabase_url, settings.supabase_secret_key
+        app.state.verifier = (
+            (SupabaseJwtVerifier(supabase_url=url, client=client) if url else None)
+            if isinstance(verifier, _Unset)
+            else verifier
+        )
+        app.state.store = (
+            (
+                SupabaseStore(
+                    url=url, secret_key=key, bucket=settings.supabase_storage_bucket, client=client
+                )
+                if url and key
+                else None
+            )
+            if isinstance(store, _Unset)
+            else store
+        )
+        if isinstance(model, _Unset):
+            try:
+                app.state.model = NebiusChatModel.from_settings(settings)
+            except LLMConfigError:
+                app.state.model = None
+        else:
+            app.state.model = model
+        tasks: set[asyncio.Task[None]] = set()  # running jobs: one reference each, never GC'd
+        app.state.tasks = tasks
+        await sweep(sessions)
         try:
             yield
         finally:
+            # A job cut off here stays RUNNING; the next start's sweep fails it (web.md §4.1).
+            for task in list(tasks):
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            if isinstance(model, _Unset) and app.state.model is not None:
+                await app.state.model.aclose()
+            await client.aclose()
             await engine.dispose()
 
     app = FastAPI(title="Panelwise API", lifespan=lifespan)
     app.state.settings = settings
+    errors.install(app)
     app.include_router(health.router, prefix="/api/v1")
+    app.include_router(projects.router, prefix="/api/v1")
     return app
 
 

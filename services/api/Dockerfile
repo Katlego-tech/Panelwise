@@ -16,6 +16,9 @@ COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY app ./app
+# Migrations: Railway's pre-deploy command runs them from this image (docs/design/deploy.md §6).
+COPY alembic.ini ./
+COPY migrations ./migrations
 # The comic lettering font (docs/design/comic.md §2); a missing font fails the comic job.
 COPY assets ./assets
 

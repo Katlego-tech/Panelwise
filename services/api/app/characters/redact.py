@@ -10,7 +10,7 @@ every "The" would become a person.
 """
 
 import re
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 
 from app.script import normalise
 
@@ -41,6 +41,14 @@ NAME_STOP_WORDS = frozenset(
     }
 )
 
+# Forms of address: stop words on their own, but redacted with the name they precede, so
+# "MR. DUBE" becomes "a person", not "MR. a person" (T050, storyboard.md §3.1).
+TITLE_WORDS = frozenset(
+    {"MR", "MRS", "MS", "MISS", "DR", "SIR", "LADY", "OFFICER", "NURSE", "DOCTOR"}
+)
+# Only abbreviations take a full stop: "the OFFICER. Moloi turns" is a sentence end, not a title.
+_ABBREVIATIONS = frozenset({"MR", "MRS", "MS", "DR"})
+
 # Word characters except U+02BC, the modifier-letter apostrophe that \w counts as a letter:
 # NANDI\u02bcS must tokenise as NANDI then S, like NANDI'S (PR #27 review).
 _WORD = re.compile(r"[^\W\u02bc]+")
@@ -68,6 +76,13 @@ def redact_all(text: str, characters: Sequence[str]) -> str:
     return _redact(text, name_tokens(characters), lambda _: "a person")
 
 
+def redact(text: str, labels: Mapping[str, str]) -> str:
+    """`redact_all`'s matching with a label per name token (storyboard.md §3.1 Labels, T052).
+    `labels` is in rank order, and a run takes the label of its token that comes first in it."""
+    rank = {token: i for i, token in enumerate(labels)}
+    return _redact(text, labels.keys(), lambda run: labels[min(run, key=rank.__getitem__)])
+
+
 def _is_name(word: str, tokens: Collection[str]) -> bool:
     # UPPER or Title case: a capital first letter. "McDONALD" counts too; "will" never does.
     return word[0].isupper() and word.upper() in tokens
@@ -92,6 +107,7 @@ def _redact(text: str, tokens: Collection[str], label: Callable[[list[str]], str
                 break
             j += 1
         replacement = label([w.group().upper() for w in words[i : j + 1]])
+        start = _title_start(text, words, i, pos)
         end = words[j].end()
         after = j + 1
         # "NANDI'S": the tokeniser sees NANDI, then S after an apostrophe.
@@ -100,10 +116,30 @@ def _redact(text: str, tokens: Collection[str], label: Callable[[list[str]], str
             and words[after].group() in ("s", "S")
             and text[end : words[after].start()] in _APOSTROPHES
         ):
-            replacement += text[end] + "s"
+            # `it` has no apostrophe in its possessive: "Gerald's leg" -> "its leg".
+            replacement += "s" if replacement == "it" else text[end] + "s"
             end = words[after].end()
             after += 1
-        out += [text[pos : words[i].start()], replacement]
+        out += [text[pos:start], replacement]
         pos, i = end, after
     out.append(text[pos:])
     return "".join(out)
+
+
+def _title_start(text: str, words: list[re.Match[str]], i: int, floor: int) -> int:
+    """Where the name run at word `i` starts once the titles directly before it join it: each a
+    capitalised title word (an abbreviation optionally with a ".") separated by whitespace, and
+    never reaching back before `floor`, the end of the last replacement. (Defensive: titles are
+    stop words, never name tokens, so a walk back stops at the previous run anyway.)"""
+    start = words[i].start()
+    k = i - 1
+    while k >= 0 and words[k].start() >= floor:
+        word = words[k].group()
+        gap = text[words[k].end() : start]
+        if gap.startswith(".") and word.upper() in _ABBREVIATIONS:
+            gap = gap[1:]
+        if not (word[0].isupper() and word.upper() in TITLE_WORDS and gap and gap.isspace()):
+            break
+        start = words[k].start()
+        k -= 1
+    return start

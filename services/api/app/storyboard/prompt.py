@@ -20,8 +20,9 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from types import MappingProxyType
 
-from app.characters import redact_all
-from app.grounding import EntityKind, Extraction
+from app.characters import name_tokens, redact
+from app.characters.labels import animals, redaction_labels
+from app.grounding import Extraction
 from app.script import (
     Action,
     Dialogue,
@@ -106,9 +107,15 @@ def time_source(scenes: Sequence[Scene], scene_index: int) -> int | None:
     return None
 
 
-def visible_characters(shot: Shot, scene: Scene) -> tuple[str, ...]:
+def visible_characters(
+    shot: Shot, screenplay: Screenplay, extraction: Extraction
+) -> tuple[str, ...]:
     """The planner's characters that the covered elements put on screen, in the planner's order:
-    an on-screen speaker (not V.O., O.S., O.C. or OFF), or a character an action line names."""
+    an on-screen speaker (not V.O., O.S., O.C. or OFF), or a character an action line names by
+    its name or a paired other name. People only: an animal is never a figure (T052)."""
+    scene = screenplay.scenes[shot.scene_index]
+    beings = animals(extraction)
+    own = {c: _own_labels(c, screenplay, extraction) for c in shot.characters}
     shown: set[str] = set()
     for i in shot.elements:
         element = scene.elements[i]
@@ -119,11 +126,16 @@ def visible_characters(shot: Shot, scene: Scene) -> tuple[str, ...]:
             if (who := match_speaker(element.cue, shot.characters)) is not None:
                 shown.add(who)
         else:
-            # Named in the line exactly when redacting that one name changes it.
-            shown.update(
-                c for c in shot.characters if redact_all(element.text, [c]) != element.text
-            )
-    return tuple(c for c in shot.characters if c in shown)
+            # Named in the line exactly when redacting that one character changes it.
+            shown.update(c for c in shot.characters if redact(element.text, own[c]) != element.text)
+    return tuple(c for c in shot.characters if c in shown and c not in beings)
+
+
+def _own_labels(character: str, screenplay: Screenplay, extraction: Extraction) -> dict[str, str]:
+    """One character's labels; a planner name the extraction lacks still redacts as a name."""
+    return redaction_labels(extraction, screenplay, only=character) or {
+        token: "a person" for token in name_tokens([character])
+    }
 
 
 def build_frame_prompt(
@@ -136,13 +148,13 @@ def build_frame_prompt(
     placement: str | None = None,
 ) -> FramePrompt:
     scene = screenplay.scenes[shot.scene_index]
-    names = [e.name for e in extraction.entities if e.kind is EntityKind.CHARACTER]
-    visible = visible_characters(shot, scene)
+    labels = redaction_labels(extraction, screenplay)
+    visible = visible_characters(shot, screenplay, extraction)
     where = f"shot {shot.number} of scene {scene.number or scene.index + 1}"
 
     def script(text: str) -> str:
         # Redacted first, before any lower-casing: names are found by their capitals.
-        return " ".join(redact_all(text, names).split())
+        return " ".join(redact(text, labels).split())
 
     parts = [
         PromptPart(

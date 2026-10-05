@@ -18,7 +18,7 @@ the repo. Each step ends with a check; don't start the next until it passes.
    filled in. Not the *direct* connection: it's IPv6-only without the paid add-on. Not the
    *transaction* pooler (6543): it can't do prepared statements, which the API's driver uses.
 3. Project Settings → API Keys: note the project URL and the **secret** key (for step 2, server
-   only) and the **publishable** key (for step 3; T009 uses it).
+   only) and the **publishable** key (for step 3; the browser sign-in, T040, uses it).
 
 **Check:** from your machine, with the session-pooler string in `DATABASE_URL`:
 
@@ -40,6 +40,7 @@ kill %1
    | Builder | Dockerfile (Railway detects `services/api/Dockerfile`) |
    | Healthcheck path | `/api/v1/health` (timeout 60 s) |
    | Restart policy | On failure, 3 retries |
+   | Pre-deploy command | `/srv/api/.venv/bin/alembic -c /srv/api/alembic.ini upgrade head` (T009: migrations run before the new version starts; a failed one stops the deploy; check the deploy log shows them) |
 
    *Why no `railway.json`:* Railway deprecated Config as Code. New services can't opt into it, and
    existing files stop working on **2026-12-01**, before judging ends on 15 Dec
@@ -51,7 +52,7 @@ kill %1
    |---|---|
    | `DATABASE_URL` | step 1's session-pooler string, as copied. `postgresql://…` is fine (the API adds `+asyncpg`), and so is `?sslmode=require` (the API turns it into asyncpg's `?ssl=require`) |
    | `NEBIUS_API_KEY` | your Token Factory key |
-   | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | step 1 (used from T026/T009) |
+   | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | step 1 (the token check and uploads from T053, frames from T026) |
 
    Everything else has a default in `app/core/config.py` (`NEBIUS_MODEL_*`, `LLM_*`). `PORT` is set
    by Railway, and the container listens on it.
@@ -72,7 +73,7 @@ this check never replaces the running one.
    |---|---|
    | `API_URL` | `https://<railway-domain>` from step 2, no trailing slash. Server-side only |
    | `ENABLE_EXPERIMENTAL_COREPACK` | `1`, so Vercel uses the pnpm version pinned in `package.json` |
-   | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | step 1, the **publishable** key only (used from T009) |
+   | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | step 1, the **publishable** key only (the browser sign-in, from T040) |
 
 **Check:** `curl https://<vercel-domain>/api/health` →
 `{"web":"ok","api":{"status":"ok","checks":{"postgres":"ok"}}}` with HTTP 200. A 502 means Vercel
