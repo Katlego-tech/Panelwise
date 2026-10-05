@@ -9,7 +9,7 @@ against the script, and anything it can't find is dropped. Each frame is rendere
 describes it, and Nemotron audits that description against the shot. A frame that shows something
 the script doesn't is re-rendered, and after the last try it is withheld, never shown. (The audit
 and the withheld card are built and tested. Rendering waits on GPU access, and the re-render loop
-on the database-backed jobs it records its attempts in.)
+on the web app's frame sheet that shows its attempts.)
 
 Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/)
 (Best Apps and Agents track). Panelwise builds on FrameFlow, an earlier private project by the same
@@ -26,8 +26,9 @@ team: [CHANGES-FROM-FRAMEFLOW.md](CHANGES-FROM-FRAMEFLOW.md) says what was porte
 | Frame audit: a vision model describes, Nemotron judges, code runs the checks | built, run on real frames | `app.verify.run` |
 | Comic layout and lettering: panels sized by shot, dialogue lettered verbatim | built, on test-fixture frames | `tools.build_comic_reference` |
 | Rendering frames (ComfyUI on a Nebius AI Cloud GPU), the storyboard PDF | waiting on GPU access | — |
-| The re-render loop and its audit log (every attempt kept and shown) | designed; waiting on the Supabase project (it writes to the `frames` table) | — |
-| Web app (upload → shots → storyboard → comic reader), hosted demo | designed; waiting on the Supabase project and hosting accounts | — |
+| The API behind the web app: sign-in check, upload, a job that runs parse → extract → plan, read endpoints for the project, its lines, shots and frames | built, run live on Supabase | `/api/v1/projects` (needs a Supabase sign-in) |
+| The re-render loop and its audit log (every attempt kept and shown) | designed; the `frames` table it writes to is built; waits on the frame sheet (T045) | — |
+| Web screens (sign-in, upload → shots → storyboard → comic reader), hosted demo | designed; screens next (T040–T045); the demo waits on hosting accounts | — |
 
 [STATUS.md](STATUS.md) is the live board. The order of what's left is in its *Next action* section.
 
@@ -125,7 +126,8 @@ them with `uv run python -m tools.evaluate --runs 5` from `services/api`. Frame-
 ## Run it
 
 You need Python 3.14 with [uv](https://docs.astral.sh/uv/), and a Nebius Token Factory API key.
-Docker is only needed for the local stack, and Node 24 with pnpm only for the web app.
+Docker is only needed for the local stack and the full gate (its database tests start their own
+Postgres), and Node 24 with pnpm only for the web app.
 
 ```bash
 git clone https://github.com/Katlego-tech/Panelwise.git && cd Panelwise
@@ -156,8 +158,9 @@ bash ../../scripts/gate.sh                     # every check the pre-push hook r
 ```
 
 The local stack (Postgres, the API and the web app on pinned versions) runs with
-`docker compose up --build --wait`. For now it serves health checks: `GET :8000/api/v1/health` and
-`GET :3000/api/health`. The web screens come with T040–T045.
+`docker compose up --build --wait`. Without a Supabase project in `.env` it serves the health
+checks, `GET :8000/api/v1/health` and `GET :3000/api/health`; the `/api/v1/projects` endpoints
+need Supabase sign-in and Storage. The web screens come with T040–T045.
 
 ## Feedback on Nebius Token Factory and NVIDIA Nemotron
 
@@ -167,7 +170,7 @@ The local stack (Postgres, the API and the web app on pinned versions) runs with
 
 | Path | What |
 | --- | --- |
-| `services/api/app/` | the FastAPI service: `llm`, `script`, `grounding`, `shots`, `storyboard`, `verify`, `comic`, `characters`, `projects`, `api` |
+| `services/api/app/` | the FastAPI service: `llm`, `script`, `grounding`, `shots`, `storyboard`, `verify`, `comic`, `characters`, `projects`, `jobs`, `frames`, `storage`, `api` (with Alembic migrations) |
 | `services/api/tools/` | `build_samples`, `build_comic_reference`, `evaluate` |
 | `apps/web/` | the Next.js app |
 | `samples/` | self-written screenplays (Fountain source and PDF) |
@@ -181,7 +184,7 @@ Full tree: [docs/project-structure.md](docs/project-structure.md).
 
 This repo uses the Cultivation kit. [AGENTS.md](AGENTS.md) holds the rules,
 [STATUS.md](STATUS.md) the live board and [TASKS.md](TASKS.md) the backlog. Every push runs
-`scripts/gate.sh`: ruff, pyright, pytest, eslint and tsc, vitest, next build, and placeholder,
+`scripts/gate.sh`: ruff, pyright, pytest (database tests on a throwaway Postgres 17.11), eslint and tsc, vitest, next build, and placeholder,
 secret, vulnerability and duplication scans.
 
 ## License
