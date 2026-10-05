@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-03 — by Katlego (via Claude)_
+_Last updated: 2026-10-05 — by Tumo (via Claude)_
 
 ---
 
@@ -191,3 +191,4 @@ Buildable now, no external dependency: **T040** (web: tokens, sign-in, projects,
 - 2026-10-03 — Katlego (via Claude) — Handoff raised: docs/HANDOFF.md (done/not started, locked decisions, run commands, verified facts, corrections, next steps, gotchas, open questions). Resume at T040. Blocked on: nothing for T040.
 - 2026-10-04 — Katlego (via Claude) — T056: CI ran twice per commit on PR branches (push + pull_request), ~740 Actions minutes in 30 days. Pushes now run CI on `main` only, board-only changes (STATUS/TASKS/HANDOFF/entry points) skip it, the pnpm store is cached. Next: merge the PR. Blocked on: nothing.
 - 2026-10-05 — Katlego (via Claude) — T035, two of three steps: repo made public (by Katlego, so Actions minutes are now free); gitleaks v8.30.1 over all history found no secrets (230 commits on every branch plus all 59 PR refs, nothing reachable only from a PR). Next: T035's Devpost submission by 29 Oct. Blocked on: nothing.
+- 2026-10-05 — Tumo (via Claude) — T057: the gate failed on `main` on Tumo's Windows machine (CI green). Cause: Pillow uses raqm (kerning) only where libfribidi exists (the CI runner; not the API image or Windows), so comic boxes sized differently per host and the committed reference pages matched CI, not production. `font_at` pins the basic engine; reference pages re-rendered; a styles test no longer collides `Clean.toml`/`clean.toml` on case-insensitive filesystems. Next: T040. Blocked on: nothing.
