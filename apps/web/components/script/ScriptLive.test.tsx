@@ -46,6 +46,16 @@ describe("ScriptLive (web.md §4.2, Live)", () => {
     expect(refresh).toHaveBeenCalledOnce();
   });
 
+  it("doesn't re-render while the job stays at the same stage", async () => {
+    fetchMock.mockResolvedValue(status(job({ progress: 30 })));
+    render(<ScriptLive id="p1" job={job()} />);
+    await tick();
+    await tick();
+    await tick();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it("re-renders when the state changes", async () => {
     fetchMock.mockResolvedValueOnce(status(job({ state: "done", stage: "planning" })));
     render(<ScriptLive id="p1" job={job({ stage: "planning" })} />);

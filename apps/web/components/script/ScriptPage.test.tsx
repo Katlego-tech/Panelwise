@@ -116,6 +116,18 @@ describe("ScriptPage, ready (script.png)", () => {
     expect(within(stairwell).queryByText(/^Scenes? /)).toBeNull();
   });
 
+  it("says one page and one scene in the singular", () => {
+    render(<ScriptPage project={keeper({ pages: 1, scenes: 1 })} />);
+    expect(screen.getByText("1 page · 1 scene · every name below quotes the line it came from")).toBeInTheDocument();
+  });
+
+  it("tags a speaker added from dialogue cues", () => {
+    const cue = { ...keeper().entities![0], name: "LERATO", source: "cue" as const };
+    render(<ScriptPage project={keeper({ entities: [cue] })} />);
+    const lerato = screen.getByRole("article", { name: "LERATO" });
+    expect(within(lerato).getByText("Added from dialogue cues")).toBeInTheDocument();
+  });
+
   it("puts the sections in order, each only with entities", () => {
     render(<ScriptPage project={keeper({ entities: keeper().entities!.filter((e) => e.kind !== "prop") })} />);
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
