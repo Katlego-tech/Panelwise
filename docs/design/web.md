@@ -276,9 +276,10 @@ projects.png and projects-states.png.
 - **List unavailable** (the first read failed): under the heading, "Your screenplays can't be loaded
   right now. Reload the page to try again." A failed poll keeps the last list and tries again on
   the next tick.
-- **Links (staged):** in T040 a title is plain text, because the storyboard page doesn't exist
-  until T042; **T042** makes every title but a failed row's a link to `/projects/{id}/storyboard`
-  (projects.png).
+- **Links (staged):** in T040 a title is plain text, because no project page exists yet;
+  **T041** makes every title but a failed row's a link to `/projects/{id}/script`, the first
+  project page; **T042** points them at `/projects/{id}/storyboard` (projects.png). The upload
+  stays on the list until T042 (step 5 below).
 
 **`UploadPanel`** (projects.png idle, projects-states.png chosen):
 
@@ -325,7 +326,7 @@ columns stack: intro, report, entities, scenes.
 
 | Project | The page |
 |---|---|
-| `entities` null, job `queued` or `running` (queued, reading) | the bar, the job strip, nothing else |
+| `entities` null, job `queued` or `running` (queued, reading) | the bar, the job strip, nothing else: not the scenes column either, though `scene_list` exists from extracting on (§5: nothing until the reading is done) |
 | `entities` set, job `running` (planning, rendering) | the job strip, then the whole page; scenes without a plan show no shot count |
 | job `done` | the whole page, no job strip |
 | job `failed` | the intro, then the failed card (script-states.png) |
@@ -339,8 +340,9 @@ columns stack: intro, report, entities, scenes.
   `rendering` "Rendering frames". Then a 220 px meter: settled ÷ total while rendering with `frames`
   set, else `job.progress`. Then, while rendering with `frames` set only: "{settled} of {total}
   frames settled · {withheld} withheld" (the withheld part only when above 0).
-- **Bar:** the project's title and tabs, Script current, who is signed in (script.png; no sign-out
-  on project pages).
+- **Bar:** the project's title and tabs, Script current, Comic disabled with the tooltip "Comic
+  pages aren't built yet" (§6, Web routes), who is signed in (script.png; no sign-out on project
+  pages).
 - **Intro:** eyebrow "Read from the script", the title, then "{pages} pages · {scenes} scenes ·
   every name below quotes the line it came from" (singular for 1).
 - **Scenes** (left column, `SceneIndex` → `SceneItem`): the number (display face), the heading
@@ -356,7 +358,7 @@ columns stack: intro, report, entities, scenes.
   Characters are full-width cards; props and locations are smaller cards in a grid (auto-fill,
   230 px minimum). A card: the name (body face, bold), its source tag (`model` "Found by the
   model", `cue` "Added from dialogue cues", `heading` "From the heading"; **props carry no tag**,
-  since only the model names props), then where: "Scene {n}" or "Scenes {n}, {m}" from `scenes`
+  since only the model names props), then where: "Scene {n}" or "Scenes {n}, {m}, {o}" from `scenes`
   mapped to scene numbers, for characters and props (a location's quote is its heading, which
   already says where). Then each quote on its own line: “{text}” in Courier, then its `SpanRef`.
 - **Report** (`ReportPanel` → `ScoreCard` ×2, `ModelLine`; right column, sticky): faithfulness,
@@ -365,7 +367,8 @@ columns stack: intro, report, entities, scenes.
   display name, joined " · ", then " · {prompt} tokens in, {completion} out" (en-GB digit
   grouping). Display names: `nvidia/Nemotron-3_5-Lightning` "Nemotron 3.5 Lightning",
   `nvidia/nemotron-3-super-120b-a12b` "Nemotron 3 Super"; any other id is shown as it is.
-- **Failed** (script-states.png): the intro, then a card with a `--withheld` left edge: the row's
+- **Failed** (script-states.png): the intro's eyebrow and title (no facts line: the counts may
+  be partial), then a card with a `--withheld` left edge: the row's
   verdict (§4.1a: "Couldn't read the script", or "Couldn't render the frames" at `rendering`),
   `job.error` verbatim, "It stopped while {stage words}." (the job strip's words, lower case; left
   out when `stage` is null), and a quiet button "Back to your screenplays" (`/projects`).
@@ -595,6 +598,11 @@ async def list_summaries(session, owner: uuid.UUID) -> list[ProjectSummary]: ...
 async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job → FAILED, error RESTARTED, stage kept; returns the count
 ```
 
+- **`ProjectSummary.job` is the project's latest `storyboard` job.** A `frame_attempt` job ("Try
+  another render", T021) never replaces it: that frame shows its own state (§4.3), so a failed
+  re-render can't make a read script look failed. Today every job is a storyboard job;
+  `list_summaries`' latest-job query gains `kind = 'storyboard'` in T021, which creates the other
+  kind, with a test.
 - **`ProjectSummary` before T046.** `pages`, `scenes` and `shots` are `null` until T046 writes the
   stage columns and makes `list_summaries` read them (`codec.py`; T046's Files and Done), and
   `frames` is `null` until T047/T021 add the `frames` table. That is the real state of a project
@@ -676,7 +684,7 @@ interface ProjectSummary {
   pages: number | null; scenes: number | null; shots: number | null;          // null until known
   frames: { settled: number; total: number; withheld: number; active: number } | null;
   // null before rendering. settled = passed + warned + withheld + failed (§3); active = rendering + auditing
-  job: Job;                                                                    // the latest job
+  job: Job;                                                                    // the latest storyboard job (never a frame_attempt)
 }
 
 interface SpanRef { page: number; line_start: number; line_end: number }        // script.md Span
