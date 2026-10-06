@@ -21,7 +21,10 @@ describe("SignInForm (web.md §4.0, signin.png)", () => {
   });
 
   it("shows the action's error as an alert", async () => {
-    signIn.mockResolvedValue({ error: "That email and password don't match. Check both and try again." });
+    signIn.mockResolvedValue({
+      error: "That email and password don't match. Check both and try again.",
+      email: "judge@panelwise.demo",
+    });
     render(<SignInForm />);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Email"), "judge@panelwise.demo");
@@ -30,6 +33,8 @@ describe("SignInForm (web.md §4.0, signin.png)", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "That email and password don't match. Check both and try again.",
     );
+    // The refused attempt keeps the email, as signin.png shows; the password is cleared.
+    expect(screen.getByLabelText("Email")).toHaveValue("judge@panelwise.demo");
     const sent = signIn.mock.calls[0]![1] as FormData;
     expect(sent.get("email")).toBe("judge@panelwise.demo");
     expect(sent.get("password")).toBe("wrong");

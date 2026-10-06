@@ -35,7 +35,7 @@ afterEach(() => {
 describe("signIn (web.md §4.0)", () => {
   it("signs in with the form's email and password and goes to the projects", async () => {
     signInWithPassword.mockResolvedValue({ error: null });
-    await expect(signIn({ error: null }, form())).rejects.toEqual(new Redirect("/projects"));
+    await expect(signIn({ error: null, email: "" }, form())).rejects.toEqual(new Redirect("/projects"));
     expect(signInWithPassword).toHaveBeenCalledWith({ email: "judge@panelwise.demo", password: "secret" });
   });
 
@@ -43,7 +43,7 @@ describe("signIn (web.md §4.0)", () => {
     signInWithPassword.mockResolvedValue({
       error: { name: "AuthApiError", status: 400, code: "invalid_credentials", message: "Invalid login credentials" },
     });
-    expect(await signIn({ error: null }, form())).toEqual({ error: REFUSED });
+    expect(await signIn({ error: null, email: "" }, form())).toEqual({ error: REFUSED, email: "judge@panelwise.demo" });
     expect(REFUSED).toBe("That email and password don't match. Check both and try again.");
   });
 
@@ -54,13 +54,13 @@ describe("signIn (web.md §4.0)", () => {
     [{ name: "AuthUnknownError", message: "?" }],
   ])("Supabase unreachable or failing (%j) gets the unavailable copy", async (error) => {
     signInWithPassword.mockResolvedValue({ error });
-    expect(await signIn({ error: null }, form())).toEqual({ error: UNAVAILABLE });
+    expect(await signIn({ error: null, email: "" }, form())).toEqual({ error: UNAVAILABLE, email: "judge@panelwise.demo" });
     expect(UNAVAILABLE).toBe("Signing in isn't working right now. Try again in a minute.");
   });
 
   it("with no Supabase configured, sign-in is unavailable, never a pass", async () => {
     client = null;
-    expect(await signIn({ error: null }, form())).toEqual({ error: UNAVAILABLE });
+    expect(await signIn({ error: null, email: "" }, form())).toEqual({ error: UNAVAILABLE, email: "judge@panelwise.demo" });
   });
 });
 

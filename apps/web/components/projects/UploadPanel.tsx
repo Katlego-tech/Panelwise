@@ -116,6 +116,8 @@ export function UploadPanel({ onAccepted }: { onAccepted: () => void }) {
       id={inputId}
       type="file"
       accept="application/pdf"
+      // Out of its label once a file is chosen, so it needs a name of its own.
+      aria-label={file === null ? undefined : "Choose a different screenplay PDF"}
       className="absolute size-px opacity-0"
       disabled={uploading}
       onChange={(event) => pick(Array.from(event.target.files ?? []))}

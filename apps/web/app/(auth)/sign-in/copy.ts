@@ -5,6 +5,7 @@ export const UNAVAILABLE = "Signing in isn't working right now. Try again in a m
 
 export interface SignInState {
   error: string | null;
+  email: string; // kept across a refused attempt, as signin.png shows
 }
 
 /** Only a 4xx refusal of the credentials is the user's to fix; anything else is unavailability. */

@@ -10,13 +10,14 @@ import { createClient } from "@/lib/supabase/server";
 import { type SignInState, signInErrorCopy, UNAVAILABLE } from "./copy";
 
 export async function signIn(_previous: SignInState, form: FormData): Promise<SignInState> {
+  const email = String(form.get("email") ?? "");
   const supabase = await createClient();
-  if (!supabase) return { error: UNAVAILABLE };
+  if (!supabase) return { error: UNAVAILABLE, email };
   const { error } = await supabase.auth.signInWithPassword({
-    email: String(form.get("email") ?? ""),
+    email,
     password: String(form.get("password") ?? ""),
   });
-  if (error) return { error: signInErrorCopy(error) };
+  if (error) return { error: signInErrorCopy(error), email };
   redirect("/projects");
 }
 

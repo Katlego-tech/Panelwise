@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 
 import { Wordmark } from "./AppBar";
 
-const initial: SignInState = { error: null };
+const initial: SignInState = { error: null, email: "" };
 
 export function SignInForm() {
   const [state, action, pending] = useActionState(signIn, initial);
@@ -29,7 +29,7 @@ export function SignInForm() {
       <Label htmlFor="email" className="mt-3.5">
         Email
       </Label>
-      <Input id="email" name="email" type="email" autoComplete="email" required />
+      <Input id="email" name="email" type="email" autoComplete="email" defaultValue={state.email} required />
       <Label htmlFor="password" className="mt-3.5">
         Password
       </Label>

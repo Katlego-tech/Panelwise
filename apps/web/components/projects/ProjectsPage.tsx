@@ -4,7 +4,7 @@
 // GET /api/projects every 2 s while any job is queued or running or any frame is active.
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ProjectSummary } from "@/lib/api/types";
 
@@ -17,21 +17,32 @@ const POLL_MS = 2000;
 export function ProjectsPage({ initial }: { initial: ProjectSummary[] | null }) {
   const [projects, setProjects] = useState(initial);
   const router = useRouter();
+  // A refresh that failed keeps the poll going until one lands (an accepted upload's new row
+  // must appear even when nothing else is active).
+  const [retrying, setRetrying] = useState(false);
+  // Only the newest request may write the list: an older, slower answer is dropped.
+  const latest = useRef(0);
 
   const refresh = useCallback(async () => {
+    const mine = ++latest.current;
     try {
       const res = await fetch("/api/projects", { cache: "no-store" });
       if (res.status === 401) {
         router.push("/sign-in");
         return;
       }
-      if (res.ok) setProjects((await res.json()) as ProjectSummary[]);
+      if (!res.ok) throw new Error(`list answered ${res.status}`);
+      const list = (await res.json()) as ProjectSummary[];
+      if (mine !== latest.current) return;
+      setProjects(list);
+      setRetrying(false);
     } catch {
       // Keep the last list; the next tick tries again.
+      if (mine === latest.current) setRetrying(true);
     }
   }, [router]);
 
-  const polling = projects?.some(isActive) ?? false;
+  const polling = retrying || (projects?.some(isActive) ?? false);
   useEffect(() => {
     if (!polling) return;
     const timer = setInterval(() => void refresh(), POLL_MS);

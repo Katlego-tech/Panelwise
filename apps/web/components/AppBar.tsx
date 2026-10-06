@@ -32,7 +32,7 @@ function ProjectTabs({ id, tab }: { id: string; tab?: ProjectTab }) {
     </Link>
   );
   return (
-    <nav aria-label="Project" className="order-5 -ml-3 flex w-full gap-1 sm:order-none sm:ml-2 sm:w-auto">
+    <nav aria-label="Project" className="order-5 -ml-3 flex w-full gap-1 min-[641px]:order-none min-[641px]:ml-2 min-[641px]:w-auto">
       {link("script", "Script")}
       {link("storyboard", "Storyboard")}
       {/* T024 builds the comic reader; until then the tab is disabled (web.md §6, Web routes). */}
@@ -58,18 +58,18 @@ export function AppBar({
     <header
       className={cn(
         "flex flex-wrap items-center gap-3 bg-ink px-4 pt-3 pb-2 text-bar-text",
-        "sm:h-14 sm:flex-nowrap sm:gap-6 sm:px-6 sm:py-0",
+        "min-[641px]:h-14 min-[641px]:flex-nowrap min-[641px]:gap-6 min-[641px]:px-6 min-[641px]:py-0",
       )}
     >
       <Link href="/projects" aria-label="Panelwise" className="no-underline">
         <Wordmark />
       </Link>
       {project && (
-        <span className="hidden font-body text-sm font-medium text-bar-muted sm:inline">{project.title}</span>
+        <span className="hidden font-body text-sm font-medium text-bar-muted min-[641px]:inline">{project.title}</span>
       )}
       {project && <ProjectTabs id={project.id} tab={tab} />}
       <span className="flex-1" />
-      {email && <span className="hidden text-[13px] text-bar-muted sm:inline">{email}</span>}
+      {email && <span className="hidden text-[13px] text-bar-muted min-[641px]:inline">{email}</span>}
       {actions}
     </header>
   );

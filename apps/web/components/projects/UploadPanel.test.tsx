@@ -45,6 +45,8 @@ describe("UploadPanel (web.md §4.1a)", () => {
     expect(screen.getByText("the-keepers-light.pdf")).toBeInTheDocument();
     expect(screen.getByText("79 KB")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Choose a different file" })).toBeInTheDocument();
+    // Out of its label, the file input still has a name for assistive tech.
+    expect(fileInput()).toHaveAccessibleName("Choose a different screenplay PDF");
     expect(screen.getByLabelText("Title")).toHaveValue("the-keepers-light");
     expect(screen.getByLabelText("Title")).toHaveAttribute("maxlength", "200");
     expect(screen.getByRole("button", { name: "Board this script" })).toBeEnabled();
