@@ -255,7 +255,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Files:   apps/web/app/projects/[id]/storyboard/*; apps/web/components/storyboard/{LinedScript,FrameBoard,FrameCard,FrameMedia,JobStrip,ExportButton}.tsx (sub-components per web.md §7); apps/web/app/api/projects/[id]/{status,frames,storyboard.pdf}/*; apps/web/components/projects/* (T040's staged parts, web.md §4.1a: row titles become links, the upload redirects to the storyboard); tests beside them
       Contract:consumes …/lines, …/shots, …/frames, …/status (web.md §6)
       Verify:  pnpm test (every card-table row; no <img> outside passed/warned; withheld source shown once; shot line top/height from spans; wavy off-screen segments; polling while any frame is active; Export PDF disabled with its tooltip until every frame has settled; lined script hidden below 1100 px); compare with docs/design/web/storyboard.png and storyboard-phone.png
-      Done:    on a planned project every shot appears as a line over exactly its script lines and as a card with its verbatim source, and hovering or focusing either highlights the other, matching the two references
+      Done:    on a planned project every shot appears as a line over exactly its script lines and as a card with its verbatim source, and hovering or focusing either highlights the other, matching the two references; and T040's staging is undone (web.md §4.1a): a projects-list title opens its storyboard, and an accepted upload lands on it
 - [ ] T045 [US1] **Web: frame sheet.** Lane `web` (Claude). Depends on T042.
       Design:  docs/design/web.md §4.4 steps 1–4, §6
       Files:   apps/web/components/storyboard/{FrameSheet,SourceBlock,InFrame}*; tests beside them

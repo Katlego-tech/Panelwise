@@ -256,16 +256,21 @@ projects.png and projects-states.png.
 | `queued` | `--pencil` | "Queued" (pending) | meter at 0 |
 | `running`, `parsing` or `extracting` | `--pencil` | "Reading the script" (pending) | meter at `progress` |
 | `running`, `planning` | `--pencil` | "Planning shots" (pending) | meter at `progress` |
-| `running`, `rendering` | `--pencil` | "Rendering frames" (pending) | "{settled} of {total} settled", meter at settled ÷ total |
+| `running`, `rendering`, `frames` null (no `frames` row written yet) | `--pencil` | "Rendering frames" (pending) | meter at `progress` |
+| `running`, `rendering`, `frames` set | `--pencil` | "Rendering frames" (pending) | "{settled} of {total} settled", meter at settled ÷ total |
 | `done`, `frames` null | `--pass` | "Shots planned" (pass) | "No frames rendered yet" |
-| `done`, `frames` set | `--pass` | "Storyboard ready" (pass) | "{total} frames", then " · {withheld} withheld" when above 0 |
-| `failed`, stage not `rendering` | `--withheld` | "Couldn't read the script" (withheld) | `job.error`, verbatim, on its own line |
+| `done`, `frames` set | `--pass` | "Storyboard ready" (pass) | "{total} frames" ("1 frame"), then " · {withheld} withheld" when above 0 |
+| `failed`, stage not `rendering` (null included: the restart sweep, a failure while queued) | `--withheld` | "Couldn't read the script" (withheld) | `job.error`, verbatim, on its own line |
 | `failed`, stage `rendering` | `--withheld` | "Couldn't render the frames" (withheld) | `job.error`, verbatim |
 
 - **Title:** Big Shoulders, upper case; a failed row's title is Courier Prime as typed
   (projects.png). **Facts line:** "{pages} pages · {scenes} scenes · {shots} shots" from the
   parts that are not null (singular for 1); all null → "Uploaded {6 Oct, 09:14}" (`created_at`,
   en-GB, the viewer's time zone, so formatted in the browser).
+- **"Storyboard ready"** says the job finished, not that every frame came out: `ProjectSummary.frames`
+  carries no failed count, and a failed frame shows as its own card on the storyboard (§4.3).
+- **`job.error`** is always set on a failed job (T046, the restart sweep); if one ever arrives
+  null, the row shows the verdict alone, never a stand-in message.
 - **Empty list:** under the heading, "No screenplays yet. Upload one to board it."
 - **Links (staged):** in T040 a title is plain text, because the storyboard page doesn't exist
   until T042; **T042** makes every title but a failed row's a link to `/projects/{id}/storyboard`
