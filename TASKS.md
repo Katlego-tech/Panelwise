@@ -352,5 +352,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  tests/comic and tests/storyboard/test_styles.py pass on Windows and on Linux (the uv python3.14-trixie image, raqm present); the new test fails on Linux before the fix
       Done:    `bash scripts/gate.sh` passes on Windows and in CI with the same reference pages
+- [x] T058 [POL] **Close GHSA-68fv-2mgg-jv7q (`source-map-js` 1.2.1, high).** Published 2026-10-06; it failed every push's dependency scan. Transitive: `next` → `postcss` and `vitest` → `vite` → `postcss`. Lane `infra`.
+      Design:  none (a dependency bump)
+      Files:   apps/web/pnpm-lock.yaml (`pnpm@11.10.0 update source-map-js` + `dedupe`: 1.2.1 → 1.2.2, nothing else moves)
+      Contract:none
+      Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
+      Done:    the gate's vulnerability scan passes with no new exemption
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
