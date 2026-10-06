@@ -346,5 +346,17 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
                `main` only); a change that touches only `STATUS.md`, `TASKS.md`, `HANDOFF.md`, `CLAUDE.md`,
                `GEMINI.md` or `.claude/` starts none;
                the pnpm store comes from the cache
+- [x] T057 [POL] **Comic lettering measures the same on every host.** Pillow lays text out with raqm (kerning) only where libfribidi is installed: the CI runner, not the API image (`python:3.14.7-slim-trixie`) or Windows, so box sizes, and the committed reference pages, depended on the machine. Lane `comic`.
+      Design:  none (comic.md's "Comic Neue, measured" is unchanged; the measuring engine is pinned)
+      Files:   services/api/app/comic/layout.py (`font_at`: `layout_engine=ImageFont.Layout.BASIC`); docs/design/comic/the-red-kite-page-*.png (re-rendered); services/api/tests/comic/test_layout.py; services/api/tests/storyboard/test_styles.py (a `Clean` stem overwrote `clean.toml` on a case-insensitive filesystem)
+      Contract:none
+      Verify:  tests/comic and tests/storyboard/test_styles.py pass on Windows and on Linux (the uv python3.14-trixie image, raqm present); the new test fails on Linux before the fix
+      Done:    `bash scripts/gate.sh` passes on Windows and in CI with the same reference pages
+- [x] T058 [POL] **Close GHSA-68fv-2mgg-jv7q (`source-map-js` 1.2.1, high).** Published 2026-10-06; it failed every push's dependency scan. Transitive: `next` → `postcss` and `vitest` → `vite` → `postcss`. Lane `infra`.
+      Design:  none (a dependency bump)
+      Files:   apps/web/pnpm-lock.yaml (`pnpm@11.10.0 update source-map-js` + `dedupe`: 1.2.1 → 1.2.2, nothing else moves)
+      Contract:none
+      Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
+      Done:    the gate's vulnerability scan passes with no new exemption
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

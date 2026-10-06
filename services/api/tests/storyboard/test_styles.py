@@ -182,7 +182,9 @@ def test_a_missing_directory_fails(public: Path, tmp_path: Path) -> None:
         load_styles(public, tmp_path / "elsewhere")
 
 
-@pytest.mark.parametrize("stem", ["Clean", "ink_2", "pencil study"])
+# "Ink", not "Clean": on a case-insensitive filesystem (Windows, macOS) Clean.toml
+# would overwrite the fixture's clean.toml
+@pytest.mark.parametrize("stem", ["Ink", "ink_2", "pencil study"])
 def test_a_key_must_be_lower_case_letters_digits_and_hyphens(public: Path, stem: str) -> None:
     write(public, stem, GOOD)
     with pytest.raises(StyleError, match=stem):

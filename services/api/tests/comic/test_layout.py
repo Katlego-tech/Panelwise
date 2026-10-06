@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
+from PIL import ImageFont
 
 from app.comic import ComicBook, ComicError, Page, Panel, layout, layout_geometry, panel_weight
 from app.comic.layout import scene_caption
@@ -319,3 +320,10 @@ def test_a_missing_font_fails_rather_than_falling_back(
     monkeypatch.setattr(layout, "FONT_PATH", tmp_path / "ComicNeue-Regular.ttf")
     with pytest.raises(ComicError, match="font"):
         book_of([scene(0)], shot(0, 1, Framing.WIDE))
+
+
+def test_lettering_uses_pillows_basic_layout_engine_on_every_host() -> None:
+    # Pillow picks raqm (kerning) when the host has libfribidi, else basic: a CI runner has
+    # it, the API image and Windows don't, so unpinned the same text measured 260 px or 266.
+    font = layout.font_at(layout.FONT_PATH, layout.FONT_PX)
+    assert font.layout_engine == ImageFont.Layout.BASIC
