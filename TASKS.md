@@ -358,5 +358,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
       Done:    the gate's vulnerability scan passes with no new exemption
+- [x] T059 [POL] **Close GHSA-wq5f-xc86-pv6w (`sharp` 0.35.4, high).** Published 2026-10-06, the day after T058's; it failed every push's dependency scan again. Transitive: `next` → `sharp` (image optimisation). Lane `infra`.
+      Design:  none (a dependency bump)
+      Files:   apps/web/pnpm-lock.yaml (`pnpm@11.10.0 update sharp` + `dedupe`: `sharp` and its `@img/sharp-*` platform binaries 0.35.4 → 0.35.5, nothing else moves)
+      Contract:none
+      Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
+      Done:    the gate's vulnerability scan passes with no new exemption
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
