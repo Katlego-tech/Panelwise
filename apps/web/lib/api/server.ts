@@ -2,7 +2,7 @@
 
 import type { CurrentUser } from "@/lib/supabase/server";
 
-import type { ProjectSummary } from "./types";
+import type { Project, ProjectSummary } from "./types";
 
 export function apiUrl(): string {
   return process.env.API_URL ?? "http://localhost:8000";
@@ -24,6 +24,23 @@ export function relay(res: Response): Response {
     status: res.status,
     headers: { "Content-Type": res.headers.get("Content-Type") ?? "application/json" },
   });
+}
+
+/** The API path of one project: the id is one path segment, whatever it contains. */
+export const projectPath = (id: string) => `/projects/${encodeURIComponent(id)}`;
+
+export type ProjectRead = { kind: "ok"; project: Project } | { kind: "not-found" } | { kind: "unavailable" };
+
+/** One project. A 404 covers missing, malformed and someone else's ids alike (web.md §6). */
+export async function getProject(user: CurrentUser, id: string): Promise<ProjectRead> {
+  try {
+    const res = await apiFetch(projectPath(id), user);
+    if (res.status === 404) return { kind: "not-found" };
+    if (!res.ok) return { kind: "unavailable" };
+    return { kind: "ok", project: (await res.json()) as Project };
+  } catch {
+    return { kind: "unavailable" };
+  }
 }
 
 /** The signed-in user's projects, newest first; null when the API can't answer with them. */

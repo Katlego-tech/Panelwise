@@ -34,7 +34,10 @@ function ProjectTabs({ id, tab }: { id: string; tab?: ProjectTab }) {
   return (
     <nav aria-label="Project" className="order-5 -ml-3 flex w-full gap-1 min-[641px]:order-none min-[641px]:ml-2 min-[641px]:w-auto">
       {link("script", "Script")}
-      {link("storyboard", "Storyboard")}
+      {/* T042 builds the storyboard; until then its tab is disabled (web.md §4.2, staged). */}
+      <a aria-disabled="true" title="The storyboard isn't built yet" className={cn(item, "text-bar-dim")}>
+        Storyboard
+      </a>
       {/* T024 builds the comic reader; until then the tab is disabled (web.md §6, Web routes). */}
       <a aria-disabled="true" title="Comic pages aren't built yet" className={cn(item, "text-bar-dim")}>
         Comic
