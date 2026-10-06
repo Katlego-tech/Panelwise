@@ -32,6 +32,7 @@ code, and `tokens.css` is the token source every value below comes from.
 | --- | --- | --- |
 | Sign-in | [web/signin.png](web/signin.png) | [web/mockups/signin.html](web/mockups/signin.html) |
 | Projects + upload | [web/projects.png](web/projects.png) | [web/mockups/projects.html](web/mockups/projects.html) |
+| Projects: the states projects.png doesn't draw (§4.1a) | [web/projects-states.png](web/projects-states.png) | [web/mockups/projects-states.html](web/mockups/projects-states.html) |
 | Script | [web/script.png](web/script.png) (full page) | [web/mockups/script.html](web/mockups/script.html) |
 | Storyboard | [web/storyboard.png](web/storyboard.png) (full page) | [web/mockups/storyboard.html](web/mockups/storyboard.html) |
 | Frame detail (sheet) | [web/storyboard-frame.png](web/storyboard-frame.png) | [web/mockups/storyboard-frame.html](web/mockups/storyboard-frame.html) |
@@ -153,14 +154,26 @@ there when signed out. The seeded judge account is T030's. Failure copy: "That e
 don't match. Check both and try again." Reference: signin.png.
 
 - **`apps/web/proxy.ts`** (Next.js 16 renamed the `middleware.ts` convention to `proxy.ts`)
-  refreshes the Supabase session cookie on every request and makes the redirects: a signed-out
-  page request → `/sign-in`; a signed-in request for `/sign-in` or `/` → `/projects`.
-- It **never redirects `/api/*`**: `/api/health` stays public (deploy.md §4's check calls it), and
-  every other route handler answers a signed-out request itself with 401
+  refreshes the Supabase session cookie and makes the redirects: a signed-out page request →
+  `/sign-in`; a signed-in request for `/sign-in` → `/projects`; `/` → `/projects` signed in,
+  `/sign-in` signed out. There is no page at `/`: the proxy alone answers it.
+- **Matcher:** every path except `_next/static`, `_next/image`, `favicon.ico` and any path ending
+  in a file extension (fonts, images). `/api/*` **is** matched, so the refreshed cookie reaches
+  route handlers, but it is **never redirected**: `/api/health` stays public (deploy.md §4's check
+  calls it), and every other route handler answers a signed-out request itself with 401
   `{"error": "unauthorized"}`, the API's own shape, so a polling client gets JSON, not a sign-in page.
-- The proxy is an optimistic check (Next.js's own guidance), not the guard: each page and route
-  handler verifies the user again server-side before it calls the API, and the API checks the
-  token itself (§6).
+- **Refresh:** `createServerClient` (`@supabase/ssr`) with `cookies.getAll`/`setAll` on the
+  request, then `auth.getClaims()`. Whatever the proxy returns, the pass-through response or a
+  redirect, carries every cookie `setAll` wrote; a redirect that drops them loses the refreshed
+  session.
+- **The guard** is not the proxy, which is an optimistic check (Next.js's own guidance): each page
+  and route handler calls `auth.getClaims()` server-side (it verifies the token against the
+  project's JWKS, as the API does; never `getSession()` alone) and only then reads the session's
+  access token to call the API, which checks it again (§6).
+- **Sign in** is a server action (`signInWithPassword`): success → `/projects`; refused → the
+  failure copy above; Supabase unreachable → "Signing in isn't working right now. Try again in a
+  minute." While it runs the button reads "Signing in…". **Sign out** (the bar's "Sign out",
+  projects.png) is a server action too: `signOut`, then `/sign-in`.
 
 ### 4.1 Upload and the job
 
@@ -228,6 +241,66 @@ sequenceDiagram
   about 4.5 MB (Vercel's documented function payload limit; check it when T030 sets the figure), so
   the upload limit must sit below it. Screenplay PDFs with a text layer are typically well under
   1 MB.
+
+### 4.1a The projects page (T040)
+
+`/projects`: the server component reads `GET /api/v1/projects`; a client part polls `GET
+/api/projects` every 2 s while any row's job is `queued` or `running` or its `frames.active` is
+above 0, and stops otherwise (a 401 there sends the browser to `/sign-in`). References:
+projects.png and projects-states.png.
+
+**`ProjectRow`**, newest first, by its latest job (`ProjectSummary.job`) and `frames`:
+
+| Job | Left edge | Verdict (colour) | Then |
+|---|---|---|---|
+| `queued` | `--pencil` | "Queued" (pending) | meter at 0 |
+| `running`, `parsing` or `extracting` | `--pencil` | "Reading the script" (pending) | meter at `progress` |
+| `running`, `planning` | `--pencil` | "Planning shots" (pending) | meter at `progress` |
+| `running`, `rendering` | `--pencil` | "Rendering frames" (pending) | "{settled} of {total} settled", meter at settled ÷ total |
+| `done`, `frames` null | `--pass` | "Shots planned" (pass) | "No frames rendered yet" |
+| `done`, `frames` set | `--pass` | "Storyboard ready" (pass) | "{total} frames", then " · {withheld} withheld" when above 0 |
+| `failed`, stage not `rendering` | `--withheld` | "Couldn't read the script" (withheld) | `job.error`, verbatim, on its own line |
+| `failed`, stage `rendering` | `--withheld` | "Couldn't render the frames" (withheld) | `job.error`, verbatim |
+
+- **Title:** Big Shoulders, upper case; a failed row's title is Courier Prime as typed
+  (projects.png). **Facts line:** "{pages} pages · {scenes} scenes · {shots} shots" from the
+  parts that are not null (singular for 1); all null → "Uploaded {6 Oct, 09:14}" (`created_at`,
+  en-GB, the viewer's time zone, so formatted in the browser).
+- **Empty list:** under the heading, "No screenplays yet. Upload one to board it."
+- **Links (staged):** in T040 a title is plain text, because the storyboard page doesn't exist
+  until T042; **T042** makes every title but a failed row's a link to `/projects/{id}/storyboard`
+  (projects.png).
+
+**`UploadPanel`** (projects.png idle, projects-states.png chosen):
+
+1. **Idle:** the drop zone is a `<label>` over a visually hidden `<input type="file"
+   accept="application/pdf">`, so click, keyboard and screen readers all reach it; hover, focus
+   and a drag over it tint it `--pencil-soft`.
+2. **Chosen** (a file picked or dropped): the zone shows the file name, its size ("84 KB") and
+   "Choose a different file"; below it the **Title** field (prefilled with the file name without
+   `.pdf`, at most 200 characters, the API's limit) and the full-width button "Board this script".
+   Before anything is sent: more than one file dropped → "Drop one PDF at a time."; a file that is
+   neither `application/pdf` nor named `*.pdf` → the `not_a_pdf` copy below.
+3. **Uploading:** fields and button disabled, the button reads "Uploading…".
+4. **Error:** the chosen file and title stay; the error sits above the button (sign-in's error
+   style). Copy by the response's **status and `error` code**, never its message:
+   - 400 `not_a_pdf` → "This file isn't a PDF. Export the script from your screenwriting app as a
+     PDF and upload that."
+   - 413 (the API's `too_large`, or Vercel's own body limit, which isn't JSON) → "This PDF is
+     larger than this demo accepts. Upload a smaller file."
+   - 400 `no_file` / `bad_form`, 411 → "The upload didn't arrive whole. Choose the file again and
+     try once more."
+   - 401 → the browser goes to `/sign-in`.
+   - 503, any other status, or no response → "Panelwise can't take uploads right now. Try again in
+     a minute."
+5. **Accepted (202), staged:** in T040 the panel returns to idle and the list refreshes, the new
+   row on top with its live state (the Done of T040). **T042** replaces this with §4.1's redirect
+   to `/projects/{id}/storyboard`.
+
+**`POST /api/projects`** (route handler): `getClaims()` (401 JSON if signed out), then forwards the
+request body as a stream with its `Content-Type` and `Content-Length` to `POST /api/v1/projects`
+with the user's token, and returns the API's status and JSON unchanged. **`GET /api/projects`**
+does the same for the list, for the poll.
 
 ### 4.2 Script
 
@@ -621,7 +694,7 @@ rows, so their builders are T047's (`FrameView`, with `audits` `[]`) and T021's 
 
 **Web routes** (Next.js App Router): `/sign-in`, `/projects`, `/projects/[id]/script`,
 `/projects/[id]/storyboard` (`?shot=` opens the sheet), `/projects/[id]/comic` (T024; until then
-the tab is disabled, with the tooltip "Comic pages aren't built yet"). Route handlers proxy the API server-side (deploy.md §4): `POST /api/projects`,
+the tab is disabled, with the tooltip "Comic pages aren't built yet"). `/` has no page: the proxy redirects it (§4.0). Route handlers proxy the API server-side (deploy.md §4): `POST /api/projects`, `GET /api/projects` (the list, polled by `/projects`, §4.1a),
 `GET /api/projects/[id]/status`, `GET /api/projects/[id]/frames`, `GET /api/projects/[id]/storyboard.pdf`,
 `POST /api/projects/[id]/frames/[scene]/[number]/attempts`.
 
@@ -653,7 +726,9 @@ shared (components/shared/, T040): Verdict, SpanRef, Quote (Courier), Meter
 |---|---|
 | Projects heading | "Board your script" |
 | Drop zone | "Drop a screenplay PDF here, or choose a file" · "Export it from your screenwriting app so the text can be read. Scanned pages can't be." |
-| Upload button | "Board this script" |
+| Upload button | "Board this script" (while sending: "Uploading…") |
+| Upload errors, row states, empty list | §4.1a, verbatim |
+| Sign-in (in progress, unavailable) | "Signing in…" · "Signing in isn't working right now. Try again in a minute." |
 | Script eyebrow | "Read from the script" |
 | Faithfulness | "{g} of {p} things the model named are in the script. {l} of {q} quotes found on the page." |
 | Recall | "{f} of {c} speaking characters found by the model. A speaker it misses is still added from their dialogue cues." |
@@ -728,7 +803,9 @@ restyled).
   the columns before it and the user-facing error; the restart sweep fails `QUEUED`/`RUNNING` jobs
   (T009) and `rendering`/`auditing` frames (T021); `…/frames` is `[]` with no `frames` rows; `image_url` is null
   for every state but passed and warned; `page_starts[0] == 1`.
-- **Web (T040–T042, T045):** vitest + Testing Library on each component's states: every row of the card
+- **Web (T040–T042, T045):** vitest + Testing Library on each component's states: every `ProjectRow`
+  row of §4.1a and each upload error by status and code (T040); the proxy's redirects, the cookies
+  a redirect carries, and `/api/*` never redirected (T040); every row of the card
   table renders; **no `<img>` for a frame outside passed/warned**; a shot line's top and height come
   from its span; a dialogue segment off screen draws wavy; the sheet opens from `?shot=`; the lined
   script is hidden and the source shown on a narrow viewport; polling continues while any frame is
