@@ -7,7 +7,7 @@ _Last updated: 2026-10-05 — by Tumo (via Claude)_
 
 ---
 
-## ⇄ HANDOFF: **ACTIVE**
+## ⇄ HANDOFF: none
 
 > Leave this block here even when dormant — it is the first thing every AI reads, and it only
 > works as a signal if it always lives in the same spot. Set it to `ACTIVE` and fill the rows
@@ -16,13 +16,13 @@ _Last updated: 2026-10-05 — by Tumo (via Claude)_
 
 | Field | Value |
 |---|---|
-| Status | 🟠 **ACTIVE** |
-| Raised | 2026-10-03, Katlego (via Claude) |
-| Reason | session limit approaching; the US1 API is complete and merged |
-| Document | [docs/HANDOFF.md](docs/HANDOFF.md) |
-| Branch | `main` (nothing unpushed) |
-| Resume at | HANDOFF §6 step 1: **T040** (web: tokens, sign-in, projects, upload), after the `frontend-design` skill |
-| Blocking | nothing for T040; the interim renderer waits on Katlego's Cloudflare decision |
+| Status | 🟢 none |
+| Raised | — (last: 2026-10-03, Katlego (via Claude); picked up 2026-10-05 by Tumo (via Claude), resumed at T040) |
+| Reason | — |
+| Document | — ([docs/HANDOFF.md](docs/HANDOFF.md) kept as the record of 2026-10-03) |
+| Branch | — |
+| Resume at | — |
+| Blocking | — |
 
 ---
 
@@ -39,7 +39,7 @@ _Last updated: 2026-10-05 — by Tumo (via Claude)_
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
-| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Katlego | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ⬜ T040–T045 web screens next; T040 is buildable now · paused — handed off (docs/HANDOFF.md) |
+| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Tumo | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · 🟡 T040 (tokens, sign-in, projects, upload): design fix PR (`proxy.ts`), then the code · ⬜ T041, T042, T045 after it |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · T021 waits on T045 (full scope in TASKS.md; builds against verify's `Renderer`, so not on T026) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
@@ -108,8 +108,8 @@ Buildable now, no external dependency: **T040** (web: tokens, sign-in, projects,
 - ~~**Postgres version**~~ **Decided 2026-10-02 by Katlego: 17.11**, the Supabase project's version, in compose, PLAN.md and option A's CI/gate service (`postgres:17.11-trixie`).
 - **Sign-up off — decided 2026-10-02 by Katlego** (web.md §10). Katlego disables "Allow new users to sign up" in the Supabase dashboard (Authentication → Sign In / Providers); users are created only with the secret key: the contributors (dashboard), the dev-check user, and T030's seeded judge account(s), whose credentials go only in Devpost's testing instructions. Spend exposure is limited to those accounts; T030 still sets caps and upload limits. Open item: confirm the Devpost rules accept a login for the demo (event.toml says "free and unrestricted").
 - **Smaller open items from this session:** the API image doesn't ship `styles/` yet (T026); sound effects in the comic undecided (comic.md §10).
-- **Repo is private.** It must be public before submission (T035).
-- **`main` is unprotected on the server** (private + GitHub Free; decided 2026-09-28 to leave it). Only the pre-push hook and AGENTS.md §4 guard it; Tumo must run `bash install-hooks.sh`. Once the repo is public (T035), protection is free — turn it on then.
+- ~~**Repo is private.**~~ **Public since 2026-10-05** (T035, PR #60; gitleaks over all history clean).
+- **`main` is unprotected on the server** (decided 2026-09-28 while private + GitHub Free). The repo is now public, so branch protection is free: turning it on is the team's call (a repo setting). Until then only the pre-push hook and AGENTS.md §4 guard it; Tumo's clone has the hook since 2026-10-05.
 - **No copyrighted scripts** in the repo, demo or video. Only public-domain or self-written samples.
 - GPU cost: $50 of credit covers Token Factory calls, not a GPU VM. Check the cost of the ComfyUI box in T003.
 - **Stack changed 2026-09-29** (Katlego): web on Vercel, API on Railway, Supabase for Postgres/Storage/Auth, Redis removed — the Hackathon kit's stack. [docs/design/deploy.md](docs/design/deploy.md). Needs Katlego's Vercel, Railway and Supabase accounts (T037).
@@ -191,6 +191,8 @@ Buildable now, no external dependency: **T040** (web: tokens, sign-in, projects,
 - 2026-10-03 — Katlego (via Claude) — Handoff raised: docs/HANDOFF.md (done/not started, locked decisions, run commands, verified facts, corrections, next steps, gotchas, open questions). Resume at T040. Blocked on: nothing for T040.
 - 2026-10-04 — Katlego (via Claude) — T056: CI ran twice per commit on PR branches (push + pull_request), ~740 Actions minutes in 30 days. Pushes now run CI on `main` only, board-only changes (STATUS/TASKS/HANDOFF/entry points) skip it, the pnpm store is cached. Next: merge the PR. Blocked on: nothing.
 - 2026-10-05 — Katlego (via Claude) — T035, two of three steps: repo made public (by Katlego, so Actions minutes are now free); gitleaks v8.30.1 over all history found no secrets (230 commits on every branch plus all 59 PR refs, nothing reachable only from a PR). Next: T035's Devpost submission by 29 Oct. Blocked on: nothing.
+- 2026-10-05 — Tumo (via Claude) — Picked up the 2026-10-03 handoff (Katlego stepped away; Tumo takes over the `web` lane). Installed uv and the pre-push hook on Tumo's machine. T040 design fix: Next.js 16 renamed `middleware.ts` to `proxy.ts`; web.md §4.0 now says what the proxy redirects and that `/api/*` (incl. the public `/api/health`) answers 401 JSON instead. Next: T040 code. Blocked on: a repo-root `.env` on Tumo's machine for the live check. The local gate failed on `main` on Windows (CI green): fixed as T057 (PR #61), which this PR stacks on.
 - 2026-10-05 — Tumo (via Claude) — T057: the gate failed on `main` on Tumo's Windows machine (CI green). Cause: Pillow uses raqm (kerning) only where libfribidi exists (the CI runner; not the API image or Windows), so comic boxes sized differently per host and the committed reference pages matched CI, not production. `font_at` pins the basic engine; reference pages re-rendered; a styles test no longer collides `Clean.toml`/`clean.toml` on case-insensitive filesystems. Next: T040. Blocked on: nothing.
 - 2026-10-06 — Tumo (via Claude) — T058: GHSA-68fv-2mgg-jv7q (`source-map-js` 1.2.1, high, published today) failed every push's scan; lockfile bumped to 1.2.2 (transitive via postcss), no exemption. In PR #61 with T057 so one PR turns the gate green. PR #61 review (code-reviewer, fallback): approve; its finding (bubble-test fixtures measured with Pillow's default engine) fixed. Next: T040 design additions in PR #62. Blocked on: nothing.
 - 2026-10-06 — Tumo (via Claude) — PR #61 merged (T057, T058) on Tumo's go-ahead. T059: another advisory the same day, GHSA-wq5f-xc86-pv6w (`sharp` 0.35.4, high, via next), failed the scan again; lockfile bumped to 0.35.5 (sharp + its platform binaries only), no exemption. Next: merge T059, then #62 (T040 design), then T040 code. Blocked on: the repo-root `.env` (Tumo creating it) for T040's live check.
+- 2026-10-06 — Tumo (via Claude) — T040 design, PR #62 round 2: web.md §4.1a (the projects page: every ProjectRow state, the upload panel's states and error copy by status/code, polling, the GET/POST route handlers) with a new reference projects-states.png (+ mockups/projects-states.html) for the states projects.png doesn't draw; §4.0 adds the proxy matcher, cookies carried on redirects, `/` handled by the proxy alone, `getClaims()` as the server-side guard, sign-in/sign-out actions. Declared staging: T040 rows aren't links and the upload doesn't redirect until T042 (T042's Files updated). Next: T040 code after the review. Blocked on: nothing.
