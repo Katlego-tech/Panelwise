@@ -7,7 +7,7 @@ from io import BytesIO
 from itertools import pairwise
 
 import pytest
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from app.comic import (
     Bubble,
@@ -342,7 +342,7 @@ def test_boxes_stay_inside_never_overlap_and_keep_reading_order() -> None:
 
 def test_a_box_with_no_room_at_32_px_is_lettered_at_28() -> None:
     word = "Lighthouse"
-    small = ImageFont.truetype(layout.FONT_PATH, 28)
+    small = layout.font_at(layout.FONT_PATH, 28)
     ascent, descent = small.getmetrics()
     w = math.ceil(small.getlength(word)) + 2 * 16 + 2 * INSET
     h = ascent + descent + 2 * 16 + 2 * INSET
@@ -378,7 +378,7 @@ def test_reading_order_is_hard_even_when_an_earlier_spot_is_cheaper() -> None:
         (Page(1, 1988, 3075, (wide, Panel(0, 2, rect, (), ()))),), LayoutReport(2, 0, 0, 0)
     )
 
-    font = ImageFont.truetype(layout.FONT_PATH, 32)
+    font = layout.font_at(layout.FONT_PATH, 32)
     ascent, descent = font.getmetrics()
     long_w = math.ceil(font.getlength("You came back to the lighthouse.")) + 32
     short_w = math.ceil(font.getlength("No.")) + 32
