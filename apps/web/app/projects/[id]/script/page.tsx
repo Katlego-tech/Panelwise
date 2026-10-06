@@ -2,13 +2,12 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { AppBar } from "@/components/AppBar";
+import { UNAVAILABLE } from "@/components/script/copy";
 import { ScriptPage } from "@/components/script/ScriptPage";
 import { getProject } from "@/lib/api/server";
 import { currentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Script — Panelwise" };
-
-export const UNAVAILABLE = "This screenplay can't be loaded right now. Reload the page to try again.";
 
 export default async function Script({ params }: { params: Promise<{ id: string }> }) {
   const user = await currentUser();

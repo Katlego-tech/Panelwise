@@ -29,10 +29,17 @@ export function relay(res: Response): Response {
 /** The API path of one project: the id is one path segment, whatever it contains. */
 export const projectPath = (id: string) => `/projects/${encodeURIComponent(id)}`;
 
+/**
+ * "." and ".." survive encodeURIComponent and a URL parser would resolve them away, sending the
+ * token to another route. No project has either id, so both are simply not found (web.md §6).
+ */
+export const isDotSegment = (id: string) => id === "." || id === "..";
+
 export type ProjectRead = { kind: "ok"; project: Project } | { kind: "not-found" } | { kind: "unavailable" };
 
 /** One project. A 404 covers missing, malformed and someone else's ids alike (web.md §6). */
 export async function getProject(user: CurrentUser, id: string): Promise<ProjectRead> {
+  if (isDotSegment(id)) return { kind: "not-found" };
   try {
     const res = await apiFetch(projectPath(id), user);
     if (res.status === 404) return { kind: "not-found" };

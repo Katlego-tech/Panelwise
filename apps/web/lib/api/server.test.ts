@@ -23,6 +23,12 @@ describe("getProject", () => {
     expect(fetchMock.mock.calls[1]![0]).toBe("http://api.test:8000/api/v1/projects/a%2Fb");
   });
 
+  it.each([".", ".."])("the dot segment %s is not found, and the API is never called", async (id) => {
+    // encodeURIComponent leaves dot segments alone, and a URL parser would resolve them away.
+    expect(await getProject(user, id)).toEqual({ kind: "not-found" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("a 404 is not found: missing, malformed and someone else's are the same answer (web.md §6)", async () => {
     fetchMock.mockResolvedValue(Response.json({ error: "not_found" }, { status: 404 }));
     expect(await getProject(user, "p1")).toEqual({ kind: "not-found" });

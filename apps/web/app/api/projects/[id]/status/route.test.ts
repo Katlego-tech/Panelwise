@@ -64,6 +64,14 @@ describe("GET /api/projects/[id]/status (web.md §4.2, §4.3)", () => {
     expect(fetchMock.mock.calls[0]![0]).toBe("http://api.test:8000/api/v1/projects/..%2Fhealth");
   });
 
+  it.each([".", ".."])("the dot segment %s is 404 not_found without calling the API", async (id) => {
+    currentUser.mockResolvedValue(user);
+    const res = await GET(new Request("http://web.test"), ctx(id));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "not_found" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("passes the API's 404 through", async () => {
     currentUser.mockResolvedValue(user);
     fetchMock.mockResolvedValue(Response.json({ error: "not_found" }, { status: 404 }));
