@@ -2,7 +2,7 @@
 
 import type { CurrentUser } from "@/lib/supabase/server";
 
-import type { Project, ProjectSummary } from "./types";
+import type { FrameView, LinesView, Project, ProjectSummary, ShotView } from "./types";
 
 export function apiUrl(): string {
   return process.env.API_URL ?? "http://localhost:8000";
@@ -57,5 +57,29 @@ export async function listProjects(user: CurrentUser): Promise<ProjectSummary[] 
     return res.ok ? ((await res.json()) as ProjectSummary[]) : null;
   } catch {
     return null;
+  }
+}
+
+export type BoardRead = { kind: "ok"; lines: LinesView; shots: ShotView[]; frames: FrameView[] } | { kind: "unavailable" };
+
+/**
+ * A planned project's lines, shots and frames, in parallel (web.md §4.3). Only asked once the
+ * project has a plan: before it, …/lines and …/shots answer 409 (web.md §6).
+ */
+export async function getBoard(user: CurrentUser, id: string): Promise<BoardRead> {
+  const read = async <T>(part: string): Promise<T> => {
+    const res = await apiFetch(`${projectPath(id)}/${part}`, user);
+    if (!res.ok) throw new Error(`${part}: ${res.status}`);
+    return (await res.json()) as T;
+  };
+  try {
+    const [lines, shots, frames] = await Promise.all([
+      read<LinesView>("lines"),
+      read<ShotView[]>("shots"),
+      read<FrameView[]>("frames"),
+    ]);
+    return { kind: "ok", lines, shots, frames };
+  } catch {
+    return { kind: "unavailable" };
   }
 }

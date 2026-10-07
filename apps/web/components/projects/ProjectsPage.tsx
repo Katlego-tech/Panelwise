@@ -17,9 +17,6 @@ const POLL_MS = 2000;
 export function ProjectsPage({ initial }: { initial: ProjectSummary[] | null }) {
   const [projects, setProjects] = useState(initial);
   const router = useRouter();
-  // A refresh that failed keeps the poll going until one lands (an accepted upload's new row
-  // must appear even when nothing else is active).
-  const [retrying, setRetrying] = useState(false);
   // Only the newest request may write the list: an older, slower answer is dropped.
   const latest = useRef(0);
 
@@ -35,14 +32,12 @@ export function ProjectsPage({ initial }: { initial: ProjectSummary[] | null }) 
       const list = (await res.json()) as ProjectSummary[];
       if (mine !== latest.current) return;
       setProjects(list);
-      setRetrying(false);
     } catch {
       // Keep the last list; the next tick tries again.
-      if (mine === latest.current) setRetrying(true);
     }
   }, [router]);
 
-  const polling = retrying || (projects?.some(isActive) ?? false);
+  const polling = projects?.some(isActive) ?? false;
   useEffect(() => {
     if (!polling) return;
     const timer = setInterval(() => void refresh(), POLL_MS);
@@ -51,7 +46,7 @@ export function ProjectsPage({ initial }: { initial: ProjectSummary[] | null }) 
 
   return (
     <main className="mx-auto grid max-w-[1100px] items-start gap-8 px-4 pt-7 pb-12 min-[861px]:grid-cols-2 min-[861px]:gap-12 min-[861px]:px-6 min-[861px]:pt-12 min-[861px]:pb-16">
-      <UploadPanel onAccepted={() => void refresh()} />
+      <UploadPanel />
       <ProjectList projects={projects} />
     </main>
   );

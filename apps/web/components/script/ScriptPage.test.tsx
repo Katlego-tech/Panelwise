@@ -160,9 +160,10 @@ describe("ScriptPage, ready (script.png)", () => {
     expect(order).toEqual(["intro", "report", "entities", "scenes"]);
   });
 
-  it("has no storyboard button yet (T042, web.md §4.2 staging)", () => {
+  it("the scenes column opens the storyboard (script.png)", () => {
     render(<ScriptPage project={keeper()} />);
-    expect(screen.queryByText("Open the storyboard")).toBeNull();
+    const scenes = screen.getByRole("navigation", { name: "Scenes" });
+    expect(within(scenes).getByRole("link", { name: "Open the storyboard" })).toHaveAttribute("href", "/projects/p1/storyboard");
   });
 });
 

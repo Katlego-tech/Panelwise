@@ -1,7 +1,7 @@
 "use client";
 
 // One screenplay in the list (web.md §4.1a; projects.png, projects-states.png). The title opens
-// the script page; T042 points it at the storyboard once that page exists (web.md §4.1a, staged).
+// its storyboard.
 
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
@@ -44,7 +44,7 @@ export function ProjectRow({ project }: { project: ProjectSummary }) {
         {failed ? (
           project.title
         ) : (
-          <Link href={`/projects/${project.id}/script`} className="text-inherit no-underline hover:text-pencil">
+          <Link href={`/projects/${project.id}/storyboard`} className="text-inherit no-underline hover:text-pencil">
             {project.title}
           </Link>
         )}

@@ -1,8 +1,8 @@
 "use client";
 
 // Upload a screenplay (web.md §4.1a, UploadPanel): idle (projects.png), chosen with its title,
-// uploading, error (projects-states.png), and accepted, which resets the panel and refreshes the
-// list. T042 replaces "refreshes the list" with the redirect to the storyboard (staged).
+// uploading, error (projects-states.png), and accepted, which goes to the new project's
+// storyboard (web.md §4.1 step 5).
 
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState } from "react";
@@ -40,7 +40,7 @@ function ErrorNote({ message }: { message: string }) {
   );
 }
 
-export function UploadPanel({ onAccepted }: { onAccepted: () => void }) {
+export function UploadPanel() {
   const inputId = useId();
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -81,16 +81,16 @@ export function UploadPanel({ onAccepted }: { onAccepted: () => void }) {
       // no response at all: uploadOutcome(null, …) says so
     }
     const outcome = uploadOutcome(status, json);
+    if (outcome.kind === "accepted") {
+      // Stays "Uploading…" until the storyboard replaces this page.
+      router.push(`/projects/${encodeURIComponent(outcome.id)}/storyboard`);
+      return;
+    }
     setUploading(false);
     if (outcome.kind === "sign-in") {
       router.push("/sign-in");
-    } else if (outcome.kind === "error") {
-      setError(outcome.message);
     } else {
-      setFile(null);
-      setTitle("");
-      if (input.current) input.current.value = "";
-      onAccepted();
+      setError(outcome.message);
     }
   }
 

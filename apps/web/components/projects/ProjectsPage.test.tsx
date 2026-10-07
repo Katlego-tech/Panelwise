@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Job, ProjectSummary } from "@/lib/api/types";
@@ -93,39 +93,14 @@ describe("ProjectsPage (web.md §4.1a)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  // An accepted upload refreshes the list once (web.md §4.1a, step 5).
-  async function upload() {
-    const pdf = new File(["%PDF-1.7"], "new.pdf", { type: "application/pdf" });
-    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!;
-    fireEvent.change(input, { target: { files: [pdf] } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Board this script" }));
-    });
-  }
-  const accepted = () => Response.json({ project: {}, job: {} }, { status: 202 });
-
-  it("keeps trying after a failed refresh, even with nothing active", async () => {
-    const done = project({ job: job({ state: "done" }) });
-    fetchMock
-      .mockResolvedValueOnce(accepted())
-      .mockRejectedValueOnce(new TypeError("offline"))
-      .mockResolvedValueOnce(Response.json([project({ id: "p2", title: "New" }), done]));
-    render(<ProjectsPage initial={[done]} />);
-    await upload();
-    expect(screen.queryByText("New")).toBeNull();
-    await tick();
-    expect(screen.getByText("New")).toBeInTheDocument();
-  });
-
   it("an older response never overwrites a newer one", async () => {
     let slow!: (r: Response) => void;
     fetchMock
-      .mockReturnValueOnce(new Promise((resolve) => (slow = resolve))) // the poll hangs
-      .mockResolvedValueOnce(accepted())
-      .mockResolvedValueOnce(Response.json([project({ title: "Newer", job: job({ state: "done" }) })]));
+      .mockReturnValueOnce(new Promise((resolve) => (slow = resolve))) // the first poll hangs past the next tick
+      .mockResolvedValueOnce(Response.json([project({ title: "Newer" })]));
     render(<ProjectsPage initial={[project()]} />);
     await tick();
-    await upload(); // its refresh lands first
+    await tick(); // the second poll lands first
     expect(screen.getByText("Newer")).toBeInTheDocument();
     await act(async () => slow(Response.json([project({ title: "Older" })])));
     expect(screen.getByText("Newer")).toBeInTheDocument();
