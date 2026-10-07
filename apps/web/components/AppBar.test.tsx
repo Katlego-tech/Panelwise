@@ -20,8 +20,11 @@ describe("AppBar (web.md §6 component tree, projects.png, script.png)", () => {
     expect(nav).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Script" })).toHaveAttribute("href", "/projects/p1/script");
     expect(screen.getByRole("link", { name: "Script" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Storyboard" })).toHaveAttribute("href", "/projects/p1/storyboard");
-    expect(screen.getByRole("link", { name: "Storyboard" })).not.toHaveAttribute("aria-current");
+    // Staged until T042 builds the storyboard (web.md §4.2).
+    const storyboard = screen.getByText("Storyboard");
+    expect(storyboard).toHaveAttribute("aria-disabled", "true");
+    expect(storyboard).toHaveAttribute("title", "The storyboard isn't built yet");
+    expect(storyboard).not.toHaveAttribute("href");
     const comic = screen.getByText("Comic");
     expect(comic).toHaveAttribute("aria-disabled", "true");
     expect(comic).toHaveAttribute("title", "Comic pages aren't built yet");

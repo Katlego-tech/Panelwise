@@ -1,8 +1,9 @@
 "use client";
 
-// One screenplay in the list (web.md §4.1a; projects.png, projects-states.png). Not a link in
-// T040: T042 makes the title open the storyboard once that page exists (web.md §4.1a, staged).
+// One screenplay in the list (web.md §4.1a; projects.png, projects-states.png). The title opens
+// the script page; T042 points it at the storyboard once that page exists (web.md §4.1a, staged).
 
+import Link from "next/link";
 import { useSyncExternalStore } from "react";
 
 import { Meter } from "@/components/shared/Meter";
@@ -40,7 +41,13 @@ export function ProjectRow({ project }: { project: ProjectSummary }) {
             : "font-display text-2xl leading-[1.1] font-extrabold tracking-[0.02em] uppercase",
         )}
       >
-        {project.title}
+        {failed ? (
+          project.title
+        ) : (
+          <Link href={`/projects/${project.id}/script`} className="text-inherit no-underline hover:text-pencil">
+            {project.title}
+          </Link>
+        )}
       </h3>
       <p className="mt-1 mb-0 text-sm text-ink-2">{facts(project, (iso) => (inBrowser ? uploadedAt(iso) : ""))}</p>
       <p className="mt-2.5 mb-0 flex items-center gap-2.5 text-sm">
