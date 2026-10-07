@@ -449,12 +449,11 @@ state (§4.1), drawn in storyboard-states.png.
   - **Who and what:** the characters, then the props, as written, joined " · "; with no characters
     it starts "No one in frame" (storyboard.png 1.2), then any props.
   - **Source:** `ShotView.source` verbatim inside “ ”, its parts (one per covered element, joined
-    by "
-" in the API) each on its own line, then the span. A heading-only shot's source is its
+    by `"\n"` in the API) each on its own line, then the span. A heading-only shot's source is its
     heading. An element's own wrapped lines arrive joined by a space (1.4, one dialogue element);
-    a parenthetical, a `(MORE)` and a `(CONT'D)` cue each end one element and start the next
-    (script.md's parser), so storyboard.png's 2.2 ("It's gone." (beat) "All of it." (MORE) page
-    break "The whole coast.") is three parts on three lines.
+    a parenthetical and a `(CONT'D)` cue each start a new element, and `(MORE)` is page furniture
+    the parser drops (script.md), so storyboard.png's 2.2 ("It's gone." (beat) "All of it." page
+    break, THABO (CONT'D) "The whole coast.") is three parts on three lines.
 - **Linking:** hovering or focusing a card highlights its shot line and tints its lines
   (`--pencil-soft`); clicking a shot line scrolls to its card and focuses it. Clicking a card opens
   the frame sheet (§4.4) and sets `?shot=1.4`, so a frame can be linked to.
