@@ -69,7 +69,7 @@ export function ScriptPage({ project }: { project: Project }) {
             <EntitySection key={section.kind} section={section} scenes={project.scene_list ?? []} />
           ))}
         </section>
-        <SceneIndex scenes={project.scene_list ?? []} />
+        <SceneIndex scenes={project.scene_list ?? []} storyboard={`/projects/${project.id}/storyboard`} />
       </main>
     </>
   );

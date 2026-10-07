@@ -20,14 +20,26 @@ describe("AppBar (web.md §6 component tree, projects.png, script.png)", () => {
     expect(nav).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Script" })).toHaveAttribute("href", "/projects/p1/script");
     expect(screen.getByRole("link", { name: "Script" })).toHaveAttribute("aria-current", "page");
-    // Staged until T042 builds the storyboard (web.md §4.2).
-    const storyboard = screen.getByText("Storyboard");
-    expect(storyboard).toHaveAttribute("aria-disabled", "true");
-    expect(storyboard).toHaveAttribute("title", "The storyboard isn't built yet");
-    expect(storyboard).not.toHaveAttribute("href");
+    expect(screen.getByRole("link", { name: "Storyboard" })).toHaveAttribute("href", "/projects/p1/storyboard");
+    expect(screen.getByRole("link", { name: "Storyboard" })).not.toHaveAttribute("aria-current");
     const comic = screen.getByText("Comic");
     expect(comic).toHaveAttribute("aria-disabled", "true");
     expect(comic).toHaveAttribute("title", "Comic pages aren't built yet");
     expect(comic).not.toHaveAttribute("href");
+  });
+
+  it("the storyboard: its tab current, and the page's tools before who is signed in (storyboard.png)", () => {
+    render(
+      <AppBar
+        email="judge@panelwise.demo"
+        project={{ id: "p1", title: "The Keeper's Light" }}
+        tab="storyboard"
+        tools={<button type="button">Export PDF</button>}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Storyboard" })).toHaveAttribute("aria-current", "page");
+    const exportPdf = screen.getByRole("button", { name: "Export PDF" });
+    const who = screen.getByText("judge@panelwise.demo");
+    expect(exportPdf.compareDocumentPosition(who) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

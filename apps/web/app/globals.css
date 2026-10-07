@@ -13,13 +13,6 @@
   /* the one accent: a storyboard artist's non-photo-blue pencil, deepened to pass AA on paper */
   --color-pencil: #2c6e9e;
   --color-pencil-soft: #d6e7f2;
-  /* shot lines cycle through the WGA revision-page colours, so neighbours never match */
-  --color-line-1: #6f9fd8;
-  --color-line-2: #dd8aa3;
-  --color-line-3: #c9ab22;
-  --color-line-4: #6aab5e;
-  --color-line-5: #cf8f1f;
-  --color-line-6: #b8505b;
   /* audit verdicts */
   --color-pass: #2f7a55;
   --color-warn: #9a620f;
@@ -33,6 +26,18 @@
 
   --radius-paper: 3px;
   --shadow-page: 0 1px 0 #b8c1c6, 0 12px 28px -18px rgb(26 34 44 / 0.45);
+}
+
+/* Shot lines cycle through the WGA revision-page colours, so neighbours never match. `static`:
+   the storyboard picks one by index at run time (lineColour), so no class names them and Tailwind
+   would otherwise leave them out of the page. */
+@theme static {
+  --color-line-1: #6f9fd8;
+  --color-line-2: #dd8aa3;
+  --color-line-3: #c9ab22;
+  --color-line-4: #6aab5e;
+  --color-line-5: #cf8f1f;
+  --color-line-6: #b8505b;
 }
 
 @theme inline {

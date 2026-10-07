@@ -29,7 +29,7 @@ async function choose(file = pdf()) {
 
 describe("UploadPanel (web.md §4.1a)", () => {
   it("idle: the drop zone is a label over the file input, with the reference copy", () => {
-    render(<UploadPanel onAccepted={vi.fn()} />);
+    render(<UploadPanel />);
     expect(screen.getByRole("heading", { name: "Board your script" })).toBeInTheDocument();
     expect(screen.getByLabelText(/Drop a screenplay PDF here, or choose a file/)).toBe(fileInput());
     expect(fileInput()).toHaveAttribute("accept", "application/pdf");
@@ -40,7 +40,7 @@ describe("UploadPanel (web.md §4.1a)", () => {
   });
 
   it("chosen: name, size, a different-file action, the title prefilled, the button", async () => {
-    render(<UploadPanel onAccepted={vi.fn()} />);
+    render(<UploadPanel />);
     await choose();
     expect(screen.getByText("the-keepers-light.pdf")).toBeInTheDocument();
     expect(screen.getByText("79 KB")).toBeInTheDocument();
@@ -52,11 +52,10 @@ describe("UploadPanel (web.md §4.1a)", () => {
     expect(screen.getByRole("button", { name: "Board this script" })).toBeEnabled();
   });
 
-  it("sends the file and the title, disabled while it uploads, then resets and refreshes the list", async () => {
-    const onAccepted = vi.fn();
+  it("sends the file and the title, disabled while it uploads, then goes to the new storyboard", async () => {
     let answer!: (r: Response) => void;
     fetchMock.mockReturnValue(new Promise((resolve) => (answer = resolve)));
-    render(<UploadPanel onAccepted={onAccepted} />);
+    render(<UploadPanel />);
     const user = await choose();
     await user.clear(screen.getByLabelText("Title"));
     await user.type(screen.getByLabelText("Title"), "The Keeper's Light");
@@ -71,15 +70,24 @@ describe("UploadPanel (web.md §4.1a)", () => {
     expect((body.get("file") as File).name).toBe("the-keepers-light.pdf");
     expect(body.get("title")).toBe("The Keeper's Light");
 
-    answer(Response.json({ project: {}, job: {} }, { status: 202 }));
-    await waitFor(() => expect(onAccepted).toHaveBeenCalledOnce());
-    expect(screen.queryByLabelText("Title")).toBeNull();
-    expect(screen.getByText(/Drop a screenplay PDF here/)).toBeInTheDocument();
+    answer(Response.json({ project: { id: "p-new" }, job: {} }, { status: 202 }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/projects/p-new/storyboard"));
+    // stays "Uploading…" until the storyboard replaces the page (web.md §4.1 step 5)
+    expect(screen.getByRole("button", { name: "Uploading…" })).toBeDisabled();
+  });
+
+  it("a 202 without a project id is not a success it can follow", async () => {
+    fetchMock.mockResolvedValue(Response.json({ job: {} }, { status: 202 }));
+    render(<UploadPanel />);
+    const user = await choose();
+    await user.click(screen.getByRole("button", { name: "Board this script" }));
+    expect(await screen.findByText("Panelwise can't take uploads right now. Try again in a minute.")).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("an error keeps the file and title and sits above the button", async () => {
     fetchMock.mockResolvedValue(Response.json({ error: "too_large" }, { status: 413 }));
-    render(<UploadPanel onAccepted={vi.fn()} />);
+    render(<UploadPanel />);
     const user = await choose();
     await user.click(screen.getByRole("button", { name: "Board this script" }));
     const alert = await screen.findByRole("alert");
@@ -92,7 +100,7 @@ describe("UploadPanel (web.md §4.1a)", () => {
 
   it("no response at all: can't take uploads right now", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
-    render(<UploadPanel onAccepted={vi.fn()} />);
+    render(<UploadPanel />);
     const user = await choose();
     await user.click(screen.getByRole("button", { name: "Board this script" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -102,14 +110,14 @@ describe("UploadPanel (web.md §4.1a)", () => {
 
   it("a 401 sends the browser to sign in", async () => {
     fetchMock.mockResolvedValue(Response.json({ error: "unauthorized" }, { status: 401 }));
-    render(<UploadPanel onAccepted={vi.fn()} />);
+    render(<UploadPanel />);
     const user = await choose();
     await user.click(screen.getByRole("button", { name: "Board this script" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/sign-in"));
   });
 
   it("dropping two files is refused before anything is sent", () => {
-    render(<UploadPanel onAccepted={vi.fn()} />);
+    render(<UploadPanel />);
     const zone = screen.getByText(/Drop a screenplay PDF here/).closest("[data-dropzone]")!;
     fireEvent.drop(zone, { dataTransfer: { files: [pdf("a.pdf"), pdf("b.pdf")] } });
     expect(screen.getByRole("alert")).toHaveTextContent("Drop one PDF at a time.");
@@ -117,7 +125,7 @@ describe("UploadPanel (web.md §4.1a)", () => {
   });
 
   it("a dropped PDF is chosen, and a drag over the zone tints it", () => {
-    render(<UploadPanel onAccepted={vi.fn()} />);
+    render(<UploadPanel />);
     const zone = screen.getByText(/Drop a screenplay PDF here/).closest("[data-dropzone]")!;
     fireEvent.dragOver(zone, { dataTransfer: { files: [] } });
     expect(zone).toHaveAttribute("data-dragging", "true");
@@ -127,7 +135,7 @@ describe("UploadPanel (web.md §4.1a)", () => {
   });
 
   it("a file that isn't a PDF gets the not-a-PDF copy", () => {
-    render(<UploadPanel onAccepted={vi.fn()} />);
+    render(<UploadPanel />);
     const zone = screen.getByText(/Drop a screenplay PDF here/).closest("[data-dropzone]")!;
     fireEvent.drop(zone, { dataTransfer: { files: [new File(["x"], "notes.docx", { type: "application/msword" })] } });
     expect(screen.getByRole("alert")).toHaveTextContent("This file isn't a PDF.");
