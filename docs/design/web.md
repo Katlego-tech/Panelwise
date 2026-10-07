@@ -426,6 +426,10 @@ state (§4.1), drawn in storyboard-states.png.
   of a dialogue element whose speaker is not in the shot's characters, and straight elsewhere
   (`ShotView.segments`). A shot that runs past a page's end ends in an arrowhead and continues at
   the top of the next page.
+  **Column:** `minmax(520px, 680px)` beside the board: 680 px holds a 75-character line (13 px
+  Courier Prime advances 7.8 px a character, plus the 96 px gutter and margins; the-red-kite's
+  longest is 75), so a real script reads without scrolling at 1440 px; a longer line scrolls
+  inside the column and is never clipped.
   **Geometry** (storyboard.html, storyboard.css): pages split `LinesView.lines` at `page_starts`
   (page *p* holds lines `page_starts[p-1]` up to the next start, numbered globally, as spans are);
   13 px Courier Prime on a 22 px line, the global line number in a 10 px margin column, every line

@@ -7,7 +7,7 @@
 .meter span { display: block; height: 100%; background: var(--pencil); }
 
 .board {
-  display: grid; grid-template-columns: minmax(520px, 600px) 1fr; gap: 32px;
+  display: grid; grid-template-columns: minmax(520px, 680px) 1fr; gap: 32px;
   padding: 28px 24px 64px; max-width: 1600px; margin: 0 auto; align-items: start;
 }
 
@@ -64,7 +64,8 @@
 .card.sel { outline: 2px solid var(--pencil); outline-offset: 3px; }
 .media { aspect-ratio: 16 / 9; background: #f1f3f1; border-bottom: 1px solid var(--rule); overflow: hidden; }
 .media svg { width: 100%; height: 100%; display: block; }
-.card header { display: flex; align-items: center; gap: 10px; padding: 10px 14px 0; }
+.card header { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 10px 14px 0; }
+.card header > * { white-space: nowrap; }
 .sid { font: 800 20px/1 var(--font-display); }
 .cam { font-size: 13px; color: var(--ink-2); }
 .card .verdict { margin-left: auto; }
