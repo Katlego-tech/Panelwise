@@ -28,7 +28,8 @@ team: [CHANGES-FROM-FRAMEFLOW.md](CHANGES-FROM-FRAMEFLOW.md) says what was porte
 | Rendering frames (ComfyUI on a Nebius AI Cloud GPU), the storyboard PDF | waiting on GPU access | — |
 | The API behind the web app: sign-in check, upload, a job that runs parse → extract → plan, read endpoints for the project, its lines, shots and frames | built, run live on Supabase | `/api/v1/projects` (needs a Supabase sign-in) |
 | The re-render loop and its audit log (every attempt kept and shown) | designed; the `frames` table it writes to is built; waits on the frame sheet (T045) | — |
-| Web screens (sign-in, upload → shots → storyboard → comic reader), hosted demo | designed; screens next (T040–T045); the demo waits on hosting accounts | — |
+| Web app: sign-in, the projects list with upload and each job's live state, the script page (scenes, every entity with its quotes and their page/line spans, faithfulness and recall) | built, run live on Supabase (T040, T041) | `docker compose up --build --wait`, then `localhost:3000` ([§ Run it](#run-it)) |
+| Web screens still to build: the storyboard board, the frame sheet, the comic reader; the hosted demo | designed; the storyboard is next (T042, T045, T024); the demo waits on hosting accounts | — |
 
 [STATUS.md](STATUS.md) is the live board. The order of what's left is in its *Next action* section.
 
@@ -159,8 +160,11 @@ bash ../../scripts/gate.sh                     # every check the pre-push hook r
 
 The local stack (Postgres, the API and the web app on pinned versions) runs with
 `docker compose up --build --wait`. Without a Supabase project in `.env` it serves the health
-checks, `GET :8000/api/v1/health` and `GET :3000/api/health`; the `/api/v1/projects` endpoints
-need Supabase sign-in and Storage. The web screens come with T040–T045.
+checks, `GET :8000/api/v1/health` and `GET :3000/api/health`. With one (`SUPABASE_URL`,
+`SUPABASE_SECRET_KEY`, a private Storage bucket named in `SUPABASE_STORAGE_BUCKET`, and the
+`NEXT_PUBLIC_SUPABASE_*` pair), open `localhost:3000`, sign in, upload a sample PDF and watch its
+job read, extract and plan; then open its script page. The app has a sign-in page only: sign-up is
+off, so users are created in the Supabase dashboard (Authentication > Users).
 
 ## Feedback on Nebius Token Factory and NVIDIA Nemotron
 
@@ -172,7 +176,7 @@ need Supabase sign-in and Storage. The web screens come with T040–T045.
 | --- | --- |
 | `services/api/app/` | the FastAPI service: `llm`, `script`, `grounding`, `shots`, `storyboard`, `verify`, `comic`, `characters`, `projects`, `jobs`, `frames`, `storage`, `api` (with Alembic migrations) |
 | `services/api/tools/` | `build_samples`, `build_comic_reference`, `evaluate` |
-| `apps/web/` | the Next.js app |
+| `apps/web/` | the Next.js app: sign-in, the projects page with upload, the script page |
 | `samples/` | self-written screenplays (Fountain source and PDF) |
 | `eval/` | measured results and how they were produced |
 | `styles/` | public storyboard styles (`clean`, `ink`, `pencil`) |
