@@ -28,6 +28,11 @@ export function Storyboard({
   frames: FrameView[];
 }) {
   const router = useRouter();
+  // The poll reads the router through a ref, so a new router object never restarts it mid-flight.
+  const routerRef = useRef(router);
+  useEffect(() => {
+    routerRef.current = router;
+  }, [router]);
   const [summary, setSummary] = useState<ProjectSummary>(project);
   const [frames, setFrames] = useState(initialFrames);
   const [highlight, setHighlight] = useState<string | null>(null);
@@ -49,38 +54,51 @@ export function Storyboard({
   useEffect(() => {
     if (!live) return;
     const base = `/api/projects/${encodeURIComponent(project.id)}`;
+    // One round trip at a time, cancelled on cleanup, so a slow answer never lands over a newer
+    // one, after the refresh, or after the page has gone.
+    const abort = new AbortController();
+    const init = { cache: "no-store", signal: abort.signal } as const;
+    let busy = false;
     const timer = setInterval(async () => {
+      if (busy) return;
+      busy = true;
       try {
-        const res = await fetch(`${base}/status`, { cache: "no-store" });
+        const res = await fetch(`${base}/status`, init);
         if (res.status === 401) {
-          router.push("/sign-in");
+          routerRef.current.push("/sign-in");
           return;
         }
         if (!res.ok) return;
         const now = (await res.json()) as ProjectSummary;
         if (stageKey(now) !== seen.current) {
           seen.current = stageKey(now);
-          router.refresh();
+          routerRef.current.refresh();
           return;
         }
         setSummary(now);
         // Every tick while frames are set: rendering → auditing, or a next attempt, moves no count.
         if (now.frames === null) return;
-        const got = await fetch(`${base}/frames`, { cache: "no-store" });
+        const got = await fetch(`${base}/frames`, init);
         if (!got.ok) return; // the next tick asks again
         const fresh = (await got.json()) as FrameView[];
         setFrames((old) => mergeFrames(old, fresh));
       } catch {
-        // The next tick tries again.
+        // The next tick tries again (or the effect was cleaned up and aborted the request).
+      } finally {
+        busy = false;
       }
     }, POLL_MS);
-    return () => clearInterval(timer);
-  }, [live, project.id, router]);
+    return () => {
+      clearInterval(timer);
+      abort.abort();
+    };
+  }, [live, project.id]);
 
   // A shot line was clicked: its card scrolls into view and takes focus (which highlights it).
   const pick = useCallback((id: string) => {
     const card = document.getElementById(`shot-${id}`);
-    card?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    card?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
     card?.focus({ preventScroll: true });
   }, []);
 

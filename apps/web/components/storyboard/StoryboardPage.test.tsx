@@ -167,6 +167,15 @@ describe("the lined script (web.md §4.3)", () => {
     expect(document.querySelector('[data-line="17"]')).not.toHaveClass("bg-pencil-soft");
   });
 
+  it("a focused card keeps its highlight when the pointer leaves it", () => {
+    render(<StoryboardPage project={keeper()} board={board()} />);
+    act(() => card("1.4").focus());
+    fireEvent.mouseLeave(card("1.4"));
+    expect(document.querySelector('[data-line="17"]')).toHaveClass("bg-pencil-soft");
+    act(() => card("1.4").blur());
+    expect(document.querySelector('[data-line="17"]')).not.toHaveClass("bg-pencil-soft");
+  });
+
   it("clicking a shot line focuses its card, which highlights it", () => {
     Element.prototype.scrollIntoView = vi.fn();
     render(<StoryboardPage project={keeper()} board={board()} />);
@@ -230,6 +239,73 @@ describe("live (web.md §4.3)", () => {
     expect(within(card("1.2")).getByText("Auditing attempt 1 of 3")).toBeInTheDocument();
   });
 
+  it("one round trip at a time: a tick waits while the last one's frames are still coming", async () => {
+    let late!: (r: Response) => void;
+    fetchMock
+      .mockResolvedValueOnce(status(rendering))
+      .mockReturnValueOnce(new Promise((resolve) => (late = resolve)))
+      .mockResolvedValueOnce(status(rendering))
+      .mockResolvedValueOnce(Response.json([frame({ shot_id: "1.1", state: "passed", image_url: "https://s/11" })]));
+    render(<StoryboardPage project={keeper(rendering)} board={board()} />);
+    await tick();
+    await tick(); // skipped: the first is still waiting on …/frames
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await act(async () => late(Response.json([frame({ shot_id: "1.1", state: "auditing" })])));
+    expect(within(card("1.1")).getByText("Auditing attempt 1 of 3")).toBeInTheDocument();
+    await tick();
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(screen.getByAltText("Frame for shot 1.1")).toHaveAttribute("src", "https://s/11");
+  });
+
+  it("leaving the page aborts the request in flight", async () => {
+    fetchMock.mockReturnValueOnce(new Promise(() => {}));
+    const { unmount } = render(<StoryboardPage project={keeper(rendering)} board={board()} />);
+    await tick();
+    const signal = fetchMock.mock.calls[0]![1]!.signal!;
+    expect(signal.aborted).toBe(false);
+    unmount();
+    expect(signal.aborted).toBe(true);
+  });
+
+  it("a failed poll is retried on the next tick", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError("offline"))
+      .mockResolvedValueOnce(status(rendering))
+      .mockResolvedValueOnce(Response.json({ error: "storage_unavailable" }, { status: 503 }))
+      .mockResolvedValueOnce(status(rendering))
+      .mockResolvedValueOnce(Response.json([frame({ shot_id: "1.1", state: "auditing" })]));
+    render(<StoryboardPage project={keeper(rendering)} board={board()} />);
+    await tick();
+    await tick();
+    expect(within(card("1.1")).getByText("Not rendered yet")).toBeInTheDocument();
+    await tick();
+    expect(within(card("1.1")).getByText("Auditing attempt 1 of 3")).toBeInTheDocument();
+  });
+
+  it("no frames to fetch while the summary has none, and the poll goes on", async () => {
+    const reading = { job: job({ state: "running", stage: "rendering", progress: 60 }), frames: null };
+    fetchMock.mockImplementation(async () => status(reading));
+    render(<StoryboardPage project={keeper(reading)} board={board()} />);
+    await tick();
+    await tick();
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(["/api/projects/p1/status", "/api/projects/p1/status"]);
+  });
+
+  it("a refresh's new props replace the summary and the cards", () => {
+    const { rerender } = render(
+      <StoryboardPage project={keeper(rendering)} board={board([frame({ shot_id: "1.1", state: "rendering" })])} />,
+    );
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    rerender(
+      <StoryboardPage
+        project={keeper({ job: job({ state: "done", stage: "rendering", progress: 100 }), frames: { settled: 7, total: 7, withheld: 0, active: 0 } })}
+        board={board([frame({ shot_id: "1.1", state: "passed", image_url: "https://s/11" })])}
+      />,
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByAltText("Frame for shot 1.1")).toHaveAttribute("src", "https://s/11");
+  });
+
   it("doesn't poll a ready board", async () => {
     render(<StoryboardPage project={keeper()} board={board()} />);
     await tick();
@@ -249,5 +325,6 @@ describe("ExportButton (web.md §4.3, staged until T027)", () => {
     render(<ExportButton />);
     expect(screen.getByRole("button", { name: "Export PDF" })).toBeDisabled();
     expect(screen.getByTitle("The PDF export isn't built yet")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export PDF" })).toHaveAccessibleDescription("The PDF export isn't built yet");
   });
 });

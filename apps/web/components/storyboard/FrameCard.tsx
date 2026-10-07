@@ -72,7 +72,10 @@ export function FrameCard({
       tabIndex={-1}
       data-state={frame?.state ?? "none"}
       onMouseEnter={() => onHighlight(shot.id)}
-      onMouseLeave={() => onHighlight(null)}
+      onMouseLeave={(event) => {
+        // A focused card stays highlighted: only its blur lets go.
+        if (document.activeElement !== event.currentTarget) onHighlight(null);
+      }}
       onFocus={() => onHighlight(shot.id)}
       onBlur={() => onHighlight(null)}
       className={cn("scroll-mt-4 border-t-4 bg-paper shadow-page", on && "outline-2 outline-offset-[3px] outline-pencil")}
