@@ -38,6 +38,7 @@ code, and `tokens.css` is the token source every value below comes from.
 | Storyboard | [web/storyboard.png](web/storyboard.png) (full page) | [web/mockups/storyboard.html](web/mockups/storyboard.html) |
 | Frame detail (sheet) | [web/storyboard-frame.png](web/storyboard-frame.png) | [web/mockups/storyboard-frame.html](web/mockups/storyboard-frame.html) |
 | Storyboard on a phone | [web/storyboard-phone.png](web/storyboard-phone.png) (390 px) | same file, narrow viewport |
+| Storyboard: before any frame (today's real state), still reading, failed (§4.3) | [web/storyboard-states.png](web/storyboard-states.png) | [web/mockups/storyboard-states.html](web/mockups/storyboard-states.html) |
 
 - Content in the mockups is the self-written lighthouse script from
   `services/api/tests/script/conftest.py`: its real lines, line numbers and page break. The frame
@@ -385,11 +386,34 @@ columns stack: intro, report, entities, scenes.
 
 ### 4.3 Storyboard
 
-Server component: `Project`, `GET …/lines`, `GET …/shots`, `GET …/frames`, all in parallel. The
-client part polls `GET /api/projects/[id]/status` every 2 s **while the latest job is `queued` or
-`running`, or any frame is `rendering` or `auditing`** (a "Try another render" runs after the upload's
-job is `DONE`). `status` returns the `ProjectSummary` (its `frames` counts included); when the counts
-change, the client fetches `GET /api/projects/[id]/frames` and re-renders the board.
+Server component: `GET /api/v1/projects/{id}` → `Project`; once its `shots` is set (the plan
+exists), `GET …/lines`, `GET …/shots` and `GET …/frames` in parallel (before that, `…/lines` and
+`…/shots` answer 409, §6, so they aren't asked). The client part polls
+`GET /api/projects/[id]/status` every 2 s **while the latest job is `queued` or `running`, or
+`frames.active` is above 0** (a "Try another render" runs after the upload's job is `DONE`).
+`status` returns the `ProjectSummary` (its `frames` counts included):
+
+- the job's `state` or `stage` changed → `router.refresh()`, as the script page does (§4.2), so the
+  board appears when planning finishes and the failed card when the job fails;
+- otherwise `frames` changed → the client fetches `GET /api/projects/[id]/frames` and re-renders
+  the board from it. A frame whose `state` and `attempt` are unchanged keeps the `image_url` it
+  already has, so a fresh signed URL never reloads an image that is on screen.
+
+A 401 goes to `/sign-in`; a failed poll is retried on the next tick.
+
+**`/projects/[id]/storyboard`** (T042), by the job (§5):
+
+| Project | The page |
+|---|---|
+| `shots` null, job `queued` or `running` (queued, reading, planning) | the bar, the job strip, nothing else (§5: the storyboard waits for the plan) |
+| `shots` set, job `running` (rendering, T026) | the job strip, then the board |
+| job `done` | the board; the job strip only while `frames.active` > 0 (a "Try another render", T021) |
+| job `failed` | the eyebrow "Storyboard", the title, then the script page's failed card (§4.2, `FailedCard`, imported, not copied) |
+
+A project the API answers 404 for renders `app/not-found.tsx` and an unreachable API or a 503 the
+"can't be loaded right now" line, both exactly as §4.2. **Before T021 and T026** every planned
+project is the `done` row with no `frames` rows, so every card is "Not rendered yet": the real
+state (§4.1), drawn in storyboard-states.png.
 
 - **Lined script** (left, sticky, scrolls on its own): each page is a paper sheet with its lines in
   Courier Prime, line numbers in the margin, the page number top right. Each shot is a line in the
@@ -398,12 +422,37 @@ change, the client fetches `GET /api/projects/[id]/frames` and re-renders the bo
   of a dialogue element whose speaker is not in the shot's characters, and straight elsewhere
   (`ShotView.segments`). A shot that runs past a page's end ends in an arrowhead and continues at
   the top of the next page.
+  **Geometry** (storyboard.html, storyboard.css): pages split `LinesView.lines` at `page_starts`
+  (page *p* holds lines `page_starts[p-1]` up to the next start, numbered globally, as spans are);
+  13 px Courier Prime on a 22 px line, the global line number in a 10 px margin column, every line
+  of the page drawn (blank ones too: the PDF's own layout). On a page whose first line is *s*, a
+  shot's piece from line *a* to *b* (its span clipped to the page) sits at
+  `top = (a − s) × 22 + 2` px with `height = (b − a + 1) × 22 − 4` px. Shots alternate between two
+  lanes, x 0 and 30 px, by k mod 2, so labels on neighbouring shots never touch. A piece that ends
+  at the page's last line before the shot does is `runs-on` (the arrowhead); the next page's piece
+  is `continued` (its label at 75 % opacity). Within a piece, each off-screen segment's lines draw
+  wavy and the rest straight, so a shot mixing both shows both. A **heading-only establishing
+  shot** (`segments` `[]`) draws straight over its span. A legend closes the column: a straight
+  line "speaker on screen", a wavy one "speaker off screen". Each shot line is a link to
+  `#shot-{id}` labelled "Shot {id}, {span}".
 - **Frame board** (right): one heading per scene (number and heading), then a card per shot in
   order: the frame (16:9), the shot id and camera, the verdict, who and what is in frame, the
   verbatim source in Courier with its span. The card's top edge is its shot line's colour.
+  - **Camera:** framing and movement in words, joined " · ": `wide` "Wide", `medium` "Medium",
+    `close_up` "Close-up", `extreme_close_up` "Extreme close-up", `over_shoulder` "Over the
+    shoulder", `pov` "Point of view", `insert` "Insert"; `static` "Static", `pan` "Pan", `tilt`
+    "Tilt", `dolly` "Dolly", `tracking` "Tracking", `handheld` "Handheld", `crane` "Crane".
+  - **Who and what:** the characters, then the props, as written, joined " · "; with no characters
+    it starts "No one in frame" (storyboard.png 1.2), then any props.
+  - **Source:** `ShotView.source` verbatim inside “ ”, its parts (one per covered element, joined
+    by "\n" in the API) each on its own line, then the span. A heading-only shot's source is its
+    heading.
 - **Linking:** hovering or focusing a card highlights its shot line and tints its lines
   (`--pencil-soft`); clicking a shot line scrolls to its card and focuses it. Clicking a card opens
   the frame sheet (§4.4) and sets `?shot=1.4`, so a frame can be linked to.
+  **Staged, until T045 builds the sheet:** a card is an `<article id="shot-{id}" tabindex="-1">`,
+  focused by its shot line but not in the tab order and not clickable, since nothing would open;
+  **T045** makes it a button that opens the sheet and handles `?shot=`.
 - **Card states** follow `FrameView.state` (verify.md §5). The frame image is shown **only** for
   `passed` and `warned` (§6: the API sends `image_url` for nothing else):
 
@@ -421,14 +470,22 @@ change, the client fetches `GET /api/projects/[id]/frames` and re-renders the bo
   header is left out for them. Spans on cards read `p.1 l.7–8` (`l.14` for one line), in the body
   face, not Courier: Atkinson Hyperlegible is built to tell `l` from `1`, Courier is not, and a
   span sits next to shot ids like `1.4`.
+  `warned`'s extra lines come from the last audit's failed soft checks, "{Check in words, sentence
+  case}: {detail}" (§6's check names), and `{check}` in the withheld card is `withheld_check` in
+  words. **Staged, until T021:** the withheld card has no "Try another render" button (T021 adds
+  it with the action, per its Files); no frame can be withheld before T021 writes `frames` rows.
 
-- **Job strip** under the bar while polling (above): the stage in words ("Reading the script",
-  "Planning shots", "Rendering frames"), a meter at settled ÷ total, and "{settled} of {total}
-  frames settled · {withheld} withheld" while rendering (§3: withheld counts as settled).
+- **Job strip** under the bar while polling (above): T041's `JobStrip`, unchanged (§4.2).
 - **Export PDF** (bar, right): disabled with the tooltip "Available when every frame has settled"
   until the storyboard job is `DONE` and every shot has a settled `frames` row, with no frame
   `rendering` or `auditing`; then it downloads T027's PDF, built on demand. (A job that failed on a
   renderer error leaves shots with no row, so Export stays disabled.)
+  **Staged, until T027 builds the PDF:** `ExportButton` (T042) is always disabled, with the tooltip
+  "The PDF export isn't built yet"; T027 adds `GET /api/projects/[id]/storyboard.pdf` and the rule
+  above. (No frame settles before T021 and T026, so the rule couldn't enable it yet anyway.)
+- **The staging T042 undoes** (§4.1a, §4.2): a projects-list title (every row but a failed one)
+  links to `/projects/{id}/storyboard`; an accepted upload goes there (§4.1 step 5); the script
+  page's Storyboard tab is enabled and its scenes column gains "Open the storyboard" (script.png).
 - **Phones** (≤ 1100 px): the lined script is hidden and every card keeps its own source and span
   (storyboard-phone.png), so a frame is still never shown without its lines. The project tabs drop
   to a second row of the bar (≤ 640 px).
@@ -790,7 +847,7 @@ ScriptPage   [T041]
 ├── ReportPanel → ScoreCard ×2, ModelLine
 └── FailedCard
 StoryboardPage
-├── ExportButton (in AppBar actions; disabled until settled)   [T042]
+├── ExportButton (in AppBar actions; disabled until settled)   [T042; enabled by T027]
 ├── JobStrip (shared, T041)
 ├── LinedScript → ScriptSheet (per page) → ScriptLine*, ShotLine* ; Legend
 ├── FrameBoard → SceneHeader, FrameCard (FrameMedia | PendingMedia | WithheldCard | FailedCard)   [T042]
@@ -847,7 +904,8 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `apps/web/app/projects/[id]/storyboard/`, `components/storyboard/LinedScript.tsx` (ScriptSheet, ScriptLine, ShotLine, Legend inside), `FrameBoard.tsx` (SceneHeader inside), `FrameCard.tsx` (PendingMedia, WithheldCard, FailedCard inside), `FrameMedia.tsx` (T045 imports it), `apps/web/app/api/projects/[id]/frames/route.ts` | new | §4.3 | T042 |
 | `components/storyboard/{FrameSheet,SourceBlock,InFrame}*` | new | §4.4 steps 1–4 | T045 |
 | `components/storyboard/AuditLog.tsx` (AttemptItem, CheckList inside), the "Try another render" action (an edit to T042's `FrameCard.tsx`), `apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts` | new | §4.4 step 5; §4.3 retry | T021 |
-| `apps/web/app/api/projects/[id]/storyboard.pdf/route.ts`, `components/storyboard/ExportButton.tsx` | new | §4.3 export | T042 |
+| `components/storyboard/ExportButton.tsx` | new | §4.3 export, staged (always disabled until T027) | T042 |
+| `apps/web/app/api/projects/[id]/storyboard.pdf/route.ts`, `ExportButton.tsx`'s enable rule | new | §4.3 export | T027 |
 
 ## 8. Decisions & alternatives
 
