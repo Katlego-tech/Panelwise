@@ -32,7 +32,9 @@ code, and `tokens.css` is the token source every value below comes from.
 | --- | --- | --- |
 | Sign-in | [web/signin.png](web/signin.png) | [web/mockups/signin.html](web/mockups/signin.html) |
 | Projects + upload | [web/projects.png](web/projects.png) | [web/mockups/projects.html](web/mockups/projects.html) |
+| Projects: the states projects.png doesn't draw (§4.1a) | [web/projects-states.png](web/projects-states.png) | [web/mockups/projects-states.html](web/mockups/projects-states.html) |
 | Script | [web/script.png](web/script.png) (full page) | [web/mockups/script.html](web/mockups/script.html) |
+| Script: failed, and a project that isn't there (§4.2) | [web/script-states.png](web/script-states.png) | [web/mockups/script-states.html](web/mockups/script-states.html) |
 | Storyboard | [web/storyboard.png](web/storyboard.png) (full page) | [web/mockups/storyboard.html](web/mockups/storyboard.html) |
 | Frame detail (sheet) | [web/storyboard-frame.png](web/storyboard-frame.png) | [web/mockups/storyboard-frame.html](web/mockups/storyboard-frame.html) |
 | Storyboard on a phone | [web/storyboard-phone.png](web/storyboard-phone.png) (390 px) | same file, narrow viewport |
@@ -148,9 +150,31 @@ classDiagram
 
 ### 4.0 Sign-in
 
-Supabase Auth, email and password (`@supabase/ssr`, cookies). Every route except `/sign-in` redirects
+Supabase Auth, email and password (`@supabase/ssr`, cookies). Every page except `/sign-in` redirects
 there when signed out. The seeded judge account is T030's. Failure copy: "That email and password
 don't match. Check both and try again." Reference: signin.png.
+
+- **`apps/web/proxy.ts`** (Next.js 16 renamed the `middleware.ts` convention to `proxy.ts`)
+  refreshes the Supabase session cookie and makes the redirects: a signed-out page request →
+  `/sign-in`; a signed-in request for `/sign-in` → `/projects`; `/` → `/projects` signed in,
+  `/sign-in` signed out. There is no page at `/`: the proxy alone answers it.
+- **Matcher:** every path except `_next/static`, `_next/image`, `favicon.ico` and any path ending
+  in a file extension (fonts, images). `/api/*` **is** matched, so the refreshed cookie reaches
+  route handlers, but it is **never redirected**: `/api/health` stays public (deploy.md §4's check
+  calls it), and every other route handler answers a signed-out request itself with 401
+  `{"error": "unauthorized"}`, the API's own shape, so a polling client gets JSON, not a sign-in page.
+- **Refresh:** `createServerClient` (`@supabase/ssr`) with `cookies.getAll`/`setAll` on the
+  request, then `auth.getClaims()`. Whatever the proxy returns, the pass-through response or a
+  redirect, carries every cookie `setAll` wrote; a redirect that drops them loses the refreshed
+  session.
+- **The guard** is not the proxy, which is an optimistic check (Next.js's own guidance): each page
+  and route handler calls `auth.getClaims()` server-side (it verifies the token against the
+  project's JWKS, as the API does; never `getSession()` alone) and only then reads the session's
+  access token to call the API, which checks it again (§6).
+- **Sign in** is a server action (`signInWithPassword`): success → `/projects`; refused → the
+  failure copy above; Supabase unreachable → "Signing in isn't working right now. Try again in a
+  minute." While it runs the button reads "Signing in…". **Sign out** (the bar's "Sign out",
+  projects.png) is a server action too: `signOut`, then `/sign-in`.
 
 ### 4.1 Upload and the job
 
@@ -219,6 +243,75 @@ sequenceDiagram
   the upload limit must sit below it. Screenplay PDFs with a text layer are typically well under
   1 MB.
 
+### 4.1a The projects page (T040)
+
+`/projects`: the server component reads `GET /api/v1/projects`; a client part polls `GET
+/api/projects` every 2 s while any row's job is `queued` or `running` or its `frames.active` is
+above 0, and stops otherwise (a 401 there sends the browser to `/sign-in`). References:
+projects.png and projects-states.png.
+
+**`ProjectRow`**, newest first, by its latest job (`ProjectSummary.job`) and `frames`:
+
+| Job | Left edge | Verdict (colour) | Then |
+|---|---|---|---|
+| `queued` | `--pencil` | "Queued" (pending) | meter at 0 |
+| `running`, `parsing` or `extracting` | `--pencil` | "Reading the script" (pending) | meter at `progress` |
+| `running`, `planning` | `--pencil` | "Planning shots" (pending) | meter at `progress` |
+| `running`, `rendering`, `frames` null (no `frames` row written yet) | `--pencil` | "Rendering frames" (pending) | meter at `progress` |
+| `running`, `rendering`, `frames` set | `--pencil` | "Rendering frames" (pending) | "{settled} of {total} settled", meter at settled ÷ total |
+| `done`, `frames` null | `--pass` | "Shots planned" (pass) | "No frames rendered yet" |
+| `done`, `frames` set | `--pass` | "Storyboard ready" (pass) | "{total} frames" ("1 frame"), then " · {withheld} withheld" when above 0 |
+| `failed`, stage not `rendering` (null included: the restart sweep, a failure while queued) | `--withheld` | "Couldn't read the script" (withheld) | `job.error`, verbatim, on its own line |
+| `failed`, stage `rendering` | `--withheld` | "Couldn't render the frames" (withheld) | `job.error`, verbatim |
+
+- **Title:** Big Shoulders, upper case; a failed row's title is Courier Prime as typed
+  (projects.png). **Facts line:** "{pages} pages · {scenes} scenes · {shots} shots" from the
+  parts that are not null (singular for 1); all null → "Uploaded {6 Oct, 09:14}" (`created_at`,
+  en-GB, the viewer's time zone, so formatted in the browser).
+- **"Storyboard ready"** says the job finished, not that every frame came out: `ProjectSummary.frames`
+  carries no failed count, and a failed frame shows as its own card on the storyboard (§4.3).
+- **`job.error`** is always set on a failed job (T046, the restart sweep); if one ever arrives
+  null, the row shows the verdict alone, never a stand-in message.
+- **Empty list:** under the heading, "No screenplays yet. Upload one to board it."
+- **List unavailable** (the first read failed): under the heading, "Your screenplays can't be loaded
+  right now. Reload the page to try again." A failed poll keeps the last list and tries again on
+  the next tick.
+- **Links (staged):** in T040 a title is plain text, because no project page exists yet;
+  **T041** makes every title but a failed row's a link to `/projects/{id}/script`, the first
+  project page; **T042** points them at `/projects/{id}/storyboard` (projects.png). The upload
+  stays on the list until T042 (step 5 below).
+
+**`UploadPanel`** (projects.png idle, projects-states.png chosen):
+
+1. **Idle:** the drop zone is a `<label>` over a visually hidden `<input type="file"
+   accept="application/pdf">`, so click, keyboard and screen readers all reach it; hover, focus
+   and a drag over it tint it `--pencil-soft`.
+2. **Chosen** (a file picked or dropped): the zone shows the file name, its size ("84 KB") and
+   "Choose a different file"; below it the **Title** field (prefilled with the file name without
+   `.pdf`, at most 200 characters, the API's limit) and the full-width button "Board this script".
+   Before anything is sent: more than one file dropped → "Drop one PDF at a time."; a file that is
+   neither `application/pdf` nor named `*.pdf` → the `not_a_pdf` copy below.
+3. **Uploading:** fields and button disabled, the button reads "Uploading…".
+4. **Error:** the chosen file and title stay; the error sits above the button (sign-in's error
+   style). Copy by the response's **status and `error` code**, never its message:
+   - 400 `not_a_pdf` → "This file isn't a PDF. Export the script from your screenwriting app as a
+     PDF and upload that."
+   - 413 (the API's `too_large`, or Vercel's own body limit, which isn't JSON) → "This PDF is
+     larger than this demo accepts. Upload a smaller file."
+   - 400 `no_file` / `bad_form`, 411 → "The upload didn't arrive whole. Choose the file again and
+     try once more."
+   - 401 → the browser goes to `/sign-in`.
+   - 503, any other status, or no response → "Panelwise can't take uploads right now. Try again in
+     a minute."
+5. **Accepted (202), staged:** in T040 the panel returns to idle and the list refreshes, the new
+   row on top with its live state (the Done of T040). **T042** replaces this with §4.1's redirect
+   to `/projects/{id}/storyboard`.
+
+**`POST /api/projects`** (route handler): `getClaims()` (401 JSON if signed out), then forwards the
+request body as a stream with its `Content-Type` and `Content-Length` to `POST /api/v1/projects`
+with the user's token, and returns the API's status and JSON unchanged. **`GET /api/projects`**
+does the same for the list, for the poll.
+
 ### 4.2 Script
 
 Server component: `GET /api/v1/projects/{id}` → `Project` (§6). Three columns (script.png): scenes
@@ -228,6 +321,67 @@ came from: "Found by the model", "Added from dialogue cues", "From the heading")
 (faithfulness and recall **always together**, each with its counts in words, then the models and
 tokens). Dropped entities are counted in the report and never listed (SPEC US1). On a phone the
 columns stack: intro, report, entities, scenes.
+
+**`/projects/[id]/script`** (T041), by the job (§5):
+
+| Project | The page |
+|---|---|
+| `entities` null, job `queued` or `running` (queued, reading) | the bar, the job strip, nothing else: not the scenes column either, though `scene_list` exists from extracting on (§5: nothing until the reading is done) |
+| `entities` set, job `running` (planning, rendering) | the job strip, then the whole page; scenes without a plan show no shot count |
+| job `done` | the whole page, no job strip |
+| job `failed` | the intro, then the failed card (script-states.png) |
+
+- **Live:** while the job is `queued` or `running` a client part polls `GET /api/projects/[id]/status`
+  every 2 s; when the job's `state` or `stage` changes it re-renders the page from the server
+  (`router.refresh()`), so a stage's results appear as it finishes. A 401 goes to `/sign-in`.
+- **Job strip** (`components/shared/JobStrip.tsx`, T041; T042's storyboard uses the same one;
+  storyboard.png draws it): under the bar, `role="status"`. The stage in words, as an eyebrow:
+  `queued` "Queued", `parsing`/`extracting` "Reading the script", `planning` "Planning shots",
+  `rendering` "Rendering frames". Then a 220 px meter: settled ÷ total while rendering with `frames`
+  set, else `job.progress`. Then, while rendering with `frames` set only: "{settled} of {total}
+  frames settled · {withheld} withheld" (the withheld part only when above 0).
+- **Bar:** the project's title and tabs, Script current, Comic disabled with the tooltip "Comic
+  pages aren't built yet" (§6, Web routes), who is signed in (script.png; no sign-out on project
+  pages).
+- **Intro:** eyebrow "Read from the script", the title, then "{pages} pages · {scenes} scenes ·
+  every name below quotes the line it came from" (singular for 1).
+- **Scenes** (left column, `SceneIndex` → `SceneItem`): the number (display face), the heading
+  (Courier, bold), then a detail line joined with " · ": when `time_carried`, "{Time}, carried
+  from scene {n}", where {Time} is `time_of_day` in sentence case and {n} the number of the
+  **nearest earlier scene whose own heading set it** (the nearest earlier scene with
+  `time_carried` false and a `time_of_day`: `resolve_times` carries the clock from there); then
+  "{e} action and dialogue blocks" on the first scene and "{e} blocks" after it (singular for
+  1); then "{s} shots" once planned. A scene whose time comes from its own heading shows no time:
+  the heading already says it.
+- **Entities** (`EntitySection` → `EntityCard` → `QuoteLine`): sections "Characters", "Props",
+  "Locations", in that order, each only when it has entities, cards in extraction order.
+  Characters are full-width cards; props and locations are smaller cards in a grid (auto-fill,
+  230 px minimum). A card: the name (body face, bold), its source tag (`model` "Found by the
+  model", `cue` "Added from dialogue cues", `heading` "From the heading"; **props carry no tag**,
+  since only the model names props), then where: "Scene {n}" or "Scenes {n}, {m}, {o}" from `scenes`
+  mapped to scene numbers, for characters and props (a location's quote is its heading, which
+  already says where). Then each quote on its own line: “{text}” in Courier, then its `SpanRef`.
+- **Report** (`ReportPanel` → `ScoreCard` ×2, `ModelLine`; right column, sticky): faithfulness,
+  then recall, always both: the score to two decimals (display face), its label, its §6 copy.
+  A card's left edge is `--pass` at 1.00 and `--warn` below. Then the model line: each model's
+  display name, joined " · ", then " · {prompt} tokens in, {completion} out" (en-GB digit
+  grouping). Display names: `nvidia/Nemotron-3_5-Lightning` "Nemotron 3.5 Lightning",
+  `nvidia/nemotron-3-super-120b-a12b` "Nemotron 3 Super"; any other id is shown as it is.
+- **Failed** (script-states.png): the intro's eyebrow and title (no facts line: the counts may
+  be partial), then a card with a `--withheld` left edge: the row's
+  verdict (§4.1a: "Couldn't read the script", or "Couldn't render the frames" at `rendering`),
+  `job.error` verbatim, "It stopped while {stage words}." (the job strip's words, lower case; left
+  out when `stage` is null), and a quiet button "Back to your screenplays" (`/projects`).
+- **Not there:** a project id the API answers 404 for (malformed, missing or someone else's,
+  §6) renders the app's not-found page (`app/not-found.tsx`, script-states.png): a paper card
+  with "This screenplay isn't here", "It may have been deleted, or it belongs to another account."
+  and the button "Back to your screenplays". The same page serves any unknown route.
+- **Unavailable:** the API unreachable or a 503 → under the bar, "This screenplay can't be loaded
+  right now. Reload the page to try again."
+- **Staged, until T042 builds the storyboard:** the Storyboard tab is disabled with the tooltip
+  "The storyboard isn't built yet" and the scenes column has no "Open the storyboard" button;
+  a projects-list title (every row but a failed one) links to `/projects/{id}/script`. **T042**
+  enables the tab, adds the button (script.png) and points the titles at the storyboard (§4.1a).
 
 ### 4.3 Storyboard
 
@@ -444,6 +598,11 @@ async def list_summaries(session, owner: uuid.UUID) -> list[ProjectSummary]: ...
 async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job → FAILED, error RESTARTED, stage kept; returns the count
 ```
 
+- **`ProjectSummary.job` is the project's latest `storyboard` job.** A `frame_attempt` job ("Try
+  another render", T021) never replaces it: that frame shows its own state (§4.3), so a failed
+  re-render can't make a read script look failed. Today every job is a storyboard job;
+  `list_summaries`' latest-job query gains `kind = 'storyboard'` in T021, which creates the other
+  kind, with a test.
 - **`ProjectSummary` before T046.** `pages`, `scenes` and `shots` are `null` until T046 writes the
   stage columns and makes `list_summaries` read them (`codec.py`; T046's Files and Done), and
   `frames` is `null` until T047/T021 add the `frames` table. That is the real state of a project
@@ -525,7 +684,7 @@ interface ProjectSummary {
   pages: number | null; scenes: number | null; shots: number | null;          // null until known
   frames: { settled: number; total: number; withheld: number; active: number } | null;
   // null before rendering. settled = passed + warned + withheld + failed (§3); active = rendering + auditing
-  job: Job;                                                                    // the latest job
+  job: Job;                                                                    // the latest storyboard job (never a frame_attempt)
 }
 
 interface SpanRef { page: number; line_start: number; line_end: number }        // script.md Span
@@ -611,8 +770,8 @@ rows, so their builders are T047's (`FrameView`, with `audits` `[]`) and T021's 
 
 **Web routes** (Next.js App Router): `/sign-in`, `/projects`, `/projects/[id]/script`,
 `/projects/[id]/storyboard` (`?shot=` opens the sheet), `/projects/[id]/comic` (T024; until then
-the tab is disabled, with the tooltip "Comic pages aren't built yet"). Route handlers proxy the API server-side (deploy.md §4): `POST /api/projects`,
-`GET /api/projects/[id]/status`, `GET /api/projects/[id]/frames`, `GET /api/projects/[id]/storyboard.pdf`,
+the tab is disabled, with the tooltip "Comic pages aren't built yet"). `/` has no page: the proxy redirects it (§4.0). Route handlers proxy the API server-side (deploy.md §4): `POST /api/projects`, `GET /api/projects` (the list, polled by `/projects`, §4.1a),
+`GET /api/projects/[id]/status` (T041: the job, for the script page's poll and T042's), `GET /api/projects/[id]/frames`, `GET /api/projects/[id]/storyboard.pdf`,
 `POST /api/projects/[id]/frames/[scene]/[number]/attempts`.
 
 **Component tree** (`apps/web/components/`, each built on shadcn/ui primitives restyled with the
@@ -624,17 +783,19 @@ SignInForm
 ProjectsPage
 ├── UploadPanel (DropZone, TitleField, "Board this script" button)
 └── ProjectList → ProjectRow (title, facts, JobState line, meter | error)
-ScriptPage
+ScriptPage   [T041]
+├── JobStrip (shared, while the job is queued or running)
 ├── SceneIndex → SceneItem
 ├── EntitySection (kind) → EntityCard → QuoteLine (Quote + SpanRef)
-└── ReportPanel → ScoreCard ×2, ModelLine
+├── ReportPanel → ScoreCard ×2, ModelLine
+└── FailedCard
 StoryboardPage
 ├── ExportButton (in AppBar actions; disabled until settled)   [T042]
-├── JobStrip
+├── JobStrip (shared, T041)
 ├── LinedScript → ScriptSheet (per page) → ScriptLine*, ShotLine* ; Legend
 ├── FrameBoard → SceneHeader, FrameCard (FrameMedia | PendingMedia | WithheldCard | FailedCard)   [T042]
 └── FrameSheet → FrameMedia, SourceBlock, InFrame   [T045], AuditLog → AttemptItem → CheckList   [T021]
-shared (components/shared/, T040): Verdict, SpanRef, Quote (Courier), Meter
+shared (components/shared/): Verdict, SpanRef, Quote (Courier), Meter (T040); JobStrip (T041)
 ```
 
 **Copy** (sentence case, the user's side of the screen; actions keep their names through the flow):
@@ -643,8 +804,11 @@ shared (components/shared/, T040): Verdict, SpanRef, Quote (Courier), Meter
 |---|---|
 | Projects heading | "Board your script" |
 | Drop zone | "Drop a screenplay PDF here, or choose a file" · "Export it from your screenwriting app so the text can be read. Scanned pages can't be." |
-| Upload button | "Board this script" |
+| Upload button | "Board this script" (while sending: "Uploading…") |
+| Upload errors, row states, empty list | §4.1a, verbatim |
+| Sign-in (in progress, unavailable) | "Signing in…" · "Signing in isn't working right now. Try again in a minute." |
 | Script eyebrow | "Read from the script" |
+| Script states (live, failed, not found, unavailable, staged) | §4.2, verbatim |
 | Faithfulness | "{g} of {p} things the model named are in the script. {l} of {q} quotes found on the page." |
 | Recall | "{f} of {c} speaking characters found by the model. A speaker it misses is still added from their dialogue cues." |
 | Withheld | "Frame withheld: failed audit ({check in words})" · button "Try another render" |
@@ -676,11 +840,11 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `services/api/app/script/{model,parser}.py` | changed | `Screenplay.page_starts`, `ScriptParseError.code` (+ script.md §6) | T043 |
 | `services/api/app/api/v1/projects.py` (read endpoints) | changed | §6 rows marked T047 | T047 |
 | `apps/web/app/globals.css`, `apps/web/components/ui/*` | new | tokens as Tailwind `@theme`; shadcn/ui primitives restyled | T040 |
-| `apps/web/lib/{supabase,api}/*`, `apps/web/middleware.ts` | new | `@supabase/ssr` session, typed API client, §6 types | T040 |
+| `apps/web/lib/{supabase,api}/*`, `apps/web/proxy.ts` | new | `@supabase/ssr` session, typed API client, §6 types; the proxy's redirects (§4.0) | T040 |
 | `apps/web/app/(auth)/sign-in/`, `apps/web/app/projects/page.tsx`, `apps/web/app/api/projects/route.ts`, `apps/web/components/AppBar.tsx` (ProjectTabs inside), `apps/web/components/SignInForm.tsx`, `apps/web/components/projects/*` (ProjectsPage parts) | new | §4.0, §4.1 | T040 |
 | `apps/web/components/shared/{Verdict,SpanRef,Quote,Meter}.tsx` | new | used by every screen | T040 |
-| `apps/web/app/projects/[id]/script/`, `components/script/*` | new | §4.2 | T041 |
-| `apps/web/app/projects/[id]/storyboard/`, `components/storyboard/LinedScript.tsx` (ScriptSheet, ScriptLine, ShotLine, Legend inside), `FrameBoard.tsx` (SceneHeader inside), `FrameCard.tsx` (PendingMedia, WithheldCard, FailedCard inside), `FrameMedia.tsx` (T045 imports it), `JobStrip.tsx`, `apps/web/app/api/projects/[id]/{status,frames}/route.ts` | new | §4.3 | T042 |
+| `apps/web/app/projects/[id]/script/`, `components/script/*`, `components/shared/JobStrip.tsx`, `apps/web/app/api/projects/[id]/status/route.ts`, `apps/web/app/not-found.tsx` | new | §4.2 | T041 |
+| `apps/web/app/projects/[id]/storyboard/`, `components/storyboard/LinedScript.tsx` (ScriptSheet, ScriptLine, ShotLine, Legend inside), `FrameBoard.tsx` (SceneHeader inside), `FrameCard.tsx` (PendingMedia, WithheldCard, FailedCard inside), `FrameMedia.tsx` (T045 imports it), `apps/web/app/api/projects/[id]/frames/route.ts` | new | §4.3 | T042 |
 | `components/storyboard/{FrameSheet,SourceBlock,InFrame}*` | new | §4.4 steps 1–4 | T045 |
 | `components/storyboard/AuditLog.tsx` (AttemptItem, CheckList inside), the "Try another render" action (an edit to T042's `FrameCard.tsx`), `apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts` | new | §4.4 step 5; §4.3 retry | T021 |
 | `apps/web/app/api/projects/[id]/storyboard.pdf/route.ts`, `components/storyboard/ExportButton.tsx` | new | §4.3 export | T042 |
@@ -718,7 +882,11 @@ restyled).
   the columns before it and the user-facing error; the restart sweep fails `QUEUED`/`RUNNING` jobs
   (T009) and `rendering`/`auditing` frames (T021); `…/frames` is `[]` with no `frames` rows; `image_url` is null
   for every state but passed and warned; `page_starts[0] == 1`.
-- **Web (T040–T042, T045):** vitest + Testing Library on each component's states: every row of the card
+- **Web (T040–T042, T045):** vitest + Testing Library on each component's states: every `ProjectRow`
+  row of §4.1a and each upload error by status and code (T040); the proxy's redirects, the cookies
+  a redirect carries, and `/api/*` never redirected (T040); every row of §4.2's page table, the
+  carried-from scene, props without a tag, scores always together, the failed card, polling
+  that refreshes on a stage change (T041); every row of the card
   table renders; **no `<img>` for a frame outside passed/warned**; a shot line's top and height come
   from its span; a dialogue segment off screen draws wavy; the sheet opens from `?shot=`; the lined
   script is hidden and the source shown on a narrow viewport; polling continues while any frame is

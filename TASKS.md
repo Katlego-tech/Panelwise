@@ -239,23 +239,23 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Verify:  bash scripts/gate.sh with the Postgres T009's tests use (a fake token verifier; Storage behind T053's `AssetStore` test double): every §6 read type round-trips from a stored project (codec → builders → JSON); `…/lines` 409 while parsing and `…/shots` 409 before planning ends; another user's project 404; `…/frames` is [] with no `frames` rows; `image_url` null for every state but passed and warned, a signed URL otherwise; `ProjectSummary.frames` counts settled, withheld and active by web.md §3
       Done:    on the real account, after T046's live upload of samples/the-red-kite.pdf, GET /api/v1/projects/{id}, …/lines, …/shots and …/frames return exactly web.md §6's shapes for the owner and 404 for anyone else, and frames come back only from `frames` rows
 - [ ] T040 [US1] **Web: tokens, sign-in, projects and upload.** Lane `web` (Claude). Depends on T053 (the API it calls); the Supabase project exists (2026-10-02).
-      Design:  docs/design/web.md §2 (tokens, direction), §4.0, §4.1, §5, §6 (routes, components, copy)
-      Files:   apps/web/app/globals.css; apps/web/components/ui/*; apps/web/lib/{supabase,api}/*; apps/web/middleware.ts; apps/web/app/(auth)/sign-in/*; apps/web/app/projects/page.tsx; apps/web/app/api/projects/route.ts; apps/web/components/AppBar.tsx (ProjectTabs inside); apps/web/components/SignInForm.tsx; apps/web/components/projects/*; apps/web/components/shared/{Verdict,SpanRef,Quote,Meter}.tsx; tests beside them
+      Design:  docs/design/web.md §2 (tokens, direction), §4.0 (incl. proxy.ts), §4.1, §4.1a (the projects page), §5, §6 (routes, components, copy)
+      Files:   apps/web/app/globals.css; apps/web/components/ui/*; apps/web/lib/{supabase,api}/*; apps/web/proxy.ts; apps/web/app/(auth)/sign-in/*; apps/web/app/projects/page.tsx; apps/web/app/api/projects/route.ts (POST and GET); apps/web/components/AppBar.tsx (ProjectTabs inside); apps/web/components/SignInForm.tsx; apps/web/components/projects/*; apps/web/components/shared/{Verdict,SpanRef,Quote,Meter}.tsx; tests beside them
       Contract:docs/design/web.md §6 (types in apps/web/lib/api/types.ts, route handlers)
-      Verify:  pnpm lint && pnpm test (every ProjectRow state, the upload errors); then the running app side by side with docs/design/web/signin.png and projects.png at 1440 px
-      Done:    signed out redirects to sign-in; a signed-in user uploads a PDF and sees it in the list with its live job state or its failure message, matching the two references in layout, tokens and copy
+      Verify:  pnpm lint && pnpm test (every §4.1a ProjectRow state, each upload error by status and code, the proxy's redirects carrying their cookies, /api/* never redirected); then the running app side by side with docs/design/web/signin.png, projects.png and projects-states.png at 1440 px
+      Done:    signed out redirects to sign-in; a signed-in user uploads a PDF and sees it in the list with its live job state or its failure message, matching the three references in layout, tokens and copy. Staged, per web.md §4.1a: row titles aren't links until T041 (the script page) and T042 (the storyboard), and the upload doesn't redirect until T042
 - [ ] T041 [US1] **Web: script page.** Lane `web` (Claude). Depends on T040, T047.
-      Design:  docs/design/web.md §4.2, §5, §6
-      Files:   apps/web/app/projects/[id]/script/*; apps/web/components/script/*; tests beside them
-      Contract:consumes GET /api/v1/projects/{id} → Project (web.md §6)
-      Verify:  pnpm test (entity sources, report counts in words, dropped entities never listed, stacked on a phone); compare with docs/design/web/script.png
-      Done:    every entity shows each quote in Courier with its page/line span, and faithfulness and recall always appear together with their counts, matching script.png
+      Design:  docs/design/web.md §4.2 (incl. the page table, job strip, failed, not found, staging), §5, §6
+      Files:   apps/web/app/projects/[id]/script/*; apps/web/components/script/*; apps/web/components/shared/JobStrip.tsx; apps/web/app/api/projects/[id]/status/route.ts; apps/web/app/not-found.tsx; apps/web/components/AppBar.tsx and apps/web/components/projects/ProjectRow.tsx (the staging, web.md §4.2); tests beside them
+      Contract:consumes GET /api/v1/projects/{id} → Project (web.md §6); GET /api/projects/[id]/status → ProjectSummary
+      Verify:  pnpm test (every row of §4.2's page table; entity sources and props untagged; carried-from scene; report counts in words, scores always together; dropped entities never listed; the failed card; polling refreshes on a stage change; not found; stacked on a phone); compare with docs/design/web/script.png and script-states.png at 1440 px
+      Done:    every entity shows each quote in Courier with its page/line span, and faithfulness and recall always appear together with their counts, matching script.png; a project still being read shows its job strip and fills in as stages finish
 - [ ] T042 [US1] **Web: storyboard board (lined script and frame cards).** Lane `web` (Claude). Depends on T041. Frames appear only once T021 moves a frame to passed/warned; before that the cards show "Not rendered yet", the real state (web.md §3, §4.1).
       Design:  docs/design/web.md §4.3, §5, §6
-      Files:   apps/web/app/projects/[id]/storyboard/*; apps/web/components/storyboard/{LinedScript,FrameBoard,FrameCard,FrameMedia,JobStrip,ExportButton}.tsx (sub-components per web.md §7); apps/web/app/api/projects/[id]/{status,frames,storyboard.pdf}/*; tests beside them
-      Contract:consumes …/lines, …/shots, …/frames, …/status (web.md §6)
+      Files:   apps/web/app/projects/[id]/storyboard/*; apps/web/components/storyboard/{LinedScript,FrameBoard,FrameCard,FrameMedia,ExportButton}.tsx (JobStrip is T041's, shared) (sub-components per web.md §7); apps/web/app/api/projects/[id]/{frames,storyboard.pdf}/*; apps/web/components/projects/* (T040's and T041's staged parts, web.md §4.1a, §4.2: row titles link to the storyboard, the upload redirects to it); the Storyboard tab and "Open the storyboard" (T041's staging, web.md §4.2); tests beside them
+      Contract:consumes …/lines, …/shots, …/frames, …/status (web.md §6; the status route and JobStrip are T041's)
       Verify:  pnpm test (every card-table row; no <img> outside passed/warned; withheld source shown once; shot line top/height from spans; wavy off-screen segments; polling while any frame is active; Export PDF disabled with its tooltip until every frame has settled; lined script hidden below 1100 px); compare with docs/design/web/storyboard.png and storyboard-phone.png
-      Done:    on a planned project every shot appears as a line over exactly its script lines and as a card with its verbatim source, and hovering or focusing either highlights the other, matching the two references
+      Done:    on a planned project every shot appears as a line over exactly its script lines and as a card with its verbatim source, and hovering or focusing either highlights the other, matching the two references; and T040's and T041's staging is undone (web.md §4.1a, §4.2): a projects-list title opens its storyboard, an accepted upload lands on it, and the script page's Storyboard tab and button open it
 - [ ] T045 [US1] **Web: frame sheet.** Lane `web` (Claude). Depends on T042.
       Design:  docs/design/web.md §4.4 steps 1–4, §6
       Files:   apps/web/components/storyboard/{FrameSheet,SourceBlock,InFrame}*; tests beside them
@@ -285,7 +285,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Done:    T021 can call `await audit_frame(model, frame, shot, screenplay, extraction)` and get an `Audit` whose verdict is FAIL for an unscripted person or object, text in frame or a contradicted setting, and ERROR (never PASS) when either model call fails
 - [ ] T021 [US2] **Re-render loop, frame state, audit log, and their UI.** Render → audit → re-render until accepted or withheld, keep every attempt, and show it. Lane `verify` (UI parts: Claude). Depends on T009, T020, T045, T047 (the `frames` table it writes). Builds against verify's `Renderer` Protocol, so not on T026 (T026 depends on this).
       Design:  docs/design/verify.md §4, §5 (incl. the sweep edges), §6 (`render_until_accepted`, `frame_audits`); docs/design/web.md §3 (`Frame`, `frame_attempt` jobs, settled), §4.1 (frame half of the sweep), §4.3 (card states, retry), §4.4 step 5, §6 (attempts row, `FrameView`, `AuditView`)
-      Files:   services/api/app/verify/loop.py (with verify.md §6's `on_state` hook); services/api/app/frames/writer.py + migration (`frame_audits`; the `frames` writer for `on_state`/`on_frame`; the `frames` table itself is T047's); services/api/app/api/v1/projects.py (attempts endpoint); services/api/app/jobs/* (frame half of the sweep); apps/web/components/storyboard/AuditLog.tsx; apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts; the "Try another render" action in FrameCard.tsx's WithheldCard (a later edit of T042's file); tests beside each
+      Files:   services/api/app/verify/loop.py (with verify.md §6's `on_state` hook); services/api/app/frames/writer.py + migration (`frame_audits`; the `frames` writer for `on_state`/`on_frame`; the `frames` table itself is T047's); services/api/app/api/v1/projects.py (attempts endpoint); services/api/app/jobs/* (frame half of the sweep); apps/web/components/storyboard/AuditLog.tsx; apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts; the "Try another render" action in FrameCard.tsx's WithheldCard (a later edit of T042's file); tests beside each; services/api/app/projects/repo.py (`list_summaries`' latest job filtered to `kind = 'storyboard'`, web.md §6 *ProjectSummary.job*)
       Contract:verify.md §6 `render_until_accepted` and `frame_audits`; web.md §6 attempts row, `FrameView`, `AuditView`, verbatim
       Verify:  bash scripts/gate.sh: `render_until_accepted` with a fake renderer (pass first time; fail then pass; three fails → WITHHELD; audit error → WITHHELD; every attempt logged; deterministic seeds); a `frames` row never carries an asset outside passed/warned; attempts on a withheld frame → 202 under a new `frame_attempt` job, any other state → 409; the sweep fails rendering/auditing frames; pnpm test for AuditLog (attempts newest last, failed checks with details, "{k} other checks passed"); compare the sheet with docs/design/web/storyboard-frame.png
       Done:    with a scripted renderer serving real PNGs (like T020's live frames) and the real audit, a frame that fails its audit is re-rendered with a new seed up to three times and then withheld, never shown; every attempt is a `frame_audits` row visible in the frame sheet; "Try another render" on a withheld frame runs one more audited attempt
@@ -351,5 +351,23 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
                `main` only); a change that touches only `STATUS.md`, `TASKS.md`, `HANDOFF.md`, `CLAUDE.md`,
                `GEMINI.md` or `.claude/` starts none;
                the pnpm store comes from the cache
+- [x] T057 [POL] **Comic lettering measures the same on every host.** Pillow lays text out with raqm (kerning) only where libfribidi is installed: the CI runner, not the API image (`python:3.14.7-slim-trixie`) or Windows, so box sizes, and the committed reference pages, depended on the machine. Lane `comic`.
+      Design:  none (comic.md's "Comic Neue, measured" is unchanged; the measuring engine is pinned)
+      Files:   services/api/app/comic/layout.py (`font_at`: `layout_engine=ImageFont.Layout.BASIC`); docs/design/comic/the-red-kite-page-*.png (re-rendered); services/api/tests/comic/test_layout.py; services/api/tests/storyboard/test_styles.py (a `Clean` stem overwrote `clean.toml` on a case-insensitive filesystem)
+      Contract:none
+      Verify:  tests/comic and tests/storyboard/test_styles.py pass on Windows and on Linux (the uv python3.14-trixie image, raqm present); the new test fails on Linux before the fix
+      Done:    `bash scripts/gate.sh` passes on Windows and in CI with the same reference pages
+- [x] T058 [POL] **Close GHSA-68fv-2mgg-jv7q (`source-map-js` 1.2.1, high).** Published 2026-10-06; it failed every push's dependency scan. Transitive: `next` → `postcss` and `vitest` → `vite` → `postcss`. Lane `infra`.
+      Design:  none (a dependency bump)
+      Files:   apps/web/pnpm-lock.yaml (`pnpm@11.10.0 update source-map-js` + `dedupe`: 1.2.1 → 1.2.2, nothing else moves)
+      Contract:none
+      Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
+      Done:    the gate's vulnerability scan passes with no new exemption
+- [x] T059 [POL] **Close GHSA-wq5f-xc86-pv6w (`sharp` 0.35.4, high).** Published 2026-10-06, the day after T058's; it failed every push's dependency scan again. Transitive: `next` → `sharp` (image optimisation). Lane `infra`.
+      Design:  none (a dependency bump)
+      Files:   apps/web/pnpm-lock.yaml (`pnpm@11.10.0 update sharp` + `dedupe`: `sharp` and its `@img/sharp-*` platform binaries 0.35.4 → 0.35.5, nothing else moves)
+      Contract:none
+      Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
+      Done:    the gate's vulnerability scan passes with no new exemption
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

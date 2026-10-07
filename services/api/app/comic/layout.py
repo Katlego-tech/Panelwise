@@ -218,7 +218,9 @@ def wrap(text: str, limit: int, font: ImageFont.FreeTypeFont) -> list[str]:
 def font_at(path: Path, size: int = FONT_PX) -> ImageFont.FreeTypeFont:
     if not path.is_file():
         raise ComicError(f"lettering font missing: {path}; there is no fallback font")
-    return ImageFont.truetype(path, size)
+    # Basic, not raqm: Pillow uses raqm only where libfribidi is installed (a CI runner, not the
+    # API image or Windows), and its kerning would size every box differently per host.
+    return ImageFont.truetype(path, size, layout_engine=ImageFont.Layout.BASIC)
 
 
 def shot_name(shot: Shot) -> str:
