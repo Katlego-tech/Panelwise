@@ -37,9 +37,18 @@ services:
       postgres: { condition: service_healthy }
 
   web:
-    build: ./apps/web
+    # Only the publishable pair, never env_file: the web container must not hold the secret key
+    # (deploy.md §4). Compose reads them from .env; Next.js inlines NEXT_PUBLIC_* into the
+    # browser bundle at build time, and the server (proxy.ts) reads them again at run time.
+    build:
+      context: ./apps/web
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
     environment:
       API_URL: http://api:8000
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
     ports: ["${WEB_HOST_PORT:-3000}:3000"]
     depends_on:
       api: { condition: service_healthy }
