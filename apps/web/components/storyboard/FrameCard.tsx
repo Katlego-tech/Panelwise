@@ -82,7 +82,7 @@ export function FrameCard({
       {media.kind === "pending" && <PendingMedia text={media.text} busy={media.busy} />}
       {media.kind === "withheld" && <WithheldCard shot={shot} why={media.why} />}
       {media.kind === "failed" && <RenderFailedCard shot={shot} why={media.why} />}
-      <header className="flex items-center gap-2.5 px-3.5 pt-2.5">
+      <header className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3.5 pt-2.5 *:whitespace-nowrap">
         <span className="font-display text-xl leading-none font-extrabold">{shot.id}</span>
         <span className="text-[13px] text-ink-2">{cameraText(shot)}</span>
         {verdict && (
