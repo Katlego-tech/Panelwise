@@ -272,6 +272,9 @@ projects.png and projects-states.png.
 - **`job.error`** is always set on a failed job (T046, the restart sweep); if one ever arrives
   null, the row shows the verdict alone, never a stand-in message.
 - **Empty list:** under the heading, "No screenplays yet. Upload one to board it."
+- **List unavailable** (the first read failed): under the heading, "Your screenplays can't be loaded
+  right now. Reload the page to try again." A failed poll keeps the last list and tries again on
+  the next tick.
 - **Links (staged):** in T040 a title is plain text, because the storyboard page doesn't exist
   until T042; **T042** makes every title but a failed row's a link to `/projects/{id}/storyboard`
   (projects.png).
