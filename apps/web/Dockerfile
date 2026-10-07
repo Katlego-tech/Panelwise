@@ -9,6 +9,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+# The browser's Supabase pair is baked into the bundle here; empty builds a signed-out app.
+ARG NEXT_PUBLIC_SUPABASE_URL=
+ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 RUN pnpm run build
 
 FROM node:24.21.0-trixie-slim
