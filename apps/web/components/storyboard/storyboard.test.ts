@@ -41,7 +41,7 @@ describe("the lined script's geometry (web.md §4.3; storyboard.html's inline st
 
   it("draws an off-screen speaker's lines wavy and the rest straight", () => {
     expect(pieces(p1, shots).find((p) => p.shot.id === "1.4")!.runs).toEqual([{ top: 0, height: 40, wavy: true }]);
-    const mixed = { ...byId("2.2"), segments: [...byId("2.2").segments.slice(0, 1), { line_start: 29, line_end: 29, cue: "RADIO", on_screen: false }] };
+    const mixed = { ...byId("2.2"), segments: [...byId("2.2").segments.slice(0, 1), { line_start: 29, line_end: 29, cue: "RADIO", extension: null, on_screen: false }] };
     expect(pieces(p1, [mixed])[0].runs).toEqual([
       { top: 0, height: 44, wavy: false },
       { top: 44, height: 22, wavy: true },

@@ -254,14 +254,17 @@ def test_segments_are_one_per_covered_element_with_its_lines_and_cue(
         assert [g.cue for g in view.segments] == [
             e.cue if isinstance(e, Dialogue) else None for e in covered
         ]
+        assert [g.extension for g in view.segments] == [
+            e.extension if isinstance(e, Dialogue) else None for e in covered
+        ]
 
 
 def test_an_off_screen_speaker_s_dialogue_is_marked(screenplay: Screenplay, plan: ShotPlan) -> None:
     views = shot_views(screenplay, extraction_for(screenplay), plan)
     held_on_nandi = views[1]  # NANDI speaks, then THABO (O.S.)
-    assert [(g.cue, g.on_screen) for g in held_on_nandi.segments] == [
-        ("NANDI", True),
-        ("THABO", False),
+    assert [(g.cue, g.extension, g.on_screen) for g in held_on_nandi.segments] == [
+        ("NANDI", None, True),
+        ("THABO", "O.S.", False),
     ]
     action = views[0]
     assert [g.on_screen for g in action.segments] == [True, True]
