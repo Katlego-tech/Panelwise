@@ -11,12 +11,16 @@ export function FrameBoard({
   frames,
   highlight,
   onHighlight,
+  hrefFor,
+  onOpen,
 }: {
   scenes: readonly SceneView[];
   shots: readonly ShotView[];
   frames: readonly FrameView[];
   highlight: string | null;
   onHighlight: (id: string | null) => void;
+  hrefFor: (id: string) => string;
+  onOpen: () => void;
 }) {
   const byShot = new Map(frames.map((f) => [f.shot_id, f]));
   const order = new Map(shots.map((s, k) => [s.id, k]));
@@ -40,6 +44,8 @@ export function FrameBoard({
                   frame={byShot.get(shot.id)}
                   on={shot.id === highlight}
                   onHighlight={onHighlight}
+                  href={hrefFor(shot.id)}
+                  onOpen={onOpen}
                 />
               ))}
             </div>

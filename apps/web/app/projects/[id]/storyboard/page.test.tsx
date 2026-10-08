@@ -11,7 +11,9 @@ vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
     throw new Error(`NEXT_REDIRECT ${to}`);
   },
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => "/projects/p1/storyboard",
+  useSearchParams: () => new URLSearchParams(),
 }));
 const currentUser = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({ currentUser: () => currentUser() }));
