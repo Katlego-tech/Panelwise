@@ -18,7 +18,7 @@ ComfyUI on the Nebius GPU (T003, `infra/nebius/`), which is unchanged.
 | Piece | Runs on | Why |
 |---|---|---|
 | Web app (`apps/web`, Next.js 16) | **Vercel** | Next.js's native host; preview deploy per PR |
-| API (`services/api`, FastAPI) | **Render** (a Docker web service, Starter, Frankfurt), from `services/api/Dockerfile` | extraction runs for minutes; it needs a real container, not a serverless function |
+| API (`services/api`, FastAPI) | **Render** (a Docker web service, Free, Frankfurt), from `services/api/Dockerfile` | extraction runs for minutes; it needs a real container, not a serverless function |
 | Database | **Supabase Postgres** | hosted Postgres; the SQLAlchemy + asyncpg code is unchanged |
 | Images (frames, portraits, comic pages) | **Supabase Storage** | PLAN's "content-addressed file store", hosted |
 | Sign-in, seeded judge account | **Supabase Auth** | T030 needs a judge login in the testing instructions |
@@ -35,7 +35,7 @@ compute. Panelwise makes both (Nemotron calls, ComfyUI GPU). Hosting the app els
 | Kind | Where |
 | --- | --- |
 | Source of the stack | `~/Documents/projects/personal/Hackathon/stacks/react-fastapi` and `stacks/_parts/{web-react,api-fastapi}` (`vercel.json`, `railway.json`, `db.py`, `supabase.ts`, the PREP steps); the kit's API host was Railway, replaced by Render (§11) |
-| Render (checked 2026-10-08) | render.com/docs: `blueprint-spec` (the `render.yaml` fields), `deploys` (pre-deploy command: paid instances only, a separate instance, a failure stops the deploy), `health-checks` (5 s timeout; a deploy not healthy in 15 min is cancelled; a running instance failing 60 s is restarted), `web-services` (`PORT` defaults to 10000, bind `0.0.0.0`), `free` (spins down after 15 min idle, ~1 min to wake, no pre-deploy), `monorepo-support` (`dockerfilePath`/`dockerContext` relative to `rootDir`; build filters relative to the repo root), `cli` (`render blueprints validate`); the schema at render.com/schema/render.yaml.json; Starter $7/month (0.5 CPU, 512 MB) |
+| Render (checked 2026-10-08) | render.com/docs: `blueprint-spec` (the `render.yaml` fields), `deploys` (pre-deploy command: paid instances only, a separate instance, a failure stops the deploy), `health-checks` (5 s timeout; a deploy not healthy in 15 min is cancelled; a running instance failing 60 s is restarted), `web-services` (`PORT` defaults to 10000, bind `0.0.0.0`), `free` (spins down after 15 min idle, ~1 min to wake, 750 instance hours a month per workspace, no pre-deploy command, "Render might restart a Free web service at any time"), `monorepo-support` (`dockerfilePath`/`dockerContext` relative to `rootDir`; build filters relative to the repo root), `cli` (`render blueprints validate`); the schema at render.com/schema/render.yaml.json; Starter $7/month (0.5 CPU, 512 MB), not affordable: the project's only money is $25 of Token Factory credit (2026-10-08) |
 | Supabase connections | supabase.com/docs/guides/database/connecting-to-postgres (checked 2026-09-29): for a long-running server on IPv4, the **shared pooler, session mode**, port 5432 — IPv4 on every plan; transaction mode (6543) doesn't support prepared statements, which asyncpg uses |
 | Current code | `services/api/app/main.py` (health checks Postgres **and Redis** today), `docker-compose.yml`, `.env.example` |
 
@@ -94,8 +94,12 @@ sequenceDiagram
 
 **Failure paths:** the API down → the web health route answers 502 (already built); Supabase
 Postgres down → the API health answers 503 `degraded`; a Render deploy whose instance isn't
-healthy on `/api/v1/health` within 15 minutes, or whose pre-deploy migration fails → Render cancels
-it and keeps the previous deploy running. **New with Render:** it keeps checking a running instance,
+healthy on `/api/v1/health` within 15 minutes → Render cancels it and keeps the previous deploy
+running; a failed migration exits the container before uvicorn starts, so it is never healthy and
+the deploy is cancelled the same way (§6 *Who runs migrations*). **Free-tier paths:** an instance
+idle 15 minutes spins down and takes about a minute to wake, which the web app would show as a 502;
+the keep-alive ping (§6) prevents that. Render may also restart a Free instance at any time; the
+restart sweep (web.md §4.1) then fails the jobs that were running, as on any restart. **New with Render:** it keeps checking a running instance,
 stops routing to it after 15 s of failed checks and restarts it after 60 s. Because our health
 check includes Postgres, a Supabase outage over a minute restarts the API, and the restart sweep
 (web.md §4.1) fails the jobs that were running. Accepted (§8): those jobs can't write their
@@ -141,13 +145,12 @@ services:
   - type: web
     name: panelwise-api
     runtime: docker
-    plan: starter
+    plan: free
     region: frankfurt
     rootDir: services/api
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/v1/health
-    preDeployCommand: /srv/api/.venv/bin/alembic -c /srv/api/alembic.ini upgrade head
     autoDeployTrigger: checksPass
     numInstances: 1
     buildFilter:
@@ -174,12 +177,55 @@ Validated against render.com/schema/render.yaml.json on 2026-10-08. What each li
 - `autoDeployTrigger: checksPass` — a push to `main` deploys only after its GitHub checks (the gate,
   `ci.yml`) pass; `buildFilter` paths are relative to the repository root, so a web-only or docs-only
   change doesn't redeploy the API.
-- `numInstances: 1` — jobs run in the API process (web.md §3), so one instance owns them.
+- `plan: free` — the project has no cash budget (§8). Free has no pre-deploy command, so the
+  image's own start command runs the migration before uvicorn (*Who runs migrations*); no
+  `dockerCommand`, so Render, compose and a plain `docker run` start the API the same way.
+- `numInstances: 1` — jobs run in the API process (web.md §3), so one instance owns them, and no
+  second instance can race the migration (Free can't scale anyway).
 - `PORT`: Render sets 10000; the Dockerfile's `CMD` already listens on `${PORT:-8000}`. Render
   ignores the Dockerfile's `HEALTHCHECK` (compose still uses it).
 - Every other setting has a default in `app/core/config.py` (`NEBIUS_MODEL_*`, `LLM_*`,
   `SUPABASE_STORAGE_BUCKET=panelwise`, `UPLOAD_MAX_BYTES`), so only the four secrets are listed.
   T030 adds the spend caps here when code reads them.
+
+**Keep-alive** (`.github/workflows/keepalive.yml`, T063), exactly:
+
+```yaml
+# Keeps the API on Render's free tier awake, and with it the Supabase project
+# (docs/design/deploy.md §6). Pings nothing until the API_HEALTH_URL variable is set.
+name: keep-alive
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping the API's health check
+        env:
+          API_HEALTH_URL: ${{ vars.API_HEALTH_URL }}
+        run: |
+          if [ -z "$API_HEALTH_URL" ]; then
+            echo "::notice::API_HEALTH_URL is not set; nothing to ping until T037 deploys the API"
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 90 --retry 2 "$API_HEALTH_URL"
+```
+
+- Every 10 minutes, under Render's 15-minute idle limit. GitHub may delay a scheduled run; a late
+  one only means one cold start (~1 minute).
+- One awake service uses at most 744 of the workspace's 750 free hours a month, so **the workspace
+  holds no other free service**.
+- `API_HEALTH_URL` is a repository *variable* (not a secret: the URL is public), set to
+  `https://<render-domain>/api/v1/health` after T037's deploy.
+- The health check queries Postgres, so the same ping keeps the free Supabase project from being
+  paused for inactivity. A 503 fails the run, and GitHub's failed-run email is our uptime alert.
+- GitHub turns off scheduled workflows in a public repository after 60 days with no activity.
+  The last planned commit is around 30 Oct, which is 60 days before 29 Dec, after the demo ends on
+  15 Dec.
 - `PANELWISE_PRIVATE_STYLES` is absent on purpose (storyboard.md §3.2: never on the hosted demo).
 
 **`DATABASE_URL`** may be `postgresql://`, `postgres://` or `postgresql+asyncpg://`; the API adds the
@@ -202,11 +248,15 @@ constraint. Migration `0001` creates:
 
 Timestamps default to `clock_timestamp()`, not `now()`: `now()` is the transaction's start, so rows inserted in one transaction would tie and "newest first" would be arbitrary. `owner` is not a foreign key to `auth.users`: that schema exists only on Supabase, and the compose
 Postgres and the test Postgres must run the same migration. **Who runs migrations:** never the app
-at startup (two replicas would race). Render runs `/srv/api/.venv/bin/alembic -c /srv/api/alembic.ini upgrade head` as its
-**pre-deploy command** (`render.yaml`'s `preDeployCommand`; absolute paths, since Render runs it on
-a separate instance from the built image; `alembic` is a main dependency, so `uv sync --no-dev`
-installs it; a pre-deploy command needs a paid instance, one reason for Starter, §8), so a failed
-migration stops the deploy; compose's `api` runs it before uvicorn; the DB tests run it once per test session, which
+while two replicas could race. Render's Free tier runs exactly one instance and has no pre-deploy
+command, so the Dockerfile's `CMD` runs it:
+`sh -c ".venv/bin/alembic upgrade head && exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"`
+from `WORKDIR /srv/api` (`alembic` is a main dependency, so `uv sync --no-dev` installs it).
+Compose's `api` drops its own `command` and uses this `CMD`, so the local stack starts the API
+exactly as Render does. A failed migration exits the container before it serves, so the
+new deploy never becomes healthy and Render keeps the old one (§4). During a deploy the old
+instance serves while the new one migrates, the same timing a pre-deploy command would give.
+If the API ever runs more than one instance, the migration moves back to a pre-deploy command; compose's `api` runs it before uvicorn; the DB tests run it once per test session, which
 also tests the migration.
 
 **Row-level security (T009; closes §10).** Every table in `public` — the API's and Alembic's own
@@ -249,8 +299,10 @@ has Docker; `ci.yml` needs no service of its own):
 |---|---|---|---|
 | `apps/web/vercel.json` | new | Vercel build settings | T037 |
 | `services/api/app/main.py`, `app/core/config.py`, `docker-compose.yml`, `.env.example`, `pyproject.toml` | changed | Redis out; Supabase settings in | T037 |
+| `services/api/Dockerfile` `CMD`, `docker-compose.yml` `api` | changed | the migration in the image's start command; compose uses it | T063 |
 | `docs/deploy.md` | new (T037), changed (T063) | the account steps (Supabase, Render, Vercel), in order, with checks | T037, T063 |
 | `render.yaml` (repository root) | new | the API's Render Blueprint, §6 verbatim | T063 |
+| `.github/workflows/keepalive.yml` | new | the keep-alive ping, §6 verbatim | T063 |
 | `services/api/app/storage/` | new | Supabase Storage: uploaded PDFs (T053), frame images (T026) | T053, T026 |
 | `services/api/app/jobs/` + migration | new | the `Job` table (with web.md §3's `project_id`, `stage`) | T009 |
 | `apps/web` auth (`@supabase/ssr`) + API token check | new | sign-in (T040), the token check (T053), judge account (T030) | T040 / T053 / T030 |
@@ -260,7 +312,9 @@ has Docker; `ci.yml` needs no service of its own):
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
 | API host | **Render**, Docker web service (Katlego, 2026-10-08) | Railway (chosen 2026-09-29, never deployed): its config-as-code is deprecated and dies 2026-12-01, inside the demo's life, so its settings would live only in a dashboard, and its price is usage-based; Nebius VM: more setup, not covered by credit; the GPU box: couples API uptime to the GPU (Katlego, 2026-09-29) |
-| Render instance | **Starter** ($7/month, 0.5 CPU, 512 MB), ~$7 × 3 months to 15 Dec | Free: no pre-deploy command (so no migrations, §6), spins down after 15 min idle and takes ~1 min to wake (a judge's first load gets the web app's 502), and spinning down mid-job, with no browser polling, kills the job. Larger: nothing measured needs it; revisit if T026's rendering or T023's page export runs out of memory |
+| Render instance | **Free**, $0 (Katlego, 2026-10-08: the project's only money is $25 of Token Factory credit, for model calls) | Starter ($7/month, ~$13–21 to 15 Dec): no cash budget for it. Free's gaps are covered in §6: migrations in the start command, a keep-alive ping against spin-down. Revisit if the free instance runs out of memory on T026's rendering or T023's page export |
+| Migrations on Render | in the Dockerfile's `CMD`, before uvicorn (compose uses the same `CMD`) | a pre-deploy command: paid instances only; by hand from a laptop: easy to forget, and a deploy could start against an old schema |
+| Keeping Free awake | a scheduled GitHub Actions ping every 10 minutes | none: every visit after 15 idle minutes waits ~1 minute (a judge sees the web app's 502 first), and a job with no one watching dies when the instance sleeps; an external uptime service: another account, outside the repo |
 | API config | `render.yaml` Blueprint in the repo | Render dashboard settings: config the gate and review can't see; Railway's dashboard was only chosen because its file was deprecated, and Render's Blueprint is not |
 | Health check path | `/api/v1/health`, Postgres included | a liveness path without the database: avoids restarts during a Supabase outage, but a new endpoint for a case where the running jobs fail anyway (§4) |
 | Postgres client | SQLAlchemy + asyncpg over the session pooler | the `supabase` REST client for data (the kit's `db.py`): we already have SQL code, and REST can't do transactions |
@@ -283,8 +337,8 @@ message broker, as before.
   CLI is logged in); `grep -rni railway` finds only the history (this doc's §8 and §11, STATUS.md's
   log, docs/HANDOFF.md) and the sample screenplay's railway station.
 - T037 done means deployed: the Render URL answers `/api/v1/health` `ok` against Supabase, the
-  deploy log shows the pre-deploy migration, and the Vercel URL's `/api/health` answers 200 through
-  it. That needs Katlego's Render and Vercel accounts, so the task is **blocked on accounts** until
+  service log shows `alembic upgrade head` before uvicorn starts, the Vercel URL's `/api/health`
+  answers 200 through it, and with `API_HEALTH_URL` set a manual run of `keep-alive` passes. That needs Katlego's Render and Vercel accounts, so the task is **blocked on accounts** until
   they exist, and says so.
 
 ## 10. Open questions
@@ -305,12 +359,12 @@ message broker, as before.
 | What | Railway (2026-09-29) | Render (T063) |
 |---|---|---|
 | Config | dashboard settings, written down in `docs/deploy.md` | `render.yaml` in the repo, §6 |
-| Migrations | pre-deploy command, dashboard | `preDeployCommand`, same absolute command |
+| Migrations | pre-deploy command, dashboard | the image's `CMD`, before uvicorn (Free has no pre-deploy) |
 | Health check | `/api/v1/health` at deploy | `/api/v1/health` at deploy **and** while running (§4) |
 | Region | EU (to be picked) | `frankfurt` |
 | Deploy trigger | every push to `main` | a push to `main` that touches `services/api/**`, after its checks pass |
 | `PORT` | set by Railway | 10000, set by Render; the Dockerfile reads it either way |
-| Price | trial credit, then usage-based | Starter, $7/month |
+| Price | trial credit, then usage-based | Free, $0; kept awake by a scheduled ping |
 
 Unchanged: the Dockerfile's build, every environment variable's name and meaning, Vercel, Supabase,
 the web app's `API_URL` contract (only its value's domain changes). Nothing ran on Railway, so there
