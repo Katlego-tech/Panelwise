@@ -2,6 +2,7 @@
 // state, the shot id and camera, the verdict, who is in it, and its verbatim source and span.
 
 import Link from "next/link";
+import type { Dispatch, SetStateAction } from "react";
 
 import { SpanRef } from "@/components/shared/SpanRef";
 import { Verdict } from "@/components/shared/Verdict";
@@ -64,11 +65,11 @@ export function FrameCard({
   k: number;
   frame: FrameView | undefined;
   on: boolean;
-  onHighlight: (id: string | null) => void;
+  onHighlight: Dispatch<SetStateAction<string | null>>;
   /** The page with `?shot={id}`: the link that opens this card's frame sheet. */
   href: string;
   /** Called when the card's link is followed: the sheet then closes by going back. */
-  onOpen: () => void;
+  onOpen: (id: string) => void;
 }) {
   const { media, verdict, notes } = cardState(frame);
   const textCard = media.kind === "withheld" || media.kind === "failed";
@@ -81,10 +82,13 @@ export function FrameCard({
       onMouseEnter={() => onHighlight(shot.id)}
       onMouseLeave={(event) => {
         // A card with focus inside it (its link) stays highlighted: only its blur lets go.
-        if (!event.currentTarget.contains(document.activeElement)) onHighlight(null);
+        // ...and a card only lets go of its own highlight, handing it to the card with focus, if any.
+        if (event.currentTarget.contains(document.activeElement)) return;
+        const focused = document.activeElement?.closest<HTMLElement>("article[id^='shot-']")?.id.slice(5) ?? null;
+        onHighlight((current) => (current === shot.id ? focused : current));
       }}
       onFocus={() => onHighlight(shot.id)}
-      onBlur={() => onHighlight(null)}
+      onBlur={() => onHighlight((current) => (current === shot.id ? null : current))}
       className={cn("relative scroll-mt-4 border-t-4 bg-paper shadow-page", on && "outline-2 outline-offset-[3px] outline-pencil")}
       style={{ borderTopColor: lineColour(k) }}
     >
@@ -98,7 +102,7 @@ export function FrameCard({
           scroll={false}
           aria-label={`Open shot ${shot.id}`}
           data-card-link={shot.id}
-          onClick={onOpen}
+          onClick={() => onOpen(shot.id)}
           className="font-display text-xl leading-none font-extrabold text-ink no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-[3px] focus-visible:after:outline-pencil"
         >
           {shot.id}

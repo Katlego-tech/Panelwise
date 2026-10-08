@@ -185,6 +185,16 @@ describe("the lined script (web.md §4.3)", () => {
     expect(document.querySelector('[data-line="17"]')).not.toHaveClass("bg-pencil-soft");
   });
 
+  it("leaving one card hands the highlight back to the card with focus", () => {
+    render(<StoryboardPage project={keeper()} board={board()} />);
+    act(() => screen.getByRole("link", { name: "Open shot 2.1" }).focus());
+    fireEvent.mouseEnter(card("1.4"));
+    expect(document.querySelector('[data-line="17"]')).toHaveClass("bg-pencil-soft");
+    fireEvent.mouseLeave(card("1.4"));
+    expect(document.querySelector('[data-line="17"]')).not.toHaveClass("bg-pencil-soft");
+    expect(document.querySelector('[data-line="24"]')).toHaveClass("bg-pencil-soft");
+  });
+
   it("clicking a shot line focuses its card's link, which highlights it", () => {
     Element.prototype.scrollIntoView = vi.fn();
     render(<StoryboardPage project={keeper()} board={board()} />);

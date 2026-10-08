@@ -1,6 +1,8 @@
 // The frame board (web.md §4.3; storyboard.css `.scene`, `.grid`): a heading per scene, then a
 // card per shot in script order.
 
+import type { Dispatch, SetStateAction } from "react";
+
 import type { FrameView, SceneView, ShotView } from "@/lib/api/types";
 
 import { FrameCard } from "./FrameCard";
@@ -18,9 +20,9 @@ export function FrameBoard({
   shots: readonly ShotView[];
   frames: readonly FrameView[];
   highlight: string | null;
-  onHighlight: (id: string | null) => void;
+  onHighlight: Dispatch<SetStateAction<string | null>>;
   hrefFor: (id: string) => string;
-  onOpen: () => void;
+  onOpen: (id: string) => void;
 }) {
   const byShot = new Map(frames.map((f) => [f.shot_id, f]));
   const order = new Map(shots.map((s, k) => [s.id, k]));

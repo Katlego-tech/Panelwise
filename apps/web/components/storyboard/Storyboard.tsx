@@ -114,15 +114,16 @@ export function Storyboard({
   const sheetShot = k >= 0 ? shots[k] : null;
   // Opened from a card, the sheet closes by going back (no duplicate page in the history);
   // opened from a loaded or followed ?shot= link, by replacing the URL (web.md §4.4, Closing).
-  const openedHere = useRef(false);
+  // The id of the last card push, not a one-shot flag, so Back and Forward over that history entry
+  // still close it with back(); a reload forgets it.
+  const pushed = useRef<string | null>(null);
   const close = useCallback(() => {
-    if (openedHere.current) router.back();
+    if (open !== null && open === pushed.current) router.back();
     else router.replace(pathname, { scroll: false });
-    openedHere.current = false;
-  }, [router, pathname]);
+  }, [router, pathname, open]);
   // A loaded ?shot= brings its card into view behind the sheet, so closing lands on it.
   useEffect(() => {
-    if (open && !openedHere.current) document.getElementById(`shot-${open}`)?.scrollIntoView({ block: "center" });
+    if (open && open !== pushed.current) document.getElementById(`shot-${open}`)?.scrollIntoView({ block: "center" });
   }, [open]);
 
   return (
@@ -137,7 +138,7 @@ export function Storyboard({
           highlight={highlight}
           onHighlight={setHighlight}
           hrefFor={hrefFor}
-          onOpen={() => (openedHere.current = true)}
+          onOpen={(id) => (pushed.current = id)}
         />
       </main>
       {sheetShot && (

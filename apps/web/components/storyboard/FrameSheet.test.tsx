@@ -133,29 +133,89 @@ describe("FrameSheet (web.md §4.4; storyboard-frame.png)", () => {
     expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
   });
 
-  it("opened from a loaded ?shot=: Esc replaces the URL, and focus lands on the card's link", async () => {
-    at("1.4");
-    const { rerender } = render(page());
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-    expect(replace).toHaveBeenCalledWith("/projects/p1/storyboard", { scroll: false });
-    expect(back).not.toHaveBeenCalled();
-    at(null);
-    rerender(page());
-    expect(screen.queryByRole("dialog")).toBeNull();
-    // Radix hands focus back a tick after the sheet unmounts
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-    expect(screen.getByRole("link", { name: "Open shot 1.4" })).toHaveFocus();
-  });
+  const tickOver = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+  const closeBy = {
+    "×": () => fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" })),
+    Esc: () => fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" }),
+    // Radix dismisses on the click that follows an outside press, as a mouse makes them
+    "the scrim": () => {
+      const scrim = document.querySelector("[data-sheet-scrim]")!;
+      fireEvent.pointerDown(scrim);
+      fireEvent.click(scrim);
+    },
+  };
 
-  it("opened from a card: × goes back, so the history holds no duplicate page", () => {
+  it.each(Object.keys(closeBy) as (keyof typeof closeBy)[])(
+    "%s after a loaded ?shot= replaces the URL, then focus lands on the card's link",
+    async (how) => {
+      at("1.4");
+      const { rerender } = render(page());
+      await tickOver(); // Radix listens for outside pointer-downs from the next tick
+      closeBy[how]();
+      expect(replace).toHaveBeenCalledWith("/projects/p1/storyboard", { scroll: false });
+      expect(back).not.toHaveBeenCalled();
+      at(null);
+      rerender(page());
+      expect(screen.queryByRole("dialog")).toBeNull();
+      await tickOver(); // Radix hands focus back a tick after the sheet unmounts
+      expect(screen.getByRole("link", { name: "Open shot 1.4" })).toHaveFocus();
+    },
+  );
+
+  it.each(Object.keys(closeBy) as (keyof typeof closeBy)[])(
+    "%s after a card opened it goes back, so the history holds no duplicate page",
+    async (how) => {
+      const { rerender } = render(page());
+      fireEvent.click(screen.getByRole("link", { name: "Open shot 2.2" }));
+      at("2.2");
+      rerender(page());
+      await tickOver();
+      closeBy[how]();
+      expect(back).toHaveBeenCalledOnce();
+      expect(replace).not.toHaveBeenCalled();
+      at(null);
+      rerender(page());
+      expect(screen.queryByRole("dialog")).toBeNull();
+      await tickOver();
+      expect(screen.getByRole("link", { name: "Open shot 2.2" })).toHaveFocus();
+    },
+  );
+
+  it("Back and Forward over a card-opened entry still close it by going back", () => {
     const { rerender } = render(page());
-    fireEvent.click(screen.getByRole("link", { name: "Open shot 2.2" }));
-    at("2.2");
+    fireEvent.click(screen.getByRole("link", { name: "Open shot 1.1" }));
+    at("1.1");
     rerender(page());
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    at(null); // the browser's Back
+    rerender(page());
+    at("1.1"); // and Forward
+    rerender(page());
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(back).toHaveBeenCalledOnce();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("one card, then another: each closes by going back", () => {
+    const { rerender } = render(page());
+    fireEvent.click(screen.getByRole("link", { name: "Open shot 1.1" }));
+    at("1.1");
+    rerender(page());
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    at(null);
+    rerender(page());
+    fireEvent.click(screen.getByRole("link", { name: "Open shot 1.2" }));
+    at("1.2");
+    rerender(page());
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(back).toHaveBeenCalledTimes(2);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("a frame row that disappears while open shows the no-row panel", () => {
+    at("2.2");
+    const { rerender } = render(page([frame({ shot_id: "2.2", state: "auditing" })]));
+    rerender(page([]));
+    expect(within(screen.getByRole("dialog")).getByText("Not rendered yet")).toBeInTheDocument();
   });
 
   it("follows the frame live while it is open", () => {

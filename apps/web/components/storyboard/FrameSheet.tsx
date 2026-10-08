@@ -47,7 +47,7 @@ export function FrameSheet({
   return (
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-[rgb(26_34_44/0.35)]" />
+        <Dialog.Overlay data-sheet-scrim className="fixed inset-0 bg-[rgb(26_34_44/0.35)]" />
         <Dialog.Content
           aria-describedby={undefined}
           onCloseAutoFocus={(event) => {
