@@ -42,7 +42,10 @@ export function RetryButton({
     try {
       const res = await fetch(url, { method: "POST" });
       if (res.status === 202) {
-        onStarted((await res.json()) as FrameView);
+        // Started either way; a body we can't read just means asking for the frames again.
+        const frame = (await res.json().catch(() => null)) as FrameView | null;
+        if (frame) onStarted(frame);
+        else onMoved();
         return;
       }
       if (res.status === 401) {

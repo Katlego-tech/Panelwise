@@ -32,9 +32,10 @@ export function PendingMedia({ text, busy }: { text: string; busy: boolean }) {
 
 /** A frame that won't be shown: the source once, its span, why, and (withheld) the retry. */
 function TextCard({ shot, why, action }: { shot: ShotView; why: string; action?: ReactNode }) {
+  // 16:9 at least, but it grows rather than clip: a long source, the button or its error must show.
   return (
-    <div className={MEDIA_BOX}>
-      <div className="flex h-full flex-col gap-1.5 border border-b-0 border-dashed border-withheld bg-paper px-4.5 py-4">
+    <div data-text-card className="flex aspect-video flex-col border-b border-rule bg-[#f1f3f1]">
+      <div className="flex grow flex-col gap-1.5 border border-b-0 border-dashed border-withheld bg-paper px-4.5 py-4">
         <p className="m-0">
           <SourceText shot={shot} />
         </p>

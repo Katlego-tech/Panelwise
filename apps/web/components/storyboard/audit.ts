@@ -53,7 +53,8 @@ export function checkLines(a: AuditView): { failed: { name: string; detail: stri
   const failed = a.checks.filter((c) => !c.ok).map((c) => ({ name: sentence(checkWords(c.check)), detail: c.detail }));
   const passed = a.checks.length - failed.length;
   if (a.checks.length === 0) return { failed, rest: null };
-  const rest = failed.length === 0 ? `All ${passed} checks passed` : `${passed} other check${passed === 1 ? "" : "s"} passed`;
+  const s = passed === 1 ? "" : "s";
+  const rest = failed.length === 0 ? `All ${passed} check${s} passed` : `${passed} other check${s} passed`;
   return { failed, rest };
 }
 

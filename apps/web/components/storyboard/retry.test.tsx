@@ -118,6 +118,26 @@ describe("AuditLog (storyboard-frame.png)", () => {
     expect(second).toHaveClass("border-l-pass");
   });
 
+  it("a warned and an errored attempt, through the component", () => {
+    render(
+      <AuditLog
+        audits={[
+          audit({ attempt: 1, verdict: "error", description: null, judgement: null, checks: [], models: ["acme/vision-9"] }),
+          audit({ attempt: 2, verdict: "warn", checks: [{ check: "light", severity: "soft", ok: false, detail: "day light in a night scene" }] }),
+        ]}
+      />,
+    );
+    const [first, second] = screen.getAllByRole("listitem").filter((li) => li.dataset.verdict);
+    expect(first).toHaveTextContent("Audit error");
+    expect(first).toHaveTextContent("The audit couldn't run.");
+    expect(first).not.toHaveTextContent("Judged");
+    expect(first).toHaveTextContent("Described by vision-9");
+    expect(second).toHaveTextContent("Passed with a warning");
+    expect(second).toHaveClass("border-l-pass");
+    expect(within(second).getByText("Passed with a warning")).toHaveAttribute("data-tone", "warn");
+    expect(checkLines(audit({ checks: [check("light", true)] })).rest).toBe("All 1 check passed");
+  });
+
   it("is absent with no attempts, not empty", () => {
     const { container } = render(<AuditLog audits={[]} />);
     expect(container).toBeEmptyDOMElement();
@@ -182,6 +202,50 @@ describe("Try another render (web.md §4.3)", () => {
       expect(within(document.getElementById("shot-3.1")!).getByText("Auditing attempt 4 of 4")).toBeInTheDocument(),
     );
     expect(fetchMock.mock.calls[1]![0]).toBe("/api/projects/p1/frames");
+  });
+
+  it("the board stops polling once the retried frame settles", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValueOnce(
+      Response.json(frame({ shot_id: "3.1", state: "rendering", attempt: 4, max_renders: 4 }), { status: 202 }),
+    );
+    render(page([withheld()]));
+    await act(async () => fireEvent.click(button()));
+    const settled = { ...keeper(), frames: { settled: 7, total: 7, withheld: 1, active: 0 } };
+    fetchMock
+      .mockResolvedValueOnce(Response.json(settled))
+      .mockResolvedValueOnce(Response.json([frame({ shot_id: "3.1", state: "withheld", attempt: 4, max_renders: 4 })]));
+    await act(async () => vi.advanceTimersByTimeAsync(2000));
+    const calls = fetchMock.mock.calls.length;
+    await act(async () => vi.advanceTimersByTimeAsync(6000));
+    expect(fetchMock.mock.calls.length).toBe(calls); // settled: no more polls
+  });
+
+  it("a double click sends one request", async () => {
+    fetchMock.mockReturnValue(new Promise(() => {}));
+    render(page([withheld()]));
+    fireEvent.click(button());
+    fireEvent.click(button());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("a 202 it can't read still started: it asks for the frames again", async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response("not json", { status: 202 }))
+      .mockResolvedValueOnce(Response.json([frame({ shot_id: "3.1", state: "rendering", attempt: 4, max_renders: 4 })]));
+    render(page([withheld()]));
+    fireEvent.click(button());
+    await waitFor(() =>
+      expect(within(document.getElementById("shot-3.1")!).getByText("Rendering attempt 4 of 4")).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("the withheld text card grows rather than clip its button or error", () => {
+    render(page([withheld()]));
+    const box = document.getElementById("shot-3.1")!.querySelector("[data-text-card]")!;
+    expect(box).toHaveClass("aspect-video");
+    expect(box).not.toHaveClass("overflow-hidden");
   });
 
   it("a 401 goes to sign in", async () => {
