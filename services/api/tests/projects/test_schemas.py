@@ -270,7 +270,7 @@ def test_built_views_serialise_with_the_doc_s_field_names() -> None:
         assert set(dumped) == {n for n, _ in TS.interface(name).fields}, name
     shot = built["ShotView"].model_dump(mode="json")
     assert shot["framing"] == "medium" and shot["movement"] == "static"
-    assert set(shot["segments"][0]) == {"line_start", "line_end", "cue", "on_screen"}
+    assert set(shot["segments"][0]) == {"line_start", "line_end", "cue", "extension", "on_screen"}
     assert set(shot["span"]) == {"page", "line_start", "line_end"}
 
 

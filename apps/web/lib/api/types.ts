@@ -89,7 +89,8 @@ export interface ShotView {
   // one per covered element, in order ([] for a heading-only establishing shot); on_screen is
   // false for dialogue whose speaker (match_speaker against the extraction's characters) is not
   // in `characters`, a cue that matches no character included; true for action
-  segments: { line_start: number; line_end: number; cue: string | null; on_screen: boolean }[];
+  // extension (T045): the dialogue cue's bracket without its parentheses ("O.S.", "V.O."), null for action or none
+  segments: { line_start: number; line_end: number; cue: string | null; extension: string | null; on_screen: boolean }[];
 }
 
 export type FrameStateView = "rendering" | "auditing" | "passed" | "warned" | "withheld" | "failed";

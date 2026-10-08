@@ -48,7 +48,7 @@ const PAGE_2 = [
 export const lines: LinesView = { lines: [...PAGE_1, ...PAGE_2], page_starts: [1, 31] };
 
 const span = (page: number, line_start: number, line_end = line_start) => ({ page, line_start, line_end });
-const action = (line_start: number, line_end = line_start) => ({ line_start, line_end, cue: null, on_screen: true });
+const action = (line_start: number, line_end = line_start) => ({ line_start, line_end, cue: null, extension: null, on_screen: true });
 
 const shot = (over: Partial<ShotView> & Pick<ShotView, "id" | "scene_index" | "number" | "span" | "source">): ShotView => ({
   framing: "wide",
@@ -70,12 +70,12 @@ export const shots: ShotView[] = [
   shot({ id: "1.2", scene_index: 0, number: 2, framing: "insert", span: span(1, 10), source: "DOORS SLAM." }),
   shot({
     id: "1.3", scene_index: 0, number: 3, framing: "close_up", characters: ["NANDI"], span: span(1, 14),
-    source: "You came back.", segments: [{ line_start: 14, line_end: 14, cue: "NANDI", on_screen: true }],
+    source: "You came back.", segments: [{ line_start: 14, line_end: 14, cue: "NANDI", extension: null, on_screen: true }],
   }),
   shot({
     id: "1.4", scene_index: 0, number: 4, framing: "medium", characters: ["NANDI"], span: span(1, 17, 18),
     source: "The boat didn't. I walked the last mile along the cliff.",
-    segments: [{ line_start: 17, line_end: 18, cue: "THABO", on_screen: false }],
+    segments: [{ line_start: 17, line_end: 18, cue: "THABO", extension: "O.S.", on_screen: false }],
   }),
   shot({
     id: "2.1", scene_index: 1, number: 1, movement: "tracking", characters: ["THABO"], props: ["torn map"],
@@ -85,9 +85,9 @@ export const shots: ShotView[] = [
     id: "2.2", scene_index: 1, number: 2, framing: "close_up", characters: ["THABO"], span: span(1, 27, 33),
     source: "It's gone.\nAll of it.\nThe whole coast.",
     segments: [
-      { line_start: 27, line_end: 27, cue: "THABO", on_screen: true },
-      { line_start: 29, line_end: 29, cue: "THABO", on_screen: true },
-      { line_start: 33, line_end: 33, cue: "THABO", on_screen: true },
+      { line_start: 27, line_end: 27, cue: "THABO", extension: null, on_screen: true },
+      { line_start: 29, line_end: 29, cue: "THABO", extension: null, on_screen: true },
+      { line_start: 33, line_end: 33, cue: "THABO", extension: null, on_screen: true },
     ],
   }),
   shot({ id: "3.1", scene_index: 2, number: 1, span: span(2, 37), source: "Silence." }),

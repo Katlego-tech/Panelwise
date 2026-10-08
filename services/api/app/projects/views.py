@@ -99,6 +99,7 @@ def _segment(element: Element, shot: Shot, characters: list[str]) -> Segment:
             line_start=element.span.line_start,
             line_end=element.span.line_end,
             cue=None,
+            extension=None,
             on_screen=True,
         )
     # A cue that matches no character, or matches one the shot doesn't show, is off screen: the
@@ -108,6 +109,7 @@ def _segment(element: Element, shot: Shot, characters: list[str]) -> Segment:
         line_start=element.span.line_start,
         line_end=element.span.line_end,
         cue=element.cue,
+        extension=element.extension,
         on_screen=speaker is not None and speaker in shot.characters,
     )
 

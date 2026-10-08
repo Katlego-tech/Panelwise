@@ -113,6 +113,7 @@ class Segment(_View):
     line_start: int
     line_end: int
     cue: str | None
+    extension: str | None  # the cue's bracket without its parentheses ("O.S."), T045
     on_screen: bool
 
 
