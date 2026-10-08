@@ -58,7 +58,7 @@ constitution and let this section be the single copy (see
 | **Messaging / async** | `none (job status and progress in a Postgres table; Redis removed 2026-09-29)` |
 | **Frontend** | `Next.js + shadcn/ui (Radix + Tailwind + CVA)` |
 | **Containerization** | `Docker per service + one docker-compose.yml for local dev` |
-| **Runtime/deploy target** | Web on **Vercel**, API on **Railway**, data/storage/auth on **Supabase**; ComfyUI on a Nebius AI Cloud GPU. Changed 2026-09-29 from "API + web on Nebius" to the Hackathon kit's stack: [docs/design/deploy.md](docs/design/deploy.md) |
+| **Runtime/deploy target** | Web on **Vercel**, API on **Render** (`render.yaml`), data/storage/auth on **Supabase**; ComfyUI on a Nebius AI Cloud GPU. Changed 2026-09-29 from "API + web on Nebius" to the Hackathon kit's stack; API host changed 2026-10-08 by Katlego from Railway (never deployed) to Render: [docs/design/deploy.md](docs/design/deploy.md) §8, §11 |
 | **Data layer** | Supabase Postgres via the session pooler (SQLAlchemy 2 async + Alembic; compose Postgres locally), Supabase Storage for images, Supabase Auth |
 | **Key external services/models** | Nebius Token Factory: Nemotron fast tier, reasoning tier, vision model (IDs in .env.example; confirm on day 1) |
 | **Testing** | pytest + ruff + pyright; Vitest + Playwright; eval/ benchmarks |
@@ -78,7 +78,7 @@ panelwise/
 ├── README.md                    # setup, Nemotron + Token Factory usage, demo link
 ├── CHANGES-FROM-FRAMEFLOW.md    # the "what was significantly updated" disclosure
 ├── .env.example                 # key names only
-├── docker-compose.yml           # local: postgres, api, web (+ comfyui profile in T003); deployed: Vercel/Railway/Supabase
+├── docker-compose.yml           # local: postgres, api, web (+ comfyui profile in T003); deployed: Vercel/Render/Supabase
 ├── infra/
 │   ├── nebius/                  # GPU VM / serverless endpoint for ComfyUI
 │   └── comfyui/workflows/       # public node graphs (JSON)

@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-08 — by Tumo (via Claude)_
+_Last updated: 2026-10-08 — by Katlego (via Claude)_
 
 ---
 
@@ -35,7 +35,7 @@ _Last updated: 2026-10-08 — by Tumo (via Claude)_
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037, T063 | Katlego | Claude | 🟡 T063 API host Railway → Render: design PR `docs/deploy-render` in review, then the code · ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
@@ -78,7 +78,7 @@ renderer has been picked yet.
    `frame_hooks` (storyboard.md §4, §6). That one change turns on rendering, the audit, re-renders,
    "Try another render" and the frames on the board. T027 (PDF), T025 (portraits) and T049 (audit
    accuracy) follow it.
-2. **Vercel + Railway accounts → T037's deploy check, then T030 (hosted demo).** docs/deploy.md has
+2. **Vercel + Render accounts (Render since 2026-10-08, T063) → T037's deploy check, then T030 (hosted demo).** docs/deploy.md has
    the steps; the code side is merged. Note PR #67's compose change (the web container now gets the
    publishable Supabase pair) if you touch `docker-compose.yml`.
 3. **T033's README feedback section (PR #36)** — it must be the team's own words, so it's yours or
@@ -106,7 +106,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 
 ## 🧱 What's built so far
 
-- **Local stack (T002, T037):** `docker compose up --build --wait` runs postgres, api and web on pinned versions (PLAN.md § Technical Context); no Redis since T037. Host ports default to 5432/8000/3000 and can be overridden in `.env` (FrameFlow's containers hold 5432 on Katlego's machine). Deploy config: `apps/web/vercel.json`; Railway is set in its dashboard (`docs/deploy.md`: `railway.json` is deprecated, closed to new services, dead on 2026-12-01).
+- **Local stack (T002, T037):** `docker compose up --build --wait` runs postgres, api and web on pinned versions (PLAN.md § Technical Context); no Redis since T037. Host ports default to 5432/8000/3000 and can be overridden in `.env` (FrameFlow's containers hold 5432 on Katlego's machine). Deploy config: `apps/web/vercel.json`; the API's `render.yaml` comes with T063 (Render replaced Railway, never deployed, on 2026-10-08).
 - **API** (`services/api`, FastAPI, uv): `GET /api/v1/health` pings Postgres (Redis removed in T037); 503 + exception type on failure, with a timeout.
 - **Web** (`apps/web`, Next.js 16, pnpm): `GET /api/health` reports web + API health; 502 when the API is unreachable. Pages: sign-in, `/projects` (list + upload, T040), `/projects/[id]/script` with the job strip (T041). Local stack signs in once `.env` has the publishable pair (PR #67).
 - **Gate:** 10 checks across 2 projects (ruff, pyright, pytest, eslint+tsc, vitest, next build, placeholder, secrets, osv-scanner, jscpd).
@@ -128,7 +128,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 
 ## 🛠️ Environment & access
 
-- **Supabase project (2026-10-02, created by Katlego, checked by Claude):** region **eu-west-1 (Ireland)**, so pick Railway's EU region (T037); Postgres **17.11** (see ⚠️). Session-pooler connection OK; private buckets `panelwise` and `panelwise-dev` (anonymous reads refused, signed URLs work); email/password Auth on, a dev user for end-to-end checks (`PANELWISE_DEV_EMAIL` in `.env`). Values live in each contributor's local `.env` (keys as in `.env.example`, plus the local-only `SUPABASE_DB_URL`, `PANELWISE_DEV_EMAIL`/`_PASSWORD` for live checks, listed at the end of `.env.example`; `DATABASE_URL` stays local). From South Africa a cold connection takes ~2–4 s, over the API's 2 s health timeout: run a local health check against Supabase with `HEALTH_CHECK_TIMEOUT_S=10`; Railway, beside the database in the EU, keeps the 2 s default.
+- **Supabase project (2026-10-02, created by Katlego, checked by Claude):** region **eu-west-1 (Ireland)**, so Render runs in `frankfurt` (T063); Postgres **17.11** (see ⚠️). Session-pooler connection OK; private buckets `panelwise` and `panelwise-dev` (anonymous reads refused, signed URLs work); email/password Auth on, a dev user for end-to-end checks (`PANELWISE_DEV_EMAIL` in `.env`). Values live in each contributor's local `.env` (keys as in `.env.example`, plus the local-only `SUPABASE_DB_URL`, `PANELWISE_DEV_EMAIL`/`_PASSWORD` for live checks, listed at the end of `.env.example`; `DATABASE_URL` stays local). From South Africa a cold connection takes ~2–4 s, over the API's 2 s health timeout: run a local health check against Supabase with `HEALTH_CHECK_TIMEOUT_S=10`; Render, in Frankfurt beside the database, keeps the 2 s default.
 - **Time zones and hours (T038, 2026-10-01, from Katlego):** Katlego and Tumo are both in South Africa (SAST, UTC+2) and work flexible hours, so the overlap is the whole day; nothing needs scheduling around time zones. Hand-offs still go through STATUS.md and the ⇄ HANDOFF block.
 - FrameFlow (private, `Katlego-tech/FrameFlow`) is the source for every ported module. Both of us have access.
 - Nebius Token Factory: $25 promo (`NEBIUS-DEVPOST-GLOBAL26`) + $25 from the AI Builder Program. Keys go in `.env`, never in the repo.
@@ -151,7 +151,8 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 - **`main` is unprotected on the server** (decided 2026-09-28 while private + GitHub Free). The repo is now public, so branch protection is free: turning it on is the team's call (a repo setting). Until then only the pre-push hook and AGENTS.md §4 guard it; Tumo's clone has the hook since 2026-10-05.
 - **No copyrighted scripts** in the repo, demo or video. Only public-domain or self-written samples.
 - GPU cost: $50 of credit covers Token Factory calls, not a GPU VM. Check the cost of the ComfyUI box in T003.
-- **Stack changed 2026-09-29** (Katlego): web on Vercel, API on Railway, Supabase for Postgres/Storage/Auth, Redis removed — the Hackathon kit's stack. [docs/design/deploy.md](docs/design/deploy.md). Needs Katlego's Vercel, Railway and Supabase accounts (T037).
+- **API host: Render, not Railway — decided 2026-10-08 by Katlego** (deploy.md §8, §11; T063). Nothing was deployed to Railway, so it's a config + docs change. Render Starter is **$7/month** (~$21 to 15 Dec); Free was rejected (no pre-deploy migrations, ~1 min cold start, a spun-down instance kills a running job). New behaviour: Render restarts the API after 60 s of failed health checks, so a Supabase outage over a minute fails running jobs (accepted).
+- **Stack changed 2026-09-29** (Katlego): web on Vercel, API on Railway (Render since 2026-10-08), Supabase for Postgres/Storage/Auth, Redis removed — the Hackathon kit's stack. [docs/design/deploy.md](docs/design/deploy.md). Needs Katlego's Vercel, Railway and Supabase accounts (T037).
 
 ## 🔄 Retrospectives (one per phase boundary)
 
@@ -251,3 +252,4 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 - 2026-10-08 — Tumo (via Claude) — T021 design #76: fallback review, two rounds → approve (frame_hooks as the one adapter, a renderer factory per attempt, the check on a throwaway copy, RecordingRenderer, frame_audits typed, the retry's runtime). T021 code on `feat/verify-t021`: `render_until_accepted` (first_attempt, log before the next state, audit error withholds at once), `frame_audits` (0004), `FrameWriter` + `frame_hooks`, the frame sweep, `audit_view` and the audits read, `POST …/attempts` (locked, 409/503 before any write, a task that always settles the frame and its job), the summary's storyboard-job filter. 751 API tests (21 new), gate 10 checks. No renderer exists yet, so the endpoint answers 503 in every deployment until T026; the loop runs only in tests and T062's check. Next: code review; T061 (web) and T062 (the check). Blocked on: nothing.
 - 2026-10-08 — Tumo (via Claude) — STATUS rewritten for Katlego to pick up work alongside us: "Next action" now says what Tumo and Claude are on (T061 #78, T062 `feat/verify-t062`; claimed `apps/web/**`, `services/api/app/frames/**`, `app/verify/loop.py`), what is done since the 2026-10-03 handoff, and four things Katlego could take that don't overlap: the renderer decision then T003/T026 (with the T021 seams named), the deploy accounts (T037, T030), T033's feedback section, the ⚠️ wording calls and T055. Image-model spend paused by Tumo.
 - 2026-10-08 — Tumo (via Claude) — T061 (PR #78): the audit log in the sheet (attempts oldest first, Seen/Judged/checks/models in words), "Try another render" on withheld cards and the sheet (202 replaces the frame and the board goes live; 503/409/401 copy; an unreadable 202 refetches), both failed wordings by `FrameView.failure`, the attempts route. Fallback review: approve; its notes taken (text cards grow rather than clip the button, singular check wording, more tests). 292 web tests. Merged on Tumo's go-ahead. Its visual check waits for T062's run. Next: T062. Blocked on: nothing.
+- 2026-10-08 — Katlego (via Claude) — API host Railway → Render (Katlego's call). Design PR `docs/deploy-render`: deploy.md (Render Starter in Frankfurt, a `render.yaml` Blueprint checked in, validated against Render's schema; pre-deploy migrations unchanged; deploys only after checks pass and only for `services/api/**`; the running health check's restart accepted; §11 the change), PLAN.md and the locked-stack lines, T063 (the files), T037/T030 retargeted. Next: review, then T063. Blocked on: nothing (T037's live check still needs the Render + Vercel accounts).
