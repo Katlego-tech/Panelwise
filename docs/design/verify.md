@@ -248,6 +248,7 @@ async def audit_frame(model: NebiusChatModel, frame: RenderedFrame, shot: Shot, 
 # app/verify/loop.py (T021)
 async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot: Shot, screenplay: Screenplay,
                                 extraction: Extraction, *, width: int, height: int, max_renders: int = 3,
+                                first_attempt: int = 1,
                                 log: Callable[[Audit], Awaitable[None]],
                                 on_state: Callable[[FrameState, int], Awaitable[None]] | None = None) -> FrameOutcome: ...
 #   on_state(state, attempt) is awaited on every §5 transition, before the work of the new state:
@@ -255,10 +256,46 @@ async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot
 #   show a frame in progress (added with docs/design/web.md, 2026-09-30).
 ```
 
-**Audit log table** (`frame_audits`, T021, one row per attempt): `id`, `job_id`, `scene_index`,
+#   first_attempt (T021): attempts run first_attempt .. first_attempt + max_renders − 1, each seeded
+#   seed_for(shot, attempt). The storyboard passes 1 and 3; "Try another render" on a frame withheld at
+#   attempt n passes n + 1 and 1, so one more audited attempt, reproducible like the rest.
+#   A renderer exception is re-raised after on_state(FAILED, attempt): the caller fails its job.
+
+**Audit log table** (`frame_audits`, T021, one row per attempt): `id`, `project_id`, `job_id`, `scene_index`,
 `shot_number`, `attempt`, `seed`, `frame_asset` (Supabase Storage path), `description` (jsonb),
 `judgement` (jsonb), `checks` (jsonb), `positions` (jsonb), `verdict`, `models`, `prompt_tokens`, `completion_tokens`,
 `created_at`. Nothing in it quotes more of the script than the shot's own `source`.
+`project_id` (T021) so a frame's attempts are one indexed read across its jobs (the upload's and
+every "Try another render"); `frame_asset` is the attempt's Storage path, kept for every attempt,
+passed or not, and never sent to the web (only a `frames` row's accepted asset is, as a signed URL).
+Migration `0004`, `lock_down` like every table (deploy.md §6).
+
+**T021's writers** (`app/frames/writer.py`), the two hooks storyboard.md §6's `build_storyboard` and
+the retry call, each write in its own short transaction (a frame's state must be visible while its
+job still runs):
+
+```python
+class FrameWriter:
+    def __init__(self, sessions: async_sessionmaker[AsyncSession], project_id: uuid.UUID, job_id: uuid.UUID): ...
+    async def log(self, audit: Audit, frame_asset: str) -> None: ...      # one frame_audits row
+    async def on_frame(self, shot: tuple[int, int], state: FrameState, attempt: int, asset: str | None) -> None: ...
+    #   upserts the frames row (state, attempt, job_id; asset only for PASSED/WARNED, else null);
+    #   WITHHELD → withheld_check from the frame's last frame_audits row (its first failed hard check
+    #   in Check order, lower case, or "audit_error" when its verdict is ERROR); FAILED → failure "render"
+```
+
+
+**The architecture check** (T062, `python -m app.frames.check <project-id> [--shots N]`): the loop
+end to end with no image model. A `SketchRenderer` (`app/frames/check.py`) is a `Renderer` that
+draws a plain pencil-style test image with Pillow, deterministic from the seed (a horizon, one to
+three figures, a box), stores it at `frames/<sha256 of the PNG>.png` through the `AssetStore`, and
+records it (`record(shot, attempt).asset`). For the project's first N planned shots (default 3) it
+runs `render_until_accepted` with the **real** audit (`Tier.VISION` describer, `Tier.REASONING`
+judge: the only spend, a few calls per attempt), under a `frame_attempt` job, writing through
+`FrameWriter`, and prints each shot's states and verdicts. The sketches are not the shot, so most
+end `withheld` after three attempts: that is the point, the path a wrong frame takes. One that
+passes is shown like any accepted frame, as the audit allows: it runs only on a local stack
+against the dev bucket, never on the hosted demo.
 
 ## 7. Structure
 

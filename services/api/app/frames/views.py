@@ -19,6 +19,7 @@ def frame_view(row: FrameRow, screenplay: Screenplay, image_url: str | None) -> 
             "max_renders": max(MAX_RENDERS, row.attempt),
             "image_url": image_url if accepted else None,
             "withheld_check": row.withheld_check,
+            "failure": row.failure,
             "audits": [],  # T021 adds the frame_audits history
         }
     )

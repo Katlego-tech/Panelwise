@@ -199,6 +199,7 @@ class FrameView(_View):
     max_renders: int
     image_url: str | None
     withheld_check: str | None
+    failure: Literal["render", "restart"] | None  # T021: why a failed frame failed; null otherwise
     audits: list[AuditView]
 
     @model_validator(mode="after")
@@ -206,4 +207,6 @@ class FrameView(_View):
         # web.md §4.3: no frame is shown outside passed/warned; refuse to build one that would be.
         if self.image_url is not None and self.state not in ("passed", "warned"):
             raise ValueError("image_url is sent only for passed or warned frames")
+        if self.failure is not None and self.state != "failed":
+            raise ValueError("failure is sent only for failed frames")
         return self
