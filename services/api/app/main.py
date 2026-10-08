@@ -15,7 +15,8 @@ from app.api.v1 import health, projects
 from app.core.auth import SupabaseJwtVerifier, TokenVerifier
 from app.core.config import Settings
 from app.db import make_engine, make_sessions
-from app.jobs import fail_interrupted
+from app.frames.attempt import RecordingRenderer
+from app.jobs import fail_interrupted, fail_interrupted_frames
 from app.llm import LLMConfigError, NebiusChatModel
 from app.storage import AssetStore, SupabaseStore
 
@@ -23,17 +24,18 @@ log = logging.getLogger(__name__)
 
 
 async def sweep(sessions: async_sessionmaker[AsyncSession]) -> None:
-    """web.md §4.1: a job still QUEUED or RUNNING at startup was cut off by the restart. If the
-    database is unreachable, log and start anyway: the health check reports it, and the next
-    start sweeps."""
+    """web.md §4.1: a job still QUEUED or RUNNING at startup was cut off by the restart, and so was
+    a frame still rendering or auditing (T021); both halves in one transaction. If the database is
+    unreachable, log and start anyway: the health check reports it, and the next start sweeps."""
     try:
         async with sessions() as session, session.begin():
             count = await fail_interrupted(session)
+            frames = await fail_interrupted_frames(session)
     except Exception as exc:
         log.warning("restart sweep skipped: the database is unreachable (%s)", type(exc).__name__)
         return
-    if count:
-        log.info("restart sweep: %d interrupted job(s) marked failed", count)
+    if count or frames:
+        log.info("restart sweep: %d job(s) and %d frame(s) marked failed", count, frames)
 
 
 class _Unset:
@@ -49,10 +51,12 @@ def create_app(
     verifier: TokenVerifier | _Unset | None = UNSET,
     store: AssetStore | _Unset | None = UNSET,
     model: NebiusChatModel | _Unset | None = UNSET,
+    renderer: RecordingRenderer | None = None,
 ) -> FastAPI:
     """The app. `verifier` and `store` default to Supabase's, built from settings (None when
     SUPABASE_URL or its secret key is unset: the routes then answer 503); `model` defaults to
-    Token Factory's (None without NEBIUS_API_KEY: a job then fails at once). Tests pass fakes."""
+    Token Factory's (None without NEBIUS_API_KEY: a job then fails at once); `renderer` is None
+    until T026 builds ComfyUI's ("Try another render" then answers 503). Tests pass fakes."""
     settings = settings or Settings()
 
     @asynccontextmanager
@@ -93,6 +97,7 @@ def create_app(
                 app.state.model = None
         else:
             app.state.model = model
+        app.state.renderer = renderer
         tasks: set[asyncio.Task[None]] = set()  # running jobs: one reference each, never GC'd
         app.state.tasks = tasks
         await sweep(sessions)

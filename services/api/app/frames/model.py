@@ -3,8 +3,10 @@ reads it, T021 writes it). The only source of `FrameView`."""
 
 import uuid
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, func
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -44,3 +46,33 @@ class FrameRow(Base):
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.clock_timestamp(), onupdate=func.clock_timestamp()
     )
+
+
+class FrameAuditRow(Base):
+    """One audited attempt (verify.md §6, T021): every attempt, passed or not. `frame_asset` is the
+    attempt's Storage path and never reaches the web; only a frames row's accepted asset does."""
+
+    __tablename__ = "frame_audits"
+    __table_args__ = (
+        CheckConstraint("verdict IN ('pass', 'warn', 'fail', 'error')", name="frame_audits_verdict"),
+        CheckConstraint("attempt >= 1", name="frame_audits_attempt"),
+        Index("frame_audits_frame", "project_id", "scene_index", "shot_number", "attempt"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
+    scene_index: Mapped[int]
+    shot_number: Mapped[int]
+    attempt: Mapped[int]
+    seed: Mapped[int] = mapped_column(BigInteger())
+    frame_asset: Mapped[str]
+    description: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    judgement: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    checks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    positions: Mapped[dict[str, str]] = mapped_column(JSONB)
+    verdict: Mapped[str]
+    models: Mapped[list[str]] = mapped_column(JSONB)
+    prompt_tokens: Mapped[int]
+    completion_tokens: Mapped[int]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.clock_timestamp())
