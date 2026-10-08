@@ -2,13 +2,15 @@
 
 // The frame sheet (web.md §4.4, steps 1–4; storyboard-frame.png): a right-hand sheet over the
 // board with the frame, the words it came from and who is in it. Radix Dialog traps focus and
-// closes on Esc, ×, or the scrim. The audit (step 5) is T061's: absent until then, not empty.
+// closes on Esc, ×, or the scrim. The audit (step 5, T061) is absent with no attempts, not empty.
 
 import * as Dialog from "@radix-ui/react-dialog";
+import type { ReactNode } from "react";
 
 import { Verdict } from "@/components/shared/Verdict";
 import type { FrameView, SceneView, ShotView } from "@/lib/api/types";
 
+import { AuditLog } from "./AuditLog";
 import { cardState } from "./cards";
 import { PendingMedia } from "./FrameCard";
 import { FrameMedia, MEDIA_BOX } from "./FrameMedia";
@@ -17,11 +19,12 @@ import { sheetCamera } from "./sheet";
 import { SourceBlock } from "./SourceBlock";
 
 /** A withheld or failed frame in the sheet: its reason only, since "From the script" follows. */
-function ReasonPanel({ why }: { why: string }) {
+function ReasonPanel({ why, action }: { why: string; action?: ReactNode }) {
   return (
     <div className={MEDIA_BOX}>
-      <div className="grid h-full place-content-center border border-b-0 border-dashed border-withheld bg-paper px-6 text-center">
+      <div className="grid h-full place-content-center justify-items-center gap-3 border border-b-0 border-dashed border-withheld bg-paper px-6 text-center">
         <p className="m-0 text-sm font-bold text-withheld">{why}</p>
+        {action}
       </div>
     </div>
   );
@@ -34,6 +37,7 @@ export function FrameSheet({
   scene,
   onClose,
   onCloseFocus,
+  retry,
 }: {
   shot: ShotView;
   k: number;
@@ -42,6 +46,8 @@ export function FrameSheet({
   onClose: () => void;
   /** Where focus goes once the sheet has closed: the card that opened it. */
   onCloseFocus: () => void;
+  /** "Try another render", for a withheld frame (null otherwise). */
+  retry: ReactNode;
 }) {
   const { media, verdict } = cardState(frame);
   return (
@@ -77,9 +83,11 @@ export function FrameSheet({
           </header>
           {media.kind === "image" && <FrameMedia url={media.url} shot={shot} />}
           {media.kind === "pending" && <PendingMedia text={media.text} busy={media.busy} />}
-          {(media.kind === "withheld" || media.kind === "failed") && <ReasonPanel why={media.why} />}
+          {media.kind === "withheld" && <ReasonPanel why={media.why} action={retry} />}
+          {media.kind === "failed" && <ReasonPanel why={media.why} />}
           <SourceBlock shot={shot} k={k} scene={scene} />
           <InFrame shot={shot} frame={frame} />
+          <AuditLog audits={frame?.audits ?? []} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

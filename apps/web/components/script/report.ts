@@ -21,10 +21,15 @@ const MODEL_NAMES: Record<string, string> = {
   "nvidia/nemotron-3-super-120b-a12b": "Nemotron 3 Super",
 };
 
+/** A model's display name; an unknown id as it is, or (`short`) the part after its last "/". */
+export function modelName(id: string, { short = false } = {}): string {
+  return MODEL_NAMES[id] ?? (short ? id.slice(id.lastIndexOf("/") + 1) : id);
+}
+
 const tokens = new Intl.NumberFormat("en-GB");
 
 export function modelLine(r: ReportView): string {
-  const names = r.models.map((id) => MODEL_NAMES[id] ?? id);
+  const names = r.models.map((id) => modelName(id));
   const usage = `${tokens.format(r.prompt_tokens)} tokens in, ${tokens.format(r.completion_tokens)} out`;
   return [...names, usage].join(" · ");
 }

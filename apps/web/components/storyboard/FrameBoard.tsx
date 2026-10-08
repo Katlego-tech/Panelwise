@@ -1,7 +1,7 @@
 // The frame board (web.md §4.3; storyboard.css `.scene`, `.grid`): a heading per scene, then a
 // card per shot in script order.
 
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 import type { FrameView, SceneView, ShotView } from "@/lib/api/types";
 
@@ -15,6 +15,7 @@ export function FrameBoard({
   onHighlight,
   hrefFor,
   onOpen,
+  retryFor,
 }: {
   scenes: readonly SceneView[];
   shots: readonly ShotView[];
@@ -23,6 +24,7 @@ export function FrameBoard({
   onHighlight: Dispatch<SetStateAction<string | null>>;
   hrefFor: (id: string) => string;
   onOpen: (id: string) => void;
+  retryFor: (shot: ShotView) => ReactNode;
 }) {
   const byShot = new Map(frames.map((f) => [f.shot_id, f]));
   const order = new Map(shots.map((s, k) => [s.id, k]));
@@ -48,6 +50,7 @@ export function FrameBoard({
                   onHighlight={onHighlight}
                   href={hrefFor(shot.id)}
                   onOpen={onOpen}
+                  retry={byShot.get(shot.id)?.state === "withheld" ? retryFor(shot) : null}
                 />
               ))}
             </div>
