@@ -83,9 +83,9 @@ describe("ProjectRow (web.md §4.1a, projects.png, projects-states.png)", () => 
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
   });
 
-  it("links its title to the script page until T042 builds the storyboard (web.md §4.1a, staged)", () => {
+  it("links its title to the storyboard (web.md §4.1a)", () => {
     row(project({ job: job({ state: "done" }) }));
-    expect(screen.getByRole("link", { name: "The Keeper's Light" })).toHaveAttribute("href", "/projects/p1/script");
+    expect(screen.getByRole("link", { name: "The Keeper's Light" })).toHaveAttribute("href", "/projects/p1/storyboard");
   });
 
   it("a failed row is not a link", () => {

@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log, log in the web app) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -248,17 +248,100 @@ async def audit_frame(model: NebiusChatModel, frame: RenderedFrame, shot: Shot, 
 # app/verify/loop.py (T021)
 async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot: Shot, screenplay: Screenplay,
                                 extraction: Extraction, *, width: int, height: int, max_renders: int = 3,
+                                first_attempt: int = 1,
                                 log: Callable[[Audit], Awaitable[None]],
                                 on_state: Callable[[FrameState, int], Awaitable[None]] | None = None) -> FrameOutcome: ...
 #   on_state(state, attempt) is awaited on every §5 transition, before the work of the new state:
 #   RENDERING and AUDITING for each attempt, then the terminal state. It is how web.md's `frames` rows
 #   show a frame in progress (added with docs/design/web.md, 2026-09-30).
+#   first_attempt (T021): attempts run first_attempt .. first_attempt + max_renders − 1, each seeded
+#   seed_for(shot, attempt). The storyboard passes 1 and 3; "Try another render" on a frame withheld at
+#   attempt n passes n + 1 and 1: one more audited attempt, reproducible like the rest.
+#   Order, a contract: each attempt's `log(audit)` is awaited before the next on_state, so the terminal
+#   state's writer can read the audit that decided it. An audit ERROR withholds at once (no retry).
+#   A renderer exception is re-raised after on_state(FAILED, attempt): the caller fails its job.
+
+# The renderer the frame writers need: a Renderer that remembers where it stored each attempt (T021).
+class SupportsAsset(Protocol):
+    @property
+    def asset(self) -> str: ...                   # the attempt's Storage path, frames/<…>.png (read-only: a frozen dataclass fits)
+class RecordingRenderer(Renderer, Protocol):
+    def record(self, shot: tuple[int, int], attempt: int) -> SupportsAsset: ...
+    # recorded before render() returns, so a lookup after it never misses; storyboard.md §6's
+    # ComfyRenderer (its RenderRecord has .asset) and T062's SketchRenderer are both one
 ```
 
-**Audit log table** (`frame_audits`, T021, one row per attempt): `id`, `job_id`, `scene_index`,
-`shot_number`, `attempt`, `seed`, `frame_asset` (Supabase Storage path), `description` (jsonb),
-`judgement` (jsonb), `checks` (jsonb), `positions` (jsonb), `verdict`, `models`, `prompt_tokens`, `completion_tokens`,
-`created_at`. Nothing in it quotes more of the script than the shot's own `source`.
+**Audit log table** (`frame_audits`, T021, migration `0004`, `lock_down` like every table, deploy.md
+§6; one row per audited attempt, passed or not):
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, primary key | |
+| `project_id` | uuid, FK `projects` on delete cascade | so a frame's attempts across its jobs (the upload's, each retry's) are one indexed read |
+| `job_id` | uuid, FK `jobs` on delete cascade | the job that ran the attempt |
+| `scene_index`, `shot_number`, `attempt` | int, `attempt ≥ 1` | **unique** `(project_id, scene_index, shot_number, attempt)`, which is also the read's index |
+| `seed` | **bigint** | `seed_for` is an unsigned 32-bit value: it overflows `integer` |
+| `frame_asset` | text | the attempt's Storage path; never sent to the web (only a `frames` row's accepted asset is, as a signed URL) |
+| `description`, `judgement` | jsonb, null | null on an ERROR audit that didn't get that far |
+| `checks` | jsonb list of `{check, severity, ok, detail}` | `[]` on an ERROR audit |
+| `positions` | jsonb `{character: position}` | `{}` on an ERROR audit |
+| `verdict` | text, CHECK `pass`/`warn`/`fail`/`error` | |
+| `models` | jsonb list of model ids | |
+| `prompt_tokens`, `completion_tokens` | int | `Audit.usage`'s two counts (reasoning tokens are inside completion's) |
+| `created_at` | timestamptz, `clock_timestamp()` | |
+
+Nothing in it quotes more of the script than the shot's own `source`. A frame's **last audit** is its
+row with the greatest `attempt`.
+
+**T021's writers** (`app/frames/writer.py`). Each write is its own short transaction (a frame's state
+must be visible while its job still runs). The `frames` row is written by exactly these hooks and the
+restart sweep.
+
+```python
+class FrameWriter:
+    def __init__(self, sessions: async_sessionmaker[AsyncSession], project_id: uuid.UUID, job_id: uuid.UUID): ...
+    async def log(self, audit: Audit, frame_asset: str) -> None: ...      # one frame_audits row
+    async def on_frame(self, shot: tuple[int, int], state: FrameState, attempt: int, asset: str | None) -> None: ...
+    #   upserts the frames row and sets every column on every write: state, attempt, job_id; asset only
+    #   for PASSED/WARNED, else null; withheld_check only for WITHHELD (from the frame's last audit: its
+    #   first failed hard check in Check order, lower case, or "audit_error" when its verdict is ERROR),
+    #   else null; failure "render" only for FAILED, else null. No column outlives its state.
+
+def frame_hooks(writer: FrameWriter, renderer: RecordingRenderer, shot: tuple[int, int]
+                ) -> tuple[Callable[[Audit], Awaitable[None]], Callable[[FrameState, int], Awaitable[None]]]: ...
+#   (log, on_state) for render_until_accepted: log(audit) → writer.log(audit, renderer.record(shot, audit.attempt).asset);
+#   on_state(state, attempt) → writer.on_frame(shot, state, attempt, renderer.record(shot, attempt).asset
+#   if state is PASSED or WARNED else None). The one adapter: the retry uses it, and so does T026's
+#   build_storyboard for its log and on_frame (storyboard.md §4), so the asset rule is stated once.
+```
+
+**The architecture check** (T062, `app/frames/check.py`): the loop end to end with no image model.
+
+```python
+class SketchRenderer:   # a RecordingRenderer
+    def __init__(self, store: AssetStore): ...
+    async def render(self, shot, attempt, seed, width, height) -> RenderedFrame: ...
+    #   draws with Pillow at exactly width × height from random.Random(seed): a horizon, one to three
+    #   figures, a box, pencil grey on paper; PNG with no metadata, so the same seed is the same bytes;
+    #   stores it at frames/<sha256 of the PNG>.png (content address, put is idempotent) and records it
+async def run_check(sessions, store: AssetStore, model: NebiusChatModel, project_id: uuid.UUID,
+                    *, shots: int = 3) -> uuid.UUID: ...   # → the throwaway project's id
+```
+
+- **It never touches the project it is given.** It copies that project's screenplay, extraction and
+  plan, and its `owner` and `pdf_path` (the same Storage object: nothing is re-uploaded), into a **new
+  project** titled "{title} (architecture check)", with one
+  `storyboard` job `DONE` (so the list shows it planned), and works only there. Its frames, a sketch
+  that passes included, belong to that copy; delete the copy to discard them. A sketch the audit
+  passes is a test artefact, not evidence of grounding: it shows the path an accepted frame takes.
+- **It refuses** unless `SUPABASE_STORAGE_BUCKET` is `panelwise-dev` (the dev bucket, never the
+  hosted demo's), and unless the source project has a plan.
+- For the copy's first `shots` shots **in plan order**, one `frame_attempt` job (`RUNNING` at stage
+  `rendering`, `DONE` after the last shot, `FAILED` if a render raises) runs `render_until_accepted`
+  with the **real** audit (`Tier.VISION` describer, `Tier.REASONING` judge: the only spend, two calls
+  per attempt) through `frame_hooks`. `python -m app.frames.check <project-id> [--shots N]` builds
+  the store and model from settings, calls `run_check`, and prints each shot's states and verdicts
+  and the copy's id. Most sketches end `withheld` after three attempts: the path a wrong frame takes.
 
 ## 7. Structure
 
@@ -266,9 +349,11 @@ async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot
 | --- | --- | --- | --- |
 | `services/api/app/verify/{__init__,model,schema,prompts,audit}.py` | new | `describe_frame` (also used by portraits), judge, checks, verdict | T020 |
 | `services/api/app/verify/run.py` | new | live check: audit one PNG against one planned shot on the real account | T020 |
-| `services/api/app/verify/loop.py` + migration for `frame_audits` | new | render → audit → retry → state; logging | T021 |
-| web: the audit log view (per shot: attempts, verdicts, checks) | new | T021's UI part, built to the web lane's design | T021 |
-| `services/api/tests/verify/` | new | §9 | T020, T021 |
+| `services/api/app/verify/loop.py` | new | render → audit → retry → state | T021 |
+| `services/api/app/frames/{model,writer}.py` + migrations `0003` (`frames.failure`), `0004` (`frame_audits`) | new | `FrameAuditRow`, `FrameWriter`, `frame_hooks` | T021 |
+| `services/api/app/frames/check.py` | new | `SketchRenderer`, `run_check`, `python -m app.frames.check` | T062 |
+| web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
+| `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
 ## 8. Decisions & alternatives
 

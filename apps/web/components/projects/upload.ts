@@ -22,11 +22,16 @@ export function checkFiles(files: readonly File[]): FileCheck | null {
   return isPdf ? { ok: true, file } : { ok: false, message: UPLOAD_COPY.not_a_pdf };
 }
 
-export type UploadOutcome = { kind: "accepted" } | { kind: "sign-in" } | { kind: "error"; message: string };
+export type UploadOutcome = { kind: "accepted"; id: string } | { kind: "sign-in" } | { kind: "error"; message: string };
 
 /** What the panel does with POST /api/projects' answer; `status` null when no response came. */
 export function uploadOutcome(status: number | null, body: unknown): UploadOutcome {
-  if (status === 202) return { kind: "accepted" };
+  if (status === 202) {
+    // 202 {project, job}: the new project's id is where the panel goes next (web.md §4.1 step 5)
+    const project = typeof body === "object" && body !== null && "project" in body ? body.project : null;
+    const id = typeof project === "object" && project !== null && "id" in project ? project.id : null;
+    return typeof id === "string" && id ? { kind: "accepted", id } : { kind: "error", message: UPLOAD_COPY.unavailable };
+  }
   if (status === 401) return { kind: "sign-in" };
   if (status === 413) return { kind: "error", message: UPLOAD_COPY.too_large };
   if (status === 411) return { kind: "error", message: UPLOAD_COPY.incomplete };

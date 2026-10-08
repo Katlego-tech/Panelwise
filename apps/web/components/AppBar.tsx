@@ -34,10 +34,7 @@ function ProjectTabs({ id, tab }: { id: string; tab?: ProjectTab }) {
   return (
     <nav aria-label="Project" className="order-5 -ml-3 flex w-full gap-1 min-[641px]:order-none min-[641px]:ml-2 min-[641px]:w-auto">
       {link("script", "Script")}
-      {/* T042 builds the storyboard; until then its tab is disabled (web.md §4.2, staged). */}
-      <a aria-disabled="true" title="The storyboard isn't built yet" className={cn(item, "text-bar-dim")}>
-        Storyboard
-      </a>
+      {link("storyboard", "Storyboard")}
       {/* T024 builds the comic reader; until then the tab is disabled (web.md §6, Web routes). */}
       <a aria-disabled="true" title="Comic pages aren't built yet" className={cn(item, "text-bar-dim")}>
         Comic
@@ -51,11 +48,14 @@ export function AppBar({
   project,
   tab,
   actions,
+  tools,
 }: {
   email: string | null;
   project?: { id: string; title: string };
   tab?: ProjectTab;
   actions?: React.ReactNode;
+  /** The page's own tools, left of who is signed in (storyboard.png's Export PDF). */
+  tools?: React.ReactNode;
 }) {
   return (
     <header
@@ -72,6 +72,7 @@ export function AppBar({
       )}
       {project && <ProjectTabs id={project.id} tab={tab} />}
       <span className="flex-1" />
+      {tools}
       {email && <span className="hidden text-[13px] text-bar-muted min-[641px]:inline">{email}</span>}
       {actions}
     </header>

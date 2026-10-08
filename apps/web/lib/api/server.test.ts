@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getProject } from "./server";
+import { getBoard, getProject } from "./server";
 
 const fetchMock = vi.fn<typeof fetch>();
 const user = { email: null, accessToken: "tok" };
@@ -40,5 +40,32 @@ describe("getProject", () => {
   ])("%s is unavailable", async (_name, arrange) => {
     arrange();
     expect(await getProject(user, "p1")).toEqual({ kind: "unavailable" });
+  });
+});
+
+describe("getBoard (web.md §4.3)", () => {
+  it("reads lines, shots and frames in parallel with the user's token", async () => {
+    fetchMock.mockImplementation(async (url) => Response.json({ url: String(url) }));
+    const got = await getBoard(user, "p1");
+    expect(got).toEqual({
+      kind: "ok",
+      lines: { url: "http://api.test:8000/api/v1/projects/p1/lines" },
+      shots: { url: "http://api.test:8000/api/v1/projects/p1/shots" },
+      frames: { url: "http://api.test:8000/api/v1/projects/p1/frames" },
+    });
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer tok");
+    }
+  });
+
+  it.each([
+    ["a 409 from …/shots", () => fetchMock.mockImplementation(async (url) =>
+      String(url).endsWith("/shots") ? Response.json({ error: "not_ready" }, { status: 409 }) : Response.json([]))],
+    ["a 503 from …/frames", () => fetchMock.mockImplementation(async (url) =>
+      String(url).endsWith("/frames") ? Response.json({ error: "storage_unavailable" }, { status: 503 }) : Response.json([]))],
+    ["no answer", () => fetchMock.mockRejectedValue(new TypeError("fetch failed"))],
+  ])("%s makes the board unavailable", async (_name, arrange) => {
+    arrange();
+    expect(await getBoard(user, "p1")).toEqual({ kind: "unavailable" });
   });
 });

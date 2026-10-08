@@ -270,7 +270,7 @@ def test_built_views_serialise_with_the_doc_s_field_names() -> None:
         assert set(dumped) == {n for n, _ in TS.interface(name).fields}, name
     shot = built["ShotView"].model_dump(mode="json")
     assert shot["framing"] == "medium" and shot["movement"] == "static"
-    assert set(shot["segments"][0]) == {"line_start", "line_end", "cue", "on_screen"}
+    assert set(shot["segments"][0]) == {"line_start", "line_end", "cue", "extension", "on_screen"}
     assert set(shot["span"]) == {"page", "line_start", "line_end"}
 
 
@@ -303,7 +303,7 @@ def test_job_and_summary_serialise_ids_and_times_as_strings() -> None:
 # --- the one rule a FrameView enforces itself ---------------------------------------------
 
 
-def frame(state: str, image_url: str | None) -> schemas.FrameView:
+def frame(state: str, image_url: str | None, failure: str | None = None) -> schemas.FrameView:
     return schemas.FrameView.model_validate(
         {
             "shot_id": "1.1",
@@ -312,6 +312,7 @@ def frame(state: str, image_url: str | None) -> schemas.FrameView:
             "max_renders": 3,
             "image_url": image_url,
             "withheld_check": None,
+            "failure": failure,
             "audits": [],
         }
     )
@@ -327,3 +328,10 @@ def test_no_image_url_outside_passed_and_warned(state: str) -> None:
     with pytest.raises(ValidationError, match="only for passed or warned"):
         frame(state, "https://storage.test/signed")
     assert frame(state, None).image_url is None
+
+
+@pytest.mark.parametrize("failure", ["render", "restart"])
+def test_only_a_failed_frame_says_why_it_failed(failure: str) -> None:
+    assert frame("failed", None, failure).failure == failure
+    with pytest.raises(ValidationError, match="only for failed frames"):
+        frame("withheld", None, failure)

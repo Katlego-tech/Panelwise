@@ -1,10 +1,13 @@
 // The scenes column (web.md §4.2; script.css `.scenes`).
 
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
 import type { SceneView } from "@/lib/api/types";
 
 import { sceneDetail } from "./scenes";
 
-export function SceneIndex({ scenes }: { scenes: readonly SceneView[] }) {
+export function SceneIndex({ scenes, storyboard }: { scenes: readonly SceneView[]; storyboard: string }) {
   return (
     <nav aria-label="Scenes" data-area="scenes" className="[grid-area:scenes] min-[1101px]:sticky min-[1101px]:top-4">
       <h2 className="m-0 mb-2.5 font-display text-lg leading-[1.1] font-extrabold tracking-[0.03em] uppercase">
@@ -19,6 +22,9 @@ export function SceneIndex({ scenes }: { scenes: readonly SceneView[] }) {
           </li>
         ))}
       </ol>
+      <Button asChild>
+        <Link href={storyboard}>Open the storyboard</Link>
+      </Button>
     </nav>
   );
 }

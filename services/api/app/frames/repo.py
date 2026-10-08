@@ -5,7 +5,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.frames.model import FrameRow
+from app.frames.model import FrameAuditRow, FrameRow
 
 
 async def frames_of(session: AsyncSession, project_id: uuid.UUID) -> list[FrameRow]:
@@ -15,3 +15,19 @@ async def frames_of(session: AsyncSession, project_id: uuid.UUID) -> list[FrameR
         .order_by(FrameRow.scene_index, FrameRow.shot_number)
     )
     return list(rows.scalars())
+
+
+async def audits_of(
+    session: AsyncSession, project_id: uuid.UUID
+) -> dict[tuple[int, int], list[FrameAuditRow]]:
+    """Every audited attempt of the project's frames, by frame, oldest attempt first: one read
+    over the (project, scene, shot, attempt) key (verify.md §6)."""
+    rows = await session.execute(
+        select(FrameAuditRow)
+        .where(FrameAuditRow.project_id == project_id)
+        .order_by(FrameAuditRow.scene_index, FrameAuditRow.shot_number, FrameAuditRow.attempt)
+    )
+    out: dict[tuple[int, int], list[FrameAuditRow]] = {}
+    for a in rows.scalars():
+        out.setdefault((a.scene_index, a.shot_number), []).append(a)
+    return out

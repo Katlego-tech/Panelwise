@@ -28,7 +28,8 @@ describe("checkFiles (before anything is sent)", () => {
 
 describe("uploadOutcome (by status and error code, never the message)", () => {
   it("202 is accepted", () => {
-    expect(uploadOutcome(202, { project: {}, job: {} })).toEqual({ kind: "accepted" });
+    expect(uploadOutcome(202, { project: { id: "p1" }, job: {} })).toEqual({ kind: "accepted", id: "p1" });
+    expect(uploadOutcome(202, { project: {}, job: {} })).toEqual({ kind: "error", message: UPLOAD_COPY.unavailable });
   });
 
   it("400 not_a_pdf", () => {
