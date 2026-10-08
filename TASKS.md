@@ -339,7 +339,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:eval.md §6 T049 shape: per frame `{frame, shot, label, verdict, failed_checks}`; precision/recall of FAIL against injected labels; false-FAIL rate on correct frames
       Verify:  bash scripts/gate.sh (table recomputed from the committed JSON); the audit run on the real account
       Done:    eval/README.md reports the audit's precision, recall and false-FAIL rate on at least 30 labelled frames from the samples, with the labels committed
-- [ ] T033 [POL] README: setup, how Nemotron and Token Factory are used, feedback section. Lane `eval+submission`.
+- [ ] T033 [POL] **README: what works, how Nemotron and Token Factory are used, measured results, how to run it, feedback.** Lane `eval+submission`.
+      Design:  none (prose, no structure). Facts from docs/nebius-findings.md (U1–U7), eval/README.md (T032), the design docs; wording per RUBRIC.md's honesty line ("a vision model describes each frame; Nemotron audits it against the script")
+      Files:   README.md; docs/project-structure.md (§ Run it, § Status point at the README)
+      Contract:README sections: What works today (built vs waiting, each with its command), How it works (diagram + the grounding rule per stage), How Nemotron and Token Factory are used (tier → model → use → why, with the U-number behind each claim), Measured results (eval/README.md's pooled numbers, dated), Run it (commands that run today), Feedback on Nebius Token Factory and NVIDIA Nemotron (**written by the team**), Repository layout, How we work, License
+      Verify:  every command in § Run it exists (`python -m` targets under services/api); every number matches eval/results/extraction-2026-10-01.json or docs/nebius-findings.md; no claim of rendering, a web UI or a hosted demo before it exists; an independent review of the claims
+      Done:    a judge reading only the README knows what runs today, can run it on a sample, sees where Nemotron and Token Factory carry the load and why, and reads the measured numbers; the feedback section is the team's own words (until then T033 stays open)
 - [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
 - [ ] T035 [POL] gitleaks over history, make the repo public, submit on Devpost by 29 Oct. Lane `eval+submission`.
 - [ ] T055 [POL] **Close the `braces` advisory GHSA-vfj7-8cjw-p6xm.** Accepted in `osv-scanner.toml` on 2026-10-03 (no fixed version; dev-only, via eslint-config-next → fast-glob → micromatch). Lane `infra`.

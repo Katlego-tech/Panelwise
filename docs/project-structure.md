@@ -48,8 +48,10 @@ panelwise/
 
 ## Run it
 
-Not runnable yet. Target: `cp .env.example .env && docker compose up`.
+See [README.md § Run it](../README.md#run-it).
 
 ## Status
 
-Scaffold only: module folders hold a README describing their responsibility and no code yet.
+What is built and what is waiting: [README.md § What works today](../README.md#what-works-today) and
+[STATUS.md](../STATUS.md). Some folders (`infra/`, `packages/shared/`, `app/images/`)
+hold only a README describing their responsibility until their task lands.
