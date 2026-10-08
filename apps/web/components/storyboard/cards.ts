@@ -37,7 +37,7 @@ const CHECKS: Record<string, string> = {
 };
 
 export const checkWords = (check: string) => CHECKS[check] ?? check.replaceAll("_", " ");
-const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+export const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export const cameraText = (shot: ShotView) => `${FRAMING[shot.framing]} · ${MOVEMENT[shot.movement]}`;
 
@@ -63,6 +63,7 @@ export interface CardState {
 }
 
 export const RENDERER_FAILED = "The renderer failed on this frame.";
+export const RESTART_FAILED = "Rendering was interrupted by a restart.";
 
 export function cardState(frame: FrameView | undefined): CardState {
   if (!frame) return { media: { kind: "pending", text: "Not rendered yet", busy: false }, verdict: null, notes: [] };
@@ -79,7 +80,11 @@ export function cardState(frame: FrameView | undefined): CardState {
         notes: [],
       };
     case "failed":
-      return { media: { kind: "failed", why: RENDERER_FAILED }, verdict: { tone: "withheld", label: "Render failed" }, notes: [] };
+      return {
+        media: { kind: "failed", why: frame.failure === "restart" ? RESTART_FAILED : RENDERER_FAILED },
+        verdict: { tone: "withheld", label: "Render failed" },
+        notes: [],
+      };
     case "passed":
     case "warned": {
       // The API sends image_url only for these two (web.md §6); without one there is nothing to show.

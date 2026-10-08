@@ -2,7 +2,7 @@
 // state, the shot id and camera, the verdict, who is in it, and its verbatim source and span.
 
 import Link from "next/link";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 import { SpanRef } from "@/components/shared/SpanRef";
 import { Verdict } from "@/components/shared/Verdict";
@@ -30,8 +30,8 @@ export function PendingMedia({ text, busy }: { text: string; busy: boolean }) {
   );
 }
 
-/** A frame that won't be shown: the source once, its span, and why (web.md §4.3). */
-function TextCard({ shot, why }: { shot: ShotView; why: string }) {
+/** A frame that won't be shown: the source once, its span, why, and (withheld) the retry. */
+function TextCard({ shot, why, action }: { shot: ShotView; why: string; action?: ReactNode }) {
   return (
     <div className={MEDIA_BOX}>
       <div className="flex h-full flex-col gap-1.5 border border-b-0 border-dashed border-withheld bg-paper px-4.5 py-4">
@@ -42,14 +42,15 @@ function TextCard({ shot, why }: { shot: ShotView; why: string }) {
           <SpanRef span={shot.span} />
         </p>
         <p className="mt-auto mb-0 text-[13px] font-bold text-withheld">{why}</p>
+        {action}
       </div>
     </div>
   );
 }
 
-// "Try another render" joins the withheld card in T061, on T021's endpoint (web.md §4.3, staged).
+// The withheld card carries "Try another render" (T061); the failed card says why, by
+// FrameView.failure (cards.ts).
 const WithheldCard = TextCard;
-// T061 adds the restart sweep's wording beside the renderer's (web.md §4.3, staged).
 const RenderFailedCard = TextCard;
 
 export function FrameCard({
@@ -60,6 +61,7 @@ export function FrameCard({
   onHighlight,
   href,
   onOpen,
+  retry,
 }: {
   shot: ShotView;
   k: number;
@@ -70,6 +72,8 @@ export function FrameCard({
   href: string;
   /** Called when the card's link is followed: the sheet then closes by going back. */
   onOpen: (id: string) => void;
+  /** "Try another render", for a withheld frame (null otherwise). */
+  retry: ReactNode;
 }) {
   const { media, verdict, notes } = cardState(frame);
   const textCard = media.kind === "withheld" || media.kind === "failed";
@@ -94,7 +98,7 @@ export function FrameCard({
     >
       {media.kind === "image" && <FrameMedia url={media.url} shot={shot} />}
       {media.kind === "pending" && <PendingMedia text={media.text} busy={media.busy} />}
-      {media.kind === "withheld" && <WithheldCard shot={shot} why={media.why} />}
+      {media.kind === "withheld" && <WithheldCard shot={shot} why={media.why} action={retry} />}
       {media.kind === "failed" && <RenderFailedCard shot={shot} why={media.why} />}
       <header className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3.5 pt-2.5 *:whitespace-nowrap">
         <Link
