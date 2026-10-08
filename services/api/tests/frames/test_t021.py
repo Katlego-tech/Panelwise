@@ -408,3 +408,53 @@ async def test_someone_else_s_or_a_missing_frame_is_404(
     assert post(c, pid, (shot[0], 999)) == (404, {"error": "not_found"})
     assert post(c, pid, ("x", 1)) == (404, {"error": "not_found"})  # type: ignore[arg-type]
     assert post(c, uuid.uuid4(), shot) == (404, {"error": "not_found"})
+    assert post(c, pid, (2**31, 1)) == (404, {"error": "not_found"})  # beyond int4: still 404
+    assert post(c, pid, (shot[0], 2**40)) == (404, {"error": "not_found"})
+
+
+async def test_a_repeated_request_finds_the_frame_already_moving(
+    sessions: async_sessionmaker[AsyncSession], client_for: Any, scripted: list[Verdict]
+) -> None:
+    pid, shot = await withheld(sessions)
+    scripted.append(Verdict.FAIL)
+    c = client_for(renderer=FakeRenderer())
+    assert post(c, pid, shot)[0] == 202
+    assert post(c, pid, shot) == (409, {"error": "not_withheld"})  # one attempt per frame at a time
+    await wait_for_job(sessions, pid)
+    async with sessions() as s:
+        jobs = (await s.scalars(select(JobRow).where(JobRow.kind == JobKind.FRAME_ATTEMPT))).all()
+    assert len(jobs) == 1
+
+
+async def test_a_409_comes_before_any_503(
+    sessions: async_sessionmaker[AsyncSession], client_for: Any
+) -> None:
+    pid, shot = await withheld(sessions)
+    async with sessions() as s, s.begin():
+        frame = await s.get(FrameRow, (pid, *shot))
+        assert frame is not None
+        frame.state = "auditing"
+    assert post(client_for(renderer=None, model=False, store=False), pid, shot) == (
+        409,
+        {"error": "not_withheld"},
+    )
+
+
+async def test_an_audit_that_raises_mid_attempt_still_settles_frame_and_job(
+    sessions: async_sessionmaker[AsyncSession],
+    client_for: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pid, shot = await withheld(sessions)
+
+    async def exploding(*args: Any) -> Audit:
+        raise RuntimeError("the audit fell over")
+
+    monkeypatch.setattr(loop, "audit_frame", exploding)
+    c = client_for(renderer=FakeRenderer())
+    assert post(c, pid, shot)[0] == 202
+    job = await wait_for_job(sessions, pid)
+    assert job.state == JobState.FAILED
+    async with sessions() as s:
+        frame = await s.get(FrameRow, (pid, *shot))
+    assert frame is not None and (frame.state, frame.failure) == ("failed", "render")

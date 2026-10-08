@@ -212,9 +212,13 @@ async def read_frames(
     return views
 
 
+_INT4_MAX = 2**31 - 1  # frames.scene_index and shot_number are int4
+
+
 def _index(text: str) -> int:
-    """A path segment that must be a whole number; anything else names no frame (404)."""
-    if not text.isdecimal():
+    """A path segment that must be a whole number the database's int columns can hold; anything
+    else names no frame (404), never a database error."""
+    if not text.isdecimal() or int(text) > _INT4_MAX:
         raise ApiError(404, "not_found")
     return int(text)
 

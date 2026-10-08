@@ -79,7 +79,11 @@ async def run_attempt(
             log.exception("frame %s could not be marked failed", shot)
         await fail_job(sessions, job_id, RENDER_FAILED, Stage.RENDERING)
         return
-    async with sessions() as session, session.begin():
-        await session.execute(
-            update(JobRow).where(JobRow.id == job_id).values(state=JobState.DONE, progress=100)
-        )
+    try:
+        async with sessions() as session, session.begin():
+            await session.execute(
+                update(JobRow).where(JobRow.id == job_id).values(state=JobState.DONE, progress=100)
+            )
+    except Exception:
+        # The frame has settled; the job stays RUNNING until the next restart sweep fails it.
+        log.exception("job %s: could not record that it finished", job_id)
