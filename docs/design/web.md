@@ -2,8 +2,8 @@
 
 **Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T053, T043, T046, T044, T047 (API: projects
 and upload, the pipeline core, the pipeline as a job, the response schemas and view builders, the
-read endpoints), T040–T042, T045 (the screens), T021 (frame state, the
-audit section of the frame sheet, "Try another render"), T026 (the rendering stage), T027 (the storyboard PDF) ·
+read endpoints), T040–T042, T045 (the screens), T021 (frame state, the audit rows and the retry,
+in the API), T061 (the frame sheet's audit section, "Try another render"), T062 (the architecture check), T026 (the rendering stage), T027 (the storyboard PDF) ·
 **Spec:** US1, and US2's "the audit log is visible in the app" ([SPEC.md](../../SPEC.md))
 
 ---
@@ -640,7 +640,7 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 | `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T047 |
 | `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row (no rows exist until T021 writes them) | T047 (creates and reads `frames`) |
 | `GET /projects/{id}/storyboard.pdf` | — | 200 PDF, built on demand (storyboard.md §6 `layout_document`, `render_pdf`) and stored by content hash · 409 unless the job is `DONE` and every shot is settled | T027 |
-| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state · 503 `{"error": "renderer_unavailable"}` with no renderer configured (every deployment before T026) | T021 |
+| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state · 409 `{"error": "not_ready"}` without a plan or that shot · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
 
 **The pipeline core** (T043; no database: T046 runs it as a job and writes what it reports, T026
 adds the rendering stage):
@@ -782,8 +782,11 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
   first_attempt=n + 1, max_renders=1, log=…, on_state=…)`; then the job `DONE`, progress 100 (a
   single attempt has no progress between: 60 then 100, deliberately). A renderer exception: the
   writer has already made the frame `failed` (`render`); the job → `FAILED` with "The renderer
-  failed on this frame.". Any other exception is logged with its traceback and does the same, the
-  frame `failed` (`render`) through the writer, since step 3 rules out the data cases.
+  failed on this frame.". Any other exception is logged with its traceback and does the same. An
+  exception before the loop starts (building the renderer, loading the columns) has no loop to fail
+  the frame, so the task's outer handler always calls `writer.on_frame(shot, FAILED, n + 1, None)`
+  itself before failing the job (idempotent when the loop already did): no frame is left
+  `rendering` until the next restart.
   **The restart sweep** fails a `frame_attempt` job with the same `RESTARTED` text as any job;
   nothing shows it (`ProjectSummary.job` is the storyboard job), and the frame itself reads
   "Rendering was interrupted by a restart." (`failure` `restart`).

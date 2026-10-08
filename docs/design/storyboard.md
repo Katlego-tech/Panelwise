@@ -458,16 +458,13 @@ sequenceDiagram
     J-->>J: Storyboard (the PDF is built on demand by T027's endpoint, not here)
 ```
 
-- **The log adapter.** verify.md's `render_until_accepted` takes `log: Callable[[Audit],
-  Awaitable[None]]`, unchanged. `build_storyboard` takes the richer `log(audit, frame_asset)` that
-  T021's `frame_audits` writer needs and hands verify a wrapper, `async def _log(a): await log(a,
-  renderer.record(a.shot, a.attempt).asset)`. The renderer records an attempt before returning it,
-  so the lookup can't miss. **That adapter is T021's `frame_hooks(writer, renderer, shot)`**
-  (verify.md §6), shared with "Try another render", so the asset rule is written once.
-- **Frame state for the web.** `build_storyboard` passes verify's `on_state` through as
-  `on_frame(shot, state, attempt, asset)`, with `asset` set only on a `PASSED` or `WARNED` terminal
-  state (the accepted frame's path). The pipeline runner (web.md, T026's wiring) hands it T021's
-  `frames` writer, so every `frames` row is written by exactly one path.
+- **The writer and its hooks** (T021). `build_storyboard` takes T021's `FrameWriter` (verify.md
+  §6) and, for each shot, calls `frame_hooks(writer, renderer, shot)` to get the `(log, on_state)`
+  pair it passes to `render_until_accepted`: `log` writes each attempt's `frame_audits` row with the
+  path `renderer.record(shot, attempt).asset` (the renderer records an attempt before returning it,
+  so the lookup can't miss), and `on_state` writes the shot's `frames` row, with the asset only on a
+  `PASSED` or `WARNED` terminal state. "Try another render" uses the same `frame_hooks`, so every
+  `frames` row is written by one path and the asset rule is stated once.
 - **Seeds** are verify.md's `seed_for(shot, attempt)`; the renderer never picks one. FrameFlow's
   random regenerate seed is gone: an attempt is reproducible, and "another attempt" is the next
   attempt number.
@@ -609,9 +606,7 @@ class StoryboardError(RuntimeError): ...
 def frame_of(outcome: FrameOutcome, record: RenderRecord | None) -> StoryboardFrame: ...   # pure, §3.3; record = the last attempt's
 async def build_storyboard(model: NebiusChatModel, renderer: ComfyRenderer, plan: ShotPlan,
                            screenplay: Screenplay, extraction: Extraction, *,
-                           log: Callable[[Audit, str], Awaitable[None]],      # (audit, frame_asset) → the frame_audits row; §4's adapter
-                           on_frame: Callable[[tuple[int, int], FrameState, int, str | None], Awaitable[None]] | None = None,
-                           #   (shot, state, attempt, asset) on every verify.md §5 transition; asset only on PASSED/WARNED → the `frames` row (web.md §3)
+                           writer: FrameWriter,                                # T021's; frame_hooks(writer, renderer, shot) per shot (§4)
                            progress: Callable[[int, int], Awaitable[None]] | None = None,   # (settled, total) after each terminal frame
                            width: int = 1280, height: int = 720, concurrency: int = 2,
                            max_renders: int = 3) -> Storyboard: ...

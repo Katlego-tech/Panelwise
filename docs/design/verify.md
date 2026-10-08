@@ -263,7 +263,8 @@ async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot
 
 # The renderer the frame writers need: a Renderer that remembers where it stored each attempt (T021).
 class SupportsAsset(Protocol):
-    asset: str                                    # the attempt's Storage path, frames/<…>.png
+    @property
+    def asset(self) -> str: ...                   # the attempt's Storage path, frames/<…>.png (read-only: a frozen dataclass fits)
 class RecordingRenderer(Renderer, Protocol):
     def record(self, shot: tuple[int, int], attempt: int) -> SupportsAsset: ...
     # recorded before render() returns, so a lookup after it never misses; storyboard.md §6's
@@ -328,7 +329,8 @@ async def run_check(sessions, store: AssetStore, model: NebiusChatModel, project
 ```
 
 - **It never touches the project it is given.** It copies that project's screenplay, extraction and
-  plan into a **new project** of the same owner titled "{title} (architecture check)", with one
+  plan, and its `owner` and `pdf_path` (the same Storage object: nothing is re-uploaded), into a **new
+  project** titled "{title} (architecture check)", with one
   `storyboard` job `DONE` (so the list shows it planned), and works only there. Its frames, a sketch
   that passes included, belong to that copy; delete the copy to discard them. A sketch the audit
   passes is a test artefact, not evidence of grounding: it shows the path an accepted frame takes.
