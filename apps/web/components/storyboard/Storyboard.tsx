@@ -3,7 +3,7 @@
 // The board of a planned project (web.md §4.3): the lined script beside the frames, linked both
 // ways, kept live while the job runs or a frame is still rendering or auditing.
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { JobStrip } from "@/components/shared/JobStrip";
@@ -11,10 +11,13 @@ import type { FrameView, LinesView, Project, ProjectSummary, ShotView } from "@/
 
 import { isLive, mergeFrames, stageKey } from "./board";
 import { FrameBoard } from "./FrameBoard";
+import { FrameSheet } from "./FrameSheet";
 import { scriptPages } from "./lined";
 import { LinedScript } from "./LinedScript";
 
 const POLL_MS = 2000;
+
+const cardLink = (id: string) => document.querySelector<HTMLElement>(`[data-card-link="${CSS.escape(id)}"]`);
 
 export function Storyboard({
   project,
@@ -28,6 +31,9 @@ export function Storyboard({
   frames: FrameView[];
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  // `?shot=` is the sheet's only state (web.md §4.4): an id that names no shot opens nothing.
+  const open = useSearchParams().get("shot");
   // The poll reads the router through a ref, so a new router object never restarts it mid-flight.
   const routerRef = useRef(router);
   useEffect(() => {
@@ -94,13 +100,31 @@ export function Storyboard({
     };
   }, [live, project.id]);
 
-  // A shot line was clicked: its card scrolls into view and takes focus (which highlights it).
+  // A shot line was clicked: its card scrolls into view and its link takes focus (which
+  // highlights it).
   const pick = useCallback((id: string) => {
     const card = document.getElementById(`shot-${id}`);
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     card?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
-    card?.focus({ preventScroll: true });
+    cardLink(id)?.focus({ preventScroll: true });
   }, []);
+
+  const hrefFor = useCallback((id: string) => `${pathname}?shot=${encodeURIComponent(id)}`, [pathname]);
+  const k = shots.findIndex((s) => s.id === open);
+  const sheetShot = k >= 0 ? shots[k] : null;
+  // Opened from a card, the sheet closes by going back (no duplicate page in the history);
+  // opened from a loaded or followed ?shot= link, by replacing the URL (web.md §4.4, Closing).
+  // The id of the last card push, not a one-shot flag, so Back and Forward over that history entry
+  // still close it with back(); a reload forgets it.
+  const pushed = useRef<string | null>(null);
+  const close = useCallback(() => {
+    if (open !== null && open === pushed.current) router.back();
+    else router.replace(pathname, { scroll: false });
+  }, [router, pathname, open]);
+  // A loaded ?shot= brings its card into view behind the sheet, so closing lands on it.
+  useEffect(() => {
+    if (open && open !== pushed.current) document.getElementById(`shot-${open}`)?.scrollIntoView({ block: "center" });
+  }, [open]);
 
   return (
     <>
@@ -113,8 +137,21 @@ export function Storyboard({
           frames={frames}
           highlight={highlight}
           onHighlight={setHighlight}
+          hrefFor={hrefFor}
+          onOpen={(id) => (pushed.current = id)}
         />
       </main>
+      {sheetShot && (
+        <FrameSheet
+          key={sheetShot.id}
+          shot={sheetShot}
+          k={k}
+          frame={frames.find((f) => f.shot_id === sheetShot.id)}
+          scene={project.scene_list?.find((s) => s.index === sheetShot.scene_index)}
+          onClose={close}
+          onCloseFocus={() => cardLink(sheetShot.id)?.focus()}
+        />
+      )}
     </>
   );
 }

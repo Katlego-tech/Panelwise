@@ -1,6 +1,9 @@
 // One shot's card on the board (web.md §4.3; storyboard.css `.card`): its frame or the frame's
 // state, the shot id and camera, the verdict, who is in it, and its verbatim source and span.
 
+import Link from "next/link";
+import type { Dispatch, SetStateAction } from "react";
+
 import { SpanRef } from "@/components/shared/SpanRef";
 import { Verdict } from "@/components/shared/Verdict";
 import type { FrameView, ShotView } from "@/lib/api/types";
@@ -11,7 +14,7 @@ import { FrameMedia, MEDIA_BOX, SourceText } from "./FrameMedia";
 import { lineColour } from "./lined";
 
 /** No image yet: the hatched panel, with the pencil dots while a render or audit runs. */
-function PendingMedia({ text, busy }: { text: string; busy: boolean }) {
+export function PendingMedia({ text, busy }: { text: string; busy: boolean }) {
   return (
     <div className={MEDIA_BOX}>
       <div className="grid h-full place-content-center justify-items-center gap-2.5 bg-[repeating-linear-gradient(135deg,#f1f3f1_0_10px,#e9ecea_10px_20px)] text-sm text-ink-2">
@@ -55,30 +58,38 @@ export function FrameCard({
   frame,
   on,
   onHighlight,
+  href,
+  onOpen,
 }: {
   shot: ShotView;
   k: number;
   frame: FrameView | undefined;
   on: boolean;
-  onHighlight: (id: string | null) => void;
+  onHighlight: Dispatch<SetStateAction<string | null>>;
+  /** The page with `?shot={id}`: the link that opens this card's frame sheet. */
+  href: string;
+  /** Called when the card's link is followed: the sheet then closes by going back. */
+  onOpen: (id: string) => void;
 }) {
   const { media, verdict, notes } = cardState(frame);
   const textCard = media.kind === "withheld" || media.kind === "failed";
   return (
-    // Focused by its shot line, never tabbed to or clicked: T045's sheet makes it a button
-    // (web.md §4.3, staged).
+    // The shot id is the card's one link, stretched over all of it, so a click anywhere opens the
+    // sheet (web.md §4.4). Anything clickable added inside a card must be `relative z-10`.
     <article
       id={`shot-${shot.id}`}
-      tabIndex={-1}
       data-state={frame?.state ?? "none"}
       onMouseEnter={() => onHighlight(shot.id)}
       onMouseLeave={(event) => {
-        // A focused card stays highlighted: only its blur lets go.
-        if (document.activeElement !== event.currentTarget) onHighlight(null);
+        // A card with focus inside it (its link) stays highlighted: only its blur lets go.
+        // ...and a card only lets go of its own highlight, handing it to the card with focus, if any.
+        if (event.currentTarget.contains(document.activeElement)) return;
+        const focused = document.activeElement?.closest<HTMLElement>("article[id^='shot-']")?.id.slice(5) ?? null;
+        onHighlight((current) => (current === shot.id ? focused : current));
       }}
       onFocus={() => onHighlight(shot.id)}
-      onBlur={() => onHighlight(null)}
-      className={cn("scroll-mt-4 border-t-4 bg-paper shadow-page", on && "outline-2 outline-offset-[3px] outline-pencil")}
+      onBlur={() => onHighlight((current) => (current === shot.id ? null : current))}
+      className={cn("relative scroll-mt-4 border-t-4 bg-paper shadow-page", on && "outline-2 outline-offset-[3px] outline-pencil")}
       style={{ borderTopColor: lineColour(k) }}
     >
       {media.kind === "image" && <FrameMedia url={media.url} shot={shot} />}
@@ -86,7 +97,16 @@ export function FrameCard({
       {media.kind === "withheld" && <WithheldCard shot={shot} why={media.why} />}
       {media.kind === "failed" && <RenderFailedCard shot={shot} why={media.why} />}
       <header className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3.5 pt-2.5 *:whitespace-nowrap">
-        <span className="font-display text-xl leading-none font-extrabold">{shot.id}</span>
+        <Link
+          href={href}
+          scroll={false}
+          aria-label={`Open shot ${shot.id}`}
+          data-card-link={shot.id}
+          onClick={() => onOpen(shot.id)}
+          className="font-display text-xl leading-none font-extrabold text-ink no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-[3px] focus-visible:after:outline-pencil"
+        >
+          {shot.id}
+        </Link>
         <span className="text-[13px] text-ink-2">{cameraText(shot)}</span>
         {verdict && (
           <span className="ml-auto">

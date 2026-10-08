@@ -87,7 +87,7 @@ export const shots: ShotView[] = [
     segments: [
       { line_start: 27, line_end: 27, cue: "THABO", extension: null, on_screen: true },
       { line_start: 29, line_end: 29, cue: "THABO", extension: null, on_screen: true },
-      { line_start: 33, line_end: 33, cue: "THABO", extension: null, on_screen: true },
+      { line_start: 33, line_end: 33, cue: "THABO", extension: "CONT'D", on_screen: true },
     ],
   }),
   shot({ id: "3.1", scene_index: 2, number: 1, span: span(2, 37), source: "Silence." }),

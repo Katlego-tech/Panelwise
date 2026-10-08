@@ -6,7 +6,11 @@ import type { FrameView, ProjectSummary } from "@/lib/api/types";
 
 const push = vi.fn();
 const refresh = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, refresh, replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => "/projects/p1/storyboard",
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 import { ExportButton } from "./ExportButton";
 import { frame, job, keeper, lines, shots } from "./fixtures";
@@ -128,9 +132,13 @@ describe("the board (web.md §4.3; storyboard.png)", () => {
     expect(card("2.2").querySelectorAll("br")).toHaveLength(2);
   });
 
-  it("cards are focusable by their shot line, not tabbed to (web.md §4.3, staged until T045)", () => {
+  it("each card is one tab stop: its shot id, a link that opens its sheet (web.md §4.4)", () => {
     render(<StoryboardPage project={keeper()} board={board()} />);
-    expect(card("1.1")).toHaveAttribute("tabindex", "-1");
+    expect(card("1.1")).not.toHaveAttribute("tabindex");
+    const links = within(card("1.1")).getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAccessibleName("Open shot 1.1");
+    expect(links[0]).toHaveAttribute("href", "/projects/p1/storyboard?shot=1.1");
     expect(within(card("1.1")).queryByRole("button")).toBeNull();
   });
 });
@@ -169,18 +177,29 @@ describe("the lined script (web.md §4.3)", () => {
 
   it("a focused card keeps its highlight when the pointer leaves it", () => {
     render(<StoryboardPage project={keeper()} board={board()} />);
-    act(() => card("1.4").focus());
+    const link = screen.getByRole("link", { name: "Open shot 1.4" });
+    act(() => link.focus());
     fireEvent.mouseLeave(card("1.4"));
     expect(document.querySelector('[data-line="17"]')).toHaveClass("bg-pencil-soft");
-    act(() => card("1.4").blur());
+    act(() => link.blur());
     expect(document.querySelector('[data-line="17"]')).not.toHaveClass("bg-pencil-soft");
   });
 
-  it("clicking a shot line focuses its card, which highlights it", () => {
+  it("leaving one card hands the highlight back to the card with focus", () => {
+    render(<StoryboardPage project={keeper()} board={board()} />);
+    act(() => screen.getByRole("link", { name: "Open shot 2.1" }).focus());
+    fireEvent.mouseEnter(card("1.4"));
+    expect(document.querySelector('[data-line="17"]')).toHaveClass("bg-pencil-soft");
+    fireEvent.mouseLeave(card("1.4"));
+    expect(document.querySelector('[data-line="17"]')).not.toHaveClass("bg-pencil-soft");
+    expect(document.querySelector('[data-line="24"]')).toHaveClass("bg-pencil-soft");
+  });
+
+  it("clicking a shot line focuses its card's link, which highlights it", () => {
     Element.prototype.scrollIntoView = vi.fn();
     render(<StoryboardPage project={keeper()} board={board()} />);
     fireEvent.click(screen.getByRole("link", { name: "Shot 2.1, p.1 l.24" }));
-    expect(card("2.1")).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Open shot 2.1" })).toHaveFocus();
     expect(card("2.1").scrollIntoView).toHaveBeenCalled();
     expect(document.querySelector('[data-line="24"]')).toHaveClass("bg-pencil-soft");
   });
