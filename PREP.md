@@ -23,7 +23,7 @@ times are already in `event.toml [time]` with their source; `./hack kickoff` is 
 
 - [x] Boilerplate scaffolded and CI running the gate: the Cultivation kit, then T002's pinned stack;
       `.github/workflows/ci.yml` runs `scripts/gate.sh` (10 checks across 2 projects).
-- [ ] A deploy pipeline producing a live URL: the hosted demo on Vercel (web) + Railway (API) + Supabase (docs/design/deploy.md), up until 15 Dec. Accounts and wiring T037 (steps in docs/deploy.md); the judge-ready demo T030.
+- [ ] A deploy pipeline producing a live URL: the hosted demo on Vercel (web) + Render (API) + Supabase (docs/design/deploy.md), up until 15 Dec. Accounts and wiring T037 (steps in docs/deploy.md); the judge-ready demo T030.
 - [x] `event.toml [checks]` points at real commands (`bash scripts/gate.sh`, which runs every check
       itself), and the gate passes. `[checks] smoke` is set by T009.
 - [x] Keys in `.env` (never committed), names in `.env.example` (T001 settled every `NEBIUS_*` value).

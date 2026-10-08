@@ -1,0 +1,29 @@
+# The API on Render (docs/design/deploy.md §6). Secrets are entered once, in Render's
+# dashboard, when the Blueprint is first applied; never here.
+services:
+  - type: web
+    name: panelwise-api
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    rootDir: services/api
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    preDeployCommand: /srv/api/.venv/bin/alembic -c /srv/api/alembic.ini upgrade head
+    autoDeployTrigger: checksPass
+    numInstances: 1
+    buildFilter:
+      paths:
+        - services/api/**
+      ignoredPaths:
+        - services/api/tests/**
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: NEBIUS_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
