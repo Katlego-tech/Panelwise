@@ -463,7 +463,7 @@ state (§4.1), drawn in storyboard-states.png.
   the frame sheet (§4.4) and sets `?shot=1.4`, so a frame can be linked to.
   **Staged, until T045 builds the sheet:** a card is an `<article id="shot-{id}" tabindex="-1">`,
   focused by its shot line but not in the tab order and not clickable, since nothing would open;
-  **T045** makes it a button that opens the sheet and handles `?shot=`.
+  **T045** makes its shot id the stretched link that opens the sheet (§4.4) and handles `?shot=`.
 - **Card states** follow `FrameView.state` (verify.md §5). The frame image is shown **only** for
   `passed` and `warned` (§6: the API sends `image_url` for nothing else):
 
@@ -522,6 +522,35 @@ A right-hand sheet over the board (Radix Dialog, focus trapped, Esc and × close
    each person was called); the failed checks with their details, then "{k} other checks passed"
    (or "All 7 checks passed"); finally "Described by {vision model} · judged by {judge model}".
    Before T021 lands this section is absent, not empty. (T045 builds steps 1–4.)
+
+**T045's rules for steps 1–4** (storyboard-frame.png, storyboard.css `.sheet`):
+
+- **Opening and the URL:** `?shot={id}` is the sheet's only state. Each card's shot id is a link
+  to `?shot={id}` (`scroll={false}`) stretched over the whole card (`after:absolute after:inset-0`;
+  a `<button>` can't hold the card's blocks), named "Open shot {id}", so a card is one tab stop and
+  a click anywhere on it opens the sheet. Loading or following a `?shot=` link opens it too; an id
+  that names no shot opens nothing. Closing (×, Esc, the scrim) replaces the URL with the page's
+  own (`router.replace`, `scroll: false`) and returns focus to that card's link. Radix Dialog
+  (`@radix-ui/react-dialog`, new dependency) traps focus and labels the dialog by its header; the
+  sheet is `min(520px, 100vw)` wide, full height, scrolling on its own.
+- **Header:** the shot id (display face, 28 px), then "{Framing} · {Movement} · {time_of_day}" (the
+  card's camera words, then the time verbatim, left out when null), then the card's verdict (none
+  for a shot with no `frames` row), then × ("Close").
+- **Media:** a passed or warned frame's image; with no row, rendering or auditing, the card's
+  hatched panel and text. A withheld or failed frame shows the dashed panel with its reason only:
+  the source follows in "From the script", so it still appears once.
+- **From the script:** the eyebrow, then one block with a 3 px left rule in the shot's colour
+  holding each part of `ShotView.source` in order (Courier, 15 px); a dialogue part is preceded
+  by its speaker as a small Courier label, "{cue} ({extension})" or "{cue}" (`segments[i].cue`
+  and `segments[i].extension`; parts and segments are one per covered element, in order). The
+  text is the API's verbatim part, wrapped by the sheet, not the PDF's line breaks. Then "Page
+  {p}, lines {a}–{b}" ("line {a}" for one line) " · scene {n}, {heading}" from `span` and the
+  scene's `SceneView`.
+- **In frame:** the eyebrow, then a chip per character (bold) with its position in words (`left`,
+  `centre`, `right`) from the **accepted audit** (the last of `audits` whose verdict is `pass` or
+  `warn`) when it has one, then a chip per prop (regular weight, no position); "No one in frame"
+  when there are neither. Then `rationale`. Before T021, `audits` is `[]`, so chips carry no
+  position: the real state.
 
 ## 5. State
 
@@ -793,7 +822,8 @@ interface ShotView {
   // one per covered element, in order ([] for a heading-only establishing shot); on_screen is
   // false for dialogue whose speaker (match_speaker against the extraction's characters) is not
   // in `characters`, a cue that matches no character included; true for action
-  segments: { line_start: number; line_end: number; cue: string | null; on_screen: boolean }[];
+  segments: { line_start: number; line_end: number; cue: string | null; extension: string | null; on_screen: boolean }[];
+  // extension (T045): the dialogue cue's bracket without its parentheses ("O.S.", "V.O."), null for action or none
 }
 
 type FrameStateView = "rendering" | "auditing" | "passed" | "warned" | "withheld" | "failed";
