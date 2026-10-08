@@ -537,7 +537,10 @@ A right-hand sheet over the board (Radix Dialog, focus trapped, Esc and × close
   link, and the highlight follows focus by a bubbling `onFocus`/`onBlur` on the article.
 - **Closing:** ×, Esc and the scrim close it. A sheet opened from a card (an in-app push) closes with
   `router.back()`, so the history holds no duplicate page; one opened from a loaded or followed
-  `?shot=` link closes with `router.replace({page})` (`scroll: false`). Either way the URL ends as
+  `?shot=` link closes with `router.replace({page})` (`scroll: false`). "Opened from a card" is
+  the id of the last card push this page made, not a one-shot flag, so the browser's Back and
+  Forward over that entry still close it with `back()`; a reload forgets it, and is then a loaded
+  link. Either way the URL ends as
   the page's own, and `Dialog.Content`'s `onCloseAutoFocus` calls `preventDefault()` and focuses
   that card's link (there is no `Dialog.Trigger`: the URL drives the sheet). On a loaded `?shot=`
   the card is also scrolled into view behind the sheet, so closing lands on it. An id that names
