@@ -462,7 +462,8 @@ sequenceDiagram
   Awaitable[None]]`, unchanged. `build_storyboard` takes the richer `log(audit, frame_asset)` that
   T021's `frame_audits` writer needs and hands verify a wrapper, `async def _log(a): await log(a,
   renderer.record(a.shot, a.attempt).asset)`. The renderer records an attempt before returning it,
-  so the lookup can't miss.
+  so the lookup can't miss. **That adapter is T021's `frame_hooks(writer, renderer, shot)`**
+  (verify.md §6), shared with "Try another render", so the asset rule is written once.
 - **Frame state for the web.** `build_storyboard` passes verify's `on_state` through as
   `on_frame(shot, state, attempt, asset)`, with `asset` set only on a `PASSED` or `WARNED` terminal
   state (the accepted frame's path). The pipeline runner (web.md, T026's wiring) hands it T021's

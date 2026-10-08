@@ -2,7 +2,7 @@
 
 // The frame sheet (web.md §4.4, steps 1–4; storyboard-frame.png): a right-hand sheet over the
 // board with the frame, the words it came from and who is in it. Radix Dialog traps focus and
-// closes on Esc, ×, or the scrim. The audit (step 5) is T021's: absent until then, not empty.
+// closes on Esc, ×, or the scrim. The audit (step 5) is T061's: absent until then, not empty.
 
 import * as Dialog from "@radix-ui/react-dialog";
 
