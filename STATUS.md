@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-07 — by Tumo (via Claude)_
+_Last updated: 2026-10-08 — by Tumo (via Claude)_
 
 ---
 
@@ -39,21 +39,60 @@ _Last updated: 2026-10-07 — by Tumo (via Claude)_
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
-| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Tumo | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ✅ T040 sign-in, projects, upload (PR #64) · ✅ T041 script page (PR #66; design commits from #65, T042 Files fix here) · ✅ compose gives web the publishable pair (PR #67) · ✅ T042 storyboard (PR #69 design, PR #70 code) · ✅ T045 frame sheet (PR #74 design, PR #75 code) |
-| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code) · 🔵 T061 web (PR #78) · ⬜ T062 the architecture check (no image model) |
+| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Tumo | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ✅ T040 sign-in, projects, upload (PR #64) · ✅ T041 script page (PR #66; design commits from #65, T042 Files fix here) · ✅ compose gives web the publishable pair (PR #67) · ✅ T042 storyboard (PR #69 design, PR #70 code) · ✅ T045 frame sheet (PR #74 design, PR #75 code) · ✅ T061 audit log + "Try another render" (PR #78) |
+| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · 🟡 T062 the architecture check (Tumo, Claude) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
 | `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · 🔴 T049 audit accuracy blocked on T026 |
 
 ## ⏭️ Next action
 
-Remaining work waits on things the team owns — GPU access, hosting accounts, a renderer decision — or on a team decision (below the list), except what "Buildable now" names:
+### 👋 For Katlego (from Tumo, 2026-10-08)
 
-1. **Supabase project — done 2026-10-02.** The US1 API on it is merged (T009, T053, T046, T047); the gate runs the database tests on its own Postgres 17.11 (option A). What it still unblocks: T040–T045 (the web screens) → T021 (re-render loop).
-2. **GPU access for T003 (Katlego).** Needed by T026 (ComfyUI renderer, Storage, the RENDERING stage), which also needs T021 (after T045); then T027 (storyboard PDF), the comic on real renders, and T025 (portraits).
-3. **Vercel + Railway accounts (Katlego)** for T037's deploy check, then T030 (hosted demo).
+**What Tumo and Claude are on right now — please leave these alone so we don't collide:**
 
-Buildable now, no external dependency: none in `web` (T040–T042, T045 merged; T021 needs the verify lane's loop, T024 the comic reader); the API they call (T009, T053, T046, T047) is merged. The interim renderer (FLUX.1 [schnell] on Cloudflare Workers AI) waits on Katlego's Cloudflare account and a plan change. Late-stage tasks wait on the above: T034 (video, needs a working demo), T035 (go public, submit), T036 (final placeholder sweep; the gate already sweeps every push). Waiting on the team, no code: T033's feedback section (PR #36) and the two wording calls in ⚠️ below. T049 (audit accuracy) waits on T026.
+| Task | What | Where | State |
+|---|---|---|---|
+| T061 | Web: the audit log in the frame sheet, "Try another render", the failed-frame wordings | PR #78, `apps/web/components/storyboard/*` | ✅ merged 2026-10-08 |
+| T062 | The architecture check: the real audit loop on drawn sketches in a throwaway copy of a project, no image model | branch `feat/verify-t062`, `services/api/app/frames/check.py` | 🟡 code written, tests next; the live run waits on Tumo's go-ahead (a few audit calls) |
+
+Claimed files: `apps/web/**`, `services/api/app/frames/**`, `services/api/app/verify/loop.py`. Everything else is open.
+
+**Done since your handoff (2026-10-03), all merged:** the web app end to end on the local stack —
+sign-in, projects + upload (T040), the script page (T041), the storyboard with the lined script
+(T042), the frame sheet (T045) — and the API side of the re-render loop (T021: `render_until_accepted`
+with `first_attempt`, `frame_audits`, `FrameWriter` + `frame_hooks`, the frame sweep, "Try another
+render" which answers 503 until a renderer exists). Also T060 (Next.js 16.3.8, six advisories) and a
+compose fix so the local web container signs in (#67). Tumo has paused **image-model spend**: no
+renderer has been picked yet.
+
+**What you could take, in order of what it unblocks (none overlaps ours):**
+
+1. **Decide the renderer, then T003/T026.** Token Factory still serves no image model (re-checked
+   2026-10-08: 25 models, all text or vision; `flux-schnell`, `flux-dev`, `sdxl` 404). Options: ComfyUI
+   on a Nebius GPU (T003, the plan) or the interim FLUX.1 [schnell] on Cloudflare Workers AI
+   (docs/HANDOFF.md §8, ~$0.0005/frame). Agree it with Tumo first (spend is paused). When you build
+   T026, the seams are ready: implement verify.md §6's `RecordingRenderer` (`record(shot,
+   attempt).asset`), set `app.state.renderer_factory` in `create_app` (a fresh renderer per attempt
+   for a project's screenplay + extraction), and give `build_storyboard` the `FrameWriter` and
+   `frame_hooks` (storyboard.md §4, §6). That one change turns on rendering, the audit, re-renders,
+   "Try another render" and the frames on the board. T027 (PDF), T025 (portraits) and T049 (audit
+   accuracy) follow it.
+2. **Vercel + Railway accounts → T037's deploy check, then T030 (hosted demo).** docs/deploy.md has
+   the steps; the code side is merged. Note PR #67's compose change (the web container now gets the
+   publishable Supabase pair) if you touch `docker-compose.yml`.
+3. **T033's README feedback section (PR #36)** — it must be the team's own words, so it's yours or
+   Tumo's to write, not an AI's.
+4. **The two wording calls in ⚠️ below**, and T055 (the `braces` advisory still has no fix; its
+   exemption expires 2026-10-31).
+
+T024 (the comic reader) stays with the web lane (Tumo + Claude) after T062; it needs frames to show.
+
+### The rest
+
+Remaining work waits on things the team owns — GPU access or a renderer decision, hosting accounts —
+or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 (go public, submit by
+29 Oct), T036 (final placeholder sweep; the gate already sweeps every push).
 
 ## 🗓️ Timeline to 2026-10-30 10:00 PDT (19:00 SAST)
 
@@ -210,4 +249,5 @@ Buildable now, no external dependency: none in `web` (T040–T042, T045 merged; 
 - 2026-10-08 — Tumo (via Claude) — T045: design #74 (fallback review: 10 gaps in one round, then approve; a clause after the code review), code #75 (review: changes requested, small → fixed: the last pushed shot decides back vs replace, a card only clears its own highlight, every close route tested). Live on the dev server: the-red-kite's 2.4 sheet with RADIO ANNOUNCER and MOKGOSI labels. Both merged on Tumo's go-ahead. 264 web tests. Next: no buildable web task; T021 (verify lane: re-render loop, frames rows) or T024 (comic reader). Blocked on: T003 (GPU) for real frames.
 - 2026-10-08 — Tumo (via Claude) — No image-model spend for now (Tumo): Token Factory still serves no image model (25 models, all text or vision; flux-schnell, flux-dev, sdxl 404 on /images/generations today), and the Cloudflare FLUX option waits. T021 claimed and split: T021 the API (loop with `first_attempt`, `frame_audits`, `FrameWriter`, the frame sweep, the retry endpoint, 503 with no renderer), T061 the web (audit log, the retry button, failed wordings), T062 an architecture check that runs the real audit loop on drawn sketches, no image model. Design PR adds `frames.failure` (migration 0003, with its schema field, since §6's types are tested against the API). T040–T045 ticked. Next: review, then T021. Blocked on: nothing.
 - 2026-10-08 — Tumo (via Claude) — T021 design #76: fallback review, two rounds → approve (frame_hooks as the one adapter, a renderer factory per attempt, the check on a throwaway copy, RecordingRenderer, frame_audits typed, the retry's runtime). T021 code on `feat/verify-t021`: `render_until_accepted` (first_attempt, log before the next state, audit error withholds at once), `frame_audits` (0004), `FrameWriter` + `frame_hooks`, the frame sweep, `audit_view` and the audits read, `POST …/attempts` (locked, 409/503 before any write, a task that always settles the frame and its job), the summary's storyboard-job filter. 751 API tests (21 new), gate 10 checks. No renderer exists yet, so the endpoint answers 503 in every deployment until T026; the loop runs only in tests and T062's check. Next: code review; T061 (web) and T062 (the check). Blocked on: nothing.
-- 2026-10-08 — Tumo (via Claude) — #76 and #77 (T021) merged on Tumo's go-ahead; code review: a scene/shot number past int4 was a 500 → 404, the finishing write guarded, tests for a repeated retry, 409 before 503, an audit raising mid-attempt. T061 code on `feat/web-t061`: the audit log in the sheet (attempts oldest first, Seen/Judged/checks/models in words), "Try another render" on withheld cards and the sheet (202 replaces the frame and the board goes live; 503/409/401/other copy), both failed wordings by `FrameView.failure`, the attempts route. 287 web tests. The audit log's visual check waits for T062's run (real audits). Next: review; T062. Blocked on: nothing.
+- 2026-10-08 — Tumo (via Claude) — STATUS rewritten for Katlego to pick up work alongside us: "Next action" now says what Tumo and Claude are on (T061 #78, T062 `feat/verify-t062`; claimed `apps/web/**`, `services/api/app/frames/**`, `app/verify/loop.py`), what is done since the 2026-10-03 handoff, and four things Katlego could take that don't overlap: the renderer decision then T003/T026 (with the T021 seams named), the deploy accounts (T037, T030), T033's feedback section, the ⚠️ wording calls and T055. Image-model spend paused by Tumo.
+- 2026-10-08 — Tumo (via Claude) — T061 (PR #78): the audit log in the sheet (attempts oldest first, Seen/Judged/checks/models in words), "Try another render" on withheld cards and the sheet (202 replaces the frame and the board goes live; 503/409/401 copy; an unreadable 202 refetches), both failed wordings by `FrameView.failure`, the attempts route. Fallback review: approve; its notes taken (text cards grow rather than clip the button, singular check wording, more tests). 292 web tests. Merged on Tumo's go-ahead. Its visual check waits for T062's run. Next: T062. Blocked on: nothing.
