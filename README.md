@@ -7,9 +7,9 @@ traces back to a verbatim span of the script. NVIDIA Nemotron on Nebius Token Fa
 characters, props and locations and plans the shots. Code then checks every quote the model gives
 against the script, and anything it can't find is dropped. Each frame is rendered, a vision model
 describes it, and Nemotron audits that description against the shot. A frame that shows something
-the script doesn't is re-rendered, and after the last try it is withheld, never shown. (The audit
-and the withheld card are built and tested. Rendering waits on GPU access, and the re-render loop
-on the web app's frame sheet that shows its attempts.)
+the script doesn't is re-rendered, and after the last try it is withheld, never shown. (The audit,
+the re-render loop, its audit log and the withheld card are built and tested. Rendering itself waits
+on a renderer: Token Factory serves no image model, and GPU access for ComfyUI isn't set up yet.)
 
 Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/)
 (Best Apps and Agents track). Panelwise builds on FrameFlow, an earlier private project by the same
@@ -25,11 +25,12 @@ team: [CHANGES-FROM-FRAMEFLOW.md](CHANGES-FROM-FRAMEFLOW.md) says what was porte
 | Frame prompts from the shot's own script words, names redacted | built | `app.storyboard.prompts` |
 | Frame audit: a vision model describes, Nemotron judges, code runs the checks | built, run on real frames | `app.verify.run` |
 | Comic layout and lettering: panels sized by shot, dialogue lettered verbatim | built, on test-fixture frames | `tools.build_comic_reference` |
-| Rendering frames (ComfyUI on a Nebius AI Cloud GPU), the storyboard PDF | waiting on GPU access | — |
+| Rendering frames (ComfyUI on a Nebius AI Cloud GPU), the storyboard PDF | waiting on a renderer (GPU access, or an interim one) | — |
 | The API behind the web app: sign-in check, upload, a job that runs parse → extract → plan, read endpoints for the project, its lines, shots and frames | built, run live on Supabase | `/api/v1/projects` (needs a Supabase sign-in) |
-| The re-render loop and its audit log (every attempt kept and shown) | designed; the `frames` table it writes to is built; waits on the frame sheet (T045) | — |
+| The re-render loop: render, describe, audit, re-render on a mismatch, withhold after the last try; every attempt and its audit kept | built and tested (T021); runs as soon as a renderer is plugged in, and "Try another render" answers *unavailable* until then | the API's tests |
 | Web app: sign-in, the projects list with upload and each job's live state, the script page (scenes, every entity with its quotes and their page/line spans, faithfulness and recall) | built, run live on Supabase (T040, T041) | `docker compose up --build --wait`, then `localhost:3000` ([§ Run it](#run-it)) |
-| Web screens still to build: the storyboard board, the frame sheet, the comic reader; the hosted demo | designed; the storyboard is next (T042, T045, T024); the demo waits on hosting accounts | — |
+| Web app: the storyboard (the script with a line over each shot's span, beside a board of frame cards that update live), and the frame sheet for a shot (its source lines, who is in it, and the audit log of every attempt with "Try another render") | built, run live on Supabase (T042, T045, T061); the cards say *Not rendered yet* until rendering lands | a project's *Storyboard* tab |
+| Still to build: the comic reader; the hosted demo | designed (T024); the demo waits on the Render and Vercel accounts (T037, T030) | — |
 
 [STATUS.md](STATUS.md) is the live board. The order of what's left is in its *Next action* section.
 
@@ -42,7 +43,7 @@ flowchart LR
   G --> F{Every quote<br/>found in the script?}
   F -- no --> X[Dropped, reported]
   F -- yes --> S[Shot planning<br/>Nemotron 3.5 Lightning]
-  S --> R[Render frame<br/>ComfyUI on a Nebius GPU<br/><i>waiting on GPU access</i>]
+  S --> R[Render frame<br/>ComfyUI on a Nebius GPU<br/><i>waiting on a renderer</i>]
   R --> D[Describe frame<br/>vision model]
   D --> V{Audit<br/>Nemotron 3 Super judges}
   V -- mismatch --> R
@@ -163,7 +164,8 @@ The local stack (Postgres, the API and the web app on pinned versions) runs with
 checks, `GET :8000/api/v1/health` and `GET :3000/api/health`. With one (`SUPABASE_URL`,
 `SUPABASE_SECRET_KEY`, a private Storage bucket named in `SUPABASE_STORAGE_BUCKET`, and the
 `NEXT_PUBLIC_SUPABASE_*` pair), open `localhost:3000`, sign in, upload a sample PDF and watch its
-job read, extract and plan; then open its script page. The app has a sign-in page only: sign-up is
+job read, extract and plan; then open its script page and its storyboard, and click a card for its
+frame sheet. The app has a sign-in page only: sign-up is
 off, so users are created in the Supabase dashboard (Authentication > Users).
 
 ## Feedback on Nebius Token Factory and NVIDIA Nemotron
@@ -176,7 +178,7 @@ off, so users are created in the Supabase dashboard (Authentication > Users).
 | --- | --- |
 | `services/api/app/` | the FastAPI service: `llm`, `script`, `grounding`, `shots`, `storyboard`, `verify`, `comic`, `characters`, `projects`, `jobs`, `frames`, `storage`, `api` (with Alembic migrations) |
 | `services/api/tools/` | `build_samples`, `build_comic_reference`, `evaluate` |
-| `apps/web/` | the Next.js app: sign-in, the projects page with upload, the script page |
+| `apps/web/` | the Next.js app: sign-in, the projects page with upload, the script page, the storyboard and its frame sheet |
 | `samples/` | self-written screenplays (Fountain source and PDF) |
 | `eval/` | measured results and how they were produced |
 | `styles/` | public storyboard styles (`clean`, `ink`, `pencil`) |
