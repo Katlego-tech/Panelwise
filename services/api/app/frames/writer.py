@@ -1,11 +1,13 @@
 """The two hooks that write a frame's progress (verify.md §6 `FrameWriter`; T021).
 
-`log` keeps every audited attempt in `frame_audits`; `on_frame` moves the shot's `frames` row through
-verify.md §5. Each write is its own short transaction, so a frame's state is visible to the web while
-its job still runs. The only path that writes a `frames` row's state, besides the restart sweep.
+`log` keeps every audited attempt in `frame_audits`; `on_frame` moves the shot's `frames` row
+through verify.md §5. Each write is its own short transaction, so a frame's state is visible to the
+web while its job still runs. The only path that writes a `frames` row's state, besides the restart
+sweep.
 """
 
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from sqlalchemy import select
@@ -13,7 +15,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.frames.model import ACCEPTED, FrameAuditRow, FrameRow
-from app.verify.model import Audit, Check, FrameState, Severity, Verdict
+from app.verify.model import Audit, Check, FrameState, RecordingRenderer, Severity, Verdict
 
 _CHECK_ORDER = {check.value: i for i, check in enumerate(Check)}
 
@@ -59,7 +61,12 @@ class FrameWriter:
                     description=_jsonable(audit.description),
                     judgement=_jsonable(audit.judgement),
                     checks=[
-                        {"check": c.check.value, "severity": c.severity.value, "ok": c.ok, "detail": c.detail}
+                        {
+                            "check": c.check.value,
+                            "severity": c.severity.value,
+                            "ok": c.ok,
+                            "detail": c.detail,
+                        }
                         for c in audit.checks
                     ],
                     positions={name: p.value for name, p in audit.positions.items()},
@@ -98,9 +105,33 @@ class FrameWriter:
                 "withheld_check": reason,
                 "failure": "render" if state is FrameState.FAILED else None,
             }
+            key = {
+                "project_id": self.project_id,
+                "scene_index": scene_index,
+                "shot_number": shot_number,
+            }
             await session.execute(
                 insert(FrameRow)
-                .values(project_id=self.project_id, scene_index=scene_index, shot_number=shot_number, **values)
-                .on_conflict_do_update(index_elements=["project_id", "scene_index", "shot_number"], set_=values)
+                .values(**key, **values)
+                .on_conflict_do_update(index_elements=list(key), set_=values)
             )
             await session.commit()
+
+
+def frame_hooks(
+    writer: FrameWriter, renderer: RecordingRenderer, shot: tuple[int, int]
+) -> tuple[Callable[[Audit], Awaitable[None]], Callable[[FrameState, int], Awaitable[None]]]:
+    """`(log, on_state)` for `render_until_accepted` (verify.md §6): each audit is logged with its
+    attempt's Storage path, and only an accepted state passes the image on to the `frames` row. The
+    one adapter, shared by the retry and T026's `build_storyboard`."""
+
+    async def log(audit: Audit) -> None:
+        await writer.log(audit, renderer.record(shot, audit.attempt).asset)
+
+    async def on_state(state: FrameState, attempt: int) -> None:
+        accepted = state in (FrameState.PASSED, FrameState.WARNED)
+        await writer.on_frame(
+            shot, state, attempt, renderer.record(shot, attempt).asset if accepted else None
+        )
+
+    return log, on_state

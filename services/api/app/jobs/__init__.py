@@ -3,4 +3,11 @@
 from app.jobs.model import RESTARTED, JobKind, JobRow, JobState
 from app.jobs.repo import fail_interrupted, fail_interrupted_frames
 
-__all__ = ["RESTARTED", "JobKind", "JobRow", "JobState", "fail_interrupted", "fail_interrupted_frames"]
+__all__ = [
+    "RESTARTED",
+    "JobKind",
+    "JobRow",
+    "JobState",
+    "fail_interrupted",
+    "fail_interrupted_frames",
+]

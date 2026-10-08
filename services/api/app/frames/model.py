@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index, func
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -54,9 +54,14 @@ class FrameAuditRow(Base):
 
     __tablename__ = "frame_audits"
     __table_args__ = (
-        CheckConstraint("verdict IN ('pass', 'warn', 'fail', 'error')", name="frame_audits_verdict"),
+        CheckConstraint(
+            "verdict IN ('pass', 'warn', 'fail', 'error')", name="frame_audits_verdict"
+        ),
         CheckConstraint("attempt >= 1", name="frame_audits_attempt"),
-        Index("frame_audits_frame", "project_id", "scene_index", "shot_number", "attempt"),
+        # one row per attempt of a frame; also the index a frame's attempts are read by
+        UniqueConstraint(
+            "project_id", "scene_index", "shot_number", "attempt", name="frame_audits_frame"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

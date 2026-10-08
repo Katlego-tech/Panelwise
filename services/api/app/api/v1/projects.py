@@ -9,17 +9,20 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.errors import ApiError
 from app.api.v1.schemas import FrameView, LinesView, Project, ProjectSummary, ShotView
 from app.core.auth import Caller, current_caller
-from app.frames import ACCEPTED, frame_view, frames_of
+from app.frames import ACCEPTED, FrameRow, audits_of, frame_view, frames_of
+from app.frames.attempt import run_attempt
+from app.jobs import JobKind, JobRow, JobState
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.job import fail_job, run_job
 from app.projects.model import ProjectRow
-from app.projects.pipeline import UNEXPECTED
+from app.projects.pipeline import UNEXPECTED, Stage
 from app.projects.repo import create_upload, get_project, list_summaries, summary
 from app.projects.views import entity_views, lines_view, report_view, scene_views, shot_views
 from app.storage import AssetStore, StorageError
@@ -187,6 +190,7 @@ async def read_frames(
     row, _ = await _owned(request, caller, project_id)
     async with request.app.state.sessions() as session:
         frames = await frames_of(session, row.id)
+        audits = await audits_of(session, row.id) if frames else {}
     if not frames:
         return []
     if row.screenplay is None:  # frames are written from a plan, which needs a screenplay
@@ -203,5 +207,82 @@ async def read_frames(
                 url = await store.signed_url(frame.asset, _SIGNED_URL_S)
             except StorageError as exc:
                 raise ApiError(503, "storage_unavailable") from exc
-        views.append(frame_view(frame, screenplay, url))
+        attempts = audits.get((frame.scene_index, frame.shot_number), [])
+        views.append(frame_view(frame, screenplay, url, attempts))
     return views
+
+
+def _index(text: str) -> int:
+    """A path segment that must be a whole number; anything else names no frame (404)."""
+    if not text.isdecimal():
+        raise ApiError(404, "not_found")
+    return int(text)
+
+
+@router.post("/projects/{project_id}/frames/{scene_index}/{number}/attempts", status_code=202)
+async def try_another_render(
+    request: Request,
+    project_id: str,
+    scene_index: str,
+    number: str,
+    caller: Annotated[Caller, Depends(current_caller)],
+) -> FrameView:
+    """One more audited attempt on a withheld frame, in web.md §6's order: who; the frame,
+    locked from its read to the commit (one attempt per frame at a time); its state (409); what
+    the attempt needs (503, nothing written); then the job and the row together, and the work in
+    the background."""
+    project, _ = await _owned(request, caller, project_id)
+    shot = (_index(scene_index), _index(number))
+    state = request.app.state
+    async with state.sessions() as session, session.begin():
+        frame = await session.scalar(
+            select(FrameRow)
+            .where(
+                FrameRow.project_id == project.id,
+                FrameRow.scene_index == shot[0],
+                FrameRow.shot_number == shot[1],
+            )
+            .with_for_update()
+        )
+        if frame is None:
+            raise ApiError(404, "not_found")
+        if frame.state != "withheld":
+            raise ApiError(409, "not_withheld")
+        if (
+            project.screenplay is None
+            or project.plan is None
+            or not any((s.scene_index, s.number) == shot for s in load_plan(project.plan).shots)
+        ):
+            raise ApiError(409, "not_ready")
+        if state.renderer_factory is None or state.model is None:
+            raise ApiError(503, "renderer_unavailable")
+        if state.store is None:
+            raise ApiError(503, "storage_unavailable")
+        job = JobRow(
+            id=uuid.uuid4(),
+            project_id=project.id,
+            kind=JobKind.FRAME_ATTEMPT,
+            state=JobState.RUNNING,
+            stage=Stage.RENDERING,
+            progress=60,
+        )
+        session.add(job)
+        await session.flush()
+        frame.state, frame.attempt, frame.job_id = "rendering", frame.attempt + 1, job.id
+        frame.withheld_check = None
+        attempt = frame.attempt
+        view = frame_view(frame, load_screenplay(project.screenplay), None)
+    task = asyncio.create_task(
+        run_attempt(
+            job.id,
+            project.id,
+            shot,
+            attempt,
+            sessions=state.sessions,
+            model=state.model,
+            factory=state.renderer_factory,
+        )
+    )
+    state.tasks.add(task)
+    task.add_done_callback(state.tasks.discard)
+    return view

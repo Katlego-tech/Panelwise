@@ -54,11 +54,12 @@ async def test_the_list_is_the_owners_newest_first_with_the_latest_job(
         first = await upload(s, me, "First")
         await upload(s, someone, "Theirs")
         second = await upload(s, me, "Second")
-        # A later job on the first project is the one its summary shows.
+        # A later storyboard job on the first project is the one its summary shows (a
+        # frame_attempt never is: tests/frames/test_t021.py).
         later = JobRow(
             id=uuid.uuid4(),
             project_id=first,
-            kind=JobKind.FRAME_ATTEMPT,
+            kind=JobKind.STORYBOARD,
             state=JobState.RUNNING,
             progress=70,
         )

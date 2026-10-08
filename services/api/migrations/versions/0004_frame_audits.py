@@ -54,15 +54,12 @@ def upgrade() -> None:
             "verdict IN ('pass', 'warn', 'fail', 'error')", name="frame_audits_verdict"
         ),
         sa.CheckConstraint("attempt >= 1", name="frame_audits_attempt"),
-    )
-    op.create_index(
-        "frame_audits_frame",
-        "frame_audits",
-        ["project_id", "scene_index", "shot_number", "attempt"],
+        sa.UniqueConstraint(
+            "project_id", "scene_index", "shot_number", "attempt", name="frame_audits_frame"
+        ),
     )
     lock_down("frame_audits")
 
 
 def downgrade() -> None:
-    op.drop_index("frame_audits_frame", table_name="frame_audits")
     op.drop_table("frame_audits")

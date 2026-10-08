@@ -137,7 +137,7 @@ async def test_every_public_table_has_row_level_security(
             )
         )
         tables = dict(rows.all())
-    assert set(tables) == {"projects", "jobs", "frames", "alembic_version"}
+    assert set(tables) == {"projects", "jobs", "frames", "frame_audits", "alembic_version"}
     assert all(tables.values()), tables
 
 
