@@ -2,8 +2,8 @@
 
 **Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T053, T043, T046, T044, T047 (API: projects
 and upload, the pipeline core, the pipeline as a job, the response schemas and view builders, the
-read endpoints), T040–T042, T045 (the screens), T021 (frame state, the
-audit section of the frame sheet, "Try another render"), T026 (the rendering stage), T027 (the storyboard PDF) ·
+read endpoints), T040–T042, T045 (the screens), T021 (frame state, the audit rows and the retry,
+in the API), T061 (the frame sheet's audit section, "Try another render"), T062 (the architecture check), T026 (the rendering stage), T027 (the storyboard PDF) ·
 **Spec:** US1, and US2's "the audit log is visible in the app" ([SPEC.md](../../SPEC.md))
 
 ---
@@ -111,6 +111,7 @@ classDiagram
         +uuid job_id
         +str|None asset
         +str|None withheld_check
+        +str|None failure
         +datetime updated_at
     }
     Project "1" --> "*" Job
@@ -411,7 +412,7 @@ A 401 goes to `/sign-in`; a failed poll is retried on the next tick.
 |---|---|
 | `shots` null, job `queued` or `running` (queued, reading, planning) | the bar, the job strip, nothing else (§5: the storyboard waits for the plan) |
 | `shots` set, job `running` (rendering, T026) | the job strip, then the board |
-| job `done` | the board; the job strip only while `frames.active` > 0 (a "Try another render", T021) |
+| job `done` | the board; the job strip only while `frames.active` > 0 (a "Try another render", T021/T061) |
 | job `failed` | the eyebrow "Storyboard", the title, then the script page's failed card (§4.2: `components/script/FailedCard.tsx`, imported, not copied) |
 
 A project the API answers 404 for renders `app/not-found.tsx` and an unreachable API or a 503 the
@@ -483,18 +484,24 @@ state (§4.1), drawn in storyboard-states.png.
   span sits next to shot ids like `1.4`.
   `warned`'s extra lines come from the last audit's failed soft checks, "{Check in words, sentence
   case}: {detail}" (§6's check names), and `{check}` in the withheld card is `withheld_check` in
-  words. **Staged, until T021:** the withheld card has no "Try another render" button (T021 adds
-  it with the action, per its Files); no frame can be withheld before T021 writes `frames` rows.
-  Likewise every `failed` card in T042 reads "The renderer failed on this frame.": nothing in
-  `FrameView` or the `frames` table tells a renderer failure from the restart sweep's, so **T021**,
-  which writes both, adds what tells them apart (a `frames` column and its `FrameView` field, in
-  its own design change) and the second wording with it.
+  words. **Staged, until T061:** the withheld card has no "Try another render" button (T061 adds
+  it, on T021's endpoint); no frame can be withheld before T021 writes `frames` rows.
+  A `failed` card reads by `FrameView.failure` (T021's field, T061's wording): `render` (or null) "The renderer failed on
+  this frame.", `restart` "Rendering was interrupted by a restart."
+  **"Try another render"** (T061, on T021's endpoint) is a quiet button in the withheld card, `relative z-10` above the
+  card's stretched link (§4.4). It POSTs `/api/projects/[id]/frames/[scene]/[number]/attempts`
+  (`scene` the shot's `scene_index`, `number` its number); while sending it reads "Starting…",
+  disabled. A 202's `FrameView` replaces that frame on the board at once (now `rendering`, attempt
+  n + 1 of n + 1), and the board goes live (`frames.active` > 0 on the next status). A 503
+  `renderer_unavailable` → under the button, "Rendering isn't available right now."; a 409 → the
+  board refetches `…/frames` (the frame moved on); a 401 → `/sign-in`; anything else → "That
+  didn't start. Try again in a minute." The same button sits in the sheet's withheld panel.
 
 - **Job strip** under the bar while polling (above): T041's `JobStrip`, unchanged (§4.2).
 - **Export PDF** (bar, right): disabled with the tooltip "Available when every frame has settled"
   until the storyboard job is `DONE` and every shot has a settled `frames` row, with no frame
   `rendering` or `auditing`; then it downloads T027's PDF, built on demand. (A job that failed on a
-  renderer error leaves shots with no row, so Export stays disabled.)
+  renderer error leaves its frame `failed` and later shots with no row, so Export stays disabled.)
   **Staged, until T027 builds the PDF:** `ExportButton` (T042) is always disabled, with the tooltip
   "The PDF export isn't built yet"; T027 adds `GET /api/projects/[id]/storyboard.pdf` and the rule
   above. (No frame settles before T021 and T026, so the rule couldn't enable it yet anyway.)
@@ -517,11 +524,27 @@ A right-hand sheet over the board (Radix Dialog, focus trapped, Esc and × close
    lines {a}–{b} · scene {n}, {heading}".
 4. **In frame:** each shot character as a chip with its position from the accepted audit
    (`positions`), then props; then the planner's one-sentence rationale.
-5. **Audit · {n} attempts** (T021): one block per attempt, newest last: attempt number, verdict,
+5. **Audit · {n} attempts** (T061, from T021's rows): one block per attempt, newest last: attempt number, verdict,
    seed; "Seen" (the describer's people, setting, light and shot size, in words); "Judged" (who
    each person was called); the failed checks with their details, then "{k} other checks passed"
    (or "All 7 checks passed"); finally "Described by {vision model} · judged by {judge model}".
-   Before T021 lands this section is absent, not empty. (T045 builds steps 1–4.)
+   Before T061 lands this section is absent, not empty. (T045 builds steps 1–4.)
+   **T061's rules for step 5** (storyboard-frame.png, `.attempts`): shown only when `audits` is not
+   empty; the eyebrow "Audit · {n} attempts" ("1 attempt"). Each attempt, oldest first (newest
+   last): "Attempt {n}", its verdict (`pass` "Passed" pass tone, `warn` "Passed with a warning",
+   `fail` "Failed" withheld tone, `error` "Audit error" withheld tone), "seed {seed}" right; a left
+   edge `--pass` for pass/warn, `--withheld` otherwise. **Seen:** the people ("No one", "One
+   person: left, {appearance}", "Two people: left, …; right, …", number words to ten, then
+   digits), then "{Setting}, {light}, {shot size}." (`interior` "Interior", `exterior` "Exterior",
+   `unclear` "Setting unclear"; `day`, `night`, "dawn or dusk", "light unclear"; `wide`,
+   `medium`, `close`, "extreme close", "size unclear"); an `error` audit with no description reads
+   "The audit couldn't run." and has no Judged line. **Judged:** "person {i} is {character}" or
+   "person {i} is no one in the shot", joined " · " (omitted with no people). **Checks:** each
+   failed check, ✕, "{Check in words, sentence case}" bold then its detail; then "{k} other checks
+   passed", or "All {n} checks passed" when none failed. **Models:** "Described by {models[0]} ·
+   judged by {models[1]}" by §4.2's display names (an unknown id shows the part after its last
+   "/"). Built by `AuditLog` → `AttemptItem` → `CheckList` from `AuditView` rows (§6), which the
+   API builds from the frame's `frame_audits` rows (all its jobs, by attempt).
 
 **T045's rules for steps 1–4** (storyboard-frame.png, storyboard.css `.sheet`):
 
@@ -530,7 +553,7 @@ A right-hand sheet over the board (Radix Dialog, focus trapped, Esc and × close
   (`after:absolute after:inset-0`; a `<button>` can't hold the card's blocks), named "Open shot
   {id}" (the visible "1.4" inside it, WCAG 2.5.3), so a card is one tab stop and a click anywhere
   opens the sheet. Its focus ring is the card's (`focus-visible:after:outline`, the `.card.sel`
-  outline), not the small id's. Anything interactive later placed inside a card (T021's "Try
+  outline), not the small id's. Anything interactive later placed inside a card (T061's "Try
   another render") is `relative z-10`, above the link's overlay. The overlay means a card's source
   text can't be selected there: accepted, since the sheet shows the same text, selectable. The
   card's `<article>` is `relative` and keeps no `tabindex`; a shot-line click focuses the card's
@@ -617,7 +640,7 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 | `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T047 |
 | `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row (no rows exist until T021 writes them) | T047 (creates and reads `frames`) |
 | `GET /projects/{id}/storyboard.pdf` | — | 200 PDF, built on demand (storyboard.md §6 `layout_document`, `render_pdf`) and stored by content hash · 409 unless the job is `DONE` and every shot is settled | T027 |
-| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 409 in any other state | T021 |
+| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state · 409 `{"error": "not_ready"}` without a plan or that shot · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
 
 **The pipeline core** (T043; no database: T046 runs it as a job and writes what it reports, T026
 adds the rendering stage):
@@ -733,6 +756,42 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
 - **The startup sweep** (§4.1): the API's lifespan calls `fail_interrupted` in its own transaction
   before serving. If the database is unreachable then, it logs and starts anyway (the health check
   reports it), and the next start sweeps.
+  **T021 adds the frame half** in the same transaction: `fail_interrupted_frames(session)`, every
+  `frames` row in `rendering` or `auditing` → `failed` with `failure` `restart` (verify.md §5's
+  sweep edges); `asset` stays null.
+- **"Try another render", in order** (T021, `POST …/frames/{scene_index}/{number}/attempts`). One
+  transaction from step 2 to step 5, the frame row locked (`SELECT … FOR UPDATE`) from its read to
+  the commit, so one attempt per frame at a time:
+  (1) `current_caller` (401/503 as every route).
+  (2) The project by owner and its `frames` row for `(scene_index, number)`, locked: missing or
+  someone else's → 404 `not_found`.
+  (3) The row not `withheld` → 409 `not_withheld`; the project without a plan, or the plan without
+  that shot → 409 `not_ready` (a data bug, never sent on to the task).
+  (4) Anything the attempt needs missing → 503, nothing written: `app.state.renderer_factory` or
+  `app.state.model` None → `renderer_unavailable`; `app.state.store` None → `storage_unavailable`.
+  `app.state.renderer_factory` is a `Callable[[Screenplay, Extraction], RecordingRenderer] | None`
+  (verify.md §6's `RecordingRenderer`): a **fresh renderer per attempt**, built for that project's
+  screenplay and extraction (a renderer's `record` is keyed by shot and attempt, so one shared
+  instance would mix projects), in the **default style** (projects store no style yet; T026 may add
+  a column and pass it). It is None until T026 sets it in the lifespan.
+  (5) A `frame_attempt` job `RUNNING` at stage `rendering`, progress 60; the row → `rendering`,
+  attempt n + 1, that job, `withheld_check` null; commit; 202 with the row's `FrameView`.
+  (6) An asyncio task in `app.state.tasks` (as the upload's job, §4.1), with its own sessions from
+  `app.state.sessions`: build the renderer, a `FrameWriter(sessions, project_id, job_id)` and
+  `frame_hooks(writer, renderer, shot)` (verify.md §6), then `render_until_accepted(...,
+  first_attempt=n + 1, max_renders=1, log=…, on_state=…)`; then the job `DONE`, progress 100 (a
+  single attempt has no progress between: 60 then 100, deliberately). A renderer exception: the
+  writer has already made the frame `failed` (`render`); the job → `FAILED` with "The renderer
+  failed on this frame.". Any other exception is logged with its traceback and does the same. An
+  exception before the loop starts (building the renderer, loading the columns) has no loop to fail
+  the frame, so the task's outer handler always calls `writer.on_frame(shot, FAILED, n + 1, None)`
+  itself before failing the job (idempotent when the loop already did): no frame is left
+  `rendering` until the next restart.
+  **The restart sweep** fails a `frame_attempt` job with the same `RESTARTED` text as any job;
+  nothing shows it (`ProjectSummary.job` is the storyboard job), and the frame itself reads
+  "Rendering was interrupted by a restart." (`failure` `restart`).
+- **`FrameView.audits`** (T021): `audit_view(row)` (`app/frames/views.py`, pure) for each of the
+  frame's `frame_audits` rows, by attempt; `GET …/frames` reads them in one query for the project.
 - **`POST /projects`, in order** (T053). The route takes `request: Request` and no `UploadFile`
   or `Form` parameter, because FastAPI reads a body parameter before any dependency runs, which
   would spool an unlimited upload before the caller is checked: (1) `current_caller` (401/503), and
@@ -774,7 +833,7 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
   (primary key the three), `state text` (`rendering`, `auditing`, `passed`, `warned`, `withheld`,
   `failed`: verify.md §5's `FrameState`, CHECK), `attempt int ≥ 1`, `job_id uuid references
   jobs(id) on delete cascade`, `asset text null` (CHECK: null unless `passed` or `warned`: a
-  withheld frame's file is never referenced), `withheld_check text null`, `updated_at timestamptz
+  withheld frame's file is never referenced), `withheld_check text null`, `failure text null` (T021, migration `0003`: `render` or `restart`, CHECK null unless `failed`), `updated_at timestamptz
   default clock_timestamp()`. T047 creates and reads it; T021 writes it. **`withheld_check`** is
   T021's to derive, since `on_frame`/`on_state` carry no check name: on the transition to
   `withheld` the writer reads the last `frame_audits` row of that frame (written by `log` before
@@ -868,6 +927,7 @@ interface FrameView {
   shot_id: string; state: FrameStateView; attempt: number; max_renders: number;
   image_url: string | null;              // a Supabase Storage signed URL; non-null ONLY when passed or warned
   withheld_check: string | null;         // the first failed hard check, when withheld (or "audit_error")
+  failure: "render" | "restart" | null;  // T021: why a failed frame failed (the renderer, or the restart sweep); null unless failed
   audits: AuditView[];                   // [] until T021
 }
 ```
@@ -919,7 +979,7 @@ StoryboardPage
 ├── LinedScript → ScriptSheet (per page) → ScriptLine*, ShotLine* ; Legend
 ├── FailedCard (T041's, from components/script/, for a failed job)
 ├── FrameBoard → SceneHeader, FrameCard (FrameMedia | PendingMedia | WithheldCard | RenderFailedCard)   [T042]
-└── FrameSheet → FrameMedia, SourceBlock, InFrame   [T045], AuditLog → AttemptItem → CheckList   [T021]
+└── FrameSheet → FrameMedia, SourceBlock, InFrame   [T045], AuditLog → AttemptItem → CheckList   [T061]
 shared (components/shared/): Verdict, SpanRef, Quote (Courier), Meter (T040); JobStrip (T041)
 ```
 
@@ -936,7 +996,9 @@ shared (components/shared/): Verdict, SpanRef, Quote (Courier), Meter (T040); Jo
 | Script states (live, failed, not found, unavailable, staged) | §4.2, verbatim |
 | Faithfulness | "{g} of {p} things the model named are in the script. {l} of {q} quotes found on the page." |
 | Recall | "{f} of {c} speaking characters found by the model. A speaker it misses is still added from their dialogue cues." |
-| Withheld | "Frame withheld: failed audit ({check in words})" · button "Try another render" |
+| Withheld | "Frame withheld: failed audit ({check in words})" · button "Try another render" ("Starting…") · "Rendering isn't available right now." · "That didn't start. Try again in a minute." |
+| Failed frame (T061) | "The renderer failed on this frame." · "Rendering was interrupted by a restart." |
+| Audit log (T061) | §4.4 step 5's rules, verbatim |
 | Export tooltip | "Available when every frame has settled" (T027) · staged until then: "The PDF export isn't built yet" |
 | Storyboard cards, states, eyebrows | §4.3, verbatim: "Not rendered yet", "Rendering attempt {n} of {max}", "Auditing attempt {n} of {max}", "Render failed", "The renderer failed on this frame.", "Lined script", "speaker on screen", "speaker off screen", "Storyboard" (the failed page's eyebrow) |
 
@@ -972,7 +1034,7 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `apps/web/app/projects/[id]/script/`, `components/script/*`, `components/shared/JobStrip.tsx`, `apps/web/app/api/projects/[id]/status/route.ts`, `apps/web/app/not-found.tsx` | new | §4.2 | T041 |
 | `apps/web/app/projects/[id]/storyboard/`, `components/storyboard/LinedScript.tsx` (ScriptSheet, ScriptLine, ShotLine, Legend inside), `FrameBoard.tsx` (SceneHeader inside), `FrameCard.tsx` (PendingMedia, WithheldCard, RenderFailedCard inside), `FrameMedia.tsx` (T045 imports it), `apps/web/app/api/projects/[id]/frames/route.ts` | new | §4.3 | T042 |
 | `components/storyboard/{FrameSheet,SourceBlock,InFrame}*` | new | §4.4 steps 1–4 | T045 |
-| `components/storyboard/AuditLog.tsx` (AttemptItem, CheckList inside), the "Try another render" action (an edit to T042's `FrameCard.tsx`), `apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts` | new | §4.4 step 5; §4.3 retry | T021 |
+| `components/storyboard/AuditLog.tsx` (AttemptItem, CheckList inside), the "Try another render" action (an edit to T042's `FrameCard.tsx`), `apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts` | new | §4.4 step 5; §4.3 retry | T061 (the API side: T021) |
 | `components/storyboard/ExportButton.tsx` | new | §4.3 export, staged (always disabled until T027) | T042 |
 | `apps/web/app/api/projects/[id]/storyboard.pdf/route.ts`, `ExportButton.tsx`'s enable rule | new | §4.3 export | T027 |
 

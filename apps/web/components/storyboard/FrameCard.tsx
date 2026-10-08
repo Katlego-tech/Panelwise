@@ -47,9 +47,9 @@ function TextCard({ shot, why }: { shot: ShotView; why: string }) {
   );
 }
 
-// "Try another render" joins the withheld card with its action in T021 (web.md §4.3, staged).
+// "Try another render" joins the withheld card in T061, on T021's endpoint (web.md §4.3, staged).
 const WithheldCard = TextCard;
-// T021 adds the restart sweep's wording beside the renderer's (web.md §4.3, staged).
+// T061 adds the restart sweep's wording beside the renderer's (web.md §4.3, staged).
 const RenderFailedCard = TextCard;
 
 export function FrameCard({

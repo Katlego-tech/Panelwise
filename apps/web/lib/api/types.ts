@@ -129,5 +129,6 @@ export interface FrameView {
   max_renders: number;
   image_url: string | null; // a Supabase Storage signed URL; non-null ONLY when passed or warned
   withheld_check: string | null; // the first failed hard check, when withheld (or "audit_error")
+  failure: "render" | "restart" | null; // T021: why a failed frame failed (the renderer, or the restart sweep); null unless failed
   audits: AuditView[]; // [] until T021
 }

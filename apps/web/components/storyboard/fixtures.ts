@@ -127,6 +127,7 @@ export const frame = (over: Partial<FrameView> & Pick<FrameView, "shot_id" | "st
   max_renders: 3,
   image_url: null,
   withheld_check: null,
+  failure: null,
   audits: [],
   ...over,
 });

@@ -23,6 +23,11 @@ class FrameRow(Base):
         CheckConstraint("attempt >= 1", name="frames_attempt"),
         # A withheld frame's file is never referenced (web.md §3).
         CheckConstraint("asset IS NULL OR state IN ('passed', 'warned')", name="frames_asset"),
+        # Why a failed frame failed (T021): the renderer or the restart sweep; only failed has one.
+        CheckConstraint(
+            "failure IS NULL OR (state = 'failed' AND failure IN ('render', 'restart'))",
+            name="frames_failure",
+        ),
     )
 
     project_id: Mapped[uuid.UUID] = mapped_column(
@@ -35,6 +40,7 @@ class FrameRow(Base):
     job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
     asset: Mapped[str | None] = mapped_column(default=None)
     withheld_check: Mapped[str | None] = mapped_column(default=None)
+    failure: Mapped[str | None] = mapped_column(default=None)
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.clock_timestamp(), onupdate=func.clock_timestamp()
     )
