@@ -526,31 +526,50 @@ A right-hand sheet over the board (Radix Dialog, focus trapped, Esc and × close
 **T045's rules for steps 1–4** (storyboard-frame.png, storyboard.css `.sheet`):
 
 - **Opening and the URL:** `?shot={id}` is the sheet's only state. Each card's shot id is a link
-  to `?shot={id}` (`scroll={false}`) stretched over the whole card (`after:absolute after:inset-0`;
-  a `<button>` can't hold the card's blocks), named "Open shot {id}", so a card is one tab stop and
-  a click anywhere on it opens the sheet. Loading or following a `?shot=` link opens it too; an id
-  that names no shot opens nothing. Closing (×, Esc, the scrim) replaces the URL with the page's
-  own (`router.replace`, `scroll: false`) and returns focus to that card's link. Radix Dialog
-  (`@radix-ui/react-dialog`, new dependency) traps focus and labels the dialog by its header; the
-  sheet is `min(520px, 100vw)` wide, full height, scrolling on its own.
+  to `{page}?shot={id}` (`scroll={false}`, a push) stretched over the whole card
+  (`after:absolute after:inset-0`; a `<button>` can't hold the card's blocks), named "Open shot
+  {id}" (the visible "1.4" inside it, WCAG 2.5.3), so a card is one tab stop and a click anywhere
+  opens the sheet. Its focus ring is the card's (`focus-visible:after:outline`, the `.card.sel`
+  outline), not the small id's. Anything interactive later placed inside a card (T021's "Try
+  another render") is `relative z-10`, above the link's overlay. The overlay means a card's source
+  text can't be selected there: accepted, since the sheet shows the same text, selectable. The
+  card's `<article>` is `relative` and keeps no `tabindex`; a shot-line click focuses the card's
+  link, and the highlight follows focus by a bubbling `onFocus`/`onBlur` on the article.
+- **Closing:** ×, Esc and the scrim close it. A sheet opened from a card (an in-app push) closes with
+  `router.back()`, so the history holds no duplicate page; one opened from a loaded or followed
+  `?shot=` link closes with `router.replace({page})` (`scroll: false`). Either way the URL ends as
+  the page's own, and `Dialog.Content`'s `onCloseAutoFocus` calls `preventDefault()` and focuses
+  that card's link (there is no `Dialog.Trigger`: the URL drives the sheet). On a loaded `?shot=`
+  the card is also scrolled into view behind the sheet, so closing lands on it. An id that names
+  no shot opens nothing and is left in the URL as it is (harmless, and the page is unchanged).
+- **The dialog:** Radix Dialog (`@radix-ui/react-dialog`, new dependency) traps focus; its
+  `Dialog.Title` is the header's shot id with a visually hidden "Shot " before it, so the dialog
+  is named "Shot 1.4"; no description (`aria-describedby={undefined}`). The sheet is
+  `min(520px, 100vw)` wide, full height, scrolling on its own. It reads the board's current
+  `frames` by shot id, not a snapshot, so a frame that moves while it is open (auditing → passed,
+  a re-signed URL) updates in place; a row that disappears shows the no-row panel.
 - **Header:** the shot id (display face, 28 px), then "{Framing} · {Movement} · {time_of_day}" (the
   card's camera words, then the time verbatim, left out when null), then the card's verdict (none
-  for a shot with no `frames` row), then × ("Close").
+  for a shot with no `frames` row), then × ("Close"), which is pushed right itself (`margin-left:
+  auto` when there is no verdict to do it).
 - **Media:** a passed or warned frame's image; with no row, rendering or auditing, the card's
   hatched panel and text. A withheld or failed frame shows the dashed panel with its reason only:
   the source follows in "From the script", so it still appears once.
-- **From the script:** the eyebrow, then one block with a 3 px left rule in the shot's colour
-  holding each part of `ShotView.source` in order (Courier, 15 px); a dialogue part is preceded
-  by its speaker as a small Courier label, "{cue} ({extension})" or "{cue}" (`segments[i].cue`
-  and `segments[i].extension`; parts and segments are one per covered element, in order). The
-  text is the API's verbatim part, wrapped by the sheet, not the PDF's line breaks. Then "Page
-  {p}, lines {a}–{b}" ("line {a}" for one line) " · scene {n}, {heading}" from `span` and the
-  scene's `SceneView`.
-- **In frame:** the eyebrow, then a chip per character (bold) with its position in words (`left`,
-  `centre`, `right`) from the **accepted audit** (the last of `audits` whose verdict is `pass` or
-  `warn`) when it has one, then a chip per prop (regular weight, no position); "No one in frame"
-  when there are neither. Then `rationale`. Before T021, `audits` is `[]`, so chips carry no
-  position: the real state.
+- **From the script:** the eyebrow, then each part of `ShotView.source` in order, each a block with
+  a 3 px left rule in the shot's colour (Courier, 15 px, **no quotation marks**: the rule marks it
+  as the script's). Part *i* pairs with `segments[i]` (one per covered element, in order). A
+  dialogue part's speaker sits **above its rule**, outside it, as a small Courier label, "{cue}
+  ({extension})" or "{cue}", and only when it differs from the previous part's label (2.2:
+  "THABO" over "It's gone." and "All of it.", then "THABO (CONT'D)" over "The whole coast."). A
+  part with no segment at its index (a heading-only establishing shot: one part, `segments` `[]`)
+  or an action part has no label. The text is the API's verbatim part, wrapped by the sheet, not
+  the PDF's line breaks. Then "Page {p}, lines {a}–{b}" ("line {a}" for one line) " · scene {n},
+  {heading}" from `span` and the scene's `SceneView`.
+- **In frame:** the eyebrow, then wrapping chips: one per character (bold) with its position in
+  words (`left`, `centre`, `right`) from the **accepted audit** (the last of `audits` whose verdict
+  is `pass` or `warn`), none for a character the audit didn't place; then one per prop (regular
+  weight, no position); "No one in frame" when there are neither. Then `rationale`. Before T021,
+  `audits` is `[]`, so chips carry no position: the real state.
 
 ## 5. State
 
