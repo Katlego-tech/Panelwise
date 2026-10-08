@@ -57,8 +57,11 @@ async def _summaries(
     pages = ProjectRow.screenplay["page_count"].as_integer()
     scenes = func.jsonb_array_length(ProjectRow.screenplay["scenes"])
     shots = func.jsonb_array_length(ProjectRow.plan["shots"])
+    # The latest *storyboard* job: a "Try another render" (frame_attempt) never stands for the
+    # project, so a failed re-render can't make a read script look failed (web.md §6, T021).
     latest = (
         select(JobRow)
+        .where(JobRow.kind == JobKind.STORYBOARD)
         .ext(distinct_on(JobRow.project_id))
         .order_by(JobRow.project_id, JobRow.created_at.desc(), JobRow.id.desc())
         .subquery()

@@ -110,6 +110,18 @@ class Renderer(Protocol):
     ) -> RenderedFrame: ...
 
 
+class SupportsAsset(Protocol):
+    @property
+    def asset(self) -> str: ...  # the attempt's Storage path, frames/<...>.png; read-only
+
+
+class RecordingRenderer(Renderer, Protocol):
+    """A Renderer that remembers where it stored each attempt (T021): recorded before `render`
+    returns, so a lookup after it never misses. The frame writers need the path."""
+
+    def record(self, shot: tuple[int, int], attempt: int) -> SupportsAsset: ...
+
+
 @dataclass(frozen=True)
 class CheckResult:
     check: Check
