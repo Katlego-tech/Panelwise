@@ -364,5 +364,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
       Done:    the gate's vulnerability scan passes with no new exemption
+- [x] T060 [POL] **Close six Next.js advisories (`next` 16.3.6; GHSA-cjq9-62q9-8jv4 high, GHSA-39w2-rjm5-chcv, GHSA-3w37-wq28-93x7, GHSA-4jqv-mc3x-m676, GHSA-f87g-xv8r-7p7x, GHSA-mcj8-r9mp-w47p medium).** Found 2026-10-08 when they failed the T045 design push's dependency scan. Direct dependency. Lane `infra`.
+      Design:  none (a dependency bump)
+      Files:   apps/web/package.json (`next` and `eslint-config-next` 16.3.6 → 16.3.8, pinned exactly as before); apps/web/pnpm-lock.yaml (`pnpm@11.10.0 install` + `dedupe`); PLAN.md (the pinned version)
+      Contract:none
+      Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
+      Done:    the gate's vulnerability scan passes with no new exemption
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
