@@ -206,6 +206,30 @@ async def test_a_second_job_reuses_accepted_panels_and_numbers_new_attempts_afte
     assert all(not p["withheld"] for pg in comic.layout["pages"] for p in pg["panels"])
 
 
+async def test_a_stored_panel_of_another_size_is_drawn_again(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    store = MemoryStore()
+    row = await planned(sessions, store)
+    plan = load_plan(row.plan)  # type: ignore[arg-type]
+    await make_comic(sessions, store, row.id)
+    first = (plan.shots[0].scene_index, plan.shots[0].number)
+    (accepted,) = [
+        a for a in await comic_audits(sessions) if (a.scene_index, a.shot_number) == first
+    ]
+    buffer = io.BytesIO()
+    Image.new("RGB", (64, 36), "white").save(buffer, format="PNG")
+    store.objects[accepted.frame_asset] = (buffer.getvalue(), "image/png")  # another size
+    renderer = Sizes(store)
+
+    job = await make_comic(sessions, store, row.id, renderer)
+
+    assert job.state == "done"
+    assert [(k, a) for k, a, *_ in renderer.asked] == [
+        (first, 2)
+    ]  # only that panel, after attempt 1
+
+
 # --- failures ---------------------------------------------------------------------------------
 
 
@@ -250,11 +274,23 @@ async def test_a_panel_drawn_at_the_wrong_size_fails_at_once(
     assert len(renderer.asked) == 1  # stopped at the first panel, not after every other
 
 
+async def kept(sessions: async_sessionmaker[AsyncSession], pid: uuid.UUID) -> uuid.UUID | None:
+    async with sessions() as s:
+        comic = await s.get(ComicRow, pid)
+    return None if comic is None else comic.job_id
+
+
 async def test_an_audit_error_is_unexpected_not_a_renderer_failure(
-    sessions: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+    sessions: async_sessionmaker[AsyncSession],
+    scripted: Script,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = MemoryStore()
     row = await planned(sessions, store)
+    plan = load_plan(row.plan)  # type: ignore[arg-type]
+    first = (plan.shots[0].scene_index, plan.shots[0].number)
+    scripted.verdicts[first] = [Verdict.FAIL, Verdict.FAIL, Verdict.FAIL]
+    one = await make_comic(sessions, store, row.id)  # the withheld panel is audited again next
 
     async def down(*_: Any) -> Audit:
         raise RuntimeError("the judge is down")
@@ -262,6 +298,7 @@ async def test_an_audit_error_is_unexpected_not_a_renderer_failure(
     monkeypatch.setattr(loop, "audit_frame", down)
     job = await make_comic(sessions, store, row.id)
     assert (job.state, job.error) == ("failed", COMIC_UNEXPECTED)
+    assert await kept(sessions, row.id) == one.id
 
 
 async def test_a_lettering_failure_names_the_shot_as_the_web_does(
@@ -272,6 +309,7 @@ async def test_a_lettering_failure_names_the_shot_as_the_web_does(
     store = MemoryStore()
     row = await planned(sessions, store)
     screenplay = load_screenplay(row.screenplay)  # type: ignore[arg-type]
+    one = await make_comic(sessions, store, row.id)
 
     def no_room(*_: Any) -> Any:
         raise ComicError("scene 1, shot 1: no room", shot=(1, 1))
@@ -287,6 +325,7 @@ async def test_a_lettering_failure_names_the_shot_as_the_web_does(
     monkeypatch.setattr(comic_job, "place_lettering", nameless)
     job = await make_comic(sessions, store, row.id)
     assert job.error == COMIC_LAYOUT_FAILED_ANY
+    assert await kept(sessions, row.id) == one.id
 
 
 def test_a_shot_outside_the_screenplay_falls_back_to_the_message_that_names_none() -> None:

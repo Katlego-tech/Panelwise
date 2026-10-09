@@ -17,7 +17,7 @@ import httpx2
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.comic.job import run_comic_job, start_comic
+from app.comic.job import ComicRefused, run_comic_job, start_comic
 from app.comic.rows import ComicRow
 from app.core.config import Settings
 from app.db import make_engine, make_sessions
@@ -49,8 +49,11 @@ async def run_comic_check(
         raise CheckRefused("the comic check runs only on an architecture-check copy (T062)")
     if project.plan is None:
         raise CheckRefused("that project has no plan to draw")
-    async with sessions() as session, session.begin():
-        job = await start_comic(session, project.id, project.owner, renderer=True, store=True)
+    try:
+        async with sessions() as session, session.begin():
+            job = await start_comic(session, project.id, project.owner, renderer=True, store=True)
+    except ComicRefused as refused:  # a comic already running, or the copy's storyboard not done
+        raise CheckRefused(f"the comic can't start: {refused.code}") from refused
     await run_comic_job(
         job.id,
         sessions=sessions,

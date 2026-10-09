@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.comic.check import COPY_SUFFIX, run_comic_check
 from app.comic.rows import ComicRow
 from app.frames.check import DEV_BUCKET, CheckRefused, run_check
-from app.jobs import JobKind, JobRow
+from app.jobs import JobKind, JobRow, JobState
 from app.projects.model import ProjectRow
 from app.shots import Shot
 from app.verify import loop
@@ -79,3 +79,8 @@ async def test_it_refuses_the_wrong_bucket_a_real_project_and_an_unplanned_copy(
     with pytest.raises(CheckRefused, match="no plan"):
         await run_comic_check(sessions, store, model, unplanned, bucket=DEV_BUCKET)
     assert await comic_jobs(sessions) == 0
+    async with sessions() as s, s.begin():  # a comic already being made for the copy
+        s.add(JobRow(id=uuid.uuid4(), project_id=copy, kind=JobKind.COMIC, state=JobState.RUNNING))
+    with pytest.raises(CheckRefused, match="comic_running"):
+        await run_comic_check(sessions, store, model, copy, bucket=DEV_BUCKET)
+    assert await comic_jobs(sessions) == 1
