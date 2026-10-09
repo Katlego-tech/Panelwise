@@ -482,8 +482,14 @@ not the default. Why (the research, 2026-10-09, sources in §8):
 - **Cost of the sample:** the-red-kite (21 shots) costs $0.06–$0.19 for the storyboard (1–3
   attempts), the same again for its comic, plus the audit calls. T030's spend cap covers fal.ai too.
 
-**The app's factory.** `create_app` sets `app.state.renderer_factory` when `FAL_KEY` and the store
-are set: `lambda screenplay, extraction: FalRenderer(style=<the registry's default>, store=…,
+**The job's failure copy.** A `StoryboardError` (a shot's renderer failed, §4) fails the upload's job
+at stage `rendering` with `RENDER_STAGE_FAILED`, the shot named as the web names it (`ShotView.id`);
+web.md §4.1a's `failed`/`rendering` row shows it verbatim. Anything else in the stage is web.md
+§4.1's `UNEXPECTED`. "Upload the script again" is honest: the re-run's frames are store hits (§3.3).
+
+**The app's factory.** `create_app(fal=True)` (the module's `app`, never a test's) sets
+`app.state.renderer_factory` when `FAL_KEY` and the store are set and the public styles load (the
+image ships no `styles/`: compose mounts `./styles` at `/styles`; the hosted API needs the same, T063): `lambda screenplay, extraction: FalRenderer(style=<the registry's default>, store=…,
 screenplay=…, extraction=…, client=<the app's shared httpx2 client>, settings=…)`, a fresh renderer
 per job or attempt, as verify.md §6 says. Without `FAL_KEY` it stays `None`: "Try another render"
 and "Make the comic" answer 503 `renderer_unavailable`, as today, and the storyboard job skips the
@@ -651,6 +657,10 @@ def weighted(text: str, phrase: str, emphasis: float | None) -> str: ...        
 # app/storyboard/render.py
 class RendererError(RuntimeError): ...
 @dataclass(frozen=True) class RenderRecord: shot: tuple[int, int]; attempt: int; key: str; asset: str; prompt: FramePrompt; cached: bool; seconds: float | None
+class RenderRecorder(RecordingRenderer, Protocol):     # what build_storyboard needs: a RecordingRenderer whose records are RenderRecords
+    style: Style
+    def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...
+RENDER_STAGE_FAILED: str = "Shot {shot_id} couldn't be drawn, so the storyboard stopped. The frames already drawn are kept: upload the script again to finish it."
 class ComfyRenderer:                                    # implements app.verify.Renderer
     def __init__(self, *, style: Style, workflow: Workflow, store: AssetStore, screenplay: Screenplay,
                  extraction: Extraction, client: httpx2.AsyncClient, base_url: str,
@@ -696,7 +706,7 @@ class StoryboardError(RuntimeError): ...
 
 # app/storyboard/build.py
 def frame_of(outcome: FrameOutcome, record: RenderRecord | None) -> StoryboardFrame: ...   # pure, §3.3; record = the last attempt's
-async def build_storyboard(model: NebiusChatModel, renderer: RecordingRenderer, plan: ShotPlan,
+async def build_storyboard(model: NebiusChatModel, renderer: RenderRecorder, plan: ShotPlan,
                            screenplay: Screenplay, extraction: Extraction, *,
                            writer: FrameWriter,                                # T021's; frame_hooks(writer, renderer, shot) per shot (§4)
                            progress: Callable[[int, int], Awaitable[None]] | None = None,   # (settled, total) after each terminal frame
