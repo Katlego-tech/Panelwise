@@ -765,7 +765,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
 | `services/api/app/storyboard/{__init__,styles,prompt,prompts}.py` | new | §3.1–§3.2, §6; `prompts.py`: `python -m app.storyboard.prompts <script.pdf> [--style KEY]` parses, extracts and plans on the real account and prints every shot's prompt parts with their spans, so the team can read the prompts before any GPU exists | T008 |
-| `services/api/app/storyboard/{model,workflow,render,build,run}.py` | new | §3.3, §4, §6: the workflow helpers, `ComfyRenderer`, `build_storyboard`, and `python -m app.storyboard.run <script.pdf> [--style KEY] --out DIR` (renders and audits on the real account and GPU, stores the frames, prints each shot's state and prompt) | T026 |
+| `services/api/app/storyboard/{model,workflow,render,build}.py` | new | §3.3, §4, §6: `fit`, the render key and post-processing, `RenderRecord`, `build_storyboard`. No separate run CLI: `build_storyboard` writes through T021's writer, so the live check is an upload through the local stack (§9) | T026 |
 | `services/api/app/storyboard/document.py` | new | §3.4, §6: layout, PDF, JSON; `run` writes the PDF to `DIR` and Storage | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
 | `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames | T053 |
@@ -886,7 +886,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   1240 × 1754; a withheld block draws the card with the checks in enum order and `audit error` for
   an `ERROR`; no withheld frame's pixels are ever read (its bytes are not passed in). `to_json`
   matches §6's shape and omits `frame_url` for a withheld frame.
-- **Live** (T026/T027; needs `FAL_KEY`, T021): `python -m app.storyboard.run` on the self-written sample in the default
+- **Live** (T026/T027; needs `FAL_KEY`, T021): an upload of the self-written sample on the local stack, in the default
   public style: every shot ends `PASSED`, `WARNED` or `WITHHELD`; the PDF and frames are in Storage;
   seconds per frame, renders per frame and fal's cost are recorded in `docs/rendering.md` (render cost; T049 uses the same renders); the
   pages are committed as the visual reference.
