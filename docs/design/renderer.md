@@ -194,9 +194,52 @@ code and message (never the token).
   render" fails the frame `render` (T021). Frames already stored stay; a rerun pays only for the
   rest. No fallback model and no placeholder image (storyboard.md §8).
 - `RenderQuotaExceeded` is logged as `the day's free Workers AI neurons are used (resets 00:00 UTC)`.
-  Its user-facing wording is §10's open question (a web.md change, Tumo's lane); until then the
-  existing failed-frame and failed-job wordings show.
+  The storyboard job says so in its own words (§4a's `RENDER_BUDGET`); a single frame's card is
+  §10's open question.
 - `StorageError` on `exists` or `put` → the job fails (storyboard.md §4, unchanged).
+
+### 4a. The rendering stage (the upload's job)
+
+`run_pipeline` stays database-free (web.md §6: parse, extract, plan). Rendering needs the
+`frames` writers, which need sessions, so it runs in T046's `run_job`, right after the pipeline
+returns, under the same `storyboard` job:
+
+```mermaid
+sequenceDiagram
+    participant J as run_job (T046)
+    participant S as Postgres
+    participant B as build_storyboard (storyboard.md §6)
+    participant V as render_until_accepted + FrameWriter (T021)
+    J->>J: run_pipeline → screenplay, extraction, plan
+    alt no renderer_factory (no CLOUDFLARE_* or no store)
+        J->>S: plan column; job DONE, stage planning, progress 60 (today's behaviour)
+    else a renderer
+        J->>S: plan column; job RUNNING, stage rendering, progress 60 (one transaction)
+        J->>B: factory(screenplay, extraction), FrameWriter(sessions, project, job), progress
+        loop each shot, 2 at a time (storyboard.md §4)
+            B->>V: frame_hooks → frames + frame_audits rows as it goes
+            B->>J: progress(settled, total)
+            J->>S: progress = 60 + 40 × settled ÷ total (rounded down)
+        end
+        alt every frame settled passed, warned or withheld
+            J->>S: job DONE, progress 100
+        else a frame FAILED (StoryboardError)
+            J->>S: job FAILED, stage rendering, error = §4a's copy
+        end
+    end
+```
+
+- `run_job` gains `factory: RendererFactory | None`; the upload route passes
+  `app.state.renderer_factory`. With `None` the job ends exactly as it does today (`DONE` at 60), so
+  the app without Cloudflare credentials is unchanged.
+- `StoryboardError` carries the failed frame's `shot` and is raised `from` the renderer's error.
+- **Copy** (constants in `app/projects/pipeline.py` beside web.md §4.1's; the job's `error` shows as
+  written). `{shot_id}` is `<Scene.number>.<Shot.number>`, as the comic's (comic.md §4a):
+  - `RENDER_STOPPED`: "Drawing shot {shot_id} failed, so the storyboard stopped. Upload the script
+    again to retry."
+  - `RENDER_BUDGET`: "Today's free drawing budget ran out at shot {shot_id}, so the storyboard
+    stopped. It resets at 00:00 UTC; upload the script again after that." (when the cause is `RenderQuotaExceeded`)
+  - any other exception in the stage: T046's `UNEXPECTED`, logged with its traceback.
 
 ## 5. State
 
@@ -276,7 +319,7 @@ the factory is `None` and the render routes answer 503, as today.
 | `services/api/app/storyboard/render.py` | new | §6: `draw_size`, `fit`, `render_key`, the errors, `WorkersAIAccount`, `RenderRecord`, `WorkersAIRenderer`, `renderer_factory` | T026 |
 | `services/api/app/storyboard/{model,build,run}.py` | new | storyboard.md §6 (`build_storyboard` on `RecordingRenderer`); `run` prints each render's neurons and the total | T026 |
 | `services/api/app/main.py` | changed | the lifespan calls `renderer_factory(...)` when none was passed | T026 |
-| `services/api/app/projects/pipeline.py` | changed | the RENDERING stage (storyboard.md §7, unchanged) | T026 |
+| `services/api/app/projects/{job,pipeline}.py`, `app/api/v1/projects.py` | changed | §4a: the rendering stage in `run_job`, its copy in `pipeline.py`, the upload passing the factory | T026 |
 | `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment; `comfyui_max_words` → `render_max_words` (T008's `prompts.py` reads the new name) | T026 |
 | `services/api/tests/storyboard/test_render.py` | new | §9 | T026 |
 | `infra/comfyui/`, `infra/nebius/` | not built | T003 superseded (§8) | — |
@@ -311,6 +354,10 @@ No network in the gate: `httpx2.MockTransport` for Workers AI, an in-memory `Ass
 - Retries (§4's table, one test per row): `3040` then 200 → one frame, two requests; `8007` × 3 →
   `RenderRefused` after three requests; `3036` → `RenderQuotaExceeded` after one; 401 → `RendererError`
   after one; a timeout then 200 → a frame.
+- The rendering stage (§4a), with a fake renderer, a mocked audit and the test database: no factory →
+  the job `DONE` at 60 as before; a factory → `rendering` at 60, progress rising by frames settled,
+  `DONE` at 100, a `frames` row per shot; a renderer raising → `FAILED` with `RENDER_STOPPED` naming
+  the shot; `RenderQuotaExceeded` → `RENDER_BUDGET`; frames settled before the failure kept.
 - `renderer_factory`: `None` without either `CLOUDFLARE_*` or without a store; else a factory whose
   renderers use the default style.
 - **Live** (owner's go-ahead; about 21–60 renders, 2,200–6,300 of a day's neurons, plus the audits'
@@ -325,9 +372,10 @@ No network in the gate: `httpx2.MockTransport` for Workers AI, an in-memory `Ass
   whole storyboard job. verify.md could treat `RenderRefused` like an audit error (the attempt is
   logged, the next attempt is tried, the frame ends `WITHHELD` with a `refused` reason). A verify.md
   change in Tumo's lane (`loop.py`), its own PR; this design works without it.
-- [ ] **Wording for the daily budget** (web.md, Tumo's lane): e.g. "Today's free drawing budget is
-  used up. Frames already drawn are kept; try again after 02:00 SAST." for a job or frame that ended
-  on `RenderQuotaExceeded`. Needs `FrameView.failure` (or the job error) to say which.
+- [ ] **The daily budget on a single frame** (web.md, Tumo's lane): the storyboard job says it
+  (§4a's `RENDER_BUDGET`), but "Try another render" fails the frame `render`, whose card reads "The
+  renderer failed on this frame." A `budget` value for `FrameView.failure` with its own card wording
+  would tell the user to come back after 00:00 UTC.
 - [ ] **T025 on this model**: klein takes up to four reference images (`input_image_0..3`, each
   under 512 × 512, 5.37 neurons per input tile). That replaces characters.md's IP-Adapter graphs
   (`frame_ref1.json`, `frame_ref2.json`) with two form fields, and it is the fix for the trial's

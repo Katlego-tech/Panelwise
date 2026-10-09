@@ -590,7 +590,8 @@ type Rect = tuple[int, int, int, int]
 @dataclass(frozen=True) class Storyboard: style: str; width: int; height: int; frames: tuple[StoryboardFrame, ...]; renders: int; cached: int
 @dataclass(frozen=True) class Block: shot: tuple[int, int]; y: int; frame_rect: Rect | None; title: str; span_label: str; audit_line: str | None; source_lines: tuple[str, ...]; continued: bool
 @dataclass(frozen=True) class StoryboardPage: number: int; scene_index: int; blocks: tuple[Block, ...]
-class StoryboardError(RuntimeError): ...
+class StoryboardError(RuntimeError):                  # raised from the renderer's error (renderer.md §4a)
+    def __init__(self, shot: tuple[int, int]) -> None: ...   # .shot: the FAILED frame
 
 # app/storyboard/build.py
 def frame_of(outcome: FrameOutcome, record: RenderRecord | None) -> StoryboardFrame: ...   # pure, §3.3; record = the last attempt's

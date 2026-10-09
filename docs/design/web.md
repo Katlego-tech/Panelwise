@@ -226,6 +226,10 @@ sequenceDiagram
     your screenwriting app as a PDF and upload that."
   - `"no_headings"` → "No scene headings found. Panelwise reads screenplays formatted with
     headings like INT. KITCHEN - NIGHT."
+  - the rendering stage (T026, renderer.md §4a) stopped on a frame the renderer couldn't draw →
+    "Drawing shot {shot_id} failed, so the storyboard stopped. Upload the script again to retry." or, when the day's free Workers AI neurons ran out,
+    "Today's free drawing budget ran out at shot {shot_id}, so the storyboard stopped. It resets at
+    00:00 UTC; upload the script again after that."
   - extraction or planning failed (`ExtractionError`, `ShotError`) → "Reading the script failed at
     scene {n}. Nothing was saved from this run. Upload the script again to retry." `{n}` is the
     scene's `number` as the script prints it (`12A`), from the error's `scene` attribute
@@ -1143,7 +1147,7 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `services/api/app/projects/job.py` | new | `run_job` (§6): the upload's job runs `run_pipeline`, each stage's column written with the job's advance in one transaction; failures to `FAILED` with the copy | T046 |
 | `services/api/app/projects/codec.py` | new | the stage columns' jsonb: `Screenplay`, `Extraction`, `ShotPlan` to JSON and back, lossless (the read endpoints load them, T047) | T046 |
 | `services/api/app/api/v1/projects.py` (POST starts the job) | changed | the upload schedules `run_job` as an asyncio task after its commit (§4.1) | T046 |
-| `services/api/app/projects/pipeline.py` (RENDERING stage) | changed | in `run_pipeline`: `on_advance(RENDERING, 60, plan)`, then `build_storyboard` with T021's writers, `progress(settled, total)` mapped into 60–100; T046's `run_job` marks the job `DONE` | T026 |
+| `services/api/app/projects/{job,pipeline}.py` (RENDERING stage) | changed | in `run_job`, after `run_pipeline` (which stays database-free): renderer.md §4a, `build_storyboard` with T021's writers, `progress(settled, total)` mapped into 60–100, the job `DONE` at 100 | T026 |
 | `services/api/app/frames/{model,repo,views}.py` + migration (`frames`) | new | the table, its read for `…/frames`, `FrameView` from a row | T047 |
 | `services/api/app/script/{model,parser}.py` | changed | `Screenplay.page_starts`, `ScriptParseError.code` (+ script.md §6) | T043 |
 | `services/api/app/api/v1/projects.py` (read endpoints) | changed | §6 rows marked T047 | T047 |
