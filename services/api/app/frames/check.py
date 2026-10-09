@@ -194,30 +194,32 @@ async def _main(project_id: uuid.UUID, shots: int) -> int:
         return 2
     engine = make_engine(settings)
     sessions = make_sessions(engine)
-    async with httpx2.AsyncClient(timeout=60) as client:
-        store = SupabaseStore(
-            url=settings.supabase_url,
-            secret_key=settings.supabase_secret_key,
-            bucket=settings.supabase_storage_bucket,
-            client=client,
-        )
-        model = NebiusChatModel.from_settings(settings)
-        try:
-            copy_id = await run_check(
-                sessions,
-                store,
-                model,
-                project_id,
+    try:
+        async with httpx2.AsyncClient(timeout=60) as client:
+            store = SupabaseStore(
+                url=settings.supabase_url,
+                secret_key=settings.supabase_secret_key,
                 bucket=settings.supabase_storage_bucket,
-                shots=shots,
+                client=client,
             )
-        except CheckRefused as exc:
-            print(f"refused: {exc}", file=sys.stderr)
-            return 2
-        async with sessions() as session:
-            frames = await frames_of(session, copy_id)
-            audits = await audits_of(session, copy_id)
-    await engine.dispose()
+            model = NebiusChatModel.from_settings(settings)
+            try:
+                copy_id = await run_check(
+                    sessions,
+                    store,
+                    model,
+                    project_id,
+                    bucket=settings.supabase_storage_bucket,
+                    shots=shots,
+                )
+            except CheckRefused as exc:
+                print(f"refused: {exc}", file=sys.stderr)
+                return 2
+            async with sessions() as session:
+                frames = await frames_of(session, copy_id)
+                audits = await audits_of(session, copy_id)
+    finally:
+        await engine.dispose()
     print(f"copy: {copy_id}")
     for frame in frames:
         tried = audits.get((frame.scene_index, frame.shot_number), [])
