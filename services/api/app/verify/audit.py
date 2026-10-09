@@ -216,15 +216,24 @@ async def audit_frame(
     chats: list[ChatResult] = []
     description: FrameDescription | None = None
     judgement: Judgement | None = None
+    step = "describe"
     try:
         description, chat = await describe_frame(model, frame.png)
         chats.append(chat)
+        step = "judge"
         judgement, chat = await _judge(model, shot, scene, extraction, description)
         chats.append(chat)
     except (LLMError, ValidationError) as exc:
-        # The type only: a ValidationError quotes the output, which can quote the script.
+        # Which step failed, and an LLMError's message: it names the model, status and finish
+        # reason, never the request (llm.md §4). A ValidationError's type only: it quotes the
+        # output, which can quote the script.
+        detail = str(exc) if isinstance(exc, LLMError) else type(exc).__name__
         logger.warning(
-            "audit of shot %s attempt %d: %s", frame.shot, frame.attempt, type(exc).__name__
+            "audit of shot %s attempt %d failed at %s: %s",
+            frame.shot,
+            frame.attempt,
+            step,
+            detail,
         )
         checks: tuple[CheckResult, ...] = ()
         verdict, positions = Verdict.ERROR, {}
