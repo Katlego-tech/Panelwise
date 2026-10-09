@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # Frames (docs/design/storyboard.md §6). The prompt's word budget, a conservative proxy for the
     # text encoder's token limit: 55 words for CLIP's 77 tokens until T003 picks the model.
     comfyui_max_words: int = 55
+    # The renderer: FLUX.1 [schnell] on fal.ai (storyboard.md §3.5). No key, no renderer: "Try
+    # another render" and "Make the comic" answer 503 and the storyboard job ends at planning.
+    fal_key: str = ""
+    fal_model: str = "fal-ai/flux/schnell"
+    fal_timeout_s: float = 60.0
     # A directory of private style TOMLs outside the repo; empty means none. Never set on the
     # hosted demo.
     panelwise_private_styles: str = ""
