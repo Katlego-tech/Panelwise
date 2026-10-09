@@ -30,14 +30,18 @@ export function ComicReader({ projectId, title, comic: initial }: { projectId: s
   const pathname = usePathname();
   const params = useSearchParams();
   const [comic, setComic] = useState(initial);
-  const [selected, setSelected] = useState<Selected | null>(null);
+  // Both belong to one page: a page change by any route (Next, the keys, a link, the URL) leaves them behind.
+  const [selection, setSelection] = useState<(Selected & { page: number }) | null>(null);
+  const [brokenPage, setBrokenPage] = useState<number | null>(null);
   const [refetched, setRefetched] = useState(false);
-  const [broken, setBroken] = useState(false);
 
   const count = comic.pages.length;
   const raw = params.get("page");
   const n = parsePage(raw, count);
   const page = comic.pages[n - 1]!;
+  const selected: Selected | null = selection?.page === n ? selection : null;
+  const broken = brokenPage === n;
+  const setSelected = (at: Selected | null) => setSelection(at && { ...at, page: n });
   const panels = comic.pages.reduce((sum, p) => sum + p.panels.length, 0);
 
   useEffect(() => {
@@ -49,8 +53,6 @@ export function ComicReader({ projectId, title, comic: initial }: { projectId: s
 
   const go = useCallback(
     (to: number) => {
-      setSelected(null);
-      setBroken(false);
       router.replace(`${pathname}?page=${to}`, { scroll: false });
       window.scrollTo(0, 0);
     },
@@ -59,10 +61,12 @@ export function ComicReader({ projectId, title, comic: initial }: { projectId: s
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (typing(event.target)) return;
+      if (typing(event.target) || event.defaultPrevented) return;
+      // Alt/Cmd + arrow is the browser's back and forward: never also turn the page.
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       if (event.key === "ArrowLeft" && n > 1) go(n - 1);
       else if (event.key === "ArrowRight" && n < count) go(n + 1);
-      else if (event.key === "Escape") setSelected(null);
+      else if (event.key === "Escape") setSelection(null);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -70,7 +74,7 @@ export function ComicReader({ projectId, title, comic: initial }: { projectId: s
 
   async function imageFailed() {
     if (refetched) {
-      setBroken(true);
+      setBrokenPage(n);
       return;
     }
     setRefetched(true); // signed URLs expire: ask for fresh ones once
@@ -78,9 +82,9 @@ export function ComicReader({ projectId, title, comic: initial }: { projectId: s
       const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/comic`, { cache: "no-store" });
       const view = res.ok ? ((await res.json()) as ComicView) : null;
       if (view?.comic) setComic(view.comic);
-      else setBroken(true);
+      else setBrokenPage(n);
     } catch {
-      setBroken(true);
+      setBrokenPage(n);
     }
   }
 
@@ -119,6 +123,7 @@ export function ComicReader({ projectId, title, comic: initial }: { projectId: s
               alt={`Comic page ${n} of ${count}. Its lettering is listed beside the page.`}
               className="block h-full w-full"
               onError={() => void imageFailed()}
+              onLoad={() => setRefetched(false)} // a later expiry gets its own fresh URLs
             />
           )}
           {!broken &&
@@ -127,7 +132,7 @@ export function ComicReader({ projectId, title, comic: initial }: { projectId: s
                 <Link
                   href={storyboardHref(panel.shot_id)}
                   aria-label={`Shot ${panel.shot_id} in the storyboard${panel.withheld ? ", frame withheld" : ""}`}
-                  className="group absolute block no-underline hover:bg-[rgb(44_110_158/0.07)] hover:outline-2 hover:-outline-offset-2 hover:outline-pencil hover:outline-dashed focus-visible:bg-[rgb(44_110_158/0.07)]"
+                  className="group absolute block no-underline hover:bg-[rgb(44_110_158/0.07)] hover:outline-2 hover:-outline-offset-2 hover:outline-pencil hover:outline-dashed focus-visible:bg-[rgb(44_110_158/0.07)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-pencil focus-visible:outline-dashed"
                   style={placed(panel.rect, page)}
                 >
                   <span className="absolute right-1.5 bottom-1.5 rounded-paper bg-pencil px-1.5 py-0.5 font-body text-xs font-bold text-white opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">

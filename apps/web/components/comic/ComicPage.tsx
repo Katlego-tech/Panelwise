@@ -25,6 +25,7 @@ export function ComicPage({ project, view }: { project: Project; view: ComicView
     );
   }
   if (state === "plan-waiting" || state === "storyboard-running" || view === null) {
+    // (view is null only before the plan: comicState says plan-waiting then)
     // The upload's job is still running: its strip, the note, and the script page's poll, which
     // re-renders this page when the job's stage changes.
     const waiting = state === "plan-waiting";
@@ -42,7 +43,7 @@ export function ComicPage({ project, view }: { project: Project; view: ComicView
       </>
     );
   }
-  if (view.comic !== null) {
+  if (state === "reader" && view.comic !== null) {
     return (
       // Keyed by what the server sent, so a refresh with a new job or comic starts them afresh.
       <ComicStage key={jobKey(view)} projectId={project.id} title={project.title} view={view}>

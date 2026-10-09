@@ -97,9 +97,12 @@ export function ComicStage({
         }
         if (!res.ok) return;
         const now = (await res.json()) as ComicView;
-        setJob(now.job);
-        if ((now.job?.state ?? null) !== seen.current) {
-          seen.current = now.job?.state ?? null;
+        const state = now.job?.state ?? null;
+        // A finished job keeps the strip until the refreshed page (with its comic) arrives: never
+        // a moment of "No comic yet" with Make the comic pressable.
+        if (state !== "done") setJob(now.job);
+        if (state !== seen.current) {
+          seen.current = state;
           router.refresh();
         }
       } catch {

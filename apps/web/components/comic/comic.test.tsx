@@ -136,6 +136,9 @@ describe("the comic page's states (comic-states.png)", () => {
     fetchMock.mockResolvedValueOnce(Response.json(view({ job: job({ state: "done", progress: 100 }), comic: comic() })));
     await act(async () => vi.advanceTimersByTime(2000));
     expect(refresh).toHaveBeenCalledTimes(1);
+    // Until the refreshed page arrives: still the strip, never "No comic yet" with a live button.
+    expect(screen.getByText(COMIC_COPY.strip(43))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: COMIC_COPY.make })).toBeNull();
   });
 
   it.each([
@@ -242,9 +245,15 @@ describe("the reader (comic.png)", () => {
     expect(screen.getByRole("button", { name: COMIC_COPY.previous })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: COMIC_COPY.next }));
     expect(replace).toHaveBeenLastCalledWith("/projects/p1/comic?page=2", { scroll: false });
-    fireEvent.keyDown(window, { key: "ArrowRight" });
-    expect(replace).toHaveBeenLastCalledWith("/projects/p1/comic?page=2", { scroll: false });
     replace.mockReset();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(replace).toHaveBeenCalledExactlyOnceWith("/projects/p1/comic?page=2", { scroll: false });
+    replace.mockReset();
+    // Alt/Cmd + arrow is the browser's back and forward; ← on page 1 has nowhere to go
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(window, { key: "ArrowRight", metaKey: true });
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(replace).not.toHaveBeenCalled();
     const input = document.createElement("input");
     document.body.appendChild(input);
     fireEvent.keyDown(input, { key: "ArrowRight" });
@@ -257,6 +266,9 @@ describe("the reader (comic.png)", () => {
     const { unmount } = reader();
     expect(screen.getByRole("img", { name: /^Comic page 2 of 2\./ })).toBeInTheDocument();
     expect(screen.getByText("LERATO · voice-over")).toBeInTheDocument();
+    replace.mockReset();
+    fireEvent.keyDown(window, { key: "ArrowRight" }); // the last page: nowhere to go
+    expect(replace).not.toHaveBeenCalled();
     fireEvent.keyDown(window, { key: "ArrowLeft" });
     expect(replace).toHaveBeenLastCalledWith("/projects/p1/comic?page=1", { scroll: false });
     unmount();
@@ -275,6 +287,24 @@ describe("the reader (comic.png)", () => {
     await act(async () => fireEvent.error(screen.getByRole("img")));
     expect(screen.getByText(COMIC_COPY.pageFailed)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("a selection belongs to its page: a page change by the URL leaves it behind", () => {
+    const { rerender } = reader();
+    const page = screen.getByRole("figure", { name: "Page 1 of 2" });
+    fireEvent.click(within(page).getByRole("button", { name: /No, no, no!/ }));
+    expect(screen.getByText(COMIC_COPY.traced).closest("section")).toHaveTextContent("No, no, no!");
+    params = new URLSearchParams("page=2");
+    rerender(<ComicPage project={done} view={view({ comic: comic(), job: job({ state: "done", progress: 100 }) })} />);
+    expect(screen.getByText(COMIC_COPY.traced).closest("section")).toHaveTextContent(COMIC_COPY.traceEmpty);
+    expect(screen.queryAllByRole("button", { pressed: true })).toEqual([]);
+  });
+
+  it("a remake that failed above a comic: its note, the reader, no button", () => {
+    reader({ job: job({ state: "failed", error: "A panel couldn't be drawn, so the comic stopped." }) });
+    expect(screen.getByText("A panel couldn't be drawn, so the comic stopped.")).toBeInTheDocument();
+    expect(screen.getByRole("figure", { name: "Page 1 of 2" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: COMIC_COPY.makeAgain })).toBeNull();
   });
 
   it("a remake running above a comic: the strip, the reader, no button", () => {
