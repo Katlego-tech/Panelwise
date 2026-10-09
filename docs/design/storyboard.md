@@ -464,8 +464,18 @@ not the default. Why (the research, 2026-10-09, sources in §8):
   already drew.
 - **Failures.** A network error, a 429 or a 5xx is retried twice (1 s, then 2 s), then
   `RendererError`. Any other 4xx (a refused key, a rejected body) is `RendererError` at once, naming
-  the status and model, never the key or the prompt. A deadline of `FAL_TIMEOUT_S` (default 60) per
-  call. `RendererError` → verify's `FAILED` → the job fails, as §4 says.
+  the status and model, never the key or the prompt. `FAL_TIMEOUT_S` (default 60) is httpx's
+  per-phase timeout, per try; there is no total deadline beyond three tries. A read timeout on a call
+  fal.ai finished is retried and billed again: bounded (at most 3 drawings × 3 redraws × 3 tries per
+  attempt) and accepted. `RendererError` → verify's `FAILED` → the job fails, as §4 says.
+- **The cache covers redraws.** Before any call, the keys of all three redraw seeds are checked in
+  order; the first stored one is the drawing (a stored drawing was never flagged). So a shot whose
+  first seed was flagged costs nothing on a re-run either.
+- **Fail closed on the safety result.** An answer whose `has_nsfw_concepts` isn't a non-empty list of
+  booleans is `RendererError` (never assumed clean), and a drawing that is uniformly black is treated
+  as flagged even when the field says it isn't. A black frame is never stored.
+- **CPU work off the event loop.** `fit`, the post-processing and the PNG encoding run in
+  `asyncio.to_thread`, as the comic's Pillow work does.
 - **A frame fal's safety checker flags never reaches the audit.** The checker is always on for an
   account without fal's authorization to disable it, and a flagged image comes back **black**, with
   `has_nsfw_concepts[0]` true. T062 showed the audit passes a frame that contradicts nothing (a
@@ -482,14 +492,22 @@ not the default. Why (the research, 2026-10-09, sources in §8):
 - **Cost of the sample:** the-red-kite (21 shots) costs $0.06–$0.19 for the storyboard (1–3
   attempts), the same again for its comic, plus the audit calls. T030's spend cap covers fal.ai too.
 
+**The rendering stage in the job** (`run_job(…, factory)`, web.md §6): progress 60 at its start,
+`60 + round(40 × settled / shots)` as frames settle (written with `GREATEST`, so it never moves
+back), 100 with `DONE`. `build_storyboard` runs with concurrency 4 (`RENDER_CONCURRENCY` in
+`app/projects/job.py`). A progress write that fails is logged and skipped: it never fails a shot.
+
 **The job's failure copy.** A `StoryboardError` (a shot's renderer failed, §4) fails the upload's job
 at stage `rendering` with `RENDER_STAGE_FAILED`, the shot named as the web names it (`ShotView.id`);
 web.md §4.1a's `failed`/`rendering` row shows it verbatim. Anything else in the stage is web.md
-§4.1's `UNEXPECTED`. "Upload the script again" is honest: the re-run's frames are store hits (§3.3).
+§4.1's `UNEXPECTED`. A re-upload is a new project, but the same script makes the same prompts,
+seeds and keys, so every drawing already made is a store hit (§3.3): nothing is paid for twice.
 
 **The app's factory.** `create_app(fal=True)` (the module's `app`, never a test's) sets
 `app.state.renderer_factory` when `FAL_KEY` and the store are set and the public styles load (the
-image ships no `styles/`: compose mounts `./styles` at `/styles`; the hosted API needs the same, T063): `lambda screenplay, extraction: FalRenderer(style=<the registry's default>, store=…,
+image ships no `styles/`: compose mounts `./styles` at `/styles`; the hosted API needs the same, T063;
+a key set with styles that don't load is logged as an error at start-up and the app runs with no
+renderer, never half-configured): `lambda screenplay, extraction: FalRenderer(style=<the registry's default>, store=…,
 screenplay=…, extraction=…, client=<the app's shared httpx2 client>, settings=…)`, a fresh renderer
 per job or attempt, as verify.md §6 says. Without `FAL_KEY` it stays `None`: "Try another render"
 and "Make the comic" answer 503 `renderer_unavailable`, as today, and the storyboard job skips the
@@ -660,7 +678,7 @@ class RendererError(RuntimeError): ...
 class RenderRecorder(RecordingRenderer, Protocol):     # what build_storyboard needs: a RecordingRenderer whose records are RenderRecords
     style: Style
     def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...
-RENDER_STAGE_FAILED: str = "Shot {shot_id} couldn't be drawn, so the storyboard stopped. The frames already drawn are kept: upload the script again to finish it."
+RENDER_STAGE_FAILED: str = "Shot {shot_id} couldn't be drawn, so the storyboard stopped. Upload the script again to try once more: drawings already made aren't paid for twice."
 class ComfyRenderer:                                    # implements app.verify.Renderer
     def __init__(self, *, style: Style, workflow: Workflow, store: AssetStore, screenplay: Screenplay,
                  extraction: Extraction, client: httpx2.AsyncClient, base_url: str,
