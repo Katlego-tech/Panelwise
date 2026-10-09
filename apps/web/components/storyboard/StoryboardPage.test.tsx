@@ -119,12 +119,15 @@ describe("the board (web.md §4.3; storyboard.png)", () => {
     expect(c).toHaveTextContent("Passed on attempt 2 of 3");
   });
 
-  it("a withheld card carries the source once, with no 'Try another render' before T021", () => {
+  it("a withheld card carries the source once and 'Try another render' above its link (T061)", () => {
     render(<StoryboardPage project={keeper()} board={board(frames)} />);
     const c = card("3.1");
     expect(within(c).getAllByText(/Silence\./)).toHaveLength(1);
     expect(c).toHaveTextContent("Frame withheld: failed audit (text in frame)");
-    expect(within(c).queryByRole("button")).toBeNull();
+    const button = within(c).getByRole("button", { name: "Try another render" });
+    expect(button.parentElement).toHaveClass("relative", "z-10");
+    // only the withheld card has one
+    expect(within(card("1.1")).queryByRole("button")).toBeNull();
   });
 
   it("2.2's three parts sit on three lines", () => {

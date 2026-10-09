@@ -12,6 +12,7 @@ import type { FrameView, LinesView, Project, ProjectSummary, ShotView } from "@/
 import { isLive, mergeFrames, stageKey } from "./board";
 import { FrameBoard } from "./FrameBoard";
 import { FrameSheet } from "./FrameSheet";
+import { RetryButton } from "./RetryButton";
 import { scriptPages } from "./lined";
 import { LinedScript } from "./LinedScript";
 
@@ -56,7 +57,9 @@ export function Storyboard({
     seen.current = stageKey(project);
   }, [project]);
 
-  const live = isLive(summary);
+  // Live while the job runs, a frame is active by the last status, or one just started here (a
+  // retry's 202 arrives before the next status says so).
+  const live = isLive(summary) || frames.some((f) => f.state === "rendering" || f.state === "auditing");
   useEffect(() => {
     if (!live) return;
     const base = `/api/projects/${encodeURIComponent(project.id)}`;
@@ -109,6 +112,29 @@ export function Storyboard({
     cardLink(id)?.focus({ preventScroll: true });
   }, []);
 
+  const refetchFrames = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(project.id)}/frames`, { cache: "no-store" });
+      if (res.ok) {
+        const fresh = (await res.json()) as FrameView[];
+        setFrames((old) => mergeFrames(old, fresh));
+      }
+    } catch {
+      // The board keeps what it has; the next poll, if live, catches up.
+    }
+  }, [project.id]);
+  const retryFor = useCallback(
+    (shot: ShotView) => (
+      <RetryButton
+        projectId={project.id}
+        sceneIndex={shot.scene_index}
+        number={shot.number}
+        onStarted={(frame) => setFrames((old) => old.map((f) => (f.shot_id === frame.shot_id ? frame : f)))}
+        onMoved={() => void refetchFrames()}
+      />
+    ),
+    [project.id, refetchFrames],
+  );
   const hrefFor = useCallback((id: string) => `${pathname}?shot=${encodeURIComponent(id)}`, [pathname]);
   const k = shots.findIndex((s) => s.id === open);
   const sheetShot = k >= 0 ? shots[k] : null;
@@ -138,6 +164,7 @@ export function Storyboard({
           highlight={highlight}
           onHighlight={setHighlight}
           hrefFor={hrefFor}
+          retryFor={retryFor}
           onOpen={(id) => (pushed.current = id)}
         />
       </main>
@@ -150,6 +177,7 @@ export function Storyboard({
           scene={project.scene_list?.find((s) => s.index === sheetShot.scene_index)}
           onClose={close}
           onCloseFocus={() => cardLink(sheetShot.id)?.focus()}
+          retry={frames.find((f) => f.shot_id === sheetShot.id)?.state === "withheld" ? retryFor(sheetShot) : null}
         />
       )}
     </>

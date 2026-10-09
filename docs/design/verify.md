@@ -325,7 +325,7 @@ class SketchRenderer:   # a RecordingRenderer
     #   figures, a box, pencil grey on paper; PNG with no metadata, so the same seed is the same bytes;
     #   stores it at frames/<sha256 of the PNG>.png (content address, put is idempotent) and records it
 async def run_check(sessions, store: AssetStore, model: NebiusChatModel, project_id: uuid.UUID,
-                    *, shots: int = 3) -> uuid.UUID: ...   # → the throwaway project's id
+                    *, bucket: str, shots: int = 3) -> uuid.UUID: ...   # → the throwaway project's id
 ```
 
 - **It never touches the project it is given.** It copies that project's screenplay, extraction and
@@ -334,8 +334,9 @@ async def run_check(sessions, store: AssetStore, model: NebiusChatModel, project
   `storyboard` job `DONE` (so the list shows it planned), and works only there. Its frames, a sketch
   that passes included, belong to that copy; delete the copy to discard them. A sketch the audit
   passes is a test artefact, not evidence of grounding: it shows the path an accepted frame takes.
-- **It refuses** unless `SUPABASE_STORAGE_BUCKET` is `panelwise-dev` (the dev bucket, never the
-  hosted demo's), and unless the source project has a plan.
+- **It refuses** (`CheckRefused`, before writing anything) unless `bucket`, the store's bucket, which
+  the command passes from `SUPABASE_STORAGE_BUCKET`, is `panelwise-dev` (the dev bucket, never the
+  hosted demo's), and unless the source project exists and has a plan.
 - For the copy's first `shots` shots **in plan order**, one `frame_attempt` job (`RUNNING` at stage
   `rendering`, `DONE` after the last shot, `FAILED` if a render raises) runs `render_until_accepted`
   with the **real** audit (`Tier.VISION` describer, `Tier.REASONING` judge: the only spend, two calls
