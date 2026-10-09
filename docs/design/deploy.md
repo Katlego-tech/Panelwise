@@ -10,7 +10,8 @@
 
 Where Panelwise runs once it leaves a laptop, and what each hosted service is for. It replaces
 PLAN.md's earlier target ("API + web on Nebius; Postgres + Redis self-hosted"). **Not covered:**
-ComfyUI on the Nebius GPU (T003, `infra/nebius/`), which is unchanged.
+the image renderer: FLUX.1 [schnell] on fal.ai (storyboard.md §3.5, decided 2026-10-09), with
+ComfyUI on a Nebius GPU kept as an optional backend (T003).
 
 | Piece | Runs on | Why |
 |---|---|---|
@@ -21,10 +22,10 @@ ComfyUI on the Nebius GPU (T003, `infra/nebius/`), which is unchanged.
 | Sign-in, seeded judge account | **Supabase Auth** | T030 needs a judge login in the testing instructions |
 | Job status and progress | **a Postgres table** | replaces Redis: one fewer service to host and pay for |
 | Models | Nebius Token Factory | unchanged; this call is what satisfies "runs on Nebius" |
-| Rendering | ComfyUI on a Nebius AI Cloud GPU (T003) | unchanged |
+| Rendering | FLUX.1 [schnell] on **fal.ai** (storyboard.md §3.5; ComfyUI on a Nebius GPU optional, T003) | changed 2026-10-09: Token Factory has no image model, a GPU kept up to 15 Dec costs ≈ $2,500, Cloudflare's FLUX takes no seed or size |
 
 **Hackathon rules still hold:** "runs on Nebius" means a runtime Token Factory call *or* Nebius
-compute. Panelwise makes both (Nemotron calls, ComfyUI GPU). Hosting the app elsewhere is allowed
+compute. Every Nemotron call is a Token Factory call; rendering on fal.ai doesn't change that. Hosting the app elsewhere is allowed
 (frameflow-nebius-hackathon/PLAN.md, rules). The demo must stay up, free, until 15 Dec.
 
 ## 2. Reference material
@@ -87,6 +88,8 @@ sequenceDiagram
 - **Secrets by place:** `SUPABASE_SECRET_KEY`, `DATABASE_URL`, `NEBIUS_API_KEY` live only on
   Railway. `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` live on Vercel.
   `API_URL` (server-only, Vercel) points at the Railway domain.
+- **`FAL_KEY`** (the renderer's, storyboard.md §3.5) is a secret of the API host only, like
+  `NEBIUS_API_KEY`; it never reaches Vercel or a browser.
 
 **Failure paths:** the API down → the web health route answers 502 (already built); Supabase
 Postgres down → the API health answers 503 `degraded`; a Railway deploy fails its
@@ -118,6 +121,8 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | web (Vercel) | Auth in the browser (T040) |
 | `API_URL` | web, server-side only | the Railway domain, no trailing slash |
 | `NEBIUS_*`, `LLM_*` | API only | unchanged (docs/design/llm.md) |
+| `FAL_KEY` | API only, secret | fal.ai's key; unset, no renderer (storyboard.md §3.5, T026) |
+| `FAL_MODEL`, `FAL_TIMEOUT_S` | API | default `fal-ai/flux/schnell`, 60 s (storyboard.md §3.5) |
 | `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget, default 55 (storyboard.md §3.1, T008) |
 | `PANELWISE_PRIVATE_STYLES` | API, optional | a directory of private style TOMLs outside the repo; **never set on the hosted demo** (storyboard.md §3.2, T008) |
 | `REDIS_URL` | — | **removed** |
