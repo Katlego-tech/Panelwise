@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-08 — by Tumo (via Claude)_
+_Last updated: 2026-10-09 — by Tumo (via Claude)_
 
 ---
 
@@ -40,7 +40,7 @@ _Last updated: 2026-10-08 — by Tumo (via Claude)_
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Tumo | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ✅ T040 sign-in, projects, upload (PR #64) · ✅ T041 script page (PR #66; design commits from #65, T042 Files fix here) · ✅ compose gives web the publishable pair (PR #67) · ✅ T042 storyboard (PR #69 design, PR #70 code) · ✅ T045 frame sheet (PR #74 design, PR #75 code) · ✅ T061 audit log + "Try another render" (PR #78) |
-| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · 🟡 T062 the architecture check (Tumo, Claude) |
+| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · ✅ T062 the architecture check code (PR #82 design, #83 code; Tumo, Claude) · 🟡 its live run on the-red-kite (Tumo's go-ahead) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
 | `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · 🔴 T049 audit accuracy blocked on T026 |
@@ -54,7 +54,7 @@ _Last updated: 2026-10-08 — by Tumo (via Claude)_
 | Task | What | Where | State |
 |---|---|---|---|
 | T061 | Web: the audit log in the frame sheet, "Try another render", the failed-frame wordings | PR #78, `apps/web/components/storyboard/*` | ✅ merged 2026-10-08 |
-| T062 | The architecture check: the real audit loop on drawn sketches in a throwaway copy of a project, no image model | branch `feat/verify-t062`, `services/api/app/frames/check.py` | 🟡 code written, tests next; the live run waits on Tumo's go-ahead (a few audit calls) |
+| T062 | The architecture check: the real audit loop on drawn sketches in a throwaway copy of a project, no image model | branch `feat/verify-t062`, `services/api/app/frames/check.py` | ✅ code merged (PR #82 design, #83 code); 🟡 the live run waits on Tumo's go-ahead (a few audit calls) |
 
 Claimed files: `apps/web/**`, `services/api/app/frames/**`, `services/api/app/verify/loop.py`. Everything else is open.
 
