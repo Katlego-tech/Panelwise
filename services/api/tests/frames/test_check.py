@@ -216,3 +216,38 @@ async def test_it_refuses_a_project_with_no_plan_or_no_project(
         with pytest.raises(CheckRefused, match="no plan"):
             await run_check(sessions, store, model, target, bucket=DEV_BUCKET)
     assert await projects(sessions) == 1
+
+
+@pytest.mark.db
+async def test_an_audit_that_raises_fails_the_frame_mid_flight_and_the_job(
+    sessions: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = MemoryStore()
+    pid, _ = await project(sessions, store, run=True)
+
+    async def broken(*_: Any) -> Audit:
+        raise RuntimeError("the judge is down")
+
+    monkeypatch.setattr(loop, "audit_frame", broken)
+    model = make(Models())
+    with pytest.raises(RuntimeError, match="the judge is down"):
+        await run_check(sessions, store, model, pid, bucket=DEV_BUCKET)
+    async with sessions() as s:
+        job = await s.scalar(select(JobRow).where(JobRow.kind == JobKind.FRAME_ATTEMPT))
+        frame = await s.scalar(select(FrameRow))
+    assert job is not None and job.state == JobState.FAILED
+    # never left "auditing": the loop only fails a frame itself on a renderer error
+    assert frame is not None and (frame.state, frame.attempt) == ("failed", 1)
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("shots", [0, -1])
+async def test_it_refuses_fewer_than_one_shot(
+    sessions: async_sessionmaker[AsyncSession], scripted: list[Verdict], shots: int
+) -> None:
+    store = MemoryStore()
+    pid, _ = await project(sessions, store, run=True)
+    model = make(Models())
+    with pytest.raises(CheckRefused, match="at least 1"):
+        await run_check(sessions, store, model, pid, bucket=DEV_BUCKET, shots=shots)
+    assert await projects(sessions) == 1

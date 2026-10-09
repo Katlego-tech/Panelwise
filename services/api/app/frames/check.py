@@ -14,6 +14,7 @@ import argparse
 import asyncio
 import hashlib
 import io
+import logging
 import random
 import sys
 import uuid
@@ -25,6 +26,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
 from app.db import make_engine, make_sessions
+from app.frames.attempt import RENDER_FAILED
+from app.frames.model import FrameRow
 from app.frames.repo import audits_of, frames_of
 from app.frames.writer import FrameWriter, frame_hooks
 from app.jobs import JobKind, JobRow, JobState
@@ -36,7 +39,9 @@ from app.projects.pipeline import Stage
 from app.shots import Shot
 from app.storage import AssetStore, SupabaseStore
 from app.verify.loop import render_until_accepted
-from app.verify.model import RenderedFrame
+from app.verify.model import FrameState, RenderedFrame
+
+log = logging.getLogger(__name__)
 
 DEV_BUCKET = "panelwise-dev"
 WIDTH, HEIGHT = 1280, 720  # the storyboard's frame (storyboard.md §6)
@@ -122,6 +127,8 @@ async def run_check(
         raise CheckRefused(
             f"the architecture check runs only against {DEV_BUCKET!r}, not {bucket!r}"
         )
+    if shots < 1:
+        raise CheckRefused(f"--shots must be at least 1, not {shots}")
     async with sessions() as session, session.begin():
         source = await session.get(ProjectRow, project_id)
         if source is None or None in (source.screenplay, source.extraction, source.plan):
@@ -163,9 +170,11 @@ async def run_check(
 
     renderer = SketchRenderer(store)
     writer = FrameWriter(sessions, copy.id, job.id)
+    key = (0, 0)  # the frame in hand, for a failure
     try:
         for shot in plan.shots[:shots]:
-            log, on_state = frame_hooks(writer, renderer, (shot.scene_index, shot.number))
+            key = (shot.scene_index, shot.number)
+            log_audit, on_state = frame_hooks(writer, renderer, key)
             await render_until_accepted(
                 model,
                 renderer,
@@ -174,11 +183,20 @@ async def run_check(
                 extraction,
                 width=WIDTH,
                 height=HEIGHT,
-                log=log,
+                log=log_audit,
                 on_state=on_state,
             )
     except Exception:
-        await fail_job(sessions, job.id, "The renderer failed on this frame.", Stage.RENDERING)
+        # The loop fails the frame itself on a renderer error; an audit or database error leaves
+        # it mid-flight, so fail it here too (idempotent), as the retry does (attempt.py).
+        try:
+            async with sessions() as session:
+                frame = await session.get(FrameRow, (copy.id, *key))
+            if frame is not None:
+                await writer.on_frame(key, FrameState.FAILED, frame.attempt, None)
+        except Exception:
+            log.exception("frame %s could not be marked failed", key)
+        await fail_job(sessions, job.id, RENDER_FAILED, Stage.RENDERING)
         raise
     async with sessions() as session, session.begin():
         found = await session.get(JobRow, job.id)
