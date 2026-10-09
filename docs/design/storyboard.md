@@ -527,7 +527,7 @@ class StyleRegistry:
     def public(self) -> tuple[Style, ...]: ...          # sorted by key
 class StyleError(ValueError): ...
 SUBJECT_WORDS: frozenset[str]                           # §3.2's list
-PUBLIC_STYLES: Path                                     # the repo's styles/ (T026 must ship it in the API image)
+PUBLIC_STYLES: Path                                     # services/api/styles (the repo-root styles/ is a symlink to it, renderer.md §7), shipped in the API image
 def load_styles(public_dir: Path, private_dir: Path | None) -> StyleRegistry: ...
 
 # app/characters/redact.py  (built by T008; T025 uses it: characters.md §6)
@@ -598,6 +598,7 @@ def frame_of(outcome: FrameOutcome, record: RenderRecord | None) -> StoryboardFr
 async def build_storyboard(model: NebiusChatModel, renderer: RecordingRenderer, plan: ShotPlan,
                            screenplay: Screenplay, extraction: Extraction, *,
                            writer: FrameWriter,                                # T021's; frame_hooks(writer, renderer, shot) per shot (§4)
+                           style: str,                                         # the renderer's style key, for Storyboard.style
                            progress: Callable[[int, int], Awaitable[None]] | None = None,   # (settled, total) after each terminal frame
                            width: int = 1280, height: int = 720, concurrency: int = 2,
                            max_renders: int = 3) -> Storyboard: ...

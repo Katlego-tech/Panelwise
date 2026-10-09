@@ -322,6 +322,7 @@ the factory is `None` and the render routes answer 503, as today.
 | `services/api/app/projects/{job,pipeline}.py`, `app/api/v1/projects.py` | changed | §4a: the rendering stage in `run_job`, its copy in `pipeline.py`, the upload passing the factory | T026 |
 | `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment; `comfyui_max_words` → `render_max_words` (T008's `prompts.py` reads the new name) | T026 |
 | `services/api/tests/storyboard/test_render.py` | new | §9 | T026 |
+| `services/api/styles/*.toml`, `styles` (a symlink), `services/api/Dockerfile` | moved / new | the public styles move inside the API's Docker build context (`services/api`, the context compose and Render build from) and the image copies them; the repo-root `styles` becomes a symlink to `services/api/styles`, so every path the docs name still works. `PUBLIC_STYLES` points at `services/api/styles` | T026 |
 | `infra/comfyui/`, `infra/nebius/` | not built | T003 superseded (§8) | — |
 
 ## 8. Decisions & alternatives
