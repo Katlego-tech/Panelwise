@@ -32,13 +32,11 @@ kill %1
 ## 2. Render — the API
 
 The service is defined in `render.yaml` at the repository root (a Render Blueprint: a Docker web
-service, Starter, Frankfurt; design: [deploy.md §6](design/deploy.md)). Change settings there, in a
+service on the **free** instance, Frankfurt; design: [deploy.md §6](design/deploy.md)). Change settings there, in a
 PR, not in the dashboard: a dashboard edit to a field the Blueprint sets may be overwritten the next time it syncs.
 
 1. render.com → sign in with GitHub → give Render access to `Katlego-tech/Panelwise`.
-2. Billing: add a card. The Starter instance is $7/month; the Free instance can't run the pre-deploy
-   migration (design §8).
-3. **New → Blueprint** → pick the repo, branch `main`, Blueprint path `render.yaml`. Render lists
+2. **New → Blueprint** → pick the repo, branch `main`, Blueprint path `render.yaml`. Render lists
    one service, `panelwise-api`, and asks for the four secrets (`sync: false`):
 
    | Variable | Value |
@@ -50,18 +48,26 @@ PR, not in the dashboard: a dashboard edit to a field the Blueprint sets may be 
    Everything else has a default in `app/core/config.py` (`NEBIUS_MODEL_*`, `LLM_*`,
    `SUPABASE_STORAGE_BUCKET=panelwise`). `PORT` is set by Render (10000), and the container listens
    on it. Never set `PANELWISE_PRIVATE_STYLES` here.
-4. **Apply.** Render builds `services/api/Dockerfile`, runs the pre-deploy command
-   (`alembic … upgrade head`; a failed migration stops the deploy) and switches traffic once
-   `/api/v1/health` answers 200. The service's URL is `https://panelwise-api.onrender.com` (or with
+3. **Apply.** Render builds `services/api/Dockerfile` and starts
+   it; the image's start command runs `alembic upgrade head`, then uvicorn. Render switches traffic
+   once `/api/v1/health` answers 200. A failed migration exits the container, so the deploy never
+   turns healthy and Render cancels it. The service's URL is `https://panelwise-api.onrender.com` (or with
    a suffix if the name is taken; it's on the service's page).
+4. **Keep it awake.** A free instance sleeps after 15 idle minutes and takes about a minute to wake.
+   On GitHub: the repo's Settings → Secrets and variables → Actions → **Variables** → New repository
+   variable `API_HEALTH_URL` = `https://<render-domain>/api/v1/health`. The `keep-alive` workflow
+   (`.github/workflows/keepalive.yml`) then pings it every 10 minutes, which also keeps the free
+   Supabase project from pausing. Keep no other free service in this Render workspace: this one
+   uses ~744 of its 750 free hours a month.
 
 From then on, a push to `main` that touches `services/api/**` deploys after its GitHub checks pass
 (`autoDeployTrigger: checksPass`). A deploy that fails its migration or isn't healthy within
 15 minutes is cancelled, and the previous one keeps serving.
 
 **Check:** `curl https://<render-domain>/api/v1/health` →
-`{"status":"ok","checks":{"postgres":"ok"}}`, and the deploy's log (Events → the deploy) shows the
-pre-deploy migration. A 503 names the failing check. Render also checks the running service: after
+`{"status":"ok","checks":{"postgres":"ok"}}`; the service's Logs show Alembic's
+`Context impl PostgresqlImpl` line before uvicorn starts; and on GitHub, Actions → keep-alive →
+**Run workflow** passes. A 503 names the failing check. Render also checks the running service: after
 60 s of failures it restarts it (design §4).
 
 ## 3. Vercel — the web app

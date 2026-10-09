@@ -4,13 +4,12 @@ services:
   - type: web
     name: panelwise-api
     runtime: docker
-    plan: starter
+    plan: free
     region: frankfurt
     rootDir: services/api
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/v1/health
-    preDeployCommand: /srv/api/.venv/bin/alembic -c /srv/api/alembic.ini upgrade head
     autoDeployTrigger: checksPass
     numInstances: 1
     buildFilter:

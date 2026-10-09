@@ -31,8 +31,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://panelwise:panelwise@postgres:5432/panelwise
     ports: ["${API_HOST_PORT:-8000}:8000"]
-    # Migrations first, as Render's pre-deploy command does (docs/design/deploy.md §6).
-    command: ["sh", "-c", ".venv/bin/alembic upgrade head && exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    # No command: the image's CMD runs the migrations, then uvicorn, exactly as on Render
+    # (docs/design/deploy.md §6).
     depends_on:
       postgres: { condition: service_healthy }
 
