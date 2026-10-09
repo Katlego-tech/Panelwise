@@ -337,7 +337,7 @@ Scenario: A reference portrait keeps a character consistent
   styles; the repo carries an OSI licence (Apache-2.0). [PLAN.md NN2, § Technical Context]
 - [ ] **Samples:** only public-domain or self-written screenplays in the repo, demo and video.
   [PLAN.md § Technical Context; SCOPE.md]
-- [ ] **Hosted demo** on Vercel + Railway + Supabase, with a seeded judge account whose project is
+- [ ] **Hosted demo** on Vercel + Render + Supabase, with a seeded judge account whose project is
   pre-rendered, spend caps and upload limits, up until 15 Dec 2026. [deploy.md; DEMO.md; T030]
 - [ ] **Measured:** faithfulness, recall and frame-audit accuracy numbers in the README. [T032 extraction, T049 audit]
 - [ ] **Submission:** a video of 3 minutes or less, submitted on Devpost by 29 Oct 2026 (deadline

@@ -7,13 +7,13 @@ the repo. Each step ends with a check; don't start the next until it passes.
 | Order | Service | Runs | Needs |
 |---|---|---|---|
 | 1 | Supabase | Postgres (+ Storage and Auth later) | an account |
-| 2 | Railway | the API (`services/api`) | the GitHub repo, step 1's connection string, the Nebius key |
+| 2 | Render | the API (`services/api`, from `render.yaml`) | the GitHub repo, step 1's connection string and keys, the Nebius key |
 | 3 | Vercel | the web app (`apps/web`) | the GitHub repo, step 2's domain |
 
 ## 1. Supabase — the database
 
-1. supabase.com → New project. Pick the region closest to Railway's (e.g. Frankfurt with Railway's
-   EU region). Save the database password in a password manager.
+1. supabase.com → New project. Pick an EU region near Render's `frankfurt` (`render.yaml`); ours is
+   eu-west-1, Ireland. Save the database password in a password manager.
 2. **Connect** → **Session pooler** (port **5432**). Copy that connection string, with the password
    filled in. Not the *direct* connection: it's IPv6-only without the paid add-on. Not the
    *transaction* pooler (6543): it can't do prepared statements, which the API's driver uses.
@@ -29,24 +29,15 @@ sleep 3 && curl -s localhost:8001/api/v1/health   # {"status":"ok","checks":{"po
 kill %1
 ```
 
-## 2. Railway — the API
+## 2. Render — the API
 
-1. railway.com → New project → Deploy from GitHub repo → `Katlego-tech/Panelwise`.
-2. Service → Settings (set these in the dashboard; there is deliberately no config file, see below):
+The service is defined in `render.yaml` at the repository root (a Render Blueprint: a Docker web
+service on the **free** instance, Frankfurt; design: [deploy.md §6](design/deploy.md)). Change settings there, in a
+PR, not in the dashboard: a dashboard edit to a field the Blueprint sets may be overwritten the next time it syncs.
 
-   | Setting | Value |
-   |---|---|
-   | Root directory | `/services/api` |
-   | Builder | Dockerfile (Railway detects `services/api/Dockerfile`) |
-   | Healthcheck path | `/api/v1/health` (timeout 60 s) |
-   | Restart policy | On failure, 3 retries |
-   | Pre-deploy command | `/srv/api/.venv/bin/alembic -c /srv/api/alembic.ini upgrade head` (T009: migrations run before the new version starts; a failed one stops the deploy; check the deploy log shows them) |
-
-   *Why no `railway.json`:* Railway deprecated Config as Code. New services can't opt into it, and
-   existing files stop working on **2026-12-01**, before judging ends on 15 Dec
-   (docs.railway.com/config-as-code/reference, checked 2026-09-29). Its replacement,
-   `.railway/railway.ts`, would be unverified code for four settings.
-3. Service → Variables:
+1. render.com → sign in with GitHub → give Render access to `Katlego-tech/Panelwise`.
+2. **New → Blueprint** → pick the repo, branch `main`, Blueprint path `render.yaml`. Render lists
+   one service, `panelwise-api`, and asks for the four secrets (`sync: false`):
 
    | Variable | Value |
    |---|---|
@@ -54,13 +45,30 @@ kill %1
    | `NEBIUS_API_KEY` | your Token Factory key |
    | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | step 1 (the token check and uploads from T053, frames from T026) |
 
-   Everything else has a default in `app/core/config.py` (`NEBIUS_MODEL_*`, `LLM_*`). `PORT` is set
-   by Railway, and the container listens on it.
-4. Settings → Networking → **Generate domain**.
+   Everything else has a default in `app/core/config.py` (`NEBIUS_MODEL_*`, `LLM_*`,
+   `SUPABASE_STORAGE_BUCKET=panelwise`). `PORT` is set by Render (10000), and the container listens
+   on it. Never set `PANELWISE_PRIVATE_STYLES` here.
+3. **Apply.** Render builds `services/api/Dockerfile` and starts
+   it; the image's start command runs `alembic upgrade head`, then uvicorn. Render switches traffic
+   once `/api/v1/health` answers 200. A failed migration exits the container, so the deploy never
+   turns healthy and Render cancels it. The service's URL is `https://panelwise-api.onrender.com` (or with
+   a suffix if the name is taken; it's on the service's page).
+4. **Keep it awake.** A free instance sleeps after 15 idle minutes and takes about a minute to wake.
+   On GitHub: the repo's Settings → Secrets and variables → Actions → **Variables** → New repository
+   variable `API_HEALTH_URL` = `https://<render-domain>/api/v1/health`. The `keep-alive` workflow
+   (`.github/workflows/keepalive.yml`) then pings it every 10 minutes, which also keeps the free
+   Supabase project from pausing. Keep no other free service in this Render workspace: this one
+   uses ~744 of its 750 free hours a month.
 
-**Check:** `curl https://<railway-domain>/api/v1/health` →
-`{"status":"ok","checks":{"postgres":"ok"}}`. A 503 names the failing check; a deploy that fails
-this check never replaces the running one.
+From then on, a push to `main` that touches `services/api/**` deploys after its GitHub checks pass
+(`autoDeployTrigger: checksPass`). A deploy that fails its migration or isn't healthy within
+15 minutes is cancelled, and the previous one keeps serving.
+
+**Check:** `curl https://<render-domain>/api/v1/health` →
+`{"status":"ok","checks":{"postgres":"ok"}}`; the service's Logs show Alembic's
+`Context impl PostgresqlImpl` line before uvicorn starts; and on GitHub, Actions → keep-alive →
+**Run workflow** passes. A 503 names the failing check. Render also checks the running service: after
+60 s of failures it restarts it (design §4).
 
 ## 3. Vercel — the web app
 
@@ -71,7 +79,7 @@ this check never replaces the running one.
 
    | Variable | Value |
    |---|---|
-   | `API_URL` | `https://<railway-domain>` from step 2, no trailing slash. Server-side only |
+   | `API_URL` | `https://<render-domain>` from step 2, no trailing slash. Server-side only |
    | `ENABLE_EXPERIMENTAL_COREPACK` | `1`, so Vercel uses the pnpm version pinned in `package.json` |
    | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | step 1, the **publishable** key only (the browser sign-in, from T040) |
 
@@ -81,4 +89,4 @@ can't reach `API_URL`.
 
 ## When it's done
 
-All three checks pass: T037 is done. Record the two URLs in STATUS.md § Environment & access. Every push to `main` now redeploys both; every PR gets a Vercel preview.
+All three checks pass: T037 is done. Record the two URLs in STATUS.md § Environment & access. Every push to `main` now redeploys the web app, and the API when `services/api/**` changed; every PR gets a Vercel preview.

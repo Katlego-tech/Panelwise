@@ -788,7 +788,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   seconds per frame from T003 decide whether the box runs always-on for the demo to 15 Dec or is
   started on demand, and what T030's image cap (`IMAGE_MONTHLY_GENERATION_CAP`) is set to. A
   storyboard costs at most shots × 3 renders (verify.md's `max_renders`), fewer with cache hits.
-- [ ] **How ComfyUI is exposed** (T003): a private network between Railway and Nebius isn't
+- [ ] **How ComfyUI is exposed** (T003): a private network between Render and Nebius isn't
   available, so the endpoint needs authentication (a reverse proxy with a token, or a Nebius-managed
   endpoint). If a header is needed, `COMFYUI_*` gains a secret; T003 names it and this doc's §6
   changes with it.
