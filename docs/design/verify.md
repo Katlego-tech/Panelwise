@@ -279,7 +279,8 @@ class RecordingRenderer(Renderer, Protocol):
 | `id` | uuid, primary key | |
 | `project_id` | uuid, FK `projects` on delete cascade | so a frame's attempts across its jobs (the upload's, each retry's) are one indexed read |
 | `job_id` | uuid, FK `jobs` on delete cascade | the job that ran the attempt |
-| `scene_index`, `shot_number`, `attempt` | int, `attempt ≥ 1` | **unique** `(project_id, scene_index, shot_number, attempt)`, which is also the read's index |
+| `target` | text, CHECK `storyboard`/`comic`, default `storyboard` | which frame was audited: the storyboard's 1280 × 720 frame or a comic panel at its rect (T064, migration `0005`, comic.md §4a). Rows written before 0005 are `storyboard` |
+| `scene_index`, `shot_number`, `attempt` | int, `attempt ≥ 1` | **unique** `(project_id, target, scene_index, shot_number, attempt)` (`(project_id, scene_index, shot_number, attempt)` until 0005), which is also the read's index |
 | `seed` | **bigint** | `seed_for` is an unsigned 32-bit value: it overflows `integer` |
 | `frame_asset` | text | the attempt's Storage path; never sent to the web (only a `frames` row's accepted asset is, as a signed URL) |
 | `description`, `judgement` | jsonb, null | null on an ERROR audit that didn't get that far |
@@ -291,7 +292,9 @@ class RecordingRenderer(Renderer, Protocol):
 | `created_at` | timestamptz, `clock_timestamp()` | |
 
 Nothing in it quotes more of the script than the shot's own `source`. A frame's **last audit** is its
-row with the greatest `attempt`.
+row with the greatest `attempt`. Every read for the storyboard (`audits_of`, `withheld_check`,
+`FrameView.audits`) filters `target = 'storyboard'`; the comic job's rows are read by nothing in the
+web app yet (comic.md §4a).
 
 **T021's writers** (`app/frames/writer.py`). Each write is its own short transaction (a frame's state
 must be visible while its job still runs). The `frames` row is written by exactly these hooks and the
@@ -299,8 +302,10 @@ restart sweep.
 
 ```python
 class FrameWriter:
-    def __init__(self, sessions: async_sessionmaker[AsyncSession], project_id: uuid.UUID, job_id: uuid.UUID): ...
-    async def log(self, audit: Audit, frame_asset: str) -> None: ...      # one frame_audits row
+    def __init__(self, sessions: async_sessionmaker[AsyncSession], project_id: uuid.UUID, job_id: uuid.UUID,
+                 *, target: AuditTarget = AuditTarget.STORYBOARD): ...   # AuditTarget(StrEnum): STORYBOARD, COMIC (T064)
+    async def log(self, audit: Audit, frame_asset: str) -> None: ...      # one frame_audits row, with the writer's target
+    #   on_frame below raises ValueError on a COMIC writer: a comic panel has no frames row
     async def on_frame(self, shot: tuple[int, int], state: FrameState, attempt: int, asset: str | None) -> None: ...
     #   upserts the frames row and sets every column on every write: state, attempt, job_id; asset only
     #   for PASSED/WARNED, else null; withheld_check only for WITHHELD (from the frame's last audit: its
@@ -363,6 +368,7 @@ async def run_check(sessions, store: AssetStore, model: NebiusChatModel, project
 | Who sees the image | a vision model, blind to the shot | Nemotron directly: no Token Factory Nemotron accepts images (U7); telling the describer what to expect: it would agree |
 | Who judges | Nemotron (reasoning tier) + code | the vision model judging itself: not NVIDIA, and it already saw the image without the spec, which is the point |
 | Countable checks | code | the judge counting: code is exact and free |
+| Where a comic panel's attempts are logged (T064) | `frame_audits` with a `target` column | a second `comic_audits` table: the same columns twice, and two writers to keep in step; logging nothing: every attempt is kept (§4), a comic panel's too |
 | "Supported by the script" | only with a verbatim quote, verified in code | trusting the judge's say-so: the same failure the grounding filter exists to stop |
 | After the last failed attempt | withhold the frame | show the "best" failed frame: that shows something unscripted |
 | Audit error | withhold | pass unaudited: the one outcome this module exists to prevent |
