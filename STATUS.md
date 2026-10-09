@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-09 — by Tumo (via Claude)_
+_Last updated: 2026-10-09 — by Katlego (via Claude)_
 
 ---
 
@@ -46,6 +46,69 @@ _Last updated: 2026-10-09 — by Tumo (via Claude)_
 | `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · 🔴 T049 audit accuracy blocked on T026 |
 
 ## ⏭️ Next action
+
+### 🐞 For Tumo (from Katlego, 2026-10-09): the comic's lettering corners itself on real frames
+
+**What happened.** A trial comic of the-red-kite with real FLUX.1 [schnell] frames (Cloudflare Workers
+AI, cropped to each panel's rect; a local trial, no app code) stopped with T064's layout failure:
+*"Shot 2.3's lettering didn't fit its panel, so the comic stopped."* (`ComicError`: *scene 1, shot 3:
+no room to letter 'All of it. But listen to me.' even at 28 px*). Shot 5.2 corners the same way. The
+panel is 729 × 850 and blank frames letter it fine, so it isn't too small.
+
+**Cause (`services/api/app/comic/bubbles.py`, `_place`).** The placement is greedy with no
+backtracking: each box takes the cheapest admissible grid cell by `_detail` (edge strength), and every
+later box must sit in a cell after it (`if after is not None and cell <= after: continue`, reading
+order is hard). On a detailed frame whose quietest area is low in the panel, the first bubble takes a
+late cell, and the next text has no cell left, so `_place` raises. The sketch comic never hits this:
+a mostly blank sketch costs about the same everywhere, so the first box takes an early cell.
+
+**Repro (no image model, no audit, no bucket).** Any planned project in your database; from
+`services/api`, `uv run python - <project-id> < repro.py` with this `repro.py`:
+
+```python
+import asyncio, io, sys, uuid
+from PIL import Image, ImageDraw
+from app.comic.bubbles import place_lettering
+from app.comic.layout import layout_geometry
+from app.comic.model import PanelFrame
+from app.core.config import Settings
+from app.db import make_engine, make_sessions
+from app.projects.codec import load_plan, load_screenplay
+from app.projects.model import ProjectRow
+
+def busy(w, h):  # dense lines everywhere but the bottom-right ninth
+    im = Image.new("RGB", (w, h), "white"); d = ImageDraw.Draw(im)
+    for x in range(0, w, 6): d.line([(x, 0), (x, h)], fill="black")
+    d.rectangle([w * 2 // 3, h * 2 // 3, w, h], fill="white")
+    b = io.BytesIO(); im.save(b, "PNG"); return b.getvalue()
+
+async def main(pid):
+    engine = make_engine(Settings())
+    async with make_sessions(engine)() as s:
+        row = await s.get(ProjectRow, uuid.UUID(pid))
+    await engine.dispose()
+    plan, sp = load_plan(row.plan), load_screenplay(row.screenplay)
+    book = layout_geometry(plan, sp)
+    frames = {(p.scene_index, p.shot_number): PanelFrame(busy(*p.rect[2:]), {}, False)
+              for page in book.pages for p in page.panels}
+    place_lettering(book, sp, plan, frames)  # raises ComicError on the first multi-text panel
+    print("lettered")
+
+asyncio.run(main(sys.argv[1]))
+```
+
+On Katlego's the-red-kite copy it raises the same `ComicError` on scene 1, shot 3; with plain white
+frames the same project letters every panel.
+
+**What would fix it (your call, it's your lane):** place the panel's boxes as a set rather than one at
+a time: backtrack when a later box finds no cell, or choose the cells for all boxes together (cheapest
+sum of `_detail` that keeps reading order), and raise `ComicError` only when no ordering fits even on
+a zero-cost frame. A unit test with a frame like `busy()` above pins it. comic.md §4 step 7 says
+"the cheapest admissible grid corner for each box, in order", so the design wording changes too.
+
+**Also seen in the same trial (for the renderer design, not your lane):** Cloudflare's safety filter
+refused shot 3.4's retries as NSFW (HTTP 400, code 8007) on the same harmless prompt that rendered on
+attempt 1 (*"…outside flat roof, day, one figure, a person stares at the empty spool in her hands."*).
 
 ### 👋 For Katlego (from Tumo, 2026-10-08)
 
