@@ -1020,14 +1020,8 @@ interface FrameView {
   failure: "render" | "restart" | null;  // T021: why a failed frame failed (the renderer, or the restart sweep); null unless failed
   audits: AuditView[];                   // [] until T021
 }
-```
-
-**Comic response types** (T064, comic.md §4a). Kept in their own block until T064 lands their
-Pydantic models: T064 moves them into the block above, where the gate compares every interface with
-its model, and extends that comparison (`tests/projects/test_schemas.py`) to read a fixed-length
-tuple such as `[number, number, number, number]` as Pydantic's `tuple[int, int, int, int]`.
-
-```ts
+// The comic (T064, comic.md §4a). The gate reads a fixed-length tuple such as
+// [number, number, number, number] as Pydantic's tuple[int, int, int, int].
 type LetteringKind = "speech" | "off_panel" | "voice_over" | "scene";    // comic.md BubbleKind ∪ CaptionKind
 interface LetteringView {                // one bubble or caption (comic.md §6 Bubble, Caption)
   kind: LetteringKind;

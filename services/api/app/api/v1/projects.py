@@ -14,11 +14,15 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.errors import ApiError
-from app.api.v1.schemas import FrameView, LinesView, Project, ProjectSummary, ShotView
+from app.api.v1.schemas import ComicView, FrameView, LinesView, Project, ProjectSummary, ShotView
+from app.comic.job import ComicRefused, run_comic_job, start_comic
+from app.comic.rows import ComicRow
+from app.comic.views import comic_job_view, comic_view
 from app.core.auth import Caller, current_caller
 from app.frames import ACCEPTED, FrameRow, audits_of, frame_view, frames_of
-from app.frames.attempt import run_attempt
+from app.frames.attempt import RendererFactory, run_attempt
 from app.jobs import JobKind, JobRow, JobState
+from app.llm import NebiusChatModel
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.job import fail_job, run_job
 from app.projects.model import ProjectRow
@@ -290,3 +294,85 @@ async def try_another_render(
     state.tasks.add(task)
     task.add_done_callback(state.tasks.discard)
     return view
+
+
+# --- the comic (T064; comic.md §4a, web.md §6) ------------------------------------------------
+
+_COMIC_STATUS = {
+    "not_found": 404,
+    "not_ready": 409,
+    "comic_running": 409,
+    "renderer_unavailable": 503,
+    "storage_unavailable": 503,
+}
+
+
+@router.post("/projects/{project_id}/comic", status_code=202)
+async def make_comic(
+    request: Request, project_id: str, caller: Annotated[Caller, Depends(current_caller)]
+) -> JSONResponse:
+    """Start the project's comic: comic.md §4a's checks in order, nothing written before an
+    answer, then the job runs in the background like the upload's."""
+    try:
+        pid = uuid.UUID(project_id)
+    except ValueError as exc:
+        raise ApiError(404, "not_found") from exc
+    state = request.app.state
+    factory: RendererFactory | None = state.renderer_factory
+    model: NebiusChatModel | None = state.model
+    store: AssetStore | None = state.store
+    try:
+        async with state.sessions() as session, session.begin():
+            job = await start_comic(
+                session,
+                pid,
+                caller.user_id,
+                renderer=factory is not None and model is not None,
+                store=store is not None,
+            )
+    except ComicRefused as refused:
+        raise ApiError(_COMIC_STATUS[refused.code], refused.code) from refused
+    if factory is None or model is None or store is None:  # start_comic refused these already
+        raise ApiError(503, "renderer_unavailable")
+    task = asyncio.create_task(
+        run_comic_job(job.id, sessions=state.sessions, store=store, model=model, factory=factory)
+    )
+    state.tasks.add(task)
+    task.add_done_callback(state.tasks.discard)
+    return JSONResponse(
+        status_code=202, content={"job": comic_job_view(job).model_dump(mode="json")}
+    )
+
+
+@router.get("/projects/{project_id}/comic")
+async def read_comic(
+    request: Request, project_id: str, caller: Annotated[Caller, Depends(current_caller)]
+) -> ComicView:
+    """The latest comic job and the last finished comic, every page and the PDF signed."""
+    project, _ = await _owned(request, caller, project_id)
+    if project.plan is None:
+        raise ApiError(409, "not_ready")
+    state = request.app.state
+    async with state.sessions() as session:
+        job = await session.scalar(
+            select(JobRow)
+            .where(JobRow.project_id == project.id, JobRow.kind == JobKind.COMIC)
+            .order_by(JobRow.created_at.desc(), JobRow.id.desc())
+            .limit(1)
+        )
+        comic = await session.get(ComicRow, project.id)
+    page_urls: list[str] = []
+    pdf_url: str | None = None
+    if comic is not None:
+        store: AssetStore | None = state.store
+        if store is None:
+            raise ApiError(503, "storage_unavailable")
+        try:
+            page_urls = [await store.signed_url(path, _SIGNED_URL_S) for path in comic.pages]
+            pdf_url = await store.signed_url(comic.pdf, _SIGNED_URL_S)
+        except StorageError as exc:
+            raise ApiError(503, "storage_unavailable") from exc
+    can_make = (
+        state.renderer_factory is not None and state.model is not None and state.store is not None
+    )
+    return comic_view(project, job, comic, page_urls, pdf_url, can_make=can_make)
