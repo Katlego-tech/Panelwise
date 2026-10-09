@@ -44,7 +44,7 @@ code, and `tokens.css` is the token source every value below comes from.
 | Storyboard: before any frame (today's real state), still reading, failed (§4.3) | [web/storyboard-states.png](web/storyboard-states.png) | [web/mockups/storyboard-states.html](web/mockups/storyboard-states.html) |
 | Comic reader (§4.5) | [web/comic.png](web/comic.png) (1440 px) | [web/mockups/comic.html](web/mockups/comic.html) |
 | Comic on a phone | [web/comic-phone.png](web/comic-phone.png) (390 px) | same file, narrow viewport |
-| Comic: plan not ready, no comic (with and without a renderer: today's real state is without), being made, failed (§4.5) | [web/comic-states.png](web/comic-states.png) | [web/mockups/comic-states.html](web/mockups/comic-states.html) |
+| Comic: plan not ready; planned but the storyboard still running; no comic, without a renderer (today's real state) and with; being made; failed, with and without a renderer (§4.5) | [web/comic-states.png](web/comic-states.png) | [web/mockups/comic-states.html](web/mockups/comic-states.html) |
 
 - Content in the mockups is the self-written lighthouse script from
   `services/api/tests/script/conftest.py`: its real lines, line numbers and page break. The frame
@@ -623,10 +623,12 @@ failed poll is retried on the next tick. 404 and unavailable as §4.2.
 |---|---|
 | `shots` null, the upload's job `queued`/`running` | the job strip (§4.2's `JobStrip`), the eyebrow "Comic", the title, a note: "The comic is made from the shot plan, which isn't ready yet." / "This page updates when planning finishes." |
 | the upload's job `failed` | the script page's failed card, as §4.3 |
+| `shots` set, the upload's job still `queued`/`running` (T026's rendering stage) | the job strip, the title, the note "The comic can be made once the storyboard is finished." / "This page updates when it is.", no button (POST would answer 409 `not_ready`) |
 | `comic` null, `job` null | the note "No comic yet." / "Making one draws each of the {shots} shots again at its panel's size, audits every drawing against the script, and letters the panels with the script's own dialogue." and **Make the comic**; when `can_make` is false, the line "Drawing isn't set up on this server yet, so a comic can't be made here." above the button, which is disabled (every deployment before T026: the real state) |
 | `job` `queued`/`running` (`comic` null) | the strip "Making the comic · {progress}%" with the meter, and the note "Drawing and auditing the panels. The pages appear here when the comic is done." |
-| `job` `failed`, `comic` null | the note with a `--withheld` left rule: `job.error` verbatim (comic.md §4a's copy), "Drawings already made are reused when you make it again.", and **Make the comic again** (disabled, with the line above, when `can_make` is false) |
-| `comic` set | **the reader** (below). A remake is not offered in this version (§10) |
+| `job` `failed`, `comic` null | the note with a `--withheld` left rule: `job.error` verbatim (comic.md §4a's copy), "Panels the audit already accepted are reused when you make it again." (comic.md §4a step 1), and **Make the comic again** (disabled, with the "isn't set up" line above it, when `can_make` is false: comic-states.png's last screen) |
+| `comic` set, `job` `done` or null | **the reader** (below). A remake is not offered in this version (§10) |
+| `comic` set, `job` `queued`/`running` or `failed` (a remake started outside the reader, §10) | the reader, with the making strip above it while the job runs, or the failed note above it (no button) when it failed: the previous comic stays readable (comic.md §4a) |
 
 **Make the comic** posts `POST /api/projects/[id]/comic`: "Starting…" while sending; 202 → the
 making row at once (the answer's job) and polling starts; 409 `comic_running` → `router.refresh()`;
@@ -652,8 +654,12 @@ the button, which stays enabled.
   - per panel, a link to `/projects/[id]/storyboard?shot={shot_id}` labelled "Shot {shot_id} in the
     storyboard" (", frame withheld" appended when `withheld`); hover or focus shows a dashed pencil
     outline and a "Shot {id}" tag in the corner;
-  - per lettering, a `<button aria-pressed>` labelled "{who}: {text} ({span})", above its panel's
-    link. Tab order: each panel's link, then its lettering in order, panel by panel in page order.
+  - per lettering, a `<button aria-pressed>` labelled "{who}: {text} ({span})", stacked above its
+    panel's link. **DOM order is tab order:** panel by panel in page order, each panel's link then its
+    lettering in order (comic.html is generated in that order).
+  - **Page DOM order** is intro, sheet (page and pager), rail; on wide screens the grid
+    (`grid-template-areas: "sheet intro" "sheet rail"`) shows the intro beside the page, which changes
+    where it is drawn, not the reading or tab order.
 - **Tracing a line (the signature):** selecting a lettering (click, Enter or Space, on the page or in
   the list) traces it on the page with a 3 px `--pencil` outline and its span in a pencil tag above
   it, marks its list row (`--pencil-soft`, a pencil inset rule), and fills **From the script**:
@@ -1018,7 +1024,8 @@ interface FrameView {
 
 **Comic response types** (T064, comic.md §4a). Kept in their own block until T064 lands their
 Pydantic models: T064 moves them into the block above, where the gate compares every interface with
-its model.
+its model, and extends that comparison (`tests/projects/test_schemas.py`) to read a fixed-length
+tuple such as `[number, number, number, number]` as Pydantic's `tuple[int, int, int, int]`.
 
 ```ts
 type LetteringKind = "speech" | "off_panel" | "voice_over" | "scene";    // comic.md BubbleKind ∪ CaptionKind

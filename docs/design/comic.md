@@ -260,13 +260,14 @@ sequenceDiagram
     participant S as Storage
     participant D as Postgres
     W->>A: (no body)
-    A->>D: lock the project; plan set and storyboard job DONE? no comic job queued/running?
+    A->>D: start_comic: lock the owner's project; the checks in order (below)
     A->>D: jobs row (kind comic, RUNNING, stage rendering, progress 0)
     A-->>W: 202 {job}
     A->>J: asyncio task (tracked in app.state.tasks)
     J->>J: layout_geometry(plan, screenplay)
     loop each panel, in plan order
-        J->>V: shot, width × height = rect
+        J->>D: the shot's comic audits: an accepted one at this size is reused (no render)
+        J->>V: otherwise shot, width × height = rect, first_attempt after the last logged
         V->>D: frame_audits row per attempt (target comic)
         V-->>J: FrameOutcome
         J->>D: progress = round(90 × panels done / panels)
@@ -276,38 +277,73 @@ sequenceDiagram
     J->>D: one transaction: upsert comics row, job DONE 100
 ```
 
-- **Checks, in order** (each answers before anything is written): not the owner's project → 404;
-  no plan or the storyboard job not `DONE` → 409 `not_ready`; a `comic` job `queued` or `running`
-  for the project → 409 `comic_running`; no renderer factory or no model → 503
-  `renderer_unavailable`; no store → 503 `storage_unavailable`. The project row is locked (`FOR
-  UPDATE`) for the check and the insert, so two clicks make one job.
-- **Panels are rendered again at their rect's size**, never cropped from storyboard frames (§4
-  step 6), with the same seeds rule (`seed_for(shot, attempt)`) and the same audit. Each attempt is a
-  `frame_audits` row with `target = 'comic'` (verify.md §6), its `frame_asset` the renderer's
-  record; **no `frames` row is written**: those are the storyboard's 1280 × 720 frames, and a comic
-  panel's state lives in the job and, once done, the layout. The storyboard's audit log reads only
+- **Checks, in order** (each answers before anything is written), all in `start_comic`, inside one
+  transaction that selects the project `FOR UPDATE` **filtered by owner**, so two clicks make one
+  job: no such project, or not the caller's → `not_found`; no plan, or the latest `storyboard` job
+  not `DONE` → `not_ready`; a `comic` job `queued` or `running` for the project → `comic_running`;
+  `renderer` false (the route passes `app.state.renderer_factory is not None and app.state.model is
+  not None`) → `renderer_unavailable`; `store` false → `storage_unavailable`. It raises
+  `ComicRefused(code)` (app/comic, no API import); the route maps the codes to 404, 409, 409, 503,
+  503 and `ApiError`.
+- **Per panel**, in plan order, for the panel's shot `key` and its rect `w × h`:
+  1. **Reuse.** The project's `frame_audits` rows with `target = 'comic'` for `key` are read. If the
+     one with the greatest `attempt` among those with verdict `pass` or `warn` exists, its
+     `frame_asset` is read from the store; if it decodes to exactly `w × h` the panel is **accepted
+     from it**: no render, no audit, `positions` from that row. Otherwise (none, or another size)
+     the panel is rendered.
+  2. **Render.** `render_until_accepted(model, renderer, shot, screenplay, extraction, width=w,
+     height=h, first_attempt=1 + the greatest comic attempt logged for key (0 if none),
+     max_renders=3, log=log, on_state=on_state)`. Continuing the attempt numbers keeps every row
+     (the unique key `(project_id, target, scene_index, shot_number, attempt)` never collides) and
+     gives a re-run new seeds (`seed_for(shot, attempt)`). The hooks are comic's own, never
+     `frame_hooks` (whose `on_state` writes a `frames` row): `log(audit)` →
+     `writer.log(audit, renderer.record(key, audit.attempt).asset)` on a `FrameWriter(target=COMIC)`;
+     `on_state(state, attempt)` only records the last state, so a `FAILED` state tells the job the
+     **renderer** raised (the loop enters FAILED only then, verify.md §6), whatever else the
+     exception could have been.
+  3. **Size.** An accepted outcome's PNG must decode to exactly `w × h`, checked here, before the
+     next panel: otherwise the renderer ignored the size → the job fails `COMIC_RENDER_FAILED` at
+     once, not after every other panel (the same check `place_lettering` makes, made early).
+  4. **Map.** `panel_frame(outcome, shot)` → `frames[key]` (PASSED/WARNED → the PNG and the last
+     audit's positions; WITHHELD → the card). A reused panel's `PanelFrame` is built from its row
+     the same way. `paths[key] = renderer.record(key, outcome.frame.attempt).asset` (or the reused
+     row's `frame_asset`) for an accepted panel only; a withheld panel has no entry, so `to_json`
+     marks it `withheld` (§6).
+  5. **Progress** `round(90 × k / n)` after the k-th of n panels, in its own short transaction.
+- Then `place_lettering(book, screenplay, plan, frames)`, `render_pages`, `to_pdf`,
+  `to_json(lettered, paths)`. These and `layout_geometry` are CPU-bound Pillow work: each runs in
+  `asyncio.to_thread`, so the API keeps answering polls while a comic is made.
+- **No `frames` row is written**: those are the storyboard's 1280 × 720 frames, and a comic panel's
+  state lives in the job and, once done, the layout. The storyboard's audit log reads only
   `target = 'storyboard'`, so the two never mix.
 - **Stored by content**: each page PNG at `comics/<sha256 of its bytes>.png`, the PDF at
-  `comics/<sha256>.pdf` (idempotent `put`, as storyboard.md §3.3). `to_json(book, frame_urls)` gets
-  each accepted panel's **Storage path**, not a URL: the layout is stored, and signed URLs expire, so
-  `GET …/comic` signs at read time.
+  `comics/<sha256>.pdf` (idempotent `put`, as storyboard.md §3.3). `to_json` gets each accepted
+  panel's **Storage path**, not a URL: the layout is stored, and signed URLs expire, so `GET …/comic`
+  signs at read time.
 - **One comic per project.** The `comics` row is upserted only when everything is stored, in the same
-  transaction that marks the job `DONE`, so a reader never sees half a comic and a failed remake
-  leaves the previous comic readable.
-- **Progress**: `round(90 × k / n)` after the k-th of n panels settles; 100 with the row. The stage
-  stays `rendering` (jobs' stage CHECK allows it; the web words it "Making the comic").
+  transaction that marks the job `DONE` with progress 100, so a reader never sees half a comic and a
+  failed remake leaves the previous comic readable.
+- **Progress order**: 0 when the job is created; after each panel, as above; held at 90 through
+  lettering, pages, PDF and storage; 100 with the row. The stage stays `rendering` (jobs' stage CHECK
+  allows it; the web words it "Making the comic").
 - **Failure** → job `FAILED`, `error` one of (verbatim; the web shows it as written):
-  `COMIC_RENDER_FAILED` "A panel couldn't be drawn, so the comic stopped." (the renderer raised:
-  `render_until_accepted` re-raises it, verify.md §6); `COMIC_LAYOUT_FAILED` "Shot {shot_id}'s lettering
-  didn't fit its panel, so the comic stopped." when the `ComicError` names a shot (`ComicError.shot`,
-  below; `shot_id` as web.md's), else `COMIC_LAYOUT_FAILED_ANY` "The lettering didn't fit the panels,
-  so the comic stopped." (any `ComicError`, from layout or placement; its message goes to the log).
-  This is SPEC US3's "the comic job fails naming the shot"; `COMIC_UNEXPECTED` "Something went wrong on our side while making
-  the comic. Make it again." (anything else, logged). The restart sweep's `RESTARTED` ("…Upload the
-  script again.") is read back by `GET …/comic` as `COMIC_RESTARTED` "The server restarted while the
-  comic was being made. Make it again.", since a comic is remade, not re-uploaded.
+  - `COMIC_RENDER_FAILED` "A panel couldn't be drawn, so the comic stopped.": the panel's last
+    recorded state was `FAILED` (the renderer raised), or an accepted PNG of the wrong size (step 3);
+  - `COMIC_LAYOUT_FAILED` "Shot {shot_id}'s lettering didn't fit its panel, so the comic stopped."
+    for a `ComicError` with `shot` set (`shot_id` as web.md's), else `COMIC_LAYOUT_FAILED_ANY` "The
+    lettering didn't fit the panels, so the comic stopped.". `ComicError` can come from
+    `layout_geometry`, `panel_frame`, `place_lettering` and `render_pages`; every raise in them that
+    names a shot sets `shot`. Its message goes to the log. This is SPEC US3's "the comic job fails
+    naming the shot";
+  - `COMIC_UNEXPECTED` "Something went wrong on our side while making the comic. Make it again.":
+    anything else (an audit or database error, storage), logged.
+  The restart sweep's `RESTARTED` ("…Upload the script again.") is read back by `GET …/comic` as
+  `COMIC_RESTARTED` "The server restarted while the comic was being made. Make it again.", since a
+  comic is remade, not re-uploaded.
 - **Cost**: two audit calls per attempt (verify.md), one to three attempts per panel, plus the
-  renderer's. the-red-kite has 21 shots: 42–126 audit calls.
+  renderer's. the-red-kite has 21 shots: 42–126 audit calls for the first comic. A re-run reuses
+  every panel already accepted (step 1), so a job that fails late (lettering, storage) costs only the
+  panels that were never accepted when it is made again; a withheld panel is tried three more times.
 
 **The local check** (`python -m app.comic.check <project-id>`): runs `run_comic_job` on a project
 with `SketchRenderer` (verify.md §6, T062) as the renderer and the real audit. It refuses
@@ -321,8 +357,8 @@ with the owner's go-ahead**. A sketch comic shows the path a comic takes, not a 
 
 Layout geometry is pure. Producing a comic is a `Job` of kind `comic` (docs/design/deploy.md §5:
 `QUEUED → RUNNING → DONE | FAILED`; T064 creates it `RUNNING`, as a "Try another render" job is);
-progress = panels rendered, then pages rendered (§4a). A project has at most one comic, replaced
-only by a job that finishes.
+progress follows §4a's order (0, then per panel to 90, held through lettering and pages, 100 with
+the stored comic). A project has at most one comic, replaced only by a job that finishes.
 
 ## 6. Contracts
 
@@ -340,7 +376,7 @@ class CaptionKind(StrEnum): SCENE = "scene"; VOICE_OVER = "voice_over"
 @dataclass(frozen=True) class ComicBook: pages: tuple[Page, ...]; report: LayoutReport
 @dataclass(frozen=True) class WithheldCard: checks: str; span: Span   # the card's two variable parts (§4 step 6); lands with T023
 @dataclass(frozen=True) class PanelFrame: png: bytes; positions: Mapping[str, Position]; withheld: bool; card: WithheldCard | None = None   # Position from verify.md; lands with T023, its first consumer. card is set exactly when withheld (else ComicError); a withheld png is never drawn
-class ComicError(RuntimeError):   # T064: `shot`, set by every raise in layout.py and bubbles.py that names a shot
+class ComicError(RuntimeError):   # T064: `shot`, set by every raise in layout.py, bubbles.py and render.py that names a shot
     def __init__(self, message: str, *, shot: tuple[int, int] | None = None) -> None: ...
     shot: tuple[int, int] | None    # (scene_index, shot_number)
 
@@ -393,9 +429,14 @@ withheld one). `to_json` reads `withheld` as "the shot has no entry in `frame_ur
 job passes a URL for every accepted frame and none for a withheld one. A bubble's `tail` is
 `[x, y]` or `null`; a caption has no `tail` key.
 
-**The comic job** (T064; §4a). Migration `0005_comics`: the `jobs_kind` CHECK gains `'comic'`
-(`JobKind.COMIC = "comic"`), verify.md §6's `frame_audits.target`, and this table (`lock_down` like
-every table, deploy.md §6):
+**The comic job** (T064; §4a). Migration `0005_comics`, upgrade: the `jobs_kind` CHECK is dropped and
+re-made with `'comic'` (`JobKind.COMIC = "comic"`); `frame_audits` gains `target` (text, not null,
+default `'storyboard'`, CHECK `frame_audits_target`: `target IN ('storyboard', 'comic')`), and its
+unique constraint `frame_audits_frame` is dropped and re-made under the same name over
+`(project_id, target, scene_index, shot_number, attempt)` (`FrameAuditRow.__table_args__` the same);
+then this table (`lock_down` like every table, deploy.md §6). **Downgrade** deletes the `comic` jobs
+(cascading to `comics` and their `frame_audits`) and every `target = 'comic'` row first, then restores
+the old constraints and drops `target` and the table, so it succeeds with comics present:
 
 | Column | Type | Notes |
 |---|---|---|
@@ -414,10 +455,18 @@ class ComicRow(Base): ...   # the table above
 COMIC_RENDER_FAILED: str; COMIC_LAYOUT_FAILED: str; COMIC_LAYOUT_FAILED_ANY: str; COMIC_UNEXPECTED: str; COMIC_RESTARTED: str   # §4a, verbatim; COMIC_LAYOUT_FAILED takes .format(shot_id=...)
 async def run_comic_job(job_id: uuid.UUID, *, sessions: async_sessionmaker[AsyncSession], store: AssetStore,
                         model: NebiusChatModel, factory: RendererFactory) -> None: ...
-#   §4a end to end for the job's project; never raises: every failure is the job FAILED with one of
-#   the three messages (the cause logged). RendererFactory is app/frames/attempt.py's.
-async def start_comic(sessions, project_id: uuid.UUID, owner: uuid.UUID) -> JobRow: ...
-#   §4a's checks and the RUNNING job, in one locked transaction; raises the API's ApiError codes
+#   §4a end to end for the job's project, per panel exactly as §4a's steps 1–5; never raises: every
+#   failure is the job FAILED with one of §4a's messages (the cause logged). RendererFactory is
+#   app/frames/attempt.py's; the factory is called once per job. Hooks: comic's own (§4a step 2),
+#   never frame_hooks.
+class ComicRefused(RuntimeError):
+    code: Literal["not_found", "not_ready", "comic_running", "renderer_unavailable", "storage_unavailable"]
+async def start_comic(session: AsyncSession, project_id: uuid.UUID, owner: uuid.UUID, *,
+                      renderer: bool, store: bool) -> JobRow: ...
+#   §4a's checks in order, in the caller's transaction (the route's `session.begin()`): selects the
+#   project FOR UPDATE where id and owner match, then adds the RUNNING comic job (progress 0) and
+#   flushes; raises ComicRefused(code) before writing anything. The route maps the code to its status
+#   and ApiError, commits, then starts run_comic_job as a tracked task (as the upload does).
 
 # app/comic/views.py
 def comic_view(project: ProjectRow, job: JobRow | None, row: ComicRow | None,
@@ -493,7 +542,13 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   holds those paths and a layout whose `frame_url`s are paths (none for a withheld panel); progress
   only rises and ends at 100 with the job `DONE`; a renderer error → `COMIC_RENDER_FAILED`, a
   `ComicError` → `COMIC_LAYOUT_FAILED` naming its shot (or `COMIC_LAYOUT_FAILED_ANY` without one), every shot-naming `ComicError` raise carrying `shot`, anything else → `COMIC_UNEXPECTED`, each leaving a previous
-  comic untouched; `POST` answers each §4a check in order with nothing written, and two concurrent
+  comic untouched; **two jobs in a row** both settle cleanly: the second reuses every panel the first
+  accepted at its size (no render, no audit call for it) and numbers a re-rendered panel's attempts
+  after the first job's (new seeds, no unique-key error); an accepted PNG of the wrong size fails the
+  job at that panel with `COMIC_RENDER_FAILED`; the renderer raising is told from an audit error by
+  the recorded `FAILED` state; no `frames` row is written; the migration's downgrade succeeds with
+  comic jobs and comic audit rows present, and `tests/db`'s table and CHECK assertions include
+  `comics`, `'comic'` and `target`; `POST` answers each §4a check in order with nothing written, and two concurrent
   POSTs make one job; `GET` signs every page and the PDF, orders lettering as §6 says, builds `cue`
   with its extension, maps `RESTARTED`; `list_summaries` ignores `comic` jobs; the local check's
   three refusals. Then, with the owner's go-ahead, `python -m app.comic.check` on a T062 copy of
