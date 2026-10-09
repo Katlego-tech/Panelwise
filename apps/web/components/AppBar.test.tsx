@@ -13,7 +13,7 @@ describe("AppBar (web.md §6 component tree, projects.png, script.png)", () => {
     expect(screen.queryByRole("navigation")).toBeNull();
   });
 
-  it("a project: its title and tabs, the current one marked, Comic disabled with its tooltip", () => {
+  it("a project: its title and tabs, the current one marked, Comic a link", () => {
     render(<AppBar email="judge@panelwise.demo" project={{ id: "p1", title: "The Keeper's Light" }} tab="script" />);
     expect(screen.getByText("The Keeper's Light")).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Project" });
@@ -22,10 +22,9 @@ describe("AppBar (web.md §6 component tree, projects.png, script.png)", () => {
     expect(screen.getByRole("link", { name: "Script" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Storyboard" })).toHaveAttribute("href", "/projects/p1/storyboard");
     expect(screen.getByRole("link", { name: "Storyboard" })).not.toHaveAttribute("aria-current");
-    const comic = screen.getByText("Comic");
-    expect(comic).toHaveAttribute("aria-disabled", "true");
-    expect(comic).toHaveAttribute("title", "Comic pages aren't built yet");
-    expect(comic).not.toHaveAttribute("href");
+    // T024: the Comic tab is a link like the others (web.md §4.5).
+    expect(screen.getByRole("link", { name: "Comic" })).toHaveAttribute("href", "/projects/p1/comic");
+    expect(screen.getByRole("link", { name: "Comic" })).not.toHaveAttribute("aria-disabled");
   });
 
   it("the storyboard: its tab current, and the page's tools before who is signed in (storyboard.png)", () => {

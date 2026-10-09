@@ -132,3 +132,37 @@ export interface FrameView {
   failure: "render" | "restart" | null; // T021: why a failed frame failed (the renderer, or the restart sweep); null unless failed
   audits: AuditView[]; // [] until T021
 }
+// The comic (T064, comic.md §4a; web.md §6). Rects are [x, y, w, h] in page px.
+export type LetteringKind = "speech" | "off_panel" | "voice_over" | "scene";
+export interface LetteringView {
+  kind: LetteringKind;
+  speaker: string | null; // Dialogue.cue verbatim; null for a scene caption
+  cue: string | null; // the cue as the script prints it: cue, then " (" extension ")" if any
+  text: string; // verbatim
+  span: SpanRef;
+  rect: [number, number, number, number];
+}
+export interface ComicPanelView {
+  shot_id: string;
+  rect: [number, number, number, number];
+  withheld: boolean;
+  lettering: LetteringView[]; // the SCENE caption, then bubbles and voice-over captions in element order
+}
+export interface ComicPageView {
+  number: number;
+  width: number;
+  height: number;
+  image_url: string;
+  panels: ComicPanelView[];
+}
+export interface ComicMade {
+  made_at: string;
+  pdf_url: string;
+  pages: ComicPageView[];
+}
+export interface ComicView {
+  can_make: boolean; // a renderer, a model and a store: POST …/comic would not answer 503
+  shots: number;
+  job: Job | null; // the latest comic job
+  comic: ComicMade | null; // the last finished comic
+}
