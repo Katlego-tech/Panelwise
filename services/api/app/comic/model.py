@@ -26,7 +26,13 @@ class CaptionKind(StrEnum):
 
 
 class ComicError(RuntimeError):
-    """The comic can't be laid out or lettered without cutting script text; no partial book."""
+    """The comic can't be laid out or lettered without cutting script text; no partial book.
+    `shot` is the (scene_index, shot_number) it names, when it names one: the comic job's failure
+    copy names that shot (comic.md §4a, SPEC US3)."""
+
+    def __init__(self, message: str, *, shot: tuple[int, int] | None = None) -> None:
+        super().__init__(message)
+        self.shot = shot
 
 
 @dataclass(frozen=True)

@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.frames.model import ACCEPTED, FrameAuditRow, FrameRow
+from app.frames.model import ACCEPTED, AuditTarget, FrameAuditRow, FrameRow
 from app.verify.model import Audit, Check, FrameState, RecordingRenderer, Severity, Verdict
 
 _CHECK_ORDER = {check.value: i for i, check in enumerate(Check)}
@@ -41,10 +41,13 @@ class FrameWriter:
         sessions: async_sessionmaker[AsyncSession],
         project_id: uuid.UUID,
         job_id: uuid.UUID,
+        *,
+        target: AuditTarget = AuditTarget.STORYBOARD,
     ) -> None:
         self.sessions = sessions
         self.project_id = project_id
         self.job_id = job_id
+        self.target = target  # a comic panel's attempts are logged as COMIC (T064)
 
     async def log(self, audit: Audit, frame_asset: str) -> None:
         scene_index, shot_number = audit.shot
@@ -53,6 +56,7 @@ class FrameWriter:
                 FrameAuditRow(
                     project_id=self.project_id,
                     job_id=self.job_id,
+                    target=self.target.value,
                     scene_index=scene_index,
                     shot_number=shot_number,
                     attempt=audit.attempt,
@@ -81,6 +85,8 @@ class FrameWriter:
     async def on_frame(
         self, shot: tuple[int, int], state: FrameState, attempt: int, asset: str | None
     ) -> None:
+        if self.target is not AuditTarget.STORYBOARD:
+            raise ValueError("a comic panel has no frames row: only a storyboard writer moves one")
         scene_index, shot_number = shot
         async with self.sessions() as session:
             reason = None
@@ -89,6 +95,7 @@ class FrameWriter:
                     select(FrameAuditRow)
                     .where(
                         FrameAuditRow.project_id == self.project_id,
+                        FrameAuditRow.target == AuditTarget.STORYBOARD.value,
                         FrameAuditRow.scene_index == scene_index,
                         FrameAuditRow.shot_number == shot_number,
                     )

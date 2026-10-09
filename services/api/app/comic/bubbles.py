@@ -84,10 +84,12 @@ def place_lettering(
             key = (panel.scene_index, panel.shot_number)
             shot, scene = shots.get(key), scenes.get(panel.scene_index)
             if shot is None or scene is None:
-                raise ComicError(f"{panel_name(key)} is not in the shot plan or the screenplay")
+                raise ComicError(
+                    f"{panel_name(key)} is not in the shot plan or the screenplay", shot=key
+                )
             frame = frames.get(key)
             if frame is None:
-                raise ComicError(f"{panel_name(key)} has no frame")
+                raise ComicError(f"{panel_name(key)} has no frame", shot=key)
             texts = _texts(shot, scene, firsts[panel.scene_index] == key)
             placed = _place(panel, texts, frame)
             lettered = _lettered(panel, placed, frame)
@@ -117,7 +119,8 @@ def _texts(shot: Shot, scene: Scene, first: bool) -> list[_Text]:
     for index in shot.elements:
         if not 0 <= index < len(scene.elements):
             raise ComicError(
-                f"{panel_name((shot.scene_index, shot.number))} cites a missing element"
+                f"{panel_name((shot.scene_index, shot.number))} cites a missing element",
+                shot=(shot.scene_index, shot.number),
             )
         element = scene.elements[index]
         if isinstance(element, Dialogue):  # action is never lettered; the art shows it
@@ -147,7 +150,8 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         if missing:
             raise ComicError(
                 f"{panel_name(key)}: the lettering font has no glyph for {missing!r}, so "
-                f"{text.text!r} can't be lettered as written"
+                f"{text.text!r} can't be lettered as written",
+                shot=key,
             )
         after = placed[-1].cell if placed else None
         third = _third(text.speaker, positions, w)
@@ -176,7 +180,8 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         if choice is None:
             raise ComicError(
                 f"{panel_name(key)}: no room to letter {text.text!r} even at {FONT_SIZES[-1]} px; "
-                "the panel is too small for its lines, and no line is ever cut"
+                "the panel is too small for its lines, and no line is ever cut",
+                shot=key,
             )
         placed.append(choice)
     return placed
@@ -252,11 +257,14 @@ def frame_image(png: bytes, size: tuple[int, int], key: tuple[int, int]) -> Imag
         image = Image.open(BytesIO(png))
         image.load()
     except (OSError, ValueError) as error:
-        raise ComicError(f"{panel_name(key)}: its frame is not a readable image") from error
+        raise ComicError(
+            f"{panel_name(key)}: its frame is not a readable image", shot=key
+        ) from error
     if image.size != size:
         raise ComicError(
             f"{panel_name(key)}: its frame is {image.size[0]} x {image.size[1]}, not its panel's "
-            f"{size[0]} x {size[1]}; frames are rendered at the panel's size, never cropped"
+            f"{size[0]} x {size[1]}; frames are rendered at the panel's size, never cropped",
+            shot=key,
         )
     return image
 

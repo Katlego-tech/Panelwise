@@ -8,6 +8,7 @@ from alembic import context
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
+import app.comic.rows
 import app.frames.model
 import app.jobs.model
 import app.projects.model
