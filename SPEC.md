@@ -13,7 +13,7 @@ source in brackets. Where the sources don't decide something, it is listed under
 
 Panelwise turns a screenplay into a shot-by-shot storyboard and then into a comic book. A person
 uploads a screenplay PDF in the web app; NVIDIA Nemotron on Nebius Token Factory extracts the
-characters, props and locations and plans the shots, ComfyUI on a Nebius AI Cloud GPU renders one
+characters, props and locations and plans the shots, FLUX.2 [klein] 4B on Cloudflare Workers AI renders one
 frame per shot, and every frame is audited before anyone sees it: **a vision model describes each
 frame; Nemotron audits it against the script** and a failing frame is re-rendered. The output is a
 storyboard (in the app and as a PDF) and comic pages with speech bubbles lettered from the script's

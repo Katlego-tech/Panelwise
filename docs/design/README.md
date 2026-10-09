@@ -17,6 +17,7 @@ assistant can read and write them.
 | `characters` | [characters.md](characters.md) | agreed | portrait + references classes, portrait and frame flow, portrait state machine, prompt rules (no names, script words only), IP-Adapter choice, contracts |
 | `comic` | [comic.md](comic.md) | agreed | class (book, pages, panels, bubbles, captions), weights, tiers, lettering budget, frames rendered at panel size, bubble placement, withheld card, contracts, reader JSON |
 | `storyboard` | [storyboard.md](storyboard.md) | draft | class (styles, prompt parts, renderer, storyboard, pages), plan → render → audit → Storage → PDF sequence, grounded prompt rules and invariant, public/private style validation, render key and cache, contracts, JSON |
+| `storyboard` | [renderer.md](renderer.md) | proposed | the image model behind every frame (FLUX.2 [klein] 4B on Workers AI): draw size and fit, request, retries and error codes, daily neuron budget, render key without a reproducible seed, contracts; replaces storyboard.md's ComfyUI renderer |
 | `infra` | [deploy.md](deploy.md) | agreed | where each piece runs, env contract, browser → web → API flow, Job state, decisions |
 | `eval+submission` | [eval.md](eval.md) | proposed | run/summary/report classes, sample × runs sequence, in-code grounding re-check, table recomputed by the gate, T049's report shape |
 | `web` | [web.md](web.md) | proposed | visual reference (web/*.png + mockups, tokens), lined-script storyboard, Project + Job stage, upload → job flow, API §6 types, component tree, copy |

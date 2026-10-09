@@ -1,8 +1,13 @@
 # Design — `storyboard` (frames, styles, the image chain, the storyboard PDF)
 
 **Status:** draft · **Owner:** Katlego (Claude) · **Tasks:** T008 (styles, redaction, prompts and a
-prompt-printing CLI: buildable now), T026 (workflow, renderer, Storage, the storyboard job: blocked
-on T003's GPU and T021's loop), T027 (the PDF and JSON, after T026) · **Spec:** [SPEC.md](../../SPEC.md) US1 (script → grounded storyboard)
+prompt-printing CLI: buildable now), T026 (renderer, Storage, the storyboard job), T027 (the PDF and JSON, after T026) · **Spec:** [SPEC.md](../../SPEC.md) US1 (script → grounded storyboard)
+
+> **Renderer changed (2026-10-09):** frames are drawn by FLUX.2 [klein] 4B on Cloudflare Workers AI,
+> designed in [renderer.md](renderer.md); T003's ComfyUI GPU is superseded (no cash budget). Where
+> this doc describes ComfyUI (the workflow graph, `ComfyRenderer`, `draw_size`'s native area, the
+> render key, the ComfyUI calls and the `COMFYUI_*` environment), renderer.md §3–§6 replace it. The
+> prompts, styles, `build_storyboard`, Storage paths, the cache rule and the document are unchanged.
 
 ---
 
@@ -17,8 +22,9 @@ the Nebius GPU in a chosen **style**, audited by verify.md's loop before anyone 
    output.
 2. **The style registry**: public styles in `styles/`, an optional private pack from
    `PANELWISE_PRIVATE_STYLES`, the same validation for both.
-3. **The ComfyUI renderer**: verify.md's `Renderer` Protocol, implemented against a committed
-   workflow graph; each render stored by a content address, which is also the render cache.
+3. **The renderer**: verify.md's `Renderer` Protocol; each render stored by a content address,
+   which is also the render cache. Its implementation is [renderer.md](renderer.md)'s
+   `WorkersAIRenderer` (FLUX.2 [klein] 4B on Workers AI), which replaced the ComfyUI one below.
 4. **The storyboard document**: the page layout and the PDF, with the withheld-frame text card.
 
 **Not covered:** the audit, the re-render loop, the frame state machine and the `frame_audits`
@@ -291,7 +297,9 @@ none of which names a person, prop or event.
   unless the covered text says it.
 - **Parentheses are escaped.** ComfyUI reads `(words)` as a weight, and screenplays are full of
   them ("NANDI (60s, oilskin coat)"). The renderer escapes `(` and `)` as `\(` and `\)` in every part
-  but `STYLE` (whose weight it adds itself), so script text is never re-weighted.
+  but `STYLE` (whose weight it adds itself), so script text is never re-weighted. (ComfyUI only:
+  renderer.md's Workers AI renderer sends `FramePrompt.text()` as is, with no weights and so nothing
+  to escape.)
 - **No negations** (FrameFlow's finding: "no borders" drew borders). What must not appear is kept
   out by not being said, and caught by the audit. The style's `negative` goes to the negative prompt,
   which only subtracts.
@@ -559,29 +567,11 @@ def build_frame_prompt(shot: Shot, screenplay: Screenplay, extraction: Extractio
 # app/storyboard/prompts.py — T008's live check (python -m app.storyboard.prompts <script.pdf> [--style KEY])
 async def main(argv: list[str]) -> int: ...             # parse, extract, plan; print each shot's parts, kinds and spans
 #   run as `sys.exit(asyncio.run(main(sys.argv[1:])))` under `if __name__ == "__main__"`, like app/shots/run.py;
-#   max_words = Settings().comfyui_max_words (COMFYUI_MAX_WORDS, T008), the same value T026's load_workflow receives
+#   max_words = Settings().render_max_words (RENDER_MAX_WORDS; COMFYUI_MAX_WORDS until T026 renames it), the value WorkersAIRenderer receives
 
-# app/storyboard/workflow.py — pure
-@dataclass(frozen=True) class Workflow: name: str; graph: Mapping[str, Any]; native_area: int; max_words: int
-REQUIRED_TITLES: tuple[str, ...] = ("checkpoint", "positive", "negative", "seed", "latent", "save")
-def load_workflow(path: Path, max_words: int) -> Workflow: ...     # WorkflowError if a title is missing or repeated
-def draw_size(width: int, height: int, native_area: int) -> tuple[int, int]: ...   # multiples of 64
-def substitute(workflow: Workflow, *, positive: str, negative: str, seed: int, width: int, height: int) -> dict[str, Any]: ...
-RENDER_VERSION: int = 1
-def render_key(graph: Mapping[str, Any], width: int, height: int, postprocess: str) -> str: ...   # sha256 hex, §3.3 (requested size, RENDER_VERSION)
-def fit(png: bytes, width: int, height: int) -> Image.Image: ...                  # cover + centre-crop, exact size
-def weighted(text: str, phrase: str, emphasis: float | None) -> str: ...          # "(phrase:1.3)" on its first occurrence
-
-# app/storyboard/render.py
-class RendererError(RuntimeError): ...
-@dataclass(frozen=True) class RenderRecord: shot: tuple[int, int]; attempt: int; key: str; asset: str; prompt: FramePrompt; cached: bool; seconds: float | None
-class ComfyRenderer:                                    # implements app.verify.Renderer
-    def __init__(self, *, style: Style, workflow: Workflow, store: AssetStore, screenplay: Screenplay,
-                 extraction: Extraction, client: httpx2.AsyncClient, base_url: str,
-                 timeout_s: float, poll_interval_s: float = 1.0) -> None: ...
-    async def check_workflow(self) -> None: ...         # GET /object_info: titled nodes' classes exist, checkpoint installed
-    async def render(self, shot: Shot, attempt: int, seed: int, width: int, height: int) -> RenderedFrame: ...
-    def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...     # KeyError if not rendered
+# app/storyboard/render.py — renderer.md §6, verbatim there (draw_size, fit, render_key, RENDER_VERSION,
+#   RendererError, RenderRefused, RenderQuotaExceeded, WorkersAIAccount, RenderRecord, WorkersAIRenderer,
+#   renderer_factory). workflow.py and ComfyRenderer are not built (T003 superseded).
 
 # app/storage/store.py
 class StorageError(RuntimeError): ...
@@ -604,7 +594,7 @@ class StoryboardError(RuntimeError): ...
 
 # app/storyboard/build.py
 def frame_of(outcome: FrameOutcome, record: RenderRecord | None) -> StoryboardFrame: ...   # pure, §3.3; record = the last attempt's
-async def build_storyboard(model: NebiusChatModel, renderer: ComfyRenderer, plan: ShotPlan,
+async def build_storyboard(model: NebiusChatModel, renderer: RecordingRenderer, plan: ShotPlan,
                            screenplay: Screenplay, extraction: Extraction, *,
                            writer: FrameWriter,                                # T021's; frame_hooks(writer, renderer, shot) per shot (§4)
                            progress: Callable[[int, int], Awaitable[None]] | None = None,   # (settled, total) after each terminal frame
@@ -639,34 +629,26 @@ def to_json(storyboard: Storyboard, plan: ShotPlan, frame_urls: Mapping[tuple[in
 `frame_url` is present only for `passed` and `warned`; a `withheld` frame has none. `source` and
 `span` are the shot's, so the web app shows "from page 1, lines 5–9" on every frame (SPEC US1).
 
-**Environment** (added to `.env.example` and deploy.md §6: `PANELWISE_PRIVATE_STYLES` and `COMFYUI_MAX_WORDS` by T008, the other `COMFYUI_*` and Storage by T026):
+**Environment** (added to `.env.example` and deploy.md §6: `PANELWISE_PRIVATE_STYLES` by T008, Storage by T026; the renderer's, including `RENDER_MAX_WORDS`, are renderer.md §6's):
 
 | Variable | Where | What |
 |---|---|---|
-| `COMFYUI_URL` | API | ComfyUI's base URL on the Nebius GPU (already in `.env.example`) |
-| `COMFYUI_TIMEOUT_S` | API | per-render deadline before the queue-aware extension, default 300 |
-| `COMFYUI_MAX_WORDS` | API | the workflow's prompt word budget (§3.1), set with the T003 model; default 55 (CLIP's 77 tokens) |
 | `SUPABASE_STORAGE_BUCKET` | API | the private bucket for frames and PDFs, default `panelwise` |
 | `PANELWISE_PRIVATE_STYLES` | API, optional | a directory of private style TOMLs outside the repo (already in `.env.example`); never set on the hosted demo |
 
-**Workflow**: `infra/comfyui/workflows/frame.json` (T026; `portrait.json`, `frame_ref1.json`,
-`frame_ref2.json` stay T025's). Nodes by title: `checkpoint` (its checkpoint name is fixed in the
-file: no "first available checkpoint" fallback), `positive`, `negative` (text encodes), `seed` and
-the sampler settings on the sampler, `latent` (width, height; its committed size is `native_area`),
-`save`.
+**Workflow**: none (renderer.md: Workers AI takes a prompt, not a graph).
 
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
 | `services/api/app/storyboard/{__init__,styles,prompt,prompts}.py` | new | §3.1–§3.2, §6; `prompts.py`: `python -m app.storyboard.prompts <script.pdf> [--style KEY]` parses, extracts and plans on the real account and prints every shot's prompt parts with their spans, so the team can read the prompts before any GPU exists | T008 |
-| `services/api/app/storyboard/{model,workflow,render,build,run}.py` | new | §3.3, §4, §6: the workflow helpers, `ComfyRenderer`, `build_storyboard`, and `python -m app.storyboard.run <script.pdf> [--style KEY] --out DIR` (renders and audits on the real account and GPU, stores the frames, prints each shot's state and prompt) | T026 |
+| `services/api/app/storyboard/{model,render,build,run}.py` | new | §3.3, §4, §6 and renderer.md §6: `WorkersAIRenderer`, `build_storyboard`, and `python -m app.storyboard.run <script.pdf> [--style KEY] --out DIR` (renders and audits on the real accounts, stores the frames, prints each shot's state, prompt and neurons) | T026 |
 | `services/api/app/storyboard/document.py` | new | §3.4, §6: layout, PDF, JSON; `run` writes the PDF to `DIR` and Storage | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
 | `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames | T053 |
 | `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, `COMFYUI_MAX_WORDS`), T026 (`COMFYUI_URL`, `COMFYUI_TIMEOUT_S`, `SUPABASE_STORAGE_BUCKET`) |
 | `styles/*.toml`, `styles/README.md` | new / changed | the styles the team keeps public (§10); the file format | T008 |
-| `infra/comfyui/workflows/frame.json` | new | the frame graph, on T003's model | T026 (with T003's box) |
 | `services/api/assets/fonts/{CourierPrime-Regular,CourierPrime-Bold}.ttf`, `CourierPrime-OFL.txt` | new | the document's font and its licence | T027 |
 | `services/api/app/images/README.md` | removed | the provider chain and cache it described are not built (§8); the renderer lives in `storyboard/` | T026 |
 | `docs/design/reference/storyboard/*.png` | new | the sample's rendered pages, the visual reference | T027 |
@@ -779,19 +761,11 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   2026-09-30 by the user:** all three of FrameFlow's drawn styles (`clean`, `ink`, `pencil`) are
   public in `styles/`, `clean` is the default, `classic` is dropped (§8), and the private pack is
   empty. Built by T008.
-- [ ] **The ComfyUI model and graph** (T003): which checkpoint, sampler, steps and cfg go in
-  `frame.json`, its native size, and its licence (recorded in `infra/nebius/README.md`). The model
-  decides `COMFYUI_MAX_WORDS` (CLIP's 77 tokens vs a T5 encoder's few hundred), whether comma phrases
-  or sentences prompt it better, whether a negative prompt does anything (cfg 1 models ignore it:
-  verify.md §8), and which IP-Adapter family T025 can use (characters.md §10).
-- [ ] **GPU cost** (STATUS.md: the $50 credit covers Token Factory, not a GPU VM): cost per hour and
-  seconds per frame from T003 decide whether the box runs always-on for the demo to 15 Dec or is
-  started on demand, and what T030's image cap (`IMAGE_MONTHLY_GENERATION_CAP`) is set to. A
-  storyboard costs at most shots × 3 renders (verify.md's `max_renders`), fewer with cache hits.
-- [ ] **How ComfyUI is exposed** (T003): a private network between Railway and Nebius isn't
-  available, so the endpoint needs authentication (a reverse proxy with a token, or a Nebius-managed
-  endpoint). If a header is needed, `COMFYUI_*` gains a secret; T003 names it and this doc's §6
-  changes with it.
+- [x] **The model, its cost and how it's reached** (were: the ComfyUI model and graph, GPU cost, how
+  ComfyUI is exposed; all T003). **Superseded 2026-10-09** by [renderer.md](renderer.md): FLUX.2
+  [klein] 4B on Cloudflare Workers AI's free allocation, reached with an account id and API token;
+  the word budget is 120; no negative prompt; about one project a day on the free neurons
+  (renderer.md §3.3, §10).
 - [ ] **Unaudited frames at the US1 checkpoint** (SPEC.md open question 1): this design follows the
   agreed verify.md (no frame shown without `PASS` or `WARN`), so T026 depends on T021's loop. Confirm
   the US1 checkpoint waits for T021 rather than showing unaudited frames.

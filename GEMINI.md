@@ -89,4 +89,4 @@ The plan lives in [PLAN.md](PLAN.md); the WHAT in [SPEC.md](SPEC.md); the task l
 
 ## Locked stack (do not swap without a plan change)
 
-`Python 3.14 + FastAPI + SQLAlchemy 2 async (uv) · Next.js 16 + shadcn/ui (pnpm) · Supabase (Postgres via the session pooler, Storage, Auth; no Redis) · web on Vercel, API on Railway · NVIDIA Nemotron on Nebius Token Factory · ComfyUI on a Nebius AI Cloud GPU` — see [docs/design/deploy.md](docs/design/deploy.md).
+`Python 3.14 + FastAPI + SQLAlchemy 2 async (uv) · Next.js 16 + shadcn/ui (pnpm) · Supabase (Postgres via the session pooler, Storage, Auth; no Redis) · web on Vercel, API on Railway · NVIDIA Nemotron on Nebius Token Factory · FLUX.2 [klein] 4B on Cloudflare Workers AI (docs/design/renderer.md)` — see [docs/design/deploy.md](docs/design/deploy.md).

@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-09 — by Tumo (via Claude)_
+_Last updated: 2026-10-09 — by Katlego (via Claude)_
 
 ---
 
@@ -35,10 +35,10 @@ _Last updated: 2026-10-09 — by Tumo (via Claude)_
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · T003 superseded by renderer.md (no cash for a GPU) |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
-| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
+| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔵 T026 retargeted to FLUX.2 [klein] 4B on Cloudflare Workers AI: design `docs/design/renderer.md` in review (branch `docs/renderer-cloudflare`; trial 2026-10-09: 104.2 neurons a frame, ~95 frames a day free) · T027 (PDF) after T026 |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Tumo | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ✅ T040 sign-in, projects, upload (PR #64) · ✅ T041 script page (PR #66; design commits from #65, T042 Files fix here) · ✅ compose gives web the publishable pair (PR #67) · ✅ T042 storyboard (PR #69 design, PR #70 code) · ✅ T045 frame sheet (PR #74 design, PR #75 code) · ✅ T061 audit log + "Try another render" (PR #78) · ✅ T024 the comic reader (PR #87; Tumo, Claude) |
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · ✅ T062 the architecture check code (PR #82 design, #83 code; Tumo, Claude) · ✅ its live run on the-red-kite (2026-10-09) · 🟡 the browser check of the copy (Tumo) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) · ✅ T064/T024 design (PR #85) · ✅ T064 the comic job, store and API (PR #86; Tumo, Claude) |

@@ -10,7 +10,7 @@
 
 Where Panelwise runs once it leaves a laptop, and what each hosted service is for. It replaces
 PLAN.md's earlier target ("API + web on Nebius; Postgres + Redis self-hosted"). **Not covered:**
-ComfyUI on the Nebius GPU (T003, `infra/nebius/`), which is unchanged.
+frame rendering, which moved on 2026-10-09 from ComfyUI on a Nebius GPU (T003, superseded) to Cloudflare Workers AI (renderer.md).
 
 | Piece | Runs on | Why |
 |---|---|---|
@@ -21,7 +21,7 @@ ComfyUI on the Nebius GPU (T003, `infra/nebius/`), which is unchanged.
 | Sign-in, seeded judge account | **Supabase Auth** | T030 needs a judge login in the testing instructions |
 | Job status and progress | **a Postgres table** | replaces Redis: one fewer service to host and pay for |
 | Models | Nebius Token Factory | unchanged; this call is what satisfies "runs on Nebius" |
-| Rendering | ComfyUI on a Nebius AI Cloud GPU (T003) | unchanged |
+| Rendering | ComfyUI on a Nebius AI Cloud GPU (T003) | FLUX.2 [klein] 4B on Cloudflare Workers AI, free allocation (renderer.md, T026; changed 2026-10-09) |
 
 **Hackathon rules still hold:** "runs on Nebius" means a runtime Token Factory call *or* Nebius
 compute. Panelwise makes both (Nemotron calls, ComfyUI GPU). Hosting the app elsewhere is allowed
@@ -119,6 +119,8 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `API_URL` | web, server-side only | the Railway domain, no trailing slash |
 | `NEBIUS_*`, `LLM_*` | API only | unchanged (docs/design/llm.md) |
 | `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget, default 55 (storyboard.md §3.1, T008) |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (secret) | API | Workers AI, where frames are drawn (renderer.md §6, T026); without both, the render routes answer 503 |
+| `RENDER_MODEL`, `RENDER_TIMEOUT_S`, `RENDER_MAX_WORDS` | API | renderer.md §6 (T026; `RENDER_MAX_WORDS`, default 120, replaces `COMFYUI_MAX_WORDS`) |
 | `PANELWISE_PRIVATE_STYLES` | API, optional | a directory of private style TOMLs outside the repo; **never set on the hosted demo** (storyboard.md §3.2, T008) |
 | `REDIS_URL` | — | **removed** |
 
