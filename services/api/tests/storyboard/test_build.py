@@ -240,3 +240,35 @@ def test_frame_of_names_a_withheld_frame_s_hard_checks_and_a_warned_one_s_soft_i
         "the text sent",
         FrameState.WARNED,
     )
+
+
+@pytest.mark.db
+async def test_a_progress_write_that_fails_never_fails_a_shot(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    store, fal = MemoryStore(), Fal()
+    pid, jid = await project(sessions, store, run=True)
+    async with sessions() as s:
+        row = await s.get(ProjectRow, pid)
+    assert row is not None and row.plan and row.screenplay and row.extraction
+    plan = load_plan(row.plan)
+    screenplay, extraction = load_screenplay(row.screenplay), load_extraction(row.extraction)
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fal))
+    renderer = FalRenderer(
+        style=STYLE,
+        store=store,
+        screenplay=screenplay,
+        extraction=extraction,
+        client=client,
+        key="k",
+    )
+
+    async def broken(settled: int, total: int) -> None:
+        raise RuntimeError("the database blinked")
+
+    board = await build_storyboard(
+        make(Models()), renderer, plan, screenplay, extraction,
+        writer=FrameWriter(sessions, pid, jid), progress=broken, concurrency=4,
+    )  # fmt: skip
+    assert [f.state for f in board.frames] == [FrameState.PASSED] * len(plan.shots)
+    assert (board.renders, board.cached) == (len(plan.shots), 0)

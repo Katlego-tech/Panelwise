@@ -11,7 +11,7 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any, cast
 
-from sqlalchemy import update
+from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.frames.writer import FrameWriter
@@ -169,7 +169,12 @@ async def _render(
             await session.execute(
                 update(JobRow)
                 .where(JobRow.id == job_id)
-                .values(progress=60 + round(40 * settled / max(total, 1)))
+                # GREATEST: shots settle concurrently, so writes can land out of order
+                .values(
+                    progress=func.greatest(
+                        JobRow.progress, 60 + round(40 * settled / max(total, 1))
+                    )
+                )
             )
 
     await build_storyboard(

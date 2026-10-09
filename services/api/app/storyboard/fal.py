@@ -62,6 +62,13 @@ def derived_seed(seed: int, redraw: int) -> int:
     return (seed + redraw * GOLDEN) % 2**32
 
 
+def _finish(raw: bytes, width: int, height: int, style: Style) -> tuple[bytes, bool]:
+    """CPU work, run in a thread: fitted and post-processed PNG, and whether it is all black."""
+    image = postprocess(fit(raw, width, height), style.grayscale)
+    _, brightest = image.convert("L").getextrema()
+    return png_bytes(image), brightest == 0
+
+
 class FalRenderer:
     """verify.md's RecordingRenderer on fal.ai, in one style, for one screenplay."""
 
@@ -108,31 +115,47 @@ class FalRenderer:
         draw = fal_draw_size(width, height)
         step = "grayscale" if self.style.grayscale else "none"
         started = time.perf_counter()
-        for redraw in range(REDRAWS):
-            drawn_seed = derived_seed(seed, redraw)
-            body = fal_request(text, drawn_seed, draw)
-            address = render_key({"model": self.model, "request": body}, width, height, step)
-            path = f"frames/{address}.png"
-            if await self.store.exists(path):  # stored drawings were never blacked out
-                png, cached = await self.store.get(path), True
+        bodies = [fal_request(text, derived_seed(seed, k), draw) for k in range(REDRAWS)]
+        addresses = [
+            render_key({"model": self.model, "request": body}, width, height, step)
+            for body in bodies
+        ]
+        drawn: tuple[int, bytes, bool] | None = None  # (redraw, png, cached)
+        # The cache covers redraws (§3.5): a shot whose first seed was flagged is free next time.
+        for k, address in enumerate(addresses):
+            if await self.store.exists(f"frames/{address}.png"):  # stored drawings were never black
+                drawn = (k, await self.store.get(f"frames/{address}.png"), True)
                 break
-            answer = await self._call(body)
-            flags = answer.get("has_nsfw_concepts") or [False]
-            if flags[0]:
-                log.warning("fal.ai flagged shot %s attempt %d (redraw %d)", key, attempt, redraw)
-                continue
-            raw = await self._image(answer, draw)
-            png = png_bytes(postprocess(fit(raw, width, height), self.style.grayscale))
-            await self.store.put(path, png, "image/png")  # a content address: put is idempotent
-            cached = False
-            break
-        else:
+        if drawn is None:
+            for k, body in enumerate(bodies):
+                answer = await self._call(body)
+                if self._flagged(answer):
+                    log.warning("fal.ai flagged shot %s attempt %d (redraw %d)", key, attempt, k)
+                    continue
+                raw = await self._image(answer, draw)
+                png, black = await asyncio.to_thread(_finish, raw, width, height, self.style)
+                if black:  # flagged in all but name: never stored, never audited
+                    log.warning("fal.ai drew shot %s attempt %d black (redraw %d)", key, attempt, k)
+                    continue
+                await self.store.put(f"frames/{addresses[k]}.png", png, "image/png")
+                drawn = (k, png, False)
+                break
+        if drawn is None:
             raise RendererError("fal.ai's safety checker blocked every drawing of this shot")
+        k, png, cached = drawn
         seconds = None if cached else time.perf_counter() - started
         self.records[(key, attempt)] = RenderRecord(
-            key, attempt, address, path, prompt, cached, seconds
+            key, attempt, addresses[k], f"frames/{addresses[k]}.png", prompt, cached, seconds
         )
-        return RenderedFrame(key, attempt, drawn_seed, png, width, height, text)
+        return RenderedFrame(key, attempt, bodies[k]["seed"], png, width, height, text)
+
+    def _flagged(self, answer: dict[str, Any]) -> bool:
+        """fal.ai's safety result, read fail-closed: no clean list of booleans is an error."""
+        flags: object = answer.get("has_nsfw_concepts")
+        listed = cast(list[object], flags) if isinstance(flags, list) else []
+        if not listed or not all(isinstance(f, bool) for f in listed):
+            raise RendererError(f"fal.ai's answer for {self.model} has no safety result")
+        return bool(listed[0])
 
     async def _call(self, body: dict[str, Any]) -> dict[str, Any]:
         response = await self._send("POST", FAL_URL.format(model=self.model), json=body)

@@ -31,7 +31,8 @@ KEY = "fal-secret-key"
 
 def png(width: int, height: int, shade: int = 90) -> bytes:
     out = io.BytesIO()
-    Image.new("RGB", (width, height), (shade, shade + 20, shade + 40)).save(out, format="PNG")
+    colour = (0, 0, 0) if shade == 0 else (shade, shade + 20, shade + 40)
+    Image.new("RGB", (width, height), colour).save(out, format="PNG")
     return out.getvalue()
 
 
@@ -46,12 +47,15 @@ class Fal:
         self.flags: list[bool] = []
         self.size_off = False
         self.network_errors = 0
+        self.omit_flags = False  # an answer with no safety result
+        self.blacks: list[bool] = []  # the next drawings come back all black, unflagged
 
     def __call__(self, request: httpx2.Request) -> httpx2.Response:
         if request.method == "GET":
             self.gets.append(request)
             w, h = (int(x) for x in request.url.path.rsplit("/", 1)[1].split(".")[0].split("x"))
-            return httpx2.Response(200, content=png(w, h))
+            black = self.blacks.pop(0) if self.blacks else False
+            return httpx2.Response(200, content=png(w, h, shade=0) if black else png(w, h))
         self.posts.append(request)
         if self.network_errors:
             self.network_errors -= 1
@@ -64,7 +68,9 @@ class Fal:
         flagged = self.flags.pop(0) if self.flags else False
         shown_w = w + 16 if self.size_off else w
         image = {"url": f"https://cdn.fal.test/out/{w}x{h}.png", "width": shown_w, "height": h}
-        answer = {"images": [image], "seed": body["seed"], "has_nsfw_concepts": [flagged]}
+        answer: dict[str, object] = {"images": [image], "seed": body["seed"]}
+        if not self.omit_flags:
+            answer["has_nsfw_concepts"] = [flagged]
         return httpx2.Response(200, json=answer)
 
 
@@ -267,3 +273,43 @@ def test_the_factory_makes_a_renderer_in_the_default_style(
         9,
         40,
     )
+
+
+async def test_a_shot_whose_first_seed_was_flagged_costs_nothing_next_time(
+    fal: Fal, lighthouse: Screenplay, cast: Extraction, slept: list[float]
+) -> None:
+    store = MemoryStore()
+    shot = shot_of(lighthouse, 0, [0])
+    fal.flags = [True, False]
+    first = await renderer(fal, store, lighthouse, cast, slept).render(shot, 1, 5, 1280, 720)
+    posts = len(fal.posts)
+    again = renderer(fal, store, lighthouse, cast, slept)
+    second = await again.render(shot, 1, 5, 1280, 720)
+    assert len(fal.posts) == posts == 2  # the re-run found redraw 1 in the store: no call at all
+    assert (second.png, second.seed) == (first.png, derived_seed(5, 1))
+    assert again.record((0, 1), 1).cached
+
+
+async def test_no_safety_result_is_an_error_never_assumed_clean(
+    fal: Fal, lighthouse: Screenplay, cast: Extraction, slept: list[float]
+) -> None:
+    fal.omit_flags = True
+    store = MemoryStore()
+    with pytest.raises(RendererError, match="no safety result"):
+        await renderer(fal, store, lighthouse, cast, slept).render(
+            shot_of(lighthouse, 0, [0]), 1, 6, 1280, 720
+        )
+    assert store.objects == {} and fal.gets == []
+
+
+async def test_an_all_black_drawing_is_redrawn_even_unflagged_and_never_stored(
+    fal: Fal, lighthouse: Screenplay, cast: Extraction, slept: list[float]
+) -> None:
+    fal.blacks = [True]
+    store = MemoryStore()
+    frame = await renderer(fal, store, lighthouse, cast, slept).render(
+        shot_of(lighthouse, 0, [0]), 1, 8, 1280, 720
+    )
+    assert frame.seed == derived_seed(8, 1) and len(store.objects) == 1
+    brightest = Image.open(io.BytesIO(frame.png)).convert("L").getextrema()[1]
+    assert isinstance(brightest, int) and brightest > 0

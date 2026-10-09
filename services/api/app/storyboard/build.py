@@ -7,6 +7,7 @@ names the first failed shot in plan order. A withheld frame is information, not 
 """
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 
 from app.frames.writer import FrameWriter, frame_hooks
@@ -18,6 +19,8 @@ from app.storyboard.model import Storyboard, StoryboardError, StoryboardFrame
 from app.storyboard.render import RenderRecord, RenderRecorder
 from app.verify.loop import render_until_accepted
 from app.verify.model import Check, FrameOutcome, FrameState, Severity, Verdict
+
+log = logging.getLogger(__name__)
 
 _CHECK_ORDER = {check: i for i, check in enumerate(Check)}
 
@@ -73,12 +76,14 @@ async def build_storyboard(
         async with gate:
             if failed or errors:  # something failed: start nothing new
                 return None
-            log, write_state = frame_hooks(writer, renderer, key)
+            log_audit, write_state = frame_hooks(writer, renderer, key)
             states: list[FrameState] = []
 
             async def on_state(state: FrameState, attempt: int) -> None:
-                states.append(state)  # the loop enters FAILED only when the renderer raised
                 await write_state(state, attempt)
+                # Recorded once written: the loop enters FAILED only when the renderer raised, so a
+                # write that fails first is never mistaken for the renderer's failure.
+                states.append(state)
 
             try:
                 outcome = await render_until_accepted(
@@ -90,7 +95,7 @@ async def build_storyboard(
                     width=width,
                     height=height,
                     max_renders=max_renders,
-                    log=log,
+                    log=log_audit,
                     on_state=on_state,
                 )
             except Exception as error:
@@ -101,7 +106,10 @@ async def build_storyboard(
                 return None
         settled += 1
         if progress is not None:
-            await progress(settled, total)
+            try:
+                await progress(settled, total)
+            except Exception:  # progress is shown, not load-bearing: never fail a shot over it
+                log.warning("storyboard progress %d/%d not written", settled, total, exc_info=True)
         return outcome
 
     outcomes = await asyncio.gather(*(one(shot) for shot in plan.shots))
