@@ -515,7 +515,7 @@ state (§4.1), drawn in storyboard-states.png.
   anything else shows "The PDF couldn't be made. Try again in a minute." (A job that failed on a
   renderer error leaves its frame `failed` and later shots with no row, so Export stays disabled.)
   **Staged, until T027 builds the PDF:** `ExportButton` (T042) is always disabled, with the tooltip
-  "The PDF export isn't built yet"; T027 adds `GET /api/projects/[id]/storyboard.pdf` and the rule
+  "The PDF export isn't built yet"; T027 adds `GET /api/projects/[id]/storyboard/pdf` and the rule
   above. (No frame settles before T021 and T026, so the rule couldn't enable it yet anyway.)
 - **The staging T042 undoes** (§4.1a, §4.2): a projects-list title (every row but a failed one)
   links to `/projects/{id}/storyboard`; an accepted upload goes there (§4.1 step 5); the script
@@ -1076,7 +1076,7 @@ rows, so their builders are T047's (`FrameView`, with `audits` `[]`) and T021's 
 **Web routes** (Next.js App Router): `/sign-in`, `/projects`, `/projects/[id]/script`,
 `/projects/[id]/storyboard` (`?shot=` opens the sheet), `/projects/[id]/comic` (T024, §4.5; `?page=`;
 until T024 the tab is disabled, with the tooltip "Comic pages aren't built yet"). `/` has no page: the proxy redirects it (§4.0). Route handlers proxy the API server-side (deploy.md §4): `POST /api/projects`, `GET /api/projects` (the list, polled by `/projects`, §4.1a),
-`GET /api/projects/[id]/status` (T041: the job, for the script page's poll and T042's), `GET /api/projects/[id]/frames`, `GET /api/projects/[id]/storyboard.pdf`,
+`GET /api/projects/[id]/status` (T041: the job, for the script page's poll and T042's), `GET /api/projects/[id]/frames`, `GET /api/projects/[id]/storyboard/pdf`,
 `POST /api/projects/[id]/frames/[scene]/[number]/attempts`, `GET` and `POST /api/projects/[id]/comic` (T024).
 
 **Component tree** (`apps/web/components/`, each built on shadcn/ui primitives restyled with the
@@ -1165,7 +1165,7 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `components/storyboard/{FrameSheet,SourceBlock,InFrame}*` | new | §4.4 steps 1–4 | T045 |
 | `components/storyboard/AuditLog.tsx` (AttemptItem, CheckList inside), the "Try another render" action (an edit to T042's `FrameCard.tsx`), `apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts` | new | §4.4 step 5; §4.3 retry | T061 (the API side: T021) |
 | `components/storyboard/ExportButton.tsx` | new | §4.3 export, staged (always disabled until T027) | T042 |
-| `apps/web/app/api/projects/[id]/storyboard.pdf/route.ts`, `ExportButton.tsx`'s enable rule | new | §4.3 export | T027 |
+| `apps/web/app/api/projects/[id]/storyboard/pdf/route.ts`, `ExportButton.tsx` and `canExport` (`board.ts`) | new / changed | §4.3 export | T027 |
 | `apps/web/app/projects/[id]/comic/`, `components/comic/*` (ComicPage, ComicNote, ComicSheet, TracedCard, LetteringList, `comic.ts` for the words and the rect percentages), `apps/web/app/api/projects/[id]/comic/route.ts` (GET, POST), `AppBar.tsx` (the Comic tab enabled), `lib/api/types.ts` (§6 comic types) | new | §4.5 | T024 |
 
 ## 8. Decisions & alternatives
