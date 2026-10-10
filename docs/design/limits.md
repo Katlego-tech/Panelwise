@@ -146,9 +146,13 @@ async def tokens_this_month(session: AsyncSession) -> int: ...
 async def uploads_today(session: AsyncSession, owner: uuid.UUID) -> int: ...   # created_at > now() - 24 h
 
 # app/limits/checks.py (T069): each raises ApiError, writes nothing
+async def budget_spent(request: Request, session: AsyncSession) -> bool: ...    # tokens this month >= the cap
 async def check_budget(request: Request, session: AsyncSession) -> None: ...    # 429 llm_budget_spent
 async def check_uploads(request: Request, session: AsyncSession, owner: uuid.UUID) -> None: ...   # 429 upload_limit
 def check_pages(request: Request, pdf: bytes) -> None: ...                      # 413 too_many_pages (a thread call)
+
+# app/comic/job.py: the comic's refusals stay in start_comic, in comic.md §4a's order
+start_comic(..., budget_spent: bool = False)   # → ComicRefused("llm_budget_spent") after comic_running, before the 503s
 
 # app/llm/client.py
 NebiusChatModel(..., on_usage: Callable[[ChatResult], Awaitable[None]] | None = None)
@@ -180,7 +184,8 @@ async def main(argv: list[str]) -> int: ...
 | Try another render / Make the comic, `llm_budget_spent` | "The demo has used this month's model budget." |
 
 **Environment** (`.env.example`, deploy.md §6): `LLM_MONTHLY_TOKEN_CAP` (already listed, read by
-no code until now), `UPLOADS_PER_DAY`, `UPLOAD_MAX_PAGES`; `JUDGE_EMAIL`, `JUDGE_PASSWORD` for the
+no code until now), `UPLOADS_PER_DAY`, `UPLOAD_MAX_PAGES`, each off when unset **or blank** (the
+example file lists them empty); `JUDGE_EMAIL`, `JUDGE_PASSWORD` for the
 seed only (local `.env`, never the hosted API's environment). `IMAGE_MONTHLY_GENERATION_CAP` stays
 T030's.
 
