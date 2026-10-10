@@ -514,9 +514,9 @@ state (§4.1), drawn in storyboard-states.png.
   shows "Available when every frame has settled" under the button, a 401 goes to `/sign-in`, and
   anything else shows "The PDF couldn't be made. Try again in a minute." (A job that failed on a
   renderer error leaves its frame `failed` and later shots with no row, so Export stays disabled.)
-  **Staged, until T027 builds the PDF:** `ExportButton` (T042) is always disabled, with the tooltip
-  "The PDF export isn't built yet"; T027 adds `GET /api/projects/[id]/storyboard/pdf` and the rule
-  above. (No frame settles before T021 and T026, so the rule couldn't enable it yet anyway.)
+  T042 staged it as always disabled ("The PDF export isn't built yet"); T027 adds
+  `GET /api/projects/[id]/storyboard/pdf` (answering `StoryboardPdfView`, added to the Response
+  types below with T027's code) and the rule above.
 - **The staging T042 undoes** (§4.1a, §4.2): a projects-list title (every row but a failed one)
   links to `/projects/{id}/storyboard`; an accepted upload goes there (§4.1 step 5); the script
   page's Storyboard tab is enabled and its scenes column gains "Open the storyboard" (script.png).
@@ -963,8 +963,6 @@ interface ProjectSummary {
   // null before rendering. settled = passed + warned + withheld + failed (§3); active = rendering + auditing
   job: Job;                                                                    // the latest storyboard job (never a frame_attempt)
 }
-
-interface StoryboardPdfView { pdf_url: string }                               // T027: a signed URL to the PDF, valid an hour
 
 interface SpanRef { page: number; line_start: number; line_end: number }        // script.md Span
 interface QuoteView { text: string; span: SpanRef }
