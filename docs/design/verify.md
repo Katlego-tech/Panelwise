@@ -239,7 +239,8 @@ class SeenPerson(BaseModel): position: Position; appearance: str
 class SeenObject(BaseModel): name: str; category: ObjectCategory; held: bool
 class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[SeenObject]; has_text: bool; text: list[str]
 #   text (T071): each piece of writing the describer can read, verbatim, in reading order; [] for none.
-#   A row written before T071 has no `text`: it reads as [] (its old has_text verdict stands in the log)
+#   The describer must always return it (strict schema). A row written before T071 has no `text`:
+#   AuditView's description reads it as [] (its old has_text verdict stands in the log)
 class PersonCall(BaseModel): person: int; character: str | None; support: str | None   # person: 0-based index into description.people
 class ObjectCall(BaseModel): object: int; kind: ObjectKind; support: str | None        # object: 0-based index into description.objects
 class Judgement(BaseModel): people: list[PersonCall]; objects: list[ObjectCall]
@@ -447,9 +448,9 @@ it against the script."*
   an empty `text` passes; a `clothing` or `architecture` object called `unscripted` or set dressing
   without support passes when not held and fails when held; a `screen_or_sign` called set dressing
   with the heading's words passes. The describer prompt names worn clothes, the place's structure
-  and `text`; a description without `text` (a row from before T071) validates as `[]`, in the
-  schema and in `AuditView`. `RENDER_MAX_ATTEMPTS` 0 and 4 are refused; the comic job runs
-  the setting's attempts; `frame_view` shows `max(max_renders, attempt)`. `reaudit` on a real
+  and `text`; the describer's schema requires `text`; a stored description without it (a row from
+  before T071) validates as `[]` in `AuditView`. `RENDER_MAX_ATTEMPTS` 0 and 4 are refused; the comic job runs
+  the setting's attempts (`run_comic_job(max_renders=...)`, comic.md §6); `frame_view` shows `max(max_renders, attempt)`. `reaudit` on a real
   Postgres with an in-memory store and a scripted model: every row of one target in order, none
   written, a missing asset reported and skipped, `limit` honoured; `summary` counts before and after.
   Live, with Tumo's go-ahead (Token Factory only): `python -m app.verify.reaudit` on the
