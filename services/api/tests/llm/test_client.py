@@ -307,3 +307,25 @@ async def test_on_usage_is_awaited_once_per_answer_and_never_for_a_failure() -> 
     with pytest.raises(LLMRequestError):
         await model.chat(HI)
     assert seen == [(9, 4)]
+
+
+async def test_an_empty_answer_is_billed_so_it_is_counted_before_it_raises() -> None:
+    # Review of T069: a reasoning call that spends max_tokens thinking returns no content but is
+    # billed; the budget must see it.
+    seen: list[tuple[int, int]] = []
+
+    async def meter(result: Any) -> None:
+        seen.append((result.usage.prompt_tokens, result.usage.completion_tokens))
+
+    empty = completion(None, usage={"prompt_tokens": 50, "completion_tokens": 4000})
+    model = NebiusChatModel(
+        api_key=KEY,
+        base_url="https://api.tokenfactory.nebius.com/v1",
+        models=MODELS,
+        transport=httpx2.MockTransport(Recorder(ok(empty))),
+        sleep=Sleeps(),
+        on_usage=meter,
+    )
+    with pytest.raises(LLMEmptyResponse):
+        await model.chat(HI)
+    assert seen == [(50, 4000)]

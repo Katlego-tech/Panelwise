@@ -13,6 +13,7 @@ import os
 import sys
 import uuid
 from dataclasses import dataclass
+from typing import cast
 
 import httpx2
 from sqlalchemy import select
@@ -26,6 +27,18 @@ from app.jobs import JobKind, JobRow, JobState
 from app.projects.model import ProjectRow
 
 _PAGE = 200  # users per page when looking an existing judge up
+
+
+def _error_code(response: httpx2.Response) -> str:
+    """GoTrue's `error_code` (e.g. `email_exists`, `weak_password`), or "" without one."""
+    try:
+        body: object = response.json()
+    except ValueError:
+        return ""
+    if not isinstance(body, dict):
+        return ""
+    fields = cast(dict[str, object], body)
+    return str(fields.get("error_code") or fields.get("code") or "")
 
 
 class SeedError(RuntimeError):
@@ -49,22 +62,26 @@ async def ensure_judge(
     )
     if made.status_code in (200, 201):
         return uuid.UUID(made.json()["id"])
-    if made.status_code != 422:
-        raise SeedError(f"Supabase Auth refused to create the judge ({made.status_code})")
+    code = _error_code(made)
+    if made.status_code != 422 or code != "email_exists":
+        # A weak password or a malformed email is a 422 too: say which (never the password).
+        raise SeedError(f"Supabase Auth refused to create the judge ({made.status_code} {code})")
     page = 1
     while True:
         listed = await client.get(base, headers=headers, params={"page": page, "per_page": _PAGE})
         if listed.status_code != 200:
             raise SeedError(f"Supabase Auth refused to list users ({listed.status_code})")
         users = listed.json().get("users", [])
+        if not users:  # an empty page is the end, whatever page size the server allows
+            raise SeedError("the judge's email exists in Supabase Auth but wasn't listed")
         found = next((u for u in users if str(u.get("email", "")).lower() == email.lower()), None)
         if found is not None:
             break
-        if len(users) < _PAGE:
-            raise SeedError("the judge's email exists in Supabase Auth but wasn't listed")
         page += 1
     updated = await client.put(
-        f"{base}/{found['id']}", headers=headers, json={"password": password}
+        f"{base}/{found['id']}",
+        headers=headers,
+        json={"password": password, "email_confirm": True},  # an unconfirmed judge can't sign in
     )
     if updated.status_code != 200:
         raise SeedError(
@@ -221,7 +238,7 @@ async def main(argv: list[str]) -> int:
                 copied = await copy_sample(make_sessions(engine), args.source, judge)
             finally:
                 await engine.dispose()
-            verb = "copied" if copied.copied else "already there"
+            verb = "copied" if copied.copied else "already there (not updated)"
             print(f"sample: {verb}, project {copied.project_id}")
     except SeedError as error:
         print(f"seed stopped: {error}", file=sys.stderr)

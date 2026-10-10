@@ -54,7 +54,9 @@ class FakeAuth:
             return httpx2.Response(200, json={"users": listed if page == 1 else []})
         if request.method == "PUT" and path.startswith("/auth/v1/admin/users/"):
             uid = path.rsplit("/", 1)[1]
-            self.passwords[uid] = json.loads(request.content)["password"]
+            sent = json.loads(request.content)
+            assert sent["email_confirm"] is True
+            self.passwords[uid] = sent["password"]
             return httpx2.Response(200, json={"id": uid})
         return httpx2.Response(404)
 
@@ -74,6 +76,16 @@ async def test_the_judge_is_created_then_updated_on_a_second_run() -> None:
     assert first == second == uuid.UUID(auth.users[EMAIL])
     assert auth.passwords[str(first)] == "a-new-password"
     assert [r.method for r in auth.requests] == ["POST", "POST", "GET", "PUT"]
+
+
+async def test_a_weak_password_is_said_not_mistaken_for_an_existing_judge() -> None:
+    def weak(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(422, json={"error_code": "weak_password"})
+
+    async with httpx2.AsyncClient(transport=httpx2.MockTransport(weak)) as c:
+        with pytest.raises(SeedError, match="422 weak_password") as raised:
+            await ensure_judge(c, URL, SECRET, EMAIL, PASSWORD)
+    assert PASSWORD not in str(raised.value)
 
 
 async def test_an_auth_error_names_the_status_and_never_the_key() -> None:

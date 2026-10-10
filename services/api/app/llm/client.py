@@ -149,7 +149,14 @@ class NebiusChatModel:
             body["chat_template_kwargs"] = {"enable_thinking": think}
 
         data = await self._post(body, model)
-        result = _to_result(data, model, tier)
+        try:
+            result = _to_result(data, model, tier)
+        except LLMEmptyResponse:
+            # Billed all the same (a reasoning call can spend max_tokens thinking): count it.
+            if self.on_usage is not None:
+                answered = str(data.get("model") or model)
+                await self.on_usage(ChatResult("", answered, tier, _usage(data), None))
+            raise
         if self.on_usage is not None:
             await self.on_usage(result)
         return result
@@ -230,16 +237,16 @@ def _to_result(data: dict[str, Any], requested: str, tier: Tier) -> ChatResult:
             )
         raise LLMEmptyResponse(f"{model} returned no content (finish_reason={finish_reason}).")
 
+    return ChatResult(
+        content=content, model=model, tier=tier, usage=_usage(data), finish_reason=finish_reason
+    )
+
+
+def _usage(data: dict[str, Any]) -> Usage:
     usage: dict[str, Any] = data.get("usage") or {}
     details: dict[str, Any] = usage.get("completion_tokens_details") or {}
-    return ChatResult(
-        content=content,
-        model=model,
-        tier=tier,
-        usage=Usage(
-            prompt_tokens=usage.get("prompt_tokens") or 0,
-            completion_tokens=usage.get("completion_tokens") or 0,
-            reasoning_tokens=details.get("reasoning_tokens") or 0,
-        ),
-        finish_reason=finish_reason,
+    return Usage(
+        prompt_tokens=usage.get("prompt_tokens") or 0,
+        completion_tokens=usage.get("completion_tokens") or 0,
+        reasoning_tokens=details.get("reasoning_tokens") or 0,
     )

@@ -1,4 +1,4 @@
-"""llm_usage: Token Factory tokens per calendar month, for the hosted demo's budget (limits.md; T069)
+"""llm_usage: Token Factory tokens per calendar month, the hosted demo's budget (limits.md; T069)
 
 Revision ID: 0006
 Revises: 0005

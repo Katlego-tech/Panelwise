@@ -26,7 +26,7 @@ class ApiError(Exception):
 
 async def _respond(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, ApiError)
-    body = {"error": exc.code, **exc.extra}
+    body = {**exc.extra, "error": exc.code}
     return JSONResponse(body, status_code=exc.status, headers=exc.headers)
 
 
