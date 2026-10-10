@@ -218,9 +218,19 @@ cost wins; ties go to the earlier cell in row-major order. The `SCENE` caption, 
 placed first, at the panel's top-left (cell `(0, 0)`, subject to the same hard constraints). The
 thirds split the panel's width at `⌊w/3⌋` and `⌊2w/3⌋`; a `VOICE_OVER` caption uses its cue as the
 speaker, like a bubble. **Font size:** each box is tried at 32 px; only when no candidate is
-admissible is it tried again at 28 px (the one smaller size, never lower). If a box has no
-admissible candidate at 28 px either, `ComicError` names the shot. (The budget in step 5 makes this
-rare, not impossible.)
+admissible is it tried again at 28 px (the one smaller size, never lower).
+
+**The boxes are placed as a set** (PR #92). A box's *preference order* is its admissible candidates
+at 32 px by cost (ties to the earlier cell), then its candidates at 28 px the same way. The panel's
+boxes are placed in reading order by a depth-first search: each box takes its first candidate that
+is admissible after the boxes already placed; when a later box has none, the search goes back to the
+box before it and tries its next candidate. The first complete placement is the panel's. So a panel
+the one-box-at-a-time rule could letter is lettered exactly as before (the first path the search
+tries *is* that rule), and only a panel where the cheapest spot for one box leaves none for the next
+changes: on a detailed frame whose quietest area is low in the panel, the first bubble used to take a
+late cell and corner the second. The search tries at most **10,000** candidate placements per panel
+(`SEARCH_LIMIT`). If it runs out of candidates, or reaches the limit, `ComicError` names the shot and
+the text that found no room. (The budget in step 5 makes this rare, not impossible.)
 
 **Drawing.** A bubble is a white rounded rectangle filling its box (corner radius `min(48, h/2,
 w/2)`) with a 3 px black outline: an ellipse inscribed in a box with 16 px padding would cut the
@@ -507,6 +517,7 @@ Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, mult
 | Order of work | geometry and lettering budget from text first, frames second | placing bubbles on images and growing panels afterwards: every growth would mean a re-render |
 | Too much text | the panel grows; the job fails before text is cut | shrinking below 28 px (illegible) or truncating (drops script) |
 | Reading order | a hard constraint | a cost term: the cheapest spot could still break reading order |
+| A panel's boxes | placed as a set: depth-first in each box's preference order, at most 10,000 tries | one box at a time, cheapest first, never revisited: on a detailed frame the first bubble could take a late cell and leave the next none, and the comic stopped (PR #92, real FLUX frames). The lowest total cost over all boxes: a different layout for panels that letter fine today, for no gain the reader sees |
 | Bubble position | image detail + speaker position | a vision model placing bubbles: another call per panel, not deterministic |
 | Speaker position | from the audit's `positions` | face detection: another model for a tail direction |
 | Page flow | a scene starts a new tier, not a new page | a page per scene: short scenes waste pages |
@@ -527,7 +538,10 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   lettering-weight rounding (`⌈c/60⌉`); the budget raising weights and, past 3 passes, a solo tier,
   then `ComicError`.
 - **Placement:** boxes inside their panel, never overlapping, strictly in reading order; font ≥ 28
-  px; `O.S.` tails on the edge; `V.O.` as captions; no admissible spot → `ComicError`.
+  px; `O.S.` tails on the edge; `V.O.` as captions; no admissible spot → `ComicError`. A frame
+  that is busy everywhere but its bottom-right corner (PR #92's repro) letters a two-bubble panel:
+  the search moves the first bubble so the second fits. A panel that fits one box at a time letters
+  exactly as before.
 - **Frames:** each panel's render request is exactly its `rect` size; a withheld frame yields the
   card (its two lines, the failed hard checks in enum order, `audit error` for an ERROR audit, no
   source text) plus its lettering, placed in grid order, `OFF_PANEL` tails to the right edge and no `SPEECH` tail.
