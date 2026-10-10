@@ -11,9 +11,9 @@ import hashlib
 import io
 import logging
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from PIL import Image
 from sqlalchemy import func, select, update
@@ -232,6 +232,20 @@ async def _put(store: AssetStore, folder: str, data: bytes, ext: str, kind: str)
     return path
 
 
+async def _all_or_cancel(work: list[Coroutine[Any, Any, None]]) -> None:
+    """Run every panel; the first one to raise cancels the rest, which are awaited, and its error
+    is raised as itself (T073), so run_comic_job's handlers see one exception, never a group."""
+    tasks = [asyncio.create_task(w) for w in work]
+    try:
+        for done in asyncio.as_completed(tasks):
+            await done
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
+
+
 async def run_comic_job(
     job_id: uuid.UUID,
     *,
@@ -239,9 +253,13 @@ async def run_comic_job(
     store: AssetStore,
     model: NebiusChatModel,
     factory: RendererFactory,
+    concurrency: int = 1,
 ) -> None:
     """comic.md §4a end to end for the job's project. Never raises: every failure is the job
-    FAILED with one of §4a's messages, the cause logged."""
+    FAILED with one of §4a's messages, the cause logged. `concurrency` panels are in the
+    renderer at once (T073); a refused value is the one ValueError, before anything runs."""
+    if concurrency < 1:
+        raise ValueError(f"concurrency is at least 1, not {concurrency}")
     screenplay: Screenplay | None = None
     try:
         async with sessions() as session:
@@ -268,19 +286,35 @@ async def run_comic_job(
             for p in panels
         }
         to_render = sum(found is None for found in reuse.values())
-        audited = failed = 0  # this job's panels that reached their audit / whose renderer raised
+        audited = failed = settled = (
+            0  # this job's panels: reached their audit / renderer raised / done
+        )
+        gate = asyncio.Semaphore(concurrency)
+        stop = asyncio.Event()  # set by a panel failing the job, before it frees its slot
+        progress_lock = asyncio.Lock()
 
-        for k, panel in enumerate(panels, 1):
+        async def settle() -> None:
+            nonlocal settled
+            async with progress_lock:  # one write at a time, so progress only rises (§4a step 5)
+                settled += 1
+                await _progress(sessions, job_id, round(PANELS_SHARE * settled / len(panels)))
+
+        async def one(panel: Any) -> None:
+            nonlocal audited, failed
             key = (panel.scene_index, panel.shot_number)
             shot = shots[key]
             size = (panel.rect[2], panel.rect[3])
             reused = reuse[key]
             if reused is not None:
                 frames[key], paths[key] = reused
-            else:
-                prior = priors.get(key)
-                states: list[FrameState] = []
-                log_audit, on_state = _hooks(writer, renderer, key, states)
+                await settle()
+                return
+            prior = priors.get(key)
+            states: list[FrameState] = []
+            log_audit, on_state = _hooks(writer, renderer, key, states)
+            async with gate:
+                if stop.is_set():  # a panel already failed the job: start nothing new
+                    return
                 try:
                     outcome = await render_until_accepted(
                         model,
@@ -297,6 +331,7 @@ async def run_comic_job(
                     )
                 except Exception as error:
                     if not states or states[-1] is not FrameState.FAILED:
+                        stop.set()
                         raise
                     # §4a Failure (T067): this panel gets the failed card and the comic goes on,
                     # unless the renderer looks down.
@@ -305,19 +340,28 @@ async def run_comic_job(
                         audited += 1
                     failed += 1
                     if not audited and failed >= min(DOWN_AFTER, to_render):
+                        stop.set()
                         raise _RendererDown(f"{failed} panel(s) failed, none drawn") from error
                     frames[key] = failed_panel(shot)
-                    await _progress(sessions, job_id, round(PANELS_SHARE * k / len(panels)))
-                    continue
+                    await settle()
+                    return
+                # Still holding the slot: a panel that fails the job does so before another starts.
                 if FrameState.AUDITING in states:
                     audited += 1
-                frames[key] = panel_frame(outcome, shot)  # ComicError if not accepted/withheld
+                try:
+                    frames[key] = panel_frame(outcome, shot)  # ComicError if not accepted/withheld
+                except ComicError:
+                    stop.set()
+                    raise
                 if outcome.frame is not None and not frames[key].withheld:
                     drawn = _size(outcome.frame.png)
                     if drawn != size:  # §4a step 3: the renderer ignored the size; fail now
+                        stop.set()
                         raise _RenderFailed(f"{key} was drawn at {drawn}, not {size}")
                     paths[key] = renderer.record(key, outcome.frame.attempt).asset
-            await _progress(sessions, job_id, round(PANELS_SHARE * k / len(panels)))
+            await settle()
+
+        await _all_or_cancel([one(panel) for panel in panels])
 
         lettered = await asyncio.to_thread(place_lettering, book, screenplay, plan, frames)
         pages = await asyncio.to_thread(render_pages, lettered, frames)

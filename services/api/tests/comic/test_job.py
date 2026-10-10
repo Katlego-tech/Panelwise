@@ -103,6 +103,7 @@ async def make_comic(
     store: MemoryStore,
     pid: uuid.UUID,
     renderer: SketchRenderer | None = None,
+    concurrency: int = 1,
 ) -> JobRow:
     async with sessions() as s, s.begin():
         started = await start_comic(s, pid, ME, renderer=True, store=True)
@@ -113,6 +114,7 @@ async def make_comic(
         store=store,
         model=make(Models()),
         factory=lambda screenplay, extraction: drawn,
+        concurrency=concurrency,
     )
     async with sessions() as s:
         done = await s.get(JobRow, started.id)
@@ -463,3 +465,90 @@ async def test_the_migration_downgrades_with_comics_present(
         await asyncio.to_thread(command.upgrade, config, "head")
     async with sessions() as s:
         assert await s.scalar(select(func.count()).select_from(FrameAuditRow)) == 0
+
+
+# --- T073: panels as many at once as the renderer allows ---------------------------------------
+
+
+class Overlap(Sizes):
+    """The sketch renderer, counting how many renders are in flight at once."""
+
+    def __init__(self, store: MemoryStore) -> None:
+        super().__init__(store)
+        self.now = self.most = 0
+
+    async def render(
+        self, shot: Shot, attempt: int, seed: int, width: int, height: int
+    ) -> RenderedFrame:
+        self.now += 1
+        self.most = max(self.most, self.now)
+        try:
+            await asyncio.sleep(0.02)  # long enough for a second panel to start
+            return await super().render(shot, attempt, seed, width, height)
+        finally:
+            self.now -= 1
+
+
+async def test_two_panels_are_in_the_renderer_at_once_and_never_three(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = MemoryStore()
+    row = await planned(sessions, store)
+    progress: list[int] = []
+    real_progress = comic_job._progress  # pyright: ignore[reportPrivateUsage]
+
+    async def watch(sessions: Any, job_id: uuid.UUID, value: int) -> None:
+        progress.append(value)
+        await real_progress(sessions, job_id, value)
+
+    monkeypatch.setattr(comic_job, "_progress", watch)
+    renderer = Overlap(store)
+    job = await make_comic(sessions, store, row.id, renderer, concurrency=2)
+    assert (job.state, job.progress, job.error) == ("done", 100, None)
+    assert renderer.most == 2
+    assert progress == sorted(progress) and progress[-1] == 90
+
+
+async def test_the_comic_is_the_same_at_any_concurrency(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    made: list[tuple[Any, list[str]]] = []
+    for concurrency in (1, 2):
+        store = MemoryStore()
+        row = await planned(sessions, store)
+        job = await make_comic(sessions, store, row.id, Overlap(store), concurrency=concurrency)
+        assert job.state == "done"
+        async with sessions() as s:
+            comic = await s.get(ComicRow, row.id)
+        assert comic is not None
+        made.append((comic.layout, list(comic.pages)))
+    # The pages and layout, byte for byte; not the PDF, whose bytes carry its creation time.
+    assert made[0] == made[1]
+
+
+async def test_a_wrong_size_panel_cancels_the_one_in_flight_and_starts_no_other(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    store = MemoryStore()
+    row = await planned(sessions, store)
+
+    class Ignores(Overlap):
+        async def render(
+            self, shot: Shot, attempt: int, seed: int, width: int, height: int
+        ) -> RenderedFrame:
+            return await super().render(shot, attempt, seed, 1280, 720)
+
+    renderer = Ignores(store)
+    job = await make_comic(sessions, store, row.id, renderer, concurrency=2)
+    assert (job.state, job.error) == ("failed", COMIC_RENDER_FAILED)
+    assert len(renderer.asked) <= 2  # the two started together; none after the failure
+    assert renderer.now == 0  # nothing left running
+
+
+async def test_a_concurrency_below_one_is_refused(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    store = MemoryStore()
+    row = await planned(sessions, store)
+    with pytest.raises(ValueError, match="concurrency"):
+        await make_comic(sessions, store, row.id, concurrency=0)
