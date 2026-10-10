@@ -53,7 +53,12 @@ PANELS_SHARE = 90  # progress after the last panel; 100 comes with the stored co
 
 type Key = tuple[int, int]
 type RefusalCode = Literal[
-    "not_found", "not_ready", "comic_running", "renderer_unavailable", "storage_unavailable"
+    "not_found",
+    "not_ready",
+    "comic_running",
+    "llm_budget_spent",
+    "renderer_unavailable",
+    "storage_unavailable",
 ]
 
 
@@ -70,7 +75,13 @@ class _RenderFailed(RuntimeError):
 
 
 async def start_comic(
-    session: AsyncSession, project_id: uuid.UUID, owner: uuid.UUID, *, renderer: bool, store: bool
+    session: AsyncSession,
+    project_id: uuid.UUID,
+    owner: uuid.UUID,
+    *,
+    renderer: bool,
+    store: bool,
+    budget_spent: bool = False,
 ) -> JobRow:
     """§4a's checks in order, then the RUNNING comic job, in the caller's transaction. The owner's
     project is locked, so two clicks make one job. Raises before writing anything."""
@@ -100,6 +111,8 @@ async def start_comic(
     )
     if running:
         raise ComicRefused("comic_running")
+    if budget_spent:  # the hosted demo's monthly budget (limits.md §4, T069)
+        raise ComicRefused("llm_budget_spent")
     if not renderer:
         raise ComicRefused("renderer_unavailable")
     if not store:

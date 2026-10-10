@@ -41,6 +41,17 @@ class Settings(BaseSettings):
     # T030 may lower it.
     upload_max_bytes: int = 4_000_000
 
+    # The hosted demo's limits (docs/design/limits.md, T069); unset or 0: off.
+    llm_monthly_token_cap: int | None = None
+    uploads_per_day: int | None = None
+    upload_max_pages: int | None = None
+
+    @field_validator("llm_monthly_token_cap", "uploads_per_day", "upload_max_pages", mode="before")
+    @classmethod
+    def _blank_is_off(cls, value: object) -> object:
+        # `.env.example` lists the caps with no value: an empty one means off, not an error.
+        return None if isinstance(value, str) and not value.strip() else value
+
     @field_validator("database_url")
     @classmethod
     def _asyncpg_driver(cls, url: str) -> str:

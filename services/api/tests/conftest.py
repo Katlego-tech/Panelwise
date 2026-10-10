@@ -18,7 +18,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.config import Settings
 
 API = Path(__file__).resolve().parents[1]
-TABLES = ("comics", "frame_audits", "frames", "jobs", "projects")  # truncated before each test
+TABLES = (
+    "comics",
+    "frame_audits",
+    "frames",
+    "jobs",
+    "projects",
+    "llm_usage",
+)  # truncated before each test
 
 
 def database_url() -> str:

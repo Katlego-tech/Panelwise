@@ -143,6 +143,7 @@ async def test_every_public_table_has_row_level_security(
         "frames",
         "frame_audits",
         "comics",
+        "llm_usage",
         "alembic_version",
     }
     assert all(tables.values()), tables
@@ -168,10 +169,11 @@ def test_the_models_match_the_migrations(migrated: str) -> None:
     from app.db import Base
     from app.frames.model import FrameRow
     from app.jobs.model import JobRow
+    from app.limits.usage import LlmUsageRow
     from app.projects.model import ProjectRow
 
     names = {JobRow.__tablename__, ProjectRow.__tablename__, FrameRow.__tablename__}
-    names |= {ComicRow.__tablename__}
+    names |= {ComicRow.__tablename__, LlmUsageRow.__tablename__}
     assert names <= set(Base.metadata.tables)
 
     async def diff() -> list[object]:

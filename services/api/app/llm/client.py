@@ -88,8 +88,11 @@ class NebiusChatModel:
         max_attempts: int = 3,
         transport: httpx2.AsyncBaseTransport | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        on_usage: Callable[[ChatResult], Awaitable[None]] | None = None,
     ) -> None:
         self._models = dict(models)
+        # T069 (limits.md §6): awaited after each answer, to count the month's tokens.
+        self.on_usage = on_usage
         self._max_attempts = max_attempts
         self._sleep = sleep
         self._client = httpx2.AsyncClient(
@@ -146,7 +149,10 @@ class NebiusChatModel:
             body["chat_template_kwargs"] = {"enable_thinking": think}
 
         data = await self._post(body, model)
-        return _to_result(data, model, tier)
+        result = _to_result(data, model, tier)
+        if self.on_usage is not None:
+            await self.on_usage(result)
+        return result
 
     async def aclose(self) -> None:
         await self._client.aclose()
