@@ -468,6 +468,10 @@ not the default. Why (the research, 2026-10-09, sources in §8):
   per-phase timeout, per try; there is no total deadline beyond three tries. A read timeout on a call
   fal.ai finished is retried and billed again: bounded (at most 3 drawings × 3 redraws × 3 tries per
   attempt) and accepted. `RendererError` → verify's `FAILED` → the job fails, as §4 says.
+- **No failure is silent** (found in the first live run, 2026-10-10: a frame failed and nothing said
+  why). Each retry is logged at `WARNING` with the shot, the attempt and the status (or the
+  exception's type); `build_storyboard` logs the `RendererError` of a frame that fails at `WARNING`
+  with its message, before the job fails. Never the key, the URL's query or the prompt.
 - **The cache covers redraws.** Before any call, the keys of all three redraw seeds are checked in
   order; the first stored one is the drawing (a stored drawing was never flagged). So a shot whose
   first seed was flagged costs nothing on a re-run either.
@@ -487,15 +491,18 @@ not the default. Why (the research, 2026-10-09, sources in §8):
   should be rare.
 - **Privacy.** Each prompt (the redacted, grounded script words of one shot: no character names,
   §3.1) is sent to fal.ai. The README says so (T033).
-- **Concurrency** 4 (hosted: there is no single GPU queue as in §4), so a 21-shot storyboard renders
-  in about the time of six shots.
+- **Concurrency** `FAL_CONCURRENCY`, default **2**: fal.ai's limit for a new account (2 requests at
+  once, rising with purchased credit up to 40; a request over the limit is queued, and its wait counts
+  against `FAL_TIMEOUT_S`). The first live run sent 4 at once on a new account and one frame failed
+  after its three tries. At 2 a 21-shot storyboard renders in about the time of eleven shots; raise it
+  when the account's limit is higher.
 - **Cost of the sample:** the-red-kite (21 shots) costs $0.06–$0.19 for the storyboard (1–3
   attempts), the same again for its comic, plus the audit calls. T030's spend cap covers fal.ai too.
 
 **The rendering stage in the job** (`run_job(…, factory)`, web.md §6): progress 60 at its start,
 `60 + round(40 × settled / shots)` as frames settle (written with `GREATEST`, so it never moves
-back), 100 with `DONE`. `build_storyboard` runs with concurrency 4 (`RENDER_CONCURRENCY` in
-`app/projects/job.py`). A progress write that fails is logged and skipped: it never fails a shot.
+back), 100 with `DONE`. `build_storyboard` runs with concurrency `settings.fal_concurrency`
+(`FAL_CONCURRENCY`, above). A progress write that fails is logged and skipped: it never fails a shot.
 
 **The job's failure copy.** A `StoryboardError` (a shot's renderer failed, §4) fails the upload's job
 at stage `rendering` with `RENDER_STAGE_FAILED`, the shot named as the web names it (`ShotView.id`);
@@ -557,7 +564,7 @@ sequenceDiagram
 
 - **With fal.ai** (§3.5, the default): `R` is `FalRenderer` and `C` is fal.ai's synchronous endpoint.
   There is no `check_workflow` step, and one call per drawing replaces the submit/poll/view. The job
-  calls `build_storyboard(…, concurrency=4)`. The diagram's ComfyUI path is the optional backend (T003).
+  calls `build_storyboard(…, concurrency=settings.fal_concurrency)`. The diagram's ComfyUI path is the optional backend (T003).
 - **The writer and its hooks** (T021). `build_storyboard` takes T021's `FrameWriter` (verify.md
   §6) and, for each shot, calls `frame_hooks(writer, renderer, shot)` to get the `(log, on_state)`
   pair it passes to `render_until_accepted`: `log` writes each attempt's `frame_audits` row with the
@@ -766,6 +773,7 @@ def to_json(storyboard: Storyboard, plan: ShotPlan, frame_urls: Mapping[tuple[in
 | `FAL_KEY` | API, **secret** | fal.ai's API key (§3.5). Unset: no renderer, "Try another render" and "Make the comic" answer 503, the storyboard job ends at planning |
 | `FAL_MODEL` | API | the fal model id, default `fal-ai/flux/schnell` |
 | `FAL_TIMEOUT_S` | API | per-call deadline, default 60 |
+| `FAL_CONCURRENCY` | API | frames drawn at once, default 2 (fal.ai's limit for a new account) |
 | `COMFYUI_URL` | API, optional | ComfyUI's base URL on a Nebius GPU, for the optional backend (T003; already in `.env.example`) |
 | `COMFYUI_TIMEOUT_S` | API | per-render deadline before the queue-aware extension, default 300 |
 | `COMFYUI_MAX_WORDS` | API | the workflow's prompt word budget (§3.1), set with the T003 model; default 55 (CLIP's 77 tokens) |
