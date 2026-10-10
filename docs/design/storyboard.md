@@ -780,7 +780,7 @@ async def build_storyboard(model: NebiusChatModel, renderer: RenderRecorder, pla
                            max_renders: int = 3) -> Storyboard: ...
 
 # app/storyboard/document.py (T027)
-DOCUMENT_VERSION: int = 1
+DOCUMENT_VERSION: int = 2
 def frames_from_rows(rows: Sequence[FrameRow], audits: Sequence[FrameAuditRow]) -> tuple[StoryboardFrame, ...]: ...   # pure, §3.4 From the rows; audits are the project's storyboard-target rows, any order
 def layout_document(frames: Sequence[StoryboardFrame], plan: ShotPlan, screenplay: Screenplay,
                     style: Style) -> tuple[StoryboardPage, ...]: ...   # pure; measures with Courier Prime (the style's label sizes the footer); one block per plan shot (a shot with no frame is a ValueError)
