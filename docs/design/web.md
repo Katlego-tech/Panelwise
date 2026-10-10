@@ -507,9 +507,12 @@ state (§4.1), drawn in storyboard-states.png.
 - **Job strip** under the bar while polling (above): T041's `JobStrip`, unchanged (§4.2).
 - **Export PDF** (bar, right): disabled with the tooltip "Available when every frame has settled"
   until the storyboard job is `DONE` and every shot has a settled `frames` row, with no frame
-  `rendering` or `auditing`; then it opens T027's PDF, built on demand: an `<a>` to
-  `/api/projects/[id]/storyboard.pdf`, which answers `307` to the PDF's signed URL (storyboard.md
-  §3.4 Delivery); a 409 shows "Available when every frame has settled". (A job that failed on a
+  `rendering` or `auditing` (`canExport`, read from the project summary the page was drawn with;
+  the page refreshes when the job's stage changes). Then a click shows "Making the PDF…", fetches
+  `GET /api/projects/[id]/storyboard/pdf` and opens the `pdf_url` it answers (storyboard.md §3.4
+  Delivery; the PDF is built on demand); a 409 (a frame went live again since the page was drawn)
+  shows "Available when every frame has settled" under the button, a 401 goes to `/sign-in`, and
+  anything else shows "The PDF couldn't be made. Try again in a minute." (A job that failed on a
   renderer error leaves its frame `failed` and later shots with no row, so Export stays disabled.)
   **Staged, until T027 builds the PDF:** `ExportButton` (T042) is always disabled, with the tooltip
   "The PDF export isn't built yet"; T027 adds `GET /api/projects/[id]/storyboard.pdf` and the rule
@@ -961,6 +964,8 @@ interface ProjectSummary {
   job: Job;                                                                    // the latest storyboard job (never a frame_attempt)
 }
 
+interface StoryboardPdfView { pdf_url: string }                               // T027: a signed URL to the PDF, valid an hour
+
 interface SpanRef { page: number; line_start: number; line_end: number }        // script.md Span
 interface QuoteView { text: string; span: SpanRef }
 interface EntityView {
@@ -1121,7 +1126,9 @@ shared (components/shared/): Verdict, SpanRef, Quote (Courier), Meter (T040); Jo
 | Failed frame (T061) | "The renderer failed on this frame." · "Rendering was interrupted by a restart." |
 | Audit log (T061) | §4.4 step 5's rules, verbatim |
 | Comic (T024) | §4.5, verbatim: the notes, "Make the comic" ("Starting…"), "Make the comic again", "Making the comic · {p}%", "Download PDF", "From the script", "Lettering on this page", the traced line's facts, the page alt text |
-| Export tooltip | "Available when every frame has settled" (T027) · staged until then: "The PDF export isn't built yet" |
+| Export tooltip | "Available when every frame has settled" (T027) |
+| Export, while asking | "Making the PDF…" (T027) |
+| Export failed | "The PDF couldn't be made. Try again in a minute." (T027) |
 | Storyboard cards, states, eyebrows | §4.3, verbatim: "Not rendered yet", "Rendering attempt {n} of {max}", "Auditing attempt {n} of {max}", "Render failed", "The renderer failed on this frame.", "Lined script", "speaker on screen", "speaker off screen", "Storyboard" (the failed page's eyebrow) |
 
 Check names in words: `unscripted_person` "unscripted person", `unscripted_object` "unscripted

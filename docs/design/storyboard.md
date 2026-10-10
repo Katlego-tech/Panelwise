@@ -444,9 +444,10 @@ default = true        # exactly one PUBLIC style sets this
   the key. Bump `DOCUMENT_VERSION` whenever the layout or drawing changes.
 - **Delivery**: `GET /projects/{id}/storyboard/pdf` builds the PDF if `storyboards/<key>.pdf` doesn't
   exist (reading the accepted frames' PNGs from the store), stores it, and answers a signed URL
-  (an hour), as the comic's PDF is served (comic.md §4a). The web route answers `307` to it, so the
-  PDF never passes through a Vercel function (whose response limit is about 4.5 MB; a 20-shot
-  storyboard is several MB).
+  (an hour), as the comic's PDF is served (comic.md §4a). The web route relays that JSON and the
+  Export button opens the URL, so the PDF never passes through a Vercel function (whose response
+  limit is about 4.5 MB; a 20-shot storyboard is several MB). Not a `307`: the button fetches the
+  route, and a fetch can't follow a redirect to Storage's origin.
 
 ### 3.5 The renderer: FLUX.1 [schnell] on fal.ai (T026; decided 2026-10-09)
 
