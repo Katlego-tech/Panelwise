@@ -124,7 +124,7 @@ def document_key(project_id: uuid.UUID, style: Style, frames: Sequence[Storyboar
     body: dict[str, Any] = {
         "version": DOCUMENT_VERSION,
         "project": str(project_id),
-        "style": style.key,
+        "style": [style.key, style.label],  # the footer prints the label
         "frames": listed,
     }
     canonical = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -225,9 +225,10 @@ def _source_lines(source: str) -> tuple[str, ...]:
 
 
 def _heading_lines(screenplay: Screenplay, scene_index: int) -> list[str]:
-    """The scene's heading as printed in the script: its line of `Screenplay.text`."""
+    """The scene's heading as printed in the script: its line of `Screenplay.text`, numbered as
+    every span is, by `split("\n")` (`splitlines` also breaks on a form feed or U+2028)."""
     line = heading_span(screenplay.scenes[scene_index]).line_start
-    printed = screenplay.text.splitlines()[line - 1].strip()
+    printed = screenplay.text.split("\n")[line - 1].strip()
     return wrap(printed, CONTENT_W, _font(True, 26))
 
 
@@ -262,12 +263,11 @@ def _card_lines(frame: StoryboardFrame, shot: Shot) -> tuple[str, str]:
         reason = _FAILURES.get(frame.failure or "")
         return (f"Frame not drawn: {reason}" if reason else "Frame not drawn"), where
     if frame.verdict is Verdict.ERROR:
-        why = "audit error"
-    elif frame.noted_checks:
-        why = _names(frame.noted_checks)
-    else:  # never "failed audit ()": a withheld frame always has a failed hard check or an error
-        raise ValueError(f"shot {frame.shot} is withheld with no failed check and no audit error")
-    return f"Frame withheld: failed audit ({why})", where
+        return "Frame withheld: failed audit (audit error)", where
+    if frame.noted_checks:
+        return f"Frame withheld: failed audit ({_names(frame.noted_checks)})", where
+    # Never an empty "()", and never a failed export over a card's wording.
+    return "Frame withheld: failed audit", where
 
 
 # --- the PDF ---------------------------------------------------------------------------------
