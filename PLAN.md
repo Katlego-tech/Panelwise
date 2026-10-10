@@ -9,7 +9,7 @@
 
 A FastAPI service and a Next.js web app. The screenplay is parsed, entities and shots are
 extracted by NVIDIA Nemotron on Nebius Token Factory with verbatim source spans, frames are rendered
-by ComfyUI on a Nebius AI Cloud GPU, and every frame is audited before it reaches a storyboard or comic
+by FLUX.1 [schnell] on fal.ai (ComfyUI on a Nebius GPU optional; storyboard.md §3.5), and every frame is audited before it reaches a storyboard or comic
 page: a vision model describes it and Nemotron judges it against its shot spec. The key bet:
 **grounding plus an auditor loop** makes generated panels trustworthy, which is what the judges
 score. Hard constraints: submission by
@@ -58,11 +58,11 @@ constitution and let this section be the single copy (see
 | **Messaging / async** | `none (job status and progress in a Postgres table; Redis removed 2026-09-29)` |
 | **Frontend** | `Next.js + shadcn/ui (Radix + Tailwind + CVA)` |
 | **Containerization** | `Docker per service + one docker-compose.yml for local dev` |
-| **Runtime/deploy target** | Web on **Vercel**, API on **Railway**, data/storage/auth on **Supabase**; ComfyUI on a Nebius AI Cloud GPU. Changed 2026-09-29 from "API + web on Nebius" to the Hackathon kit's stack: [docs/design/deploy.md](docs/design/deploy.md) |
+| **Runtime/deploy target** | Web on **Vercel**, API on **Railway**, data/storage/auth on **Supabase**; images by FLUX.1 [schnell] on **fal.ai** (changed 2026-10-09 from ComfyUI on a Nebius GPU, now optional: storyboard.md §3.5). Changed 2026-09-29 from "API + web on Nebius" to the Hackathon kit's stack: [docs/design/deploy.md](docs/design/deploy.md) |
 | **Data layer** | Supabase Postgres via the session pooler (SQLAlchemy 2 async + Alembic; compose Postgres locally), Supabase Storage for images, Supabase Auth |
 | **Key external services/models** | Nebius Token Factory: Nemotron fast tier, reasoning tier, vision model (IDs in .env.example; confirm on day 1) |
 | **Testing** | pytest + ruff + pyright; Vitest + Playwright; eval/ benchmarks |
-| **Perf/cost goals** | Full script under ~$0.10 of Token Factory credit; one frame in seconds on GPU, not minutes |
+| **Perf/cost goals** | Full script under ~$0.10 of Token Factory credit; one frame in seconds, not minutes, at $0.003 per frame on fal.ai (≤ 1 MP drawn) |
 | **Constraints** | OSI licence, public repo, 3-minute video, no copyrighted scripts in repo/demo/video |
 | **Scale** | Judges plus a demo account; tens of concurrent users at most |
 
