@@ -203,12 +203,16 @@ truncates drops the tail.
   audited on its own.
 
 **The invariant** (tested, §9): for every part whose `span` is not `None`, that span is this scene's
-heading span, the heading span of `time_source`'s scene (only for `TIME`), or the span of an element
+heading span, the heading span of `time_source`'s scene (only for `TIME`), the span of the `Action`
+element that introduces a visible character (only for `AGE`, T074: its text is "a <n>-year-old" or "a person
+in their <n>s", and `<n>` stands in that element in a parenthesis right after that character's name: an
+age is who the character is, not another moment's event, as a borrowed clock is when), or the span of an element
 the shot covers; and the part's text (after the `SETTING` part's leading preposition) is, under `normalize_for_grounding`, a substring of `redact(text,
 redaction_labels(extraction, screenplay))` applied to that heading or element text (`redact_all`
 before T052). Every part whose `span` is `None` is from the fixed tables
 above or the style. So a prompt says nothing that isn't in this shot's lines or its heading, except
-the style's medium words and the code's fixed framing, preposition, count and placement vocabulary,
+the style's medium words, the code's fixed framing, preposition, count and placement vocabulary, and
+an age's number in its fixed phrase,
 none of which names a person, prop or event.
 
 - **Parentheticals never enter a prompt.** `Dialogue.parenthetical` ("beat", "without turning") is
