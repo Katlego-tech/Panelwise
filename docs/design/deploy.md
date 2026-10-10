@@ -122,7 +122,7 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `API_URL` | web, server-side only | the Railway domain, no trailing slash |
 | `NEBIUS_*`, `LLM_*` | API only | unchanged (docs/design/llm.md) |
 | `FAL_KEY` | API only, secret | fal.ai's key; unset, no renderer (storyboard.md §3.5, T026) |
-| `FAL_MODEL`, `FAL_TIMEOUT_S` | API | default `fal-ai/flux/schnell`, 60 s (storyboard.md §3.5) |
+| `FAL_MODEL`, `FAL_TIMEOUT_S`, `FAL_CONCURRENCY` | API | default `fal-ai/flux/schnell`, 60 s, 2 (storyboard.md §3.5) |
 | `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget, default 55 (storyboard.md §3.1, T008) |
 | `PANELWISE_PRIVATE_STYLES` | API, optional | a directory of private style TOMLs outside the repo; **never set on the hosted demo** (storyboard.md §3.2, T008) |
 | `REDIS_URL` | — | **removed** |
