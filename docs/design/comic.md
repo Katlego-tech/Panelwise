@@ -199,6 +199,12 @@ the comic's **withheld card** instead, and its lettering is still placed:
   (a `FAILED` renderer, or not settled) → `ComicError`, since the frame job has failed. A
   `WITHHELD` outcome whose last audit is neither `ERROR` nor has a failed hard check → `ComicError`
   (a card never reads "failed audit ()").
+- **A panel whose renderer failed** (T067, 2026-10-10) shows the same card box with `Frame not
+  drawn: the renderer failed` as its first line (the second line, the span, as above), and its
+  lettering is placed as on a withheld card. `failed_panel(shot)` builds that `PanelFrame`
+  (`WithheldCard(checks="", span, failed=True)`); `panel_frame` itself never sees a `FAILED`
+  outcome, since verify's loop raises instead of returning one. The storyboard's failed card says
+  the same (storyboard.md §3.4).
 - An accepted frame must decode to exactly `rect.w × rect.h`; any other size → `ComicError` naming
   the shot (never scaled or cropped). It is pasted at `rect` and gets a 4 px black border drawn
   inside the rect; the card keeps its own grey border instead.
@@ -327,8 +333,16 @@ sequenceDiagram
   lettering, pages, PDF and storage; 100 with the row. The stage stays `rendering` (jobs' stage CHECK
   allows it; the web words it "Making the comic").
 - **Failure** → job `FAILED`, `error` one of (verbatim; the web shows it as written):
-  - `COMIC_RENDER_FAILED` "A panel couldn't be drawn, so the comic stopped.": the panel's last
-    recorded state was `FAILED` (the renderer raised), or an accepted PNG of the wrong size (step 3);
+  - `COMIC_RENDERER_DOWN` "No panel could be drawn, so the comic stopped. Try again in a few
+    minutes." (T067): the renderer looks down, which is **no panel drawn in this job yet** (none has
+    reached `AUDITING`; a reused panel doesn't count, since it proves nothing about the renderer)
+    **and `min(3, panels to render)` panels whose renderer raised**. Any other panel whose renderer
+    raised (its last recorded state `FAILED`) is **not** a job failure: it gets the failed card
+    (§4 step 6), no layout path, and the comic goes on; progress counts it as done. (Before T067
+    one such panel stopped the comic; in the first live storyboard runs a single passing renderer
+    error stopped the whole job three times.)
+  - `COMIC_RENDER_FAILED` "A panel couldn't be drawn, so the comic stopped.": an accepted PNG of the
+    wrong size (step 3): the renderer ignored the size, a fault in it, not a passing error;
   - `COMIC_LAYOUT_FAILED` "Shot {shot_id}'s lettering didn't fit its panel, so the comic stopped."
     for a `ComicError` with `shot` set (`shot_id` as web.md's), else `COMIC_LAYOUT_FAILED_ANY` "The
     lettering didn't fit the panels, so the comic stopped.". `ComicError` can come from
@@ -374,7 +388,8 @@ class CaptionKind(StrEnum): SCENE = "scene"; VOICE_OVER = "voice_over"
 @dataclass(frozen=True) class Page: number: int; width: int; height: int; panels: tuple[Panel, ...]
 @dataclass(frozen=True) class LayoutReport: panels: int; bubbles: int; captions: int; relayouts: int
 @dataclass(frozen=True) class ComicBook: pages: tuple[Page, ...]; report: LayoutReport
-@dataclass(frozen=True) class WithheldCard: checks: str; span: Span   # the card's two variable parts (§4 step 6); lands with T023
+@dataclass(frozen=True) class WithheldCard: checks: str; span: Span; failed: bool = False   # the card's variable parts (§4 step 6); lands with T023; failed: the renderer's card (T067)
+def failed_panel(shot: Shot) -> PanelFrame: ...   # app/comic/render.py (T067): no PNG, no positions, WithheldCard("", shot.span, failed=True)
 @dataclass(frozen=True) class PanelFrame: png: bytes; positions: Mapping[str, Position]; withheld: bool; card: WithheldCard | None = None   # Position from verify.md; lands with T023, its first consumer. card is set exactly when withheld (else ComicError); a withheld png is never drawn
 class ComicError(RuntimeError):   # T064: `shot`, set by every raise in layout.py, bubbles.py and render.py that names a shot
     def __init__(self, message: str, *, shot: tuple[int, int] | None = None) -> None: ...
@@ -452,7 +467,7 @@ the old constraints and drops `target` and the table, so it succeeds with comics
 class ComicRow(Base): ...   # the table above
 
 # app/comic/job.py
-COMIC_RENDER_FAILED: str; COMIC_LAYOUT_FAILED: str; COMIC_LAYOUT_FAILED_ANY: str; COMIC_UNEXPECTED: str; COMIC_RESTARTED: str   # §4a, verbatim; COMIC_LAYOUT_FAILED takes .format(shot_id=...)
+COMIC_RENDERER_DOWN: str; COMIC_RENDER_FAILED: str; COMIC_LAYOUT_FAILED: str; COMIC_LAYOUT_FAILED_ANY: str; COMIC_UNEXPECTED: str; COMIC_RESTARTED: str   # §4a, verbatim; COMIC_LAYOUT_FAILED takes .format(shot_id=...)
 async def run_comic_job(job_id: uuid.UUID, *, sessions: async_sessionmaker[AsyncSession], store: AssetStore,
                         model: NebiusChatModel, factory: RendererFactory) -> None: ...
 #   §4a end to end for the job's project, per panel exactly as §4a's steps 1–5; never raises: every
@@ -540,7 +555,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   is a `frame_audits` row with `target` `comic` and no `frames` row is written, and the storyboard's
   audits read is unchanged by them; pages and PDF land at their content hashes and the `comics` row
   holds those paths and a layout whose `frame_url`s are paths (none for a withheld panel); progress
-  only rises and ends at 100 with the job `DONE`; a renderer error → `COMIC_RENDER_FAILED`, a
+  only rises and ends at 100 with the job `DONE`; a renderer error on one panel after another was
+  drawn → that panel's failed card and the job `DONE` (T067); `min(3, panels)` renderer errors with
+  none drawn → `COMIC_RENDERER_DOWN` and no further panel tried; a
   `ComicError` → `COMIC_LAYOUT_FAILED` naming its shot (or `COMIC_LAYOUT_FAILED_ANY` without one), every shot-naming `ComicError` raise carrying `shot`, anything else → `COMIC_UNEXPECTED`, each leaving a previous
   comic untouched; **two jobs in a row** both settle cleanly: the second reuses every panel the first
   accepted at its size (no render, no audit call for it) and numbers a re-rendered panel's attempts
