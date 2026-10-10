@@ -12,17 +12,20 @@ import pytest
 from PIL import Image
 
 from app.frames.model import FrameAuditRow, FrameRow
-from app.script import Screenplay, parse_text
+from app.script import Screenplay, Span, parse_text
 from app.shots import Framing, Movement, Shot, ShotPlan
 from app.storyboard import document
 from app.storyboard.document import (
+    CARD_TEXT_W,
     DOCUMENT_VERSION,
+    FRAME_W,
     PAGE_H,
     document_key,
     export_pdf,
     frames_from_rows,
     layout_document,
     render_pdf,
+    span_text,
 )
 from app.storyboard.model import Block, StoryboardFrame
 from app.verify.model import Check, FrameState, Verdict
@@ -308,7 +311,8 @@ def test_the_withheld_and_failed_cards_say_why_and_where() -> None:
     p = plan(sp)
     _, _, withheld, error, failed = mixed(p)
     span = p.shots[2].span
-    where = f"Script p.{span.page} l.{span.line_start}\u2013{span.line_end}"
+    assert span.line_start == span.line_end  # a one-line shot: "l.24", never "l.24\u201324"
+    where = f"Script p.{span.page} l.{span.line_start}"
     withheld_card = ("Frame withheld: failed audit (unscripted person)", where)
     assert card_lines(withheld, p.shots[2]) == withheld_card
     assert card_lines(error, p.shots[3])[0] == "Frame withheld: failed audit (audit error)"
@@ -317,6 +321,29 @@ def test_the_withheld_and_failed_cards_say_why_and_where() -> None:
     assert card_lines(unnamed, p.shots[2])[0] == "Frame withheld: failed audit"
     restarted = replace(failed, failure="restart")
     assert card_lines(restarted, p.shots[4])[0] == "Frame not drawn: the job was interrupted"
+
+
+def test_a_span_reads_as_the_web_s_span_ref_prints_it() -> None:
+    assert span_text(Span(2, 97, 97)) == "p.2 l.97"  # one line: never "l.97\u201397"
+    assert span_text(Span(3, 140, 147)) == "p.3 l.140\u2013147"
+
+
+def test_a_one_line_shot_s_label_and_card_say_one_line() -> None:
+    sp = screenplay()
+    p = plan(sp)
+    one = replace(p.shots[2], span=Span(2, 97, 97))
+    frames = [replace(f, shot=f.shot) for f in mixed(p)]
+    assert card_lines(frames[2], one)[1] == "Script p.2 l.97"
+
+
+def test_every_card_line_fits_inside_its_box_with_room_to_spare() -> None:
+    """The live run of 2026-10-10: wrapped to 1000 px, a three-check reason crossed the 880 px
+    box's border. Each line now keeps 40 px clear on both sides."""
+    assert CARD_TEXT_W == FRAME_W - 80
+    font = document._font(False, 26)  # pyright: ignore[reportPrivateUsage]
+    longest = "Frame withheld: failed audit (unscripted person, unscripted object, text in frame)"
+    lines = document.wrap(longest, CARD_TEXT_W, font)
+    assert len(lines) > 1 and all(font.getlength(line) <= CARD_TEXT_W for line in lines)
 
 
 # ------------------------------------------------------------------- the PDF
