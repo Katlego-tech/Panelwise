@@ -405,5 +405,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:verify.md §6 verbatim: `FrameDescription.signature: bool`; `TEXT_IN_FRAME` fails on `signature`; the describer's age-first appearance; the judge prompt's age, set dressing and weather rules
       Verify:  bash scripts/gate.sh (tests first: verify.md §9's T072 list); live, with Tumo's go-ahead: T071's and T072's audits scored on Katlego's 27 labelled frames, then one upload of the-red-kite
       Done:    on Katlego's 27 labelled frames, T072's audit agrees with his labels more often than T071's, with no labelled-bad frame newly passing, and a frame that draws a child as an adult or carries a signature is withheld
+- [ ] T077 [US2] **A signature warns; it no longer withholds a frame.** Found on 2026-10-11 re-judging stored drawings: with the signature as a hard fail the-red-kite accepted 2 of 22 klein frames, without it 6 (schnell: 3 → 4 of 21). A mark in a corner is no character, prop, line or event. Lane `verify` (Claude for Tumo). Stacked on T072 (#116/#117).
+      Design:  docs/design/verify.md §3 (Ages and signatures, the checks table), §6 (`Check.SIGNATURE`), §8 (the signature row), §9 (T077); web.md §6 Copy (`signature`)
+      Files:   services/api/app/verify/{model,audit}.py; apps/web/components/storyboard/cards.ts; tests under services/api/tests/verify/ and apps/web
+      Contract:verify.md §6 verbatim: `Check.SIGNATURE`, soft; `TEXT_IN_FRAME` no longer reads `signature`
+      Verify:  bash scripts/gate.sh (tests first: verify.md §9's T077 list); free, with Tumo's go-ahead: T072's and T077's audits on Katlego's 27 labelled frames
+      Done:    a frame whose only fault is a signature is WARN, shown with "artist's signature", and no labelled-bad frame passes that T072 withheld
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
