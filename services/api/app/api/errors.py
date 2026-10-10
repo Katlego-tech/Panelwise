@@ -8,16 +8,26 @@ from fastapi.responses import JSONResponse
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, code: str, *, headers: Mapping[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        status: int,
+        code: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        extra: Mapping[str, object] | None = None,
+    ) -> None:
         super().__init__(code)
         self.status = status
         self.code = code
         self.headers = dict(headers or {})
+        # Fields beside "error" that the web's copy needs, e.g. a limit's figure (T069).
+        self.extra = dict(extra or {})
 
 
 async def _respond(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, ApiError)
-    return JSONResponse({"error": exc.code}, status_code=exc.status, headers=exc.headers)
+    body = {**exc.extra, "error": exc.code}
+    return JSONResponse(body, status_code=exc.status, headers=exc.headers)
 
 
 def install(app: FastAPI) -> None:

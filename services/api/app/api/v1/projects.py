@@ -22,6 +22,7 @@ from app.core.auth import Caller, current_caller
 from app.frames import ACCEPTED, FrameRow, audits_of, frame_view, frames_of
 from app.frames.attempt import RendererFactory, run_attempt
 from app.jobs import JobKind, JobRow, JobState
+from app.limits.checks import budget_spent, check_budget, check_pages, check_uploads
 from app.llm import NebiusChatModel
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.job import fail_job, run_job
@@ -75,10 +76,15 @@ async def upload(
     request: Request, caller: Annotated[Caller, Depends(current_caller)]
 ) -> JSONResponse:
     """In web.md §6's order. No UploadFile or Form parameter: FastAPI would read the whole body
-    before the caller is checked. So: who (401/503), storage (503), the declared length (411/413),
-    then the form, the file's own size (413), the PDF header (400), and only then storage."""
+    before the caller is checked. So: who (401/503), storage (503), the demo's budget and the
+    day's uploads (429, T069), the declared length (411/413), then the form, the file's own size
+    (413), the PDF header (400), its pages (413, T069), and only then storage."""
     settings = request.app.state.settings
     store = _store(request)
+    # The hosted demo's limits (limits.md §4, T069): nothing read or stored past a refusal.
+    async with request.app.state.sessions() as session:
+        await check_budget(request, session)
+        await check_uploads(request, session, caller.user_id)
     length = request.headers.get("content-length")
     if length is None or not length.isdigit():
         raise ApiError(411, "length_required")
@@ -97,6 +103,7 @@ async def upload(
     data = await file.read()
     if not data.startswith(b"%PDF-"):
         raise ApiError(400, "not_a_pdf")
+    await asyncio.to_thread(check_pages, request, data)
 
     project_id = uuid.uuid4()
     path = f"scripts/{caller.user_id}/{project_id}.pdf"
@@ -262,6 +269,7 @@ async def try_another_render(
             or not any((s.scene_index, s.number) == shot for s in load_plan(project.plan).shots)
         ):
             raise ApiError(409, "not_ready")
+        await check_budget(request, session)  # T069: after the 409s, before the 503s
         if state.renderer_factory is None or state.model is None:
             raise ApiError(503, "renderer_unavailable")
         if state.store is None:
@@ -302,6 +310,7 @@ _COMIC_STATUS = {
     "not_found": 404,
     "not_ready": 409,
     "comic_running": 409,
+    "llm_budget_spent": 429,
     "renderer_unavailable": 503,
     "storage_unavailable": 503,
 }
@@ -329,6 +338,7 @@ async def make_comic(
                 caller.user_id,
                 renderer=factory is not None and model is not None,
                 store=store is not None,
+                budget_spent=await budget_spent(request, session),
             )
     except ComicRefused as refused:
         raise ApiError(_COMIC_STATUS[refused.code], refused.code) from refused

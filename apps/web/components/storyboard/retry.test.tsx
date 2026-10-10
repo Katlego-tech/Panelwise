@@ -183,6 +183,7 @@ describe("Try another render (web.md §4.3)", () => {
   it.each([
     [503, { error: "renderer_unavailable" }, "Rendering isn't available right now."],
     [503, { error: "storage_unavailable" }, "That didn't start. Try again in a minute."],
+    [429, { error: "llm_budget_spent" }, "The demo has used this month's model budget."],
     [500, null, "That didn't start. Try again in a minute."],
   ])("a %i says so under the button", async (status, body, copy) => {
     fetchMock.mockResolvedValueOnce(Response.json(body, { status }));
