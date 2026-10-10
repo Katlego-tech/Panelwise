@@ -22,7 +22,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from app.comic.layout import wrap
 from app.frames.model import FrameAuditRow, FrameRow
-from app.script import Screenplay
+from app.script import Screenplay, Span
 from app.shots import Shot, ShotPlan
 from app.storage import AssetStore
 from app.storyboard.model import Block, Rect, StoryboardFrame, StoryboardPage
@@ -30,7 +30,7 @@ from app.storyboard.prompt import heading_span
 from app.storyboard.styles import Style
 from app.verify.model import Check, FrameState, Severity, Verdict
 
-DOCUMENT_VERSION = 1  # bump whenever the layout or the drawing changes (§3.4 Document key)
+DOCUMENT_VERSION = 2  # bump whenever the layout or the drawing changes (§3.4 Document key)
 
 PAGE_W, PAGE_H = 1240, 1754  # A4 portrait at 150 dpi
 DPI = 150
@@ -39,7 +39,7 @@ CONTENT_W = PAGE_W - 2 * MARGIN  # 1060
 FRAME_W, FRAME_H = 880, 495  # 16:9, 1280 x 720 scaled: two short blocks share a page
 FRAME_X = MARGIN + (CONTENT_W - FRAME_W) // 2  # centred
 GAP = 40  # between blocks
-CARD_TEXT_W = 1000
+CARD_TEXT_W = FRAME_W - 80  # 40 px clear inside the 880 px box on each side
 CARD_PITCH = 34
 FOOTER_NOTE = "A vision model describes each frame; Nemotron audits it against the script."
 FONTS = Path(__file__).resolve().parents[2] / "assets" / "fonts"
@@ -161,7 +161,7 @@ def layout_document(
             y=0,
             frame_rect=(FRAME_X, 0, FRAME_W, FRAME_H),
             title=f"{number}.{shot.number}  {_camera(shot)}",
-            span_label=f"p.{span.page} l.{span.line_start}\u2013{span.line_end}",  # an en dash
+            span_label=span_text(span),
             audit_line=_audit_line(found),
             source_lines=_source_lines(shot.source),
             continued=False,
@@ -255,10 +255,17 @@ def _height(block: Block) -> int:
     return height + 30 * len(block.source_lines)
 
 
+def span_text(span: Span) -> str:
+    """`p.2 l.97` for one line, `p.2 l.97\u201399` (an en dash) for more: as the web's SpanRef."""
+    if span.line_end > span.line_start:
+        return f"p.{span.page} l.{span.line_start}\u2013{span.line_end}"
+    return f"p.{span.page} l.{span.line_start}"
+
+
 def _card_lines(frame: StoryboardFrame, shot: Shot) -> tuple[str, str]:
     """The withheld card (verify.md §4) or the failed card (§3.4), and where the shot is."""
     span = shot.span
-    where = f"Script p.{span.page} l.{span.line_start}\u2013{span.line_end}"  # an en dash
+    where = f"Script {span_text(span)}"
     if frame.state is FrameState.FAILED:
         reason = _FAILURES.get(frame.failure or "")
         return (f"Frame not drawn: {reason}" if reason else "Frame not drawn"), where
@@ -358,7 +365,7 @@ def _block(
 
 
 def _card(draw: ImageDraw.ImageDraw, rect: Rect, lines: tuple[str, str]) -> None:
-    """White, a 4 px grey border, the lines centred in Regular 26 px wrapped to 1000 px."""
+    """White, a 4 px grey border, the lines centred in Regular 26 px wrapped to 800 px."""
     x, y, w, h = rect
     draw.rectangle((x, y, x + w - 1, y + h - 1), fill="white", outline="#808080", width=4)
     font = _font(False, 26)
