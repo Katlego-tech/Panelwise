@@ -53,14 +53,15 @@ classDiagram
         +calls: int
         +updated_at: timestamptz
     }
-    class UsageMeter {
-        +record(result: ChatResult) None
+    class record_usage {
+        <<function, app/limits/usage.py>>
+        +record_usage(sessions, result: ChatResult) None
     }
     class NebiusChatModel {
         +on_usage: Callable[[ChatResult], Awaitable[None]] | None
     }
-    NebiusChatModel --> UsageMeter : on_usage after each answer
-    UsageMeter --> LlmUsageRow : upsert tokens += prompt + completion
+    NebiusChatModel --> record_usage : on_usage after each answer
+    record_usage --> LlmUsageRow : upsert tokens += prompt + completion
 ```
 
 `tokens` counts `prompt_tokens + completion_tokens` (Token Factory bills both; reasoning tokens are
@@ -78,7 +79,7 @@ sequenceDiagram
     participant M as NebiusChatModel
     B->>A: POST /projects (or …/attempts, …/comic)
     A->>A: who (401/503), ownership (404), state (409), as today
-    A->>L: budget_left(session)
+    A->>L: budget_spent(request, session)
     L->>D: SELECT tokens FROM llm_usage WHERE month = this month
     alt at or over LLM_MONTHLY_TOKEN_CAP
         A-->>B: 429 {"error": "llm_budget_spent"} (nothing written)
@@ -109,7 +110,9 @@ sequenceDiagram
   `created_at`, so the sample never counts.
 - **Metering never fails a call**: `on_usage` errors are logged at `WARNING` and swallowed (a lost
   count under-counts a little; a failed model call would lose the work). It runs after the answer
-  is parsed, so a failed or repaired call counts only the answers that came back.
+  is parsed, so a failed call (an HTTP error, a timeout) counts nothing; an answer that came back
+  **empty** is counted before it raises, since Token Factory bills it (a reasoning call can spend
+  its whole `max_tokens` thinking; review of T069).
 
 **The judge seed** (`python -m app.demo.seed --from <project id>`, run once against the hosted
 database; `JUDGE_EMAIL` and `JUDGE_PASSWORD` from the environment, never the command line):
@@ -206,7 +209,7 @@ T030's.
 
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
-| What the budget counts | tokens the API's calls report, per month, in Postgres | Token Factory's own billing: no API to read it; a per-process counter: lost on restart, and Render restarts |
+| What the budget counts | tokens the API's calls report, per month, in Postgres | Token Factory's own billing: no API to read it; a per-process counter: lost on restart, and the host restarts the API on every deploy |
 | Where it bites | refusing new work at the start | stopping running jobs: wastes what they spent and leaves half a board |
 | Per user or global | global budget + per-account upload cap | a per-user token budget: a judge can't see tokens, and the shared account makes "per user" one user anyway |
 | "Per day" | rolling 24 h | a calendar day: whose time zone? judges are worldwide |
