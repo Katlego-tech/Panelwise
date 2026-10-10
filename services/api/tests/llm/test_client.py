@@ -343,11 +343,30 @@ async def test_a_long_retry_after_still_waits_at_most_30_seconds() -> None:
     assert sleeps.calls == [30.0]
 
 
-def test_from_settings_gives_the_client_a_10_second_connect_timeout_and_5_attempts() -> None:
+async def test_each_request_carries_a_10_second_connect_timeout() -> None:
+    rec = Recorder(ok(completion()))
+    await make(rec).chat(HI)
+
+    timeout = rec.requests[0].extensions["timeout"]
+    assert (timeout["connect"], timeout["read"]) == (10.0, 120.0)
+
+
+async def test_from_settings_passes_the_connect_timeout_and_5_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rec = Recorder(*(httpx2.ConnectError("dropped") for _ in range(5)))
+    real = httpx2.AsyncClient
+
+    def mocked(**kwargs: Any) -> httpx2.AsyncClient:
+        kwargs["transport"] = httpx2.MockTransport(rec)
+        return real(**kwargs)
+
+    monkeypatch.setattr(httpx2, "AsyncClient", mocked)
     settings = Settings(_env_file=None, nebius_api_key=KEY)  # pyright: ignore[reportCallIssue]
     model = NebiusChatModel.from_settings(settings)
+    monkeypatch.setattr(model, "_sleep", Sleeps())
 
-    assert settings.llm_connect_timeout_s == 10.0
-    assert settings.llm_max_attempts == 5
-    assert model._client.timeout.connect == 10.0
-    assert model._client.timeout.read == settings.llm_request_timeout_s
+    with pytest.raises(LLMRequestError):
+        await model.chat(HI)
+    assert len(rec.requests) == 5
+    assert rec.requests[0].extensions["timeout"]["connect"] == 10.0
