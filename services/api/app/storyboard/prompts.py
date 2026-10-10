@@ -158,7 +158,7 @@ async def main(argv: list[str]) -> int:
     finally:
         await model.aclose()
     try:
-        text, ok = report(plan, screenplay, extraction, style, settings.comfyui_max_words)
+        text, ok = report(plan, screenplay, extraction, style, settings.render_max_words)
     except PromptError as exc:
         print(f"FAIL  {exc}")
         return 1

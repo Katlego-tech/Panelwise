@@ -35,10 +35,6 @@ services:
     command: ["sh", "-c", ".venv/bin/alembic upgrade head && exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     depends_on:
       postgres: { condition: service_healthy }
-    # The public styles (storyboard.md §3.2) live at the repo root, outside the image's build
-    # context; the renderer reads them at /styles (storyboard.md §3.5).
-    volumes:
-      - ./styles:/styles:ro
 
   web:
     # Only the publishable pair, never env_file: the web container must not hold the secret key

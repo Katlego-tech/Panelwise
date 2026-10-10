@@ -65,7 +65,7 @@ async def build_storyboard(
     max_renders: int = 3,
 ) -> Storyboard:
     gate = asyncio.Semaphore(concurrency)
-    failed: list[tuple[int, int]] = []  # shots whose renderer raised
+    failed: dict[tuple[int, int], BaseException] = {}  # shots whose renderer raised, and why
     errors: list[BaseException] = []  # anything else (an audit or database error)
     settled = 0
     total = len(plan.shots)
@@ -102,7 +102,7 @@ async def build_storyboard(
                 if states and states[-1] is FrameState.FAILED:
                     # Never silent (§3.5): the renderer's own message, never the key or prompt.
                     log.warning("shot %s couldn't be drawn: %s", key, error)
-                    failed.append(key)  # the loop has already written the frame FAILED
+                    failed[key] = error  # the loop has already written the frame FAILED
                 else:
                     errors.append(error)
                 return None
@@ -120,7 +120,7 @@ async def build_storyboard(
     if failed:
         order = {(s.scene_index, s.number): i for i, s in enumerate(plan.shots)}
         first = min(failed, key=order.__getitem__)
-        raise StoryboardError(f"the renderer failed on shot {first}", shot=first)
+        raise StoryboardError(f"the renderer failed on shot {first}", shot=first) from failed[first]
 
     frames: list[StoryboardFrame] = []
     renders = cached = 0
