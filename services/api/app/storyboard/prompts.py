@@ -68,7 +68,8 @@ def cites_this_shot(
         },
     }
     ages = [introduced_age(c, screenplay) for c in visible_characters(shot, screenplay, extraction)]
-    allowed[PartKind.AGE] = {age[1]: age[0] for age in ages if age is not None}
+    # Keyed by (age, span): two characters introduced in one line share its span (T074 review).
+    introduced = {age for age in ages if age is not None}
     if source is not None:
         clock = heading_span(screenplay.scenes[source])
         allowed[PartKind.TIME] = {clock: lines[clock.line_start - 1]}
@@ -78,13 +79,13 @@ def cites_this_shot(
             if p.kind in _SCRIPT_KINDS:
                 return False
             continue
+        if p.kind is PartKind.AGE:
+            if (p.text, p.span) not in introduced:  # the phrase around the script's own number
+                return False
+            continue
         cited = allowed.get(p.kind, {}).get(p.span)
         if cited is None:
             return False
-        if p.kind is PartKind.AGE:
-            if p.text != cited:  # the fixed phrase around the script's own number
-                return False
-            continue
         if p.kind is PartKind.TIME:
             # A closed vocabulary, not redacted: the clock word itself, from that heading.
             if p.text.upper() not in ABSOLUTE_TIMES or normalize_for_grounding(

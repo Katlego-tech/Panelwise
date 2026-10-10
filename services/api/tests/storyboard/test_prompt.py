@@ -17,6 +17,7 @@ from app.storyboard import (
     time_source,
     visible_characters,
 )
+from app.storyboard.prompts import cites_this_shot
 from tests.script.conftest import ACTION, CUE, DIALOGUE, PAREN, heading, two_page_text
 from tests.storyboard.conftest import (
     SENTINEL_RATIONALE,
@@ -407,3 +408,36 @@ def test_an_off_screen_speaker_gets_no_age(lighthouse: Screenplay, cast: Extract
     shot = shot_of(lighthouse, 0, [3], characters=["THABO"], time_of_day="NIGHT")
     prompt = build_frame_prompt(shot, lighthouse, cast, STYLE, max_words=100)
     assert K.AGE not in kinds(prompt.parts)
+
+
+@pytest.mark.parametrize(
+    ("intro", "age"),
+    [
+        ("BABY (5 months) sleeps.", None),  # T074 review: months are no years
+        ("BABY (6 weeks) sleeps.", None),
+        ("BABY (30s-40s) waits.", None),  # a range: no one age
+        ("BABY (early 30s) waits.", None),
+        ("BABY (10-ish) waits.", None),
+        ("BABY (8 years old) waits.", "a 8-year-old"),
+        ("BABY (8; small) waits.", "a 8-year-old"),
+        ("BABY (40s, tired) waits.", "a person in their 40s"),
+    ],
+)
+def test_only_an_age_in_years_reads_as_one(intro: str, age: str | None) -> None:
+    sp = screenplay_of([heading("1", "INT. ROOM - DAY"), (ACTION, intro)])
+    found = introduced_age("BABY", sp)
+    assert (found[0] if found else None) == age
+
+
+def test_two_characters_introduced_in_one_line_both_pass_the_live_check() -> None:
+    """T074 review: LERATO (10) and MOKGOSI (70s) share one Action span; the CLI's check must
+    accept both ages, not only the last one it saw."""
+    sp = kite()
+    cast = extraction_of(sp, [("LERATO", "LERATO (10)"), ("MOKGOSI", "MOKGOSI (70s)")])
+    shot = shot_of(sp, 0, [0], characters=["LERATO", "MOKGOSI"], time_of_day="DAY")
+    prompt = build_frame_prompt(shot, sp, cast, STYLE, max_words=100)
+    assert [p.text for p in prompt.parts if p.kind is K.AGE] == [
+        "a 10-year-old",
+        "a person in their 70s",
+    ]
+    assert cites_this_shot(prompt, shot, sp, cast)

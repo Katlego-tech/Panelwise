@@ -131,9 +131,13 @@ def check(
             # T074: the line that introduces one of the shot's visible characters, and the age's
             # number in a parenthesis right after that character's name there.
             visible = visible_characters(shot, screenplay, extraction)
-            introduced = {introduced_age(c, screenplay): c for c in visible}
-            assert (part.text, part.span) in introduced, f"{where}: {part} introduces no one shown"
-            name = introduced[(part.text, part.span)]
+            # Two characters can share an age phrase and a line: keep every name for each.
+            names_for = {}
+            for c in visible:
+                if (age := introduced_age(c, screenplay)) is not None:
+                    names_for.setdefault(age, []).append(c)
+            assert (part.text, part.span) in names_for, f"{where}: {part} introduces no one shown"
+            name = names_for[(part.text, part.span)][0]
             number = re.search(r"\d+", part.text)
             assert number is not None, where
             line = next(

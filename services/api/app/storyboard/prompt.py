@@ -137,7 +137,11 @@ def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] |
     """The age the script gives where an Action line introduces `character` (T074): `LERATO (10)`
     -> "a 10-year-old", `MOKGOSI (70s)` -> "a person in their 70s", with that element's span. Only
     the parenthesis's own number is used: no word the script doesn't have but the age."""
-    pattern = re.compile(rf"(?<![A-Za-z0-9]){re.escape(character)}\s*\(\s*(\d{{1,3}})(s?)\b")
+    # A number, an optional `s`, an optional years word, then , ; or ): `(5 months)` is no age.
+    pattern = re.compile(
+        rf"(?<![A-Za-z0-9]){re.escape(character)}\s*\(\s*(\d{{1,3}})(s?)"
+        rf"\s*(?:years?[- ]old|yrs?|yo|y/o)?\s*[,;)]"
+    )
     for scene in screenplay.scenes:
         for element in scene.elements:
             if isinstance(element, Action) and (m := pattern.search(element.text)):
