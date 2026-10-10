@@ -449,7 +449,8 @@ def test_a_panel_quiet_only_low_down_moves_its_first_bubble_so_the_next_fits() -
 def test_the_search_stops_at_its_limit_and_names_the_shot(monkeypatch: pytest.MonkeyPatch) -> None:
     screenplay, plan, book = two_lines()
     monkeypatch.setattr(bubbles, "SEARCH_LIMIT", 1)
-    with pytest.raises(ComicError, match="scene 0, shot 2: no room to letter 'Hold the light"):
+    stopped = "scene 0, shot 2: no placement for its lines within 1 tries .*'Hold the light"
+    with pytest.raises(ComicError, match=stopped):
         place_lettering(book, screenplay, plan, frames(book, quiet_bottom_right))
 
 
@@ -537,11 +538,15 @@ def test_every_panel_the_old_rule_letters_is_lettered_exactly_as_before() -> Non
                 (p.scene_index, p.shot_number): p
                 for p in panels(place_lettering(book, screenplay, plan, given))
             }
-        except ComicError:
-            placed = {}
+        except ComicError as error:
+            placed, failed = {}, error.shot
+        else:
+            failed = None
         for panel in panels(book):
             key = (panel.scene_index, panel.shot_number)
             old = one_at_a_time(panel, screenplay, plan, given[key], firsts[key[0]] == key[1])
+            if key == failed:
+                assert old is None  # the search gives up only where the old rule did too
             if old is None or key not in placed:
                 continue
             got = placed[key]

@@ -202,6 +202,12 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         return False
 
     if not search(0):
+        if tries > SEARCH_LIMIT:
+            raise ComicError(
+                f"{panel_name(key)}: no placement for its lines within {SEARCH_LIMIT:,} tries "
+                f"(stopped at {texts[stuck].text!r}), and no line is ever cut",
+                shot=key,
+            )
         raise ComicError(
             f"{panel_name(key)}: no room to letter {texts[stuck].text!r} even at "
             f"{FONT_SIZES[-1]} px; the panel is too small for its lines, and no line is ever cut",
