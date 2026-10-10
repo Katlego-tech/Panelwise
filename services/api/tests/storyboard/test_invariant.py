@@ -132,7 +132,7 @@ def check(
             # number in a parenthesis right after that character's name there.
             visible = visible_characters(shot, screenplay, extraction)
             # Two characters can share an age phrase and a line: keep every name for each.
-            names_for = {}
+            names_for: dict[tuple[str, Span], list[str]] = {}
             for c in visible:
                 if (age := introduced_age(c, screenplay)) is not None:
                     names_for.setdefault(age, []).append(c)
