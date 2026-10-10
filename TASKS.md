@@ -393,5 +393,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
       Done:    the gate's vulnerability scan passes with no new exemption
+- [ ] T074 [US1] **The prompt gives each visible character's age from the script; the clean style asks for a plain background.** Found on 2026-10-10: the-red-kite's prompts said only "a person" / "two figures", so schnell drew Lerato (10) and Mokgosi (70s) as young adults and filled rooms with clutter, and the audit withheld 19 of 22 frames for it. Lane `storyboard` (Claude for Tumo). On `main` (`app/storyboard/prompt.py`, `styles/clean.toml`); not on the renderer.
+      Design:  docs/design/storyboard.md §3.1 (Order, the parts table: AGE, Word budget), §3.2 (clean.toml), §6 (`PartKind.AGE`, `introduced_age`), §8 (two rows), §9 (T074)
+      Files:   services/api/app/storyboard/prompt.py; styles/clean.toml; services/api/tests/storyboard/test_prompt.py
+      Contract:storyboard.md §6 verbatim: `PartKind.AGE`; `introduced_age(character, screenplay) -> tuple[str, Span] | None`
+      Verify:  bash scripts/gate.sh (tests first: storyboard.md §9's T074 items); live, with Tumo's go-ahead: one upload of the-red-kite at RENDER_MAX_ATTEMPTS=1
+      Done:    a shot with Lerato asks for "a 10-year-old" and one with Mokgosi for "a person in their 70s", each traced to its introduction's span, and the clean style asks for a plain background
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
