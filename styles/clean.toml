@@ -3,7 +3,7 @@
 label = "Clean sketch"
 description = "Pencil storyboard. Keeps a wide shot as one panel inside the location; close subjects can come out looking photographic."
 medium = "storyboard sketch, pencil drawing"
-finish = "grayscale, monochrome, loose linework"
+finish = "grayscale, monochrome, loose linework, plain background"
 negative = ""
 grayscale = true
 default = true

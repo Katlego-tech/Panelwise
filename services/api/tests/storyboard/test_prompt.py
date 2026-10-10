@@ -13,6 +13,7 @@ from app.storyboard import (
     PromptError,
     build_frame_prompt,
     heading_span,
+    introduced_age,
     time_source,
     visible_characters,
 )
@@ -79,6 +80,8 @@ def test_fixed_order_then_actions_in_element_order_redacted(
         (K.TIME, "night", Span(1, 5, 5)),
         # THABO is only heard (O.S.): one figure on screen.
         (K.COUNT, "one figure", None),
+        # T074: NANDI's age, from the line that introduces her.
+        (K.AGE, "a person in their 60s", Span(1, 7, 8)),
         (
             K.ACTION,
             "Rain hammers the window. a person (60s, oilskin coat) pours tea into two chipped "
@@ -97,7 +100,7 @@ def test_dialogue_only_shot_has_no_speech_no_parenthetical_and_no_action(
     shot = shot_of(lighthouse, 0, [2, 3], characters=["NANDI", "THABO"], time_of_day="NIGHT")
     prompt = build_frame_prompt(shot, lighthouse, cast, STYLE, max_words=100)
 
-    assert kinds(prompt.parts) == [K.STYLE, K.FRAMING, K.SETTING, K.TIME, K.COUNT]
+    assert kinds(prompt.parts) == [K.STYLE, K.FRAMING, K.SETTING, K.TIME, K.COUNT, K.AGE]
     text = prompt.text().lower()
     for absent in ("came back", "without turning", "boat", "cliff", "nandi", "thabo"):
         assert absent not in text
@@ -291,19 +294,20 @@ def test_a_named_person_extraction_missed_is_left_in_the_prompt(
 
 
 # Budget: style 3 words + "medium shot" 2 + "inside lighthouse kitchen" 3 + "night" 1 +
-# "one figure" 2 = 11 fixed words; [0] is 15 words, [1] "DOORS SLAM." 2.
+# "one figure" 2 + T074's "a person in their 60s" 5 = 16 fixed words; [0] is 15 words, [1] "DOORS
+# SLAM." 2.
 @pytest.mark.parametrize(
     ("max_words", "actions", "trimmed"),
     [
-        (28, ["Rain hammers the window. a person (60s, oilskin coat) pours tea into two "
+        (33, ["Rain hammers the window. a person (60s, oilskin coat) pours tea into two "
               "chipped mugs.", "DOORS SLAM."], 0),
-        (27, ["Rain hammers the window. a person (60s, oilskin coat) pours tea into two "
+        (32, ["Rain hammers the window. a person (60s, oilskin coat) pours tea into two "
               "chipped mugs."], 1),
-        (17, ["Rain hammers the window."], 2),  # six words fit: cut at the sentence end
-        (15, ["Rain hammers the window."], 2),
-        (14, ["Rain hammers the"], 2),  # no sentence end fits: a word boundary
-        (12, ["Rain"], 2),
-        (11, [], 2),  # not one word fits: dropped
+        (22, ["Rain hammers the window."], 2),  # six words fit: cut at the sentence end
+        (20, ["Rain hammers the window."], 2),
+        (19, ["Rain hammers the"], 2),  # no sentence end fits: a word boundary
+        (17, ["Rain"], 2),
+        (16, [], 2),  # not one word fits: dropped
     ],
 )  # fmt: skip
 def test_the_budget_drops_actions_from_the_tail_then_cuts_the_first(
@@ -344,3 +348,62 @@ def test_a_character_named_like_a_clock_leaves_the_time_alone() -> None:
         (K.COUNT, "one figure"),
         (K.ACTION, "a person mends a net."),
     ]
+
+
+# --- T074: a visible character's age, from the script's introduction ------------------------------
+
+
+def kite() -> Screenplay:
+    return screenplay_of(
+        [
+            heading("1", "EXT. FLAT ROOF - DAY"),
+            (ACTION, "A flat tin roof. LERATO (10), braids tied back, grips a kite."),
+            (ACTION, "MOKGOSI (70s) climbs the ladder. OLDLERATO waves."),
+            (CUE, "LERATO"),
+            (DIALOGUE, "Come on, wind."),
+        ]
+    )
+
+
+def test_introduced_age_reads_the_number_after_the_name() -> None:
+    sp = kite()
+    lerato = introduced_age("LERATO", sp)
+    assert lerato is not None and lerato[0] == "a 10-year-old"
+    assert lerato[1] == sp.scenes[0].elements[0].span
+    mokgosi = introduced_age("MOKGOSI", sp)
+    assert mokgosi is not None and mokgosi[0] == "a person in their 70s"
+    assert mokgosi[1] == sp.scenes[0].elements[0].span  # one action element introduces both
+
+
+def test_introduced_age_is_none_without_a_number_or_inside_another_word(
+    lighthouse: Screenplay,
+) -> None:
+    assert introduced_age("THABO", lighthouse) is None  # introduced with no parenthesis
+    assert introduced_age("NANDI", lighthouse) == ("a person in their 60s", Span(1, 7, 8))
+    sp = screenplay_of(
+        [
+            heading("1", "INT. ROOM - DAY"),
+            (ACTION, "BIGLERATO (10) sits. SAM (tall, thin) waits."),
+        ]
+    )
+    assert introduced_age("LERATO", sp) is None  # "LERATO" only inside another name
+    assert introduced_age("SAM", sp) is None  # a parenthesis that gives no number
+
+
+def test_each_visible_character_s_age_follows_the_count_and_counts_as_fixed_words() -> None:
+    sp = kite()
+    cast = extraction_of(sp, [("LERATO", "LERATO (10)"), ("MOKGOSI", "MOKGOSI (70s)")])
+    shot = shot_of(sp, 0, [0, 1], characters=["LERATO", "MOKGOSI"], time_of_day="DAY")
+    prompt = build_frame_prompt(shot, sp, cast, STYLE, max_words=100)
+    ages = [(p.kind, p.text) for p in prompt.parts if p.kind is K.AGE]
+    assert ages == [(K.AGE, "a 10-year-old"), (K.AGE, "a person in their 70s")]
+    assert kinds(prompt.parts).index(K.AGE) == kinds(prompt.parts).index(K.COUNT) + 1
+    fixed = len(" ".join(p.text for p in prompt.parts if p.kind is not K.ACTION).split())
+    with pytest.raises(PromptError):
+        build_frame_prompt(shot, sp, cast, STYLE, max_words=fixed - 1)
+
+
+def test_an_off_screen_speaker_gets_no_age(lighthouse: Screenplay, cast: Extraction) -> None:
+    shot = shot_of(lighthouse, 0, [3], characters=["THABO"], time_of_day="NIGHT")
+    prompt = build_frame_prompt(shot, lighthouse, cast, STYLE, max_words=100)
+    assert K.AGE not in kinds(prompt.parts)
