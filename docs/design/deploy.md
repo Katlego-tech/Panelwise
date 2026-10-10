@@ -10,7 +10,7 @@
 
 Where Panelwise runs once it leaves a laptop, and what each hosted service is for. It replaces
 PLAN.md's earlier target ("API + web on Nebius; Postgres + Redis self-hosted"). **Not covered:**
-the image renderer: FLUX.1 [schnell] on fal.ai (storyboard.md §3.5, decided 2026-10-09), with
+the image renderer: FLUX.2 [klein] 4B on Cloudflare Workers AI (storyboard.md §3.5, decided 2026-10-10), with
 ComfyUI on a Nebius GPU kept as an optional backend (T003).
 
 | Piece | Runs on | Why |
@@ -22,10 +22,10 @@ ComfyUI on a Nebius GPU kept as an optional backend (T003).
 | Sign-in, seeded judge account | **Supabase Auth** | T030 needs a judge login in the testing instructions |
 | Job status and progress | **a Postgres table** | replaces Redis: one fewer service to host and pay for |
 | Models | Nebius Token Factory | unchanged; this call is what satisfies "runs on Nebius" |
-| Rendering | FLUX.1 [schnell] on **fal.ai** (storyboard.md §3.5; ComfyUI on a Nebius GPU optional, T003) | changed 2026-10-09: Token Factory has no image model, a GPU kept up to 15 Dec costs ≈ $2,500, Cloudflare's FLUX takes no seed or size |
+| Rendering | FLUX.2 [klein] 4B on **Cloudflare Workers AI** (storyboard.md §3.5; ComfyUI on a Nebius GPU optional, T003) | changed 2026-10-10: Token Factory has no image model, a GPU kept up to 15 Dec costs ≈ $2,500, fal.ai bills $0.003 a frame and there's no cash; Workers AI's 10,000 free neurons a day draw about 95 frames |
 
 **Hackathon rules still hold:** "runs on Nebius" means a runtime Token Factory call *or* Nebius
-compute. Every Nemotron call is a Token Factory call; rendering on fal.ai doesn't change that. Hosting the app elsewhere is allowed
+compute. Every Nemotron call is a Token Factory call; rendering on Workers AI doesn't change that. Hosting the app elsewhere is allowed
 (frameflow-nebius-hackathon/PLAN.md, rules). The demo must stay up, free, until 15 Dec.
 
 ## 2. Reference material
@@ -88,8 +88,8 @@ sequenceDiagram
 - **Secrets by place:** `SUPABASE_SECRET_KEY`, `DATABASE_URL`, `NEBIUS_API_KEY` live only on
   Railway. `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` live on Vercel.
   `API_URL` (server-only, Vercel) points at the Railway domain.
-- **`FAL_KEY`** (the renderer's, storyboard.md §3.5) is a secret of the API host only, like
-  `NEBIUS_API_KEY`; it never reaches Vercel or a browser.
+- **`CLOUDFLARE_API_TOKEN`** (the renderer's, storyboard.md §3.5) is a secret of the API host only,
+  like `NEBIUS_API_KEY`; it never reaches Vercel or a browser.
 
 **Failure paths:** the API down → the web health route answers 502 (already built); Supabase
 Postgres down → the API health answers 503 `degraded`; a Railway deploy fails its
@@ -121,9 +121,9 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | web (Vercel) | Auth in the browser (T040) |
 | `API_URL` | web, server-side only | the Railway domain, no trailing slash |
 | `NEBIUS_*`, `LLM_*` | API only | unchanged (docs/design/llm.md) |
-| `FAL_KEY` | API only, secret | fal.ai's key; unset, no renderer (storyboard.md §3.5, T026) |
-| `FAL_MODEL`, `FAL_TIMEOUT_S`, `FAL_CONCURRENCY` | API | default `fal-ai/flux/schnell`, 60 s, 2 (storyboard.md §3.5) |
-| `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget, default 55 (storyboard.md §3.1, T008) |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | API only, the token secret | Workers AI; either unset, no renderer (storyboard.md §3.5, T026) |
+| `RENDER_MODEL`, `RENDER_TIMEOUT_S`, `RENDER_CONCURRENCY` | API | default `@cf/black-forest-labs/flux-2-klein-4b`, 120 s, 2 (storyboard.md §3.5) |
+| `RENDER_MAX_WORDS` | API | the frame prompt's word budget, default 120 (storyboard.md §3.1, §3.5; was `COMFYUI_MAX_WORDS`) |
 | `PANELWISE_PRIVATE_STYLES` | API, optional | a directory of private style TOMLs outside the repo; **never set on the hosted demo** (storyboard.md §3.2, T008) |
 | `REDIS_URL` | — | **removed** |
 
