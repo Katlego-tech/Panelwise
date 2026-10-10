@@ -495,7 +495,7 @@ sequenceDiagram
   the job succeeds. A withheld frame is information, not a failure.
 - **Storage answers 429 or a 5xx (Cloudflare's 520–524 included), or the connection drops** →
   `SupabaseStore` makes the same call again (T070): 3 attempts in all, 1 s then 2 s apart, each
-  retry logged as a warning with the operation and the status, never the key. A `put` is safe to
+  retry logged as a warning with the operation and the status, never the key or the path. A `put` is safe to
   repeat: an upload that landed before its answer was lost comes back 409, which is success.
 - **Storage still failing after the third attempt, or any other 4xx** → `StorageError` → the job
   fails. A frame that can't be stored can't be logged with its asset, and verify.md logs every attempt.
@@ -772,7 +772,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   sleeping 1 s; a 520 then a 409 is success; three 503s raise `StorageError` naming 503 and 3
   attempts, having slept 1 s and 2 s; a `ConnectError` then a 200 on `get` returns the bytes; three
   `ConnectError`s raise `StorageError` ("unreachable"), never the httpx2 error; a 400 or a 403 is
-  tried once; `exists` and `signed_url` retry the same way; no warning names the key.
+  tried once; `exists` and `signed_url` retry the same way; no warning names the key or the path.
 - **`build_storyboard`** with a fake renderer and a mocked audit: one frame per shot in plan order;
   every attempt logged with its asset; `PASSED`, `WARNED` (soft checks noted) and `WITHHELD` (hard
   checks noted, `asset` `None`) frames; a `FAILED` frame raising `StoryboardError` naming the shot
