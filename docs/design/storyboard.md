@@ -543,7 +543,10 @@ def redact(text: str, labels: Mapping[str, str]) -> str: ...                    
 class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; AGE = "age"; PLACEMENT = "placement"; ACTION = "action"
 def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] | None: ...   # T074, pure
 #   the first Action element, in scene and element order, where `CHARACTER (` follows the name in capitals
-#   and the parenthesis opens with a number: ("a <n>-year-old" | "a person in their <n>s", that element's span);
+#   and the parenthesis opens with a number, an optional `s`, an optional years word (`years old`, `year-old`,
+#   `yrs`, `yo`) and then `,` `;` or `)`: ("a <n>-year-old" | "a person in their <n>s", that element's span);
+#   `(5 months)`, `(6 weeks)`, `(30s-40s)`, `(early 30s)` give None: a miss draws no age, a wrong one would
+#   state one the script contradicts (the T074 review)
 #   None when no introduction gives one. Never a word the script doesn't have but the age's own number
 @dataclass(frozen=True) class PromptPart: kind: PartKind; text: str; span: Span | None
 @dataclass(frozen=True)
@@ -726,9 +729,11 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   prompt exceeds `max_words`. The sample includes a `CONTINUOUS` scene after a night scene.
 - **T074:** `introduced_age`: `LERATO (10), braids…` → "a 10-year-old", `MOKGOSI (70s)` → "a person in
   their 70s", `NANDI (60s, oilskin coat)` → "a person in their 60s", a character never introduced
-  with a number → `None`, a name inside another word never matches, the span is the introducing
+  with a number → `None`, `(5 months)` and `(30s-40s)` → `None`, a name inside another word never
+  matches, the span is the introducing
   element's; `build_frame_prompt` puts one `AGE` part per visible character with an age right after
-  `COUNT`, none for an animal or an off-screen speaker, and counts them in the fixed words. Live, with
+  `COUNT`, none for an animal or an off-screen speaker, and counts them in the fixed words;
+  `cites_this_shot` accepts two characters introduced in one line (each age with that one span). Live, with
   Tumo's go-ahead (about $0.06): one upload of the-red-kite at `RENDER_MAX_ATTEMPTS=1`, against
   2026-10-10's 3 of 22 accepted on the same seeds.
 - **`build_frame_prompt`** cases: the fixed part order, `ACTION` parts in element order;
