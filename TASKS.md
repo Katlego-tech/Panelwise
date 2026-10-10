@@ -393,5 +393,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
       Done:    the gate's vulnerability scan passes with no new exemption
+- [ ] T070 [POL] **Storage retries a transient error.** Found in the live run of 2026-10-10: Supabase Storage answered one `put` with Cloudflare's 520 and the frame, already drawn and paid for, was lost (`shot (3, 3) couldn't be drawn: put: storage answered 520`). `SupabaseStore` retries 429, 5xx and a dropped connection, the LLM client's policy. Lane `storyboard` (Claude for Tumo). Not on the renderer: `app/storage` is T053's, on `main`.
+      Design:  docs/design/storyboard.md §4 (the two Storage failure bullets), §6 (`SupabaseStore.__init__` and its comment), §8 (A transient Storage error), §9 (`SupabaseStore`, T070)
+      Files:   services/api/app/storage/store.py; services/api/tests/storage/test_store.py
+      Contract:storyboard.md §6 verbatim: `SupabaseStore(*, url, secret_key, bucket, client, max_attempts=3, sleep=asyncio.sleep)`; retried statuses 429, 500, 502, 503, 504, 520–524 and `httpx2.TransportError`; sleeps 1 s then 2 s; `StorageError("<op>: storage answered <status> after <n> attempts")` / `("<op>: storage unreachable after <n> attempts")`
+      Verify:  bash scripts/gate.sh (tests first: storyboard.md §9's T070 list, every item)
+      Done:    a Storage call that meets one 520, 503 or dropped connection succeeds on its next attempt without the caller seeing an error; one that keeps failing raises `StorageError` naming the status and the attempts after 1 s + 2 s of waiting; a 4xx is never retried
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

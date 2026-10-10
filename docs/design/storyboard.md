@@ -493,8 +493,12 @@ sequenceDiagram
   `check_workflow` before any shot is rendered.
 - **An audit error or the last attempt failing** → `WITHHELD` (verify.md): the block shows the card;
   the job succeeds. A withheld frame is information, not a failure.
-- **Storage `put` or `exists` fails** → `StorageError` → the job fails. A frame that can't be stored
-  can't be logged with its asset, and verify.md logs every attempt.
+- **Storage answers 429 or a 5xx (Cloudflare's 520–524 included), or the connection drops** →
+  `SupabaseStore` makes the same call again (T070): 3 attempts in all, 1 s then 2 s apart, each
+  retry logged as a warning with the operation and the status, never the key. A `put` is safe to
+  repeat: an upload that landed before its answer was lost comes back 409, which is success.
+- **Storage still failing after the third attempt, or any other 4xx** → `StorageError` → the job
+  fails. A frame that can't be stored can't be logged with its asset, and verify.md logs every attempt.
 - **An unknown style key** → `StyleError` before anything renders.
 
 ## 5. State
@@ -592,7 +596,14 @@ class AssetStore(Protocol):
     #   SupabaseStore uploads without upsert and treats Supabase's 409 "already exists" as success
     async def signed_url(self, path: str, expires_in_s: int) -> str: ...
 class SupabaseStore:                                    # Supabase Storage REST (/storage/v1/object/...), secret key, httpx2
-    def __init__(self, *, url: str, secret_key: str, bucket: str, client: httpx2.AsyncClient) -> None: ...
+    def __init__(self, *, url: str, secret_key: str, bucket: str, client: httpx2.AsyncClient,
+                 max_attempts: int = 3,
+                 sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None: ...
+    #   T070: every operation (exists, get, put, signed_url) is tried up to max_attempts times on
+    #   429, 500, 502, 503, 504, 520-524 or an httpx2.TransportError, sleeping 1 s, then 2 s (the
+    #   LLM client's policy, app/llm/client.py); any other status is answered at once, as today.
+    #   Out of attempts: StorageError("<op>: storage answered <status> after <n> attempts") or
+    #   StorageError("<op>: storage unreachable after <n> attempts"); a TransportError never escapes
 
 # app/storyboard/model.py
 type Rect = tuple[int, int, int, int]
@@ -663,7 +674,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | `services/api/app/storyboard/{model,workflow,render,build,run}.py` | new | §3.3, §4, §6: the workflow helpers, `ComfyRenderer`, `build_storyboard`, and `python -m app.storyboard.run <script.pdf> [--style KEY] --out DIR` (renders and audits on the real account and GPU, stores the frames, prints each shot's state and prompt) | T026 |
 | `services/api/app/storyboard/document.py` | new | §3.4, §6: layout, PDF, JSON; `run` writes the PDF to `DIR` and Storage | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
-| `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames | T053 |
+| `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames; T070 retries a transient failure | T053, T070 |
 | `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, `COMFYUI_MAX_WORDS`), T026 (`COMFYUI_URL`, `COMFYUI_TIMEOUT_S`, `SUPABASE_STORAGE_BUCKET`) |
 | `styles/*.toml`, `styles/README.md` | new / changed | the styles the team keeps public (§10); the file format | T008 |
 | `infra/comfyui/workflows/frame.json` | new | the frame graph, on T003's model | T026 (with T003's box) |
@@ -698,6 +709,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | PDF | Pillow page images, one PDF with `save_all` (comic.md's choice) | FrameFlow's hand-written PDF writer (base-14 fonts, so it folded em dashes and curly quotes: not verbatim); reportlab: a second PDF library. **Cost:** the PDF's text isn't selectable |
 | What prints under a frame | the shot's verbatim `source`, never truncated, plus its span | FrameFlow's frame description cut at four lines: a storyboard block must show exactly the lines it cites |
 | One PDF per | screenplay, scenes starting new pages | FrameFlow's one PDF per scene: a crew hands around one document |
+| A transient Storage error (T070) | `SupabaseStore` retries it: 3 attempts, 1 s then 2 s, on 429, 5xx (520–524 included) or a dropped connection, the LLM client's policy | no retry: one Cloudflare 520 on a `put` lost a frame already drawn and paid for (live run, 2026-10-10); a retry in each caller (the upload, the frames, the comic, T027's PDF): one policy written four times; retrying a 4xx: it answers the same way every time |
 | Local development Storage (deploy.md §10) | a dev bucket in the same Supabase project, through the same `SupabaseStore`; tests use an in-memory fake `AssetStore` | a local filesystem adapter: a second code path to keep honest, plus an API route to serve its files to the browser |
 | Signed URLs | the bucket is private; the API hands out signed URLs | a public bucket: frames of unreleased scripts readable by anyone with the path (RLS: deploy.md §6, T009) |
 | Renderer failure | the job fails, naming the shot | a placeholder frame: AGENTS.md §2a, and a board that looks complete but isn't |
@@ -756,6 +768,11 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   `RenderedFrame.prompt` is the weighted, escaped text actually sent; parentheses in script parts escaped; `record` returns the asset.
 - **`SupabaseStore`** with `MockTransport`: the Storage REST paths, the secret key header, a 409 on `put`
   treated as success, errors raised as `StorageError`, no key in any error message.
+  T070, with a recording `sleep`: a 520 then a 200 on `put` succeeds on the second attempt after
+  sleeping 1 s; a 520 then a 409 is success; three 503s raise `StorageError` naming 503 and 3
+  attempts, having slept 1 s and 2 s; a `ConnectError` then a 200 on `get` returns the bytes; three
+  `ConnectError`s raise `StorageError` ("unreachable"), never the httpx2 error; a 400 or a 403 is
+  tried once; `exists` and `signed_url` retry the same way; no warning names the key.
 - **`build_storyboard`** with a fake renderer and a mocked audit: one frame per shot in plan order;
   every attempt logged with its asset; `PASSED`, `WARNED` (soft checks noted) and `WITHHELD` (hard
   checks noted, `asset` `None`) frames; a `FAILED` frame raising `StoryboardError` naming the shot
