@@ -201,8 +201,20 @@ Katlego reviews every label in the code PR.** No label is merged unreviewed.
   key, sha256, shot and attempt, and with `label: null` and `seen: []`;
 - reads only the database and Storage, and calls no model.
 
-The 2026-10-10 runs give **39 frames** (projects `4911b46f…` and `ff0018d6…`). An entry with
-`label: null` stops `run` (§6a.5), so every frame is labelled before it is measured.
+A frame already in any story's `labels.json` is skipped: a re-upload's store hits are the same
+drawing, measured once. The 2026-10-10 runs give **27 distinct frames** (21 from `4911b46f…`, 6 more
+from `ff0018d6…`; its other 12 were store hits). An entry with `label: null` stops `run` (§6a.5),
+so every frame is labelled before it is measured.
+
+**What the labels found (2026-10-10, 27 frames): 20 should FAIL, 7 are correct.** The renderer, not
+only the audit, is the problem:
+- 14 frames carry an artist's signature or illegible writing in a corner;
+- 13 draw a grown man or woman where the shot has Lerato (10), or a man decades younger than
+  Mokgosi (70s);
+- 2 draw a second kite.
+
+So the 39 FAILs were mostly right, often for the wrong reason (washing, windows and kite strings).
+T049's numbers say how often for which.
 
 ### 6a.3 Injected frames
 
@@ -211,8 +223,9 @@ does the following:
 - builds the shot's `FramePrompt` exactly as the renderer does (storyboard.md §3.1, the default
   style, `RENDER_MAX_WORDS`);
 - appends `TEXT` as one sentence;
-- draws it through Workers AI with storyboard.md §3.5's `draw_size`, `workers_ai_request`, `fit`
-  and post-processing;
+- draws it through Workers AI with `WorkersAIRenderer.render_text` (storyboard.md §6): the
+  renderer's own path (`draw_size`, `workers_ai_request`, retries, `fit`, post-processing, the
+  store) with the prompt text given;
 - stores it at `frames/<render_key>.png` (the render key covers the changed prompt, so an injected
   frame never collides with a real one);
 - appends its entry to `labels.json` with the label set, and `seen` set to `[TEXT]`.
@@ -222,7 +235,9 @@ does the following:
   roof";
 - the object is one thing the location wouldn't hold, e.g. "a bicycle leans against the wall".
 
-Twelve drawings is about 1,250 of a day's 10,000 free neurons. **Each one's label is still
+Twelve drawings is about 1,250 of a day's 10,000 free neurons. To reach the 45 frames T049's
+`Done` asks for, the next day's allowance also draws the shots the live runs never reached
+(scenes 3 onwards, one attempt each), labelled the same way. **Each one's label is still
 checked by eye.** If klein didn't draw the injected thing, the frame is relabelled from what it
 does show.
 
