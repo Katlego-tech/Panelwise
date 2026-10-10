@@ -652,7 +652,8 @@ the button, which stays enabled.
 - **Hit areas** over the image, placed by each rect as percentages of the page's `width` and `height`
   (`left = x / width`, …), so they scale with the image:
   - per panel, a link to `/projects/[id]/storyboard?shot={shot_id}` labelled "Shot {shot_id} in the
-    storyboard" (", frame withheld" appended when `withheld`); hover or focus shows a dashed pencil
+    storyboard" (", frame not shown" appended when `withheld`: withheld by the audit, or not drawn,
+    T067); hover or focus shows a dashed pencil
     outline and a "Shot {id}" tag in the corner;
   - per lettering, a `<button aria-pressed>` labelled "{who}: {text} ({span})", stacked above its
     panel's link. **DOM order is tab order:** panel by panel in page order, each panel's link then its
@@ -677,8 +678,9 @@ the button, which stays enabled.
   within a panel in `lettering` order (the reading order), each a button with the who, the text and
   the span. It is also the page's text for a screen reader: the image's `alt` is "Comic page {n} of
   {N}. Its lettering is listed beside the page."
-- **A withheld panel** is already the withheld card in the page image (comic.md §4 step 6); the
-  reader adds nothing but the ", frame withheld" in its link's label.
+- **A withheld panel** is already the withheld card in the page image (comic.md §4 step 6), and a
+  panel whose renderer failed its failed card (T067); the reader adds nothing but the ", frame not
+  shown" in its link's label.
 - **Images:** a plain `<img>` (signed, expiring URLs, as `FrameMedia`). If a page image fails to
   load, the client fetches `…/comic` once and swaps in the fresh URLs; a second failure shows
   "This page couldn't be loaded. Reload to try again." in the sheet.
