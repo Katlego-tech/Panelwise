@@ -1,0 +1,83 @@
+[
+  {
+    "frame": "frames/aa540e56d22aeb9d9e4e1a8d187759c07d4336923bd1a3b66739511b4334d09d.png",
+    "sha256": "2051877670a89d1efa5e67f5371b0c27264151d703e6533b6bc4515013b65564",
+    "shot": [
+      0,
+      3
+    ],
+    "attempt": 1,
+    "label": "unscripted",
+    "seen": [
+      "an artist's signature, bottom right"
+    ],
+    "note": "nobody drawn: Lerato and Mokgosi missing"
+  },
+  {
+    "frame": "frames/b559d5e9c45c81943b37b37f55d0bbcdb8f1e1c6721c5d9d1daa142938f9d68d.png",
+    "sha256": "ae31bf897461d6ca6d25901e165f21a032e7c0f52392e44d5b4339fcb93a3b67",
+    "shot": [
+      0,
+      3
+    ],
+    "attempt": 2,
+    "label": "correct",
+    "seen": [],
+    "note": "nobody drawn: Lerato and Mokgosi missing (missing_character, soft)"
+  },
+  {
+    "frame": "frames/505631939e4fa076b5360bd9916575fbcd068db37c92fbdd5652f04899d42d01.png",
+    "sha256": "a41d4a2a347ec8504f1ecdacd89211ed24a62fc3ceebf5570133322cdc49c429",
+    "shot": [
+      0,
+      3
+    ],
+    "attempt": 3,
+    "label": "correct",
+    "seen": [],
+    "note": "nobody drawn: Lerato and Mokgosi missing (missing_character, soft)"
+  },
+  {
+    "frame": "frames/8a3634f6ba6d1ee61a1441035f51f3e0ad6a19767a700bab67de381eabccf979.png",
+    "sha256": "5d866300e431a994be30e840ca1f1e001298e95267ca0c7e541765dd236a6cbd",
+    "shot": [
+      0,
+      4
+    ],
+    "attempt": 1,
+    "label": "unscripted",
+    "seen": [
+      "a grown man where the shot has only Lerato (10)"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/02665c4787189dca88dcc1d4f1a78fa60c1029512beb1ff2fffd2acf6c2c9377.png",
+    "sha256": "4858c504852a8d6a10c57bd1e03a11f601c4d425065dfd98b8f50fa6ddd1fbd3",
+    "shot": [
+      0,
+      4
+    ],
+    "attempt": 2,
+    "label": "unscripted",
+    "seen": [
+      "writing, bottom left",
+      "a grown woman where the shot has only Lerato (10)"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/ee718edc5fea2eb0594d2f3dc349cbd50717f3d7dd2f1597f72a9a947e90180f.png",
+    "sha256": "aff232577e0aade73fab4fcf19aea129448b87e8cbfe9b8c862cccd58504f0e8",
+    "shot": [
+      0,
+      4
+    ],
+    "attempt": 3,
+    "label": "unscripted",
+    "seen": [
+      "a grown man where the shot has only Lerato (10)"
+    ],
+    "note": ""
+  }
+]
