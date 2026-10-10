@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { AppBar } from "@/components/AppBar";
 import { UNAVAILABLE } from "@/components/script/copy";
+import { canExport } from "@/components/storyboard/board";
 import { ExportButton } from "@/components/storyboard/ExportButton";
 import { type Board, StoryboardPage } from "@/components/storyboard/StoryboardPage";
 import { getBoard, getProject } from "@/lib/api/server";
@@ -37,7 +38,7 @@ export default async function Storyboard({ params }: { params: Promise<{ id: str
         email={user.email}
         project={{ id: project.id, title: project.title }}
         tab="storyboard"
-        tools={<ExportButton />}
+        tools={<ExportButton projectId={project.id} ready={canExport(project)} />}
       />
       <StoryboardPage project={project} board={board} />
     </>

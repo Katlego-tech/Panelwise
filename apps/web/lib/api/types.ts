@@ -24,6 +24,10 @@ export interface ProjectSummary {
   job: Job; // the latest job
 }
 
+export interface StoryboardPdfView {
+  pdf_url: string; // a signed URL to the storyboard PDF, valid an hour (T027)
+}
+
 export interface SpanRef {
   page: number;
   line_start: number;

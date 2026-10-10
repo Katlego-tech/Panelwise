@@ -21,7 +21,7 @@ from app.jobs import fail_interrupted, fail_interrupted_frames
 from app.llm import LLMConfigError, NebiusChatModel
 from app.storage import AssetStore, SupabaseStore
 from app.storyboard.fal import fal_factory
-from app.storyboard.styles import PUBLIC_STYLES, StyleError, load_styles
+from app.storyboard.styles import PUBLIC_STYLES, StyleError, StyleRegistry, load_styles
 
 log = logging.getLogger(__name__)
 
@@ -104,17 +104,19 @@ def create_app(
                 app.state.model = None
         else:
             app.state.model = model
+        # The styles load whether or not there's a renderer: a storyboard drawn earlier can still
+        # be exported, in its style (storyboard.md §3.4 Style).
+        app.state.styles = None
+        try:
+            private = settings.panelwise_private_styles
+            app.state.styles = load_styles(PUBLIC_STYLES, Path(private) if private else None)
+        except StyleError, OSError:
+            log.exception("the styles didn't load: no renderer and no storyboard PDF")
         app.state.renderer_factory = renderer_factory
-        if renderer_factory is None and fal and settings.fal_key and app.state.store is not None:
-            try:
-                private = settings.panelwise_private_styles
-                registry = load_styles(PUBLIC_STYLES, Path(private) if private else None)
-            except StyleError, OSError:
-                log.exception("the styles didn't load: running without a renderer")
-            else:
-                app.state.renderer_factory = fal_factory(
-                    registry, app.state.store, client, settings
-                )
+        styles: StyleRegistry | None = app.state.styles
+        store_ = app.state.store
+        if renderer_factory is None and fal and settings.fal_key and store_ and styles:
+            app.state.renderer_factory = fal_factory(styles, store_, client, settings)
         tasks: set[asyncio.Task[None]] = set()  # running jobs: one reference each, never GC'd
         app.state.tasks = tasks
         await sweep(sessions)

@@ -12,6 +12,10 @@ export type BoardState = "waiting" | "live" | "ready" | "failed";
 const running = (s: ProjectSummary) => s.job.state === "queued" || s.job.state === "running";
 export const isLive = (s: ProjectSummary) => running(s) || (s.frames?.active ?? 0) > 0;
 
+/** Export PDF's rule (web.md §4.3; T027): the job done and every frame settled, none active. */
+export const canExport = (s: ProjectSummary) =>
+  s.job.state === "done" && s.frames !== null && s.frames.active === 0 && s.frames.settled === s.frames.total;
+
 export function boardState(p: Project): BoardState {
   if (p.job.state === "failed") return "failed";
   if (p.shots === null) return "waiting";

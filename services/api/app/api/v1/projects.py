@@ -14,7 +14,15 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.errors import ApiError
-from app.api.v1.schemas import ComicView, FrameView, LinesView, Project, ProjectSummary, ShotView
+from app.api.v1.schemas import (
+    ComicView,
+    FrameView,
+    LinesView,
+    Project,
+    ProjectSummary,
+    ShotView,
+    StoryboardPdfView,
+)
 from app.comic.job import ComicRefused, run_comic_job, start_comic
 from app.comic.rows import ComicRow
 from app.comic.views import comic_job_view, comic_view
@@ -30,6 +38,8 @@ from app.projects.pipeline import UNEXPECTED, Stage
 from app.projects.repo import create_upload, get_project, list_summaries, summary
 from app.projects.views import entity_views, lines_view, report_view, scene_views, shot_views
 from app.storage import AssetStore, StorageError
+from app.storyboard.document import export_pdf, frames_from_rows
+from app.storyboard.styles import StyleRegistry
 
 router = APIRouter()
 log = logging.getLogger(__name__)
@@ -349,6 +359,43 @@ async def make_comic(
     return JSONResponse(
         status_code=202, content={"job": comic_job_view(job).model_dump(mode="json")}
     )
+
+
+@router.get("/projects/{project_id}/storyboard/pdf")
+async def storyboard_pdf(
+    request: Request, project_id: str, caller: Annotated[Caller, Depends(current_caller)]
+) -> StoryboardPdfView:
+    """T027 (web.md §6; storyboard.md §3.4 Delivery): the PDF of a settled storyboard, built on
+    demand from the frames rows and stored by its document key, as a signed URL."""
+    project, made = await _owned(request, caller, project_id)
+    if made.job.state != "done" or project.plan is None or project.screenplay is None:
+        raise ApiError(409, "not_ready")
+    state = request.app.state
+    async with state.sessions() as session:
+        rows = await frames_of(session, project.id)
+        audits = await audits_of(session, project.id)
+    plan = load_plan(project.plan)
+    by_shot = {(r.scene_index, r.shot_number): r for r in rows}
+    ordered = [by_shot.get((s.scene_index, s.number)) for s in plan.shots]
+    if any(r is None or r.state in ("rendering", "auditing") for r in ordered):
+        raise ApiError(409, "not_ready")
+    store: AssetStore | None = state.store
+    if store is None:
+        raise ApiError(503, "storage_unavailable")
+    styles: StyleRegistry | None = state.styles
+    if styles is None:
+        raise ApiError(503, "styles_unavailable")
+    frames = frames_from_rows(
+        [r for r in ordered if r is not None], [a for listed in audits.values() for a in listed]
+    )
+    try:
+        path = await export_pdf(
+            store, project.id, styles.get(None), plan, load_screenplay(project.screenplay), frames
+        )
+        url = await store.signed_url(path, _SIGNED_URL_S)
+    except StorageError as exc:
+        raise ApiError(503, "storage_unavailable") from exc
+    return StoryboardPdfView(pdf_url=url)
 
 
 @router.get("/projects/{project_id}/comic")

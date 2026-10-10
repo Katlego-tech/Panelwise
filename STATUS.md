@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-09 — by Tumo (via Claude)_
+_Last updated: 2026-10-10 — by Tumo (via Claude)_
 
 ---
 
@@ -57,6 +57,7 @@ _Last updated: 2026-10-09 — by Tumo (via Claude)_
 | T062 | The architecture check: the real audit loop on drawn sketches in a throwaway copy of a project, no image model | branch `feat/verify-t062`, `services/api/app/frames/check.py` | ✅ code merged (PR #82 design, #83 code) · ✅ live run 2026-10-09: copy `865c0f44…` "the-red-kite (architecture check)", shots 0.1 and 0.2 passed at attempt 1, 0.3 withheld (`audit_error`: attempt 1 FAIL on an unscripted "square outline", attempt 2 an empty vision response); the original untouched · ✅ the copy's frame sheets seen by Tumo in the browser (2026-10-09) |
 | T064 + T024 | The comic: the job that makes, stores and serves a project's comic (T064), then the web reader (T024). Design first, its own PR; then T064's code; then T024's | `docs/design/{comic,verify,web}.md`, `docs/design/web/comic*.png`, TASKS.md | ✅ design merged (PR #85) · ✅ T064 merged (PR #86) · ✅ the local comic check run on the T062 copy (2026-10-09: 5 pages, 21 panels, 3 withheld, ~66 audit calls) · ✅ T024 merged (PR #87) · 🟡 Tumo's look at the reader in the browser beside comic.png / comic-phone.png |
 | T026 (renderer) | The renderer is FLUX.1 [schnell] on fal.ai (decided by Tumo 2026-10-09; ComfyUI on a Nebius GPU optional, T003), then T026 on it: real frames, Try another render and Make the comic | design PR (storyboard.md §3.5, PLAN, deploy.md, CLAUDE.md's stack line, TASKS T003/T026), then branch `feat/storyboard-t026` | 🟡 design in review: **Tumo first, then Katlego approves before anything merges** |
+| T027 | The storyboard PDF: built from the frames rows, two shots a page, the withheld and failed cards, stored by a document key and opened by Export PDF as a signed URL | design PR #96 (on #90), then branch `feat/storyboard-t027` (on #91) | 🟡 code in review (Tumo, Claude); its live check is an Export after a live storyboard |
 
 Claimed files: `apps/web/**`, `services/api/app/frames/**`, `services/api/app/verify/loop.py`, `services/api/app/comic/**`, `services/api/migrations/versions/0005_*`, `services/api/app/jobs/model.py`. Everything else is open.
 

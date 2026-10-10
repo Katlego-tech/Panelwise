@@ -18,6 +18,7 @@ class StoryboardFrame:
     attempts: int
     verdict: Verdict
     noted_checks: tuple[Check, ...]
+    failure: str | None = None  # T027: "render" or "restart" for a FAILED frame, from its row
 
 
 @dataclass(frozen=True)
