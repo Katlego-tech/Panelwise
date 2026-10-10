@@ -212,6 +212,12 @@ class FrameView(_View):
         return self
 
 
+class StoryboardPdfView(_View):
+    """GET /projects/{id}/storyboard/pdf (T027): a signed URL to the PDF, valid an hour."""
+
+    pdf_url: str
+
+
 # --- the comic (web.md §6 comic types; comic.md §4a; T064) ------------------------------------
 
 type LetteringKind = Literal["speech", "off_panel", "voice_over", "scene"]

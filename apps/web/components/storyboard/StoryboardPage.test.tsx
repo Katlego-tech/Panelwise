@@ -12,7 +12,6 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-import { ExportButton } from "./ExportButton";
 import { frame, job, keeper, lines, shots } from "./fixtures";
 import { StoryboardPage } from "./StoryboardPage";
 
@@ -339,14 +338,5 @@ describe("live (web.md §4.3)", () => {
     render(<StoryboardPage project={keeper(rendering)} board={board()} />);
     await tick();
     expect(push).toHaveBeenCalledWith("/sign-in");
-  });
-});
-
-describe("ExportButton (web.md §4.3, staged until T027)", () => {
-  it("is disabled and says why", () => {
-    render(<ExportButton />);
-    expect(screen.getByRole("button", { name: "Export PDF" })).toBeDisabled();
-    expect(screen.getByTitle("The PDF export isn't built yet")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Export PDF" })).toHaveAccessibleDescription("The PDF export isn't built yet");
   });
 });

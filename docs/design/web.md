@@ -964,6 +964,8 @@ interface ProjectSummary {
   job: Job;                                                                    // the latest storyboard job (never a frame_attempt)
 }
 
+interface StoryboardPdfView { pdf_url: string }                               // T027: a signed URL to the PDF, valid an hour
+
 interface SpanRef { page: number; line_start: number; line_end: number }        // script.md Span
 interface QuoteView { text: string; span: SpanRef }
 interface EntityView {
