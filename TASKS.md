@@ -399,5 +399,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
       Done:    the gate's vulnerability scan passes with no new exemption
+- [ ] T073 [US3] **The comic draws panels as many at once as the renderer allows.** Found in the-red-kite's live run of 2026-10-10: the comic took 24 min for 15 panels, one at a time, while the storyboard drew 22 frames in 3 min 39 s, two at a time. Lane `comic` (Claude for Tumo). Builds on T067 (#103). Not on the renderer: the route passes the renderer's limit, default 1.
+      Design:  docs/design/comic.md §4a (Concurrency, step 5), §6 (`run_comic_job(concurrency=...)`), §8 (Panels at once), §9 (T073)
+      Files:   services/api/app/comic/job.py; services/api/tests/comic/test_job.py
+      Contract:comic.md §6 verbatim: `run_comic_job(..., concurrency: int = 1)`; a panel failing the job cancels the panels in flight
+      Verify:  bash scripts/gate.sh (tests first: comic.md §9's T073 items); live, with Tumo's go-ahead: one comic of the-red-kite at concurrency 2
+      Done:    with concurrency 2 the comic job keeps two panels in the renderer at once and makes the same comic as one at a time, in about half the time; a failing panel stops the others
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
