@@ -388,7 +388,9 @@ default = true        # exactly one PUBLIC style sets this
   own, half of it blank; T027, 2026-10-10); **40 px** between blocks.
 - **Scenes start a new page.** Header, from the top margin: `STORYBOARD` (Bold 22 px, one line),
   8 px, then the scene's heading **as printed in the script** (the line of `Screenplay.text` at
-  `heading_span`, sliced the way script.md's spans slice back; not `Scene.heading`, which the parser
+  `heading_span`, numbered as every span is, by `text.split("
+")`: never `splitlines()`, which also
+  breaks on a form feed or ` ` and would shift the line; not `Scene.heading`, which the parser
   normalises) (Bold 26 px, 34 px line pitch), wrapped to the content
   width like source text (below), then 12 px, a 2 px rule, and 24 px: `22 + 8 + 34 × lines + 38` px
   in all. Footer, above the bottom margin: a 1 px rule, 8 px, then (Regular 18 px, 24 px pitch)
@@ -406,6 +408,8 @@ default = true        # exactly one PUBLIC style sets this
   - `source_lines` (Regular 22 px, 30 px line pitch): the shot's **`source`, verbatim**. Each of its
     lines (one per covered element, shots.md) is wrapped on whitespace to the content width
     separately, so element breaks are kept; a word wider than the line keeps a line to itself.
+    Wrapping splits on whitespace and rejoins with one space, so a run of spaces letters as one
+    (typography, not wording: every word, in order, as comic.md §4 step 5 letters).
     **Never truncated, never folded to ASCII** (FrameFlow folded em dashes and curly quotes for its
     base-14 fonts; with a TrueType font nothing needs folding).
   - Heights: frame 495, 12, title line 34, audit line 30 when present, 8, then 30 per source line
@@ -416,7 +420,9 @@ default = true        # exactly one PUBLIC style sets this
   lines as fit on that page and continues the rest at the top of the next, `continued = True`.
 - **Withheld card** (verify.md §4), in the frame box: white, 4 px `#808080` border, centred text in
   Regular 26 px, wrapped to 1000 px: `Frame withheld: failed audit (<checks>)` (the `noted_checks`
-  names, lower case, `_` as spaces, joined by `, `; `audit error` for an `ERROR` verdict), then
+  names, lower case, `_` as spaces, joined by `, `; `audit error` for an `ERROR` verdict;
+  `Frame withheld: failed audit` alone if a row's audit names neither, never an empty `()` and
+  never a failed export), then
   `Script p.<page> l.<line_start>–<line_end>`. The shot's `source` is printed under it as under every
   frame, so the card with its block shows exactly what verify.md §4 asks: the verbatim source, the
   span and the reason.
@@ -437,9 +443,10 @@ default = true        # exactly one PUBLIC style sets this
   draws every frame in (§3.5); `create_app` loads the styles at startup whether or not `FAL_KEY` is
   set, so a storyboard drawn earlier can still be exported.
 - **Document key**: `sha256` of the canonical JSON (sorted keys, no whitespace) of
-  `{"version": DOCUMENT_VERSION, "project": <id>, "style": <style key>, "frames": [[scene_index,
+  `{"version": DOCUMENT_VERSION, "project": <id>, "style": [<style key>, <style label>], "frames": [[scene_index,
   shot_number, state, asset, verdict, [noted checks], failure], …]}` in plan order. Every input that
-  changes the pages is in it (a project's screenplay and plan never change after planning), so a
+  changes the pages is in it (a project's screenplay and plan never change after planning; the
+  footer prints the label, so a private style relabelled under the same key is a new PDF), so a
   second Export of the same storyboard is a store hit; "Try another render" changes a row and so
   the key. Bump `DOCUMENT_VERSION` whenever the layout or drawing changes.
 - **Delivery**: `GET /projects/{id}/storyboard/pdf` builds the PDF if `storyboards/<key>.pdf` doesn't
