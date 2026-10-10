@@ -254,16 +254,16 @@ async def test_5xx_and_network_errors_back_off_exponentially() -> None:
     result = await make(rec, sleeps).chat(HI)
 
     assert result.content == "done"
-    assert sleeps.calls == [1.0, 2.0]
+    assert sleeps.calls == [2.0, 4.0]
 
 
 async def test_exhausted_retries_raise_with_the_last_status() -> None:
-    rec = Recorder(ok({}, 502), ok({}, 502), ok({}, 502))
+    rec = Recorder(*(ok({}, 502) for _ in range(5)))
 
     with pytest.raises(LLMRequestError) as err:
         await make(rec).chat(HI)
     assert err.value.status == 502
-    assert len(rec.requests) == 3
+    assert len(rec.requests) == 5
 
 
 async def test_a_400_is_not_retried_and_the_error_never_contains_the_key() -> None:
@@ -278,8 +278,76 @@ async def test_a_400_is_not_retried_and_the_error_never_contains_the_key() -> No
 
 
 async def test_exhausted_network_errors_raise_with_no_status() -> None:
-    rec = Recorder(httpx2.ConnectError("a"), httpx2.ReadTimeout("b"), httpx2.ConnectError("c"))
+    rec = Recorder(
+        httpx2.ConnectError("a"),
+        httpx2.ReadTimeout("b"),
+        httpx2.ConnectError("c"),
+        httpx2.RemoteProtocolError("d"),
+        httpx2.ConnectError("e"),
+    )
 
     with pytest.raises(LLMRequestError) as err:
         await make(rec).chat(HI)
     assert err.value.status is None
+    assert len(rec.requests) == 5
+
+
+# --- T075: riding out a minute-long drop -------------------------------------------
+
+
+async def test_four_dropped_connections_then_an_answer_waits_2_4_8_16_seconds() -> None:
+    sleeps = Sleeps()
+    rec = Recorder(*(httpx2.ConnectError("dropped") for _ in range(4)), ok(completion("done")))
+    result = await make(rec, sleeps).chat(HI)
+
+    assert result.content == "done"
+    assert sleeps.calls == [2.0, 4.0, 8.0, 16.0]
+
+
+async def test_five_dropped_connections_give_up_after_five_attempts() -> None:
+    sleeps = Sleeps()
+    rec = Recorder(*(httpx2.ConnectError("dropped") for _ in range(5)))
+
+    with pytest.raises(LLMRequestError) as err:
+        await make(rec, sleeps).chat(HI)
+    assert err.value.status is None
+    assert len(rec.requests) == 5
+    assert sleeps.calls == [2.0, 4.0, 8.0, 16.0]
+    assert "5 attempts" in str(err.value)
+
+
+async def test_a_second_read_timeout_ends_the_call() -> None:
+    rec = Recorder(httpx2.ReadTimeout("slow"), httpx2.ReadTimeout("slow"), ok(completion()))
+
+    with pytest.raises(LLMRequestError) as err:
+        await make(rec).chat(HI)
+    assert err.value.status is None
+    assert len(rec.requests) == 2
+
+
+async def test_one_read_timeout_among_dropped_connections_still_answers() -> None:
+    rec = Recorder(
+        httpx2.ReadTimeout("slow"), httpx2.ConnectError("dropped"), ok(completion("done"))
+    )
+    result = await make(rec).chat(HI)
+
+    assert result.content == "done"
+    assert len(rec.requests) == 3
+
+
+async def test_a_long_retry_after_still_waits_at_most_30_seconds() -> None:
+    sleeps = Sleeps()
+    rec = Recorder(ok({}, 503, {"retry-after": "60"}), ok(completion()))
+    await make(rec, sleeps).chat(HI)
+
+    assert sleeps.calls == [30.0]
+
+
+def test_from_settings_gives_the_client_a_10_second_connect_timeout_and_5_attempts() -> None:
+    settings = Settings(_env_file=None, nebius_api_key=KEY)  # pyright: ignore[reportCallIssue]
+    model = NebiusChatModel.from_settings(settings)
+
+    assert settings.llm_connect_timeout_s == 10.0
+    assert settings.llm_max_attempts == 5
+    assert model._client.timeout.connect == 10.0
+    assert model._client.timeout.read == settings.llm_request_timeout_s

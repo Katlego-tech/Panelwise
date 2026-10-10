@@ -24,7 +24,9 @@ class Settings(BaseSettings):
     nebius_model_reasoning: str = "nvidia/nemotron-3-super-120b-a12b"
     nebius_model_vision: str = "deepseek-ai/DeepSeek-V4.1-Flash"
     llm_request_timeout_s: float = 120.0
-    llm_max_attempts: int = 3
+    # T075: a dead connection fails in 10 s, and 5 attempts ride out about 80 s of drops.
+    llm_connect_timeout_s: float = 10.0
+    llm_max_attempts: int = 5
 
     # Frames (docs/design/storyboard.md §6). The prompt's word budget, a conservative proxy for the
     # text encoder's token limit: 55 words for CLIP's 77 tokens until T003 picks the model.
