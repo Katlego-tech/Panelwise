@@ -192,6 +192,21 @@ describe("Try another render (web.md §4.3)", () => {
     expect(button()).toHaveTextContent("Try another render");
   });
 
+  it("a failed frame's card offers it too (T066)", async () => {
+    const failed = frame({ shot_id: "3.1", state: "failed", failure: "render", attempt: 2, audits: [] });
+    fetchMock.mockResolvedValueOnce(
+      Response.json(frame({ shot_id: "3.1", state: "rendering", attempt: 3, max_renders: 3 }), { status: 202 }),
+    );
+    render(page([failed]));
+    const card = document.getElementById("shot-3.1")!;
+    expect(card).toHaveTextContent("The renderer failed on this frame.");
+    const retry = within(card).getByRole("button", { name: "Try another render" });
+    expect(retry.parentElement).toHaveClass("relative", "z-10");
+    await act(async () => fireEvent.click(retry));
+    expect(fetchMock.mock.calls[0]).toEqual(["/api/projects/p1/frames/2/1/attempts", { method: "POST" }]);
+    expect(within(document.getElementById("shot-3.1")!).getByText("Rendering attempt 3 of 3")).toBeInTheDocument();
+  });
+
   it("a 409 refetches the frames: the frame moved on", async () => {
     fetchMock
       .mockResolvedValueOnce(Response.json({ error: "not_withheld" }, { status: 409 }))

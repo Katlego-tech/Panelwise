@@ -30,7 +30,7 @@ export function PendingMedia({ text, busy }: { text: string; busy: boolean }) {
   );
 }
 
-/** A frame that won't be shown: the source once, its span, why, and (withheld) the retry. */
+/** A frame that won't be shown: the source once, its span, why, and the retry. */
 function TextCard({ shot, why, action }: { shot: ShotView; why: string; action?: ReactNode }) {
   // 16:9 at least, but it grows rather than clip: a long source, the button or its error must show.
   return (
@@ -49,7 +49,7 @@ function TextCard({ shot, why, action }: { shot: ShotView; why: string; action?:
   );
 }
 
-// The withheld card carries "Try another render" (T061); the failed card says why, by
+// Both carry "Try another render" (T061 withheld, T066 failed); the failed card says why, by
 // FrameView.failure (cards.ts).
 const WithheldCard = TextCard;
 const RenderFailedCard = TextCard;
@@ -73,7 +73,7 @@ export function FrameCard({
   href: string;
   /** Called when the card's link is followed: the sheet then closes by going back. */
   onOpen: (id: string) => void;
-  /** "Try another render", for a withheld frame (null otherwise). */
+  /** "Try another render", for a withheld or failed frame (null otherwise). */
   retry: ReactNode;
 }) {
   const { media, verdict, notes } = cardState(frame);
@@ -100,7 +100,7 @@ export function FrameCard({
       {media.kind === "image" && <FrameMedia url={media.url} shot={shot} />}
       {media.kind === "pending" && <PendingMedia text={media.text} busy={media.busy} />}
       {media.kind === "withheld" && <WithheldCard shot={shot} why={media.why} action={retry} />}
-      {media.kind === "failed" && <RenderFailedCard shot={shot} why={media.why} />}
+      {media.kind === "failed" && <RenderFailedCard shot={shot} why={media.why} action={retry} />}
       <header className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3.5 pt-2.5 *:whitespace-nowrap">
         <Link
           href={href}

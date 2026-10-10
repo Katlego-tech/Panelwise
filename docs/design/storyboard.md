@@ -506,11 +506,12 @@ not the default. Why (the research, 2026-10-09, sources in §8):
   the status and model, never the key or the prompt. `FAL_TIMEOUT_S` (default 60) is httpx's
   per-phase timeout, per try; there is no total deadline beyond three tries. A read timeout on a call
   fal.ai finished is retried and billed again: bounded (at most 3 drawings × 3 redraws × 3 tries per
-  attempt) and accepted. `RendererError` → verify's `FAILED` → the job fails, as §4 says.
+  attempt) and accepted. `RendererError` → verify's `FAILED` for that frame; the storyboard goes
+  on unless the renderer looks down (§4 Failure paths, T066).
 - **No failure is silent** (found in the first live run, 2026-10-10: a frame failed and nothing said
   why). Each retry is logged at `WARNING` with the model, the try and the status (or the
   exception's type); `build_storyboard` logs the `RendererError` of a frame that fails at `WARNING`
-  with its message, before the job fails. Never the key, the URL's query or the prompt.
+  with its message. Never the key, the URL's query or the prompt.
 - **The cache covers redraws.** Before any call, the keys of all three redraw seeds are checked in
   order; the first stored one is the drawing (a stored drawing was never flagged). So a shot whose
   first seed was flagged costs nothing on a re-run either.
@@ -543,11 +544,11 @@ not the default. Why (the research, 2026-10-09, sources in §8):
 back), 100 with `DONE`. `build_storyboard` runs with concurrency `settings.fal_concurrency`
 (`FAL_CONCURRENCY`, above). A progress write that fails is logged and skipped: it never fails a shot.
 
-**The job's failure copy.** A `StoryboardError` (a shot's renderer failed, §4) fails the upload's job
-at stage `rendering` with `RENDER_STAGE_FAILED`, the shot named as the web names it (`ShotView.id`);
-web.md §4.1a's `failed`/`rendering` row shows it verbatim. Anything else in the stage is web.md
-§4.1's `UNEXPECTED`. A re-upload is a new project, but the same script makes the same prompts,
-seeds and keys, so every drawing already made is a store hit (§3.3): nothing is paid for twice.
+**The job's failure copy.** A `StoryboardError` (the renderer looks down, §4 Failure paths) fails
+the upload's job at stage `rendering` with `RENDER_STAGE_FAILED`; web.md §4.1a's
+`failed`/`rendering` row shows it verbatim. Anything else in the stage is web.md §4.1's
+`UNEXPECTED`. A frame that failed on its own is not a job failure (T066): the job ends `DONE` and
+the frame shows its failed card with "Try another render" (web.md §4.3).
 
 **The app's factory.** `create_app(fal=True)` (the module's `app`, never a test's) sets
 `app.state.renderer_factory` when `FAL_KEY` and the store are set and the public styles load (the
@@ -597,7 +598,7 @@ sequenceDiagram
         end
         V-->>J: FrameOutcome (PASSED / WARNED / WITHHELD / FAILED)
     end
-    J->>J: any FAILED → StoryboardError; else Storyboard
+    J->>J: the renderer down (§4 Failure paths) → StoryboardError; else Storyboard, FAILED frames included
     J-->>J: Storyboard (the PDF is built on demand by T027's endpoint, not here)
 ```
 
@@ -626,12 +627,19 @@ sequenceDiagram
 
 **Failure paths:**
 
-- **ComfyUI unreachable, a rejected graph, a render error or a timeout** → `RendererError` →
-  verify.md's `FAILED` → the storyboard job fails with `StoryboardError` naming the shot. Shots
-  already in flight are **awaited**, not cancelled (their renders and audits are paid for; their
-  frames and log rows are kept); no new shot starts. No
-  fallback provider and no placeholder image (§8). The frames already rendered stay in Storage, so a
-  rerun pays only for the rest.
+- **A renderer error** (fal.ai or ComfyUI unreachable, a rejected request, a render error, a timeout,
+  a drawing the safety checker blocked) → `RendererError` → verify.md's `FAILED` for **that frame**
+  (`failure` `render`), logged with the renderer's message; **the storyboard goes on** with the
+  other shots, and the job ends `DONE` with the failed frame on the board, its card offering "Try
+  another render" (T066, 2026-10-10: in the first live runs a single passing error stopped the whole
+  storyboard three times). No fallback provider and no placeholder image (§8).
+- **The renderer looks down** → no new shot starts, the shots in flight are **awaited**, not
+  cancelled (their drawings and audits are paid for; their rows are kept), then the job fails with
+  `StoryboardError` (`RENDER_STAGE_FAILED`). "Down" is: **no frame drawn yet** (no shot has
+  reached `AUDITING`, which only a drawing does: a frame still being judged counts as drawn) and
+  **`min(3, shots)` frames `FAILED`**. A wrong key, an account out of credit or an outage fails every shot the same way;
+  without this, a 21-shot storyboard would spend half an hour on timeouts to say so. Once one frame
+  has been drawn, failures are taken one frame at a time.
 - **A prompt whose fixed parts exceed the word budget** → `PromptError`, raised by the renderer as
   `RendererError` → `FAILED`, naming the shot: a configuration error (style or budget), never a
   truncated prompt.
@@ -724,7 +732,7 @@ class RendererError(RuntimeError): ...
 class RenderRecorder(RecordingRenderer, Protocol):     # what build_storyboard needs: a RecordingRenderer whose records are RenderRecords
     style: Style
     def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...
-RENDER_STAGE_FAILED: str = "Shot {shot_id} couldn't be drawn, so the storyboard stopped. Upload the script again to try once more: drawings already made aren't paid for twice."
+RENDER_STAGE_FAILED: str = "No frame could be drawn, so the storyboard stopped. Try again in a few minutes by uploading the script again."
 class ComfyRenderer:                                    # implements app.verify.Renderer
     def __init__(self, *, style: Style, workflow: Workflow, store: AssetStore, screenplay: Screenplay,
                  extraction: Extraction, client: httpx2.AsyncClient, base_url: str,
@@ -883,7 +891,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | One PDF per | screenplay, scenes starting new pages | FrameFlow's one PDF per scene: a crew hands around one document |
 | Local development Storage (deploy.md §10) | a dev bucket in the same Supabase project, through the same `SupabaseStore`; tests use an in-memory fake `AssetStore` | a local filesystem adapter: a second code path to keep honest, plus an API route to serve its files to the browser |
 | Signed URLs | the bucket is private; the API hands out signed URLs | a public bucket: frames of unreleased scripts readable by anyone with the path (RLS: deploy.md §6, T009) |
-| Renderer failure | the job fails, naming the shot | a placeholder frame: AGENTS.md §2a, and a board that looks complete but isn't |
+| Renderer failure | that frame fails, with its card and "Try another render"; the job fails only when the renderer looks down (§4, T066) | a placeholder frame: AGENTS.md §2a, and a board that looks complete but isn't; stopping the whole job on one passing error (the first live runs) |
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none.
 
@@ -951,8 +959,10 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   treated as success, errors raised as `StorageError`, no key in any error message.
 - **`build_storyboard`** with a fake renderer and a mocked audit: one frame per shot in plan order;
   every attempt logged with its asset; `PASSED`, `WARNED` (soft checks noted) and `WITHHELD` (hard
-  checks noted, `asset` `None`) frames; a `FAILED` frame raising `StoryboardError` naming the shot
-  after in-flight shots finish; the log adapter passing each attempt's asset; `on_frame` fired for
+  checks noted, `asset` `None`) frames; a `FAILED` frame among drawn ones leaving the storyboard
+  going (every other shot drawn, the job `DONE`); `min(3, shots)` failures before any drawing
+  raising `StoryboardError` after the in-flight shots finish, with no new shot started; a plan of
+  one or two shots that all fail raising it too; the log adapter passing each attempt's asset; `on_frame` fired for
   every transition with an asset only on PASSED/WARNED; `progress(settled, total)` after each
   terminal frame.
 - **Document**: `layout_document` is deterministic; scenes start pages; blocks never overlap the

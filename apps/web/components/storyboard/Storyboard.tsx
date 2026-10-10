@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { JobStrip } from "@/components/shared/JobStrip";
 import type { FrameView, LinesView, Project, ProjectSummary, ShotView } from "@/lib/api/types";
 
-import { isLive, mergeFrames, stageKey } from "./board";
+import { isLive, mergeFrames, retryable, stageKey } from "./board";
 import { FrameBoard } from "./FrameBoard";
 import { FrameSheet } from "./FrameSheet";
 import { RetryButton } from "./RetryButton";
@@ -177,7 +177,7 @@ export function Storyboard({
           scene={project.scene_list?.find((s) => s.index === sheetShot.scene_index)}
           onClose={close}
           onCloseFocus={() => cardLink(sheetShot.id)?.focus()}
-          retry={frames.find((f) => f.shot_id === sheetShot.id)?.state === "withheld" ? retryFor(sheetShot) : null}
+          retry={retryable(frames.find((f) => f.shot_id === sheetShot.id)?.state) ? retryFor(sheetShot) : null}
         />
       )}
     </>

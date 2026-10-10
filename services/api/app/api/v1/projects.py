@@ -252,10 +252,10 @@ async def try_another_render(
     number: str,
     caller: Annotated[Caller, Depends(current_caller)],
 ) -> FrameView:
-    """One more audited attempt on a withheld frame, in web.md §6's order: who; the frame,
-    locked from its read to the commit (one attempt per frame at a time); its state (409); what
-    the attempt needs (503, nothing written); then the job and the row together, and the work in
-    the background."""
+    """One more audited attempt on a withheld or failed frame (T066), in web.md §6's order: who;
+    the frame, locked from its read to the commit (one attempt per frame at a time); its state
+    (409); what the attempt needs (503, nothing written); then the job and the row together, and
+    the work in the background."""
     project, _ = await _owned(request, caller, project_id)
     shot = (_index(scene_index), _index(number))
     state = request.app.state
@@ -271,8 +271,8 @@ async def try_another_render(
         )
         if frame is None:
             raise ApiError(404, "not_found")
-        if frame.state != "withheld":
-            raise ApiError(409, "not_withheld")
+        if frame.state not in ("withheld", "failed"):
+            raise ApiError(409, "not_withheld")  # the code keeps its T021 name
         if (
             project.screenplay is None
             or project.plan is None
@@ -294,7 +294,7 @@ async def try_another_render(
         session.add(job)
         await session.flush()
         frame.state, frame.attempt, frame.job_id = "rendering", frame.attempt + 1, job.id
-        frame.withheld_check = None
+        frame.withheld_check = frame.failure = None
         attempt = frame.attempt
         view = frame_view(frame, load_screenplay(project.screenplay), None)
     task = asyncio.create_task(

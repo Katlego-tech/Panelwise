@@ -84,7 +84,7 @@ export function FrameSheet({
           {media.kind === "image" && <FrameMedia url={media.url} shot={shot} />}
           {media.kind === "pending" && <PendingMedia text={media.text} busy={media.busy} />}
           {media.kind === "withheld" && <ReasonPanel why={media.why} action={retry} />}
-          {media.kind === "failed" && <ReasonPanel why={media.why} />}
+          {media.kind === "failed" && <ReasonPanel why={media.why} action={retry} />}
           <SourceBlock shot={shot} k={k} scene={scene} />
           <InFrame shot={shot} frame={frame} />
           <AuditLog audits={frame?.audits ?? []} />
