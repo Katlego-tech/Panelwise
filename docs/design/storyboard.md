@@ -487,7 +487,7 @@ GPU (T003, `ComfyRenderer` below) stays an **optional** backend. Why:
   | 200 with an image that decodes | fit, post-process, store, return |
   | 200 without one; a network error or timeout; a 5xx; a 429 with code `3040` (out of capacity) | retry |
   | 400 with code `8007` (the NSFW filter refused the prompt) | retry: the filter isn't deterministic (in the trial, shot 3.4's prompt passed once and was refused twice) |
-  | code `3036` (the day's free neurons are used) | `RenderQuotaExceeded` at once, with no retry |
+  | code `3036` or `4006` (the day's free neurons are used; klein answered `4006` in the live run, 2026-10-10) | `RenderQuotaExceeded` at once, with no retry |
   | 401, 403 or any other 4xx | `RendererError` at once (a token, account or model problem) |
 
   When the tries run out, the error is a `RendererError`, which says the prompt was refused if the
@@ -721,7 +721,7 @@ class RendererError(RuntimeError): ...
 class RenderRecorder(RecordingRenderer, Protocol):     # what build_storyboard needs: a RecordingRenderer whose records are RenderRecords
     style: Style
     def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...
-class RenderQuotaExceeded(RendererError): ...           # Workers AI 3036: the day's free neurons are used (§3.5)
+class RenderQuotaExceeded(RendererError): ...           # Workers AI 3036 or 4006: the day's free neurons are used (§3.5)
 RENDER_STAGE_FAILED: str = "Shot {shot_id} couldn't be drawn, so the storyboard stopped. Upload the script again to try once more: drawings already made aren't drawn twice."
 RENDER_BUDGET_SPENT: str = "Today's free drawing budget ran out at shot {shot_id}, so the storyboard stopped. It resets at 00:00 UTC: upload the script again after that, and drawings already made aren't drawn twice."
 class ComfyRenderer:                                    # implements app.verify.Renderer
@@ -938,7 +938,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   - a 429 with `3040`, then a 200, succeeds after one sleep;
   - three 5xx, three 8007s (a refusal) and a 401 are each a `RendererError` naming the status, code
     and model, never the token or the prompt;
-  - `3036` is a `RenderQuotaExceeded` after one call;
+  - `3036` and `4006` are each a `RenderQuotaExceeded` after one call;
   - a 200 with no image, or one that won't decode, is retried;
   - a uniformly black drawing is retried and never stored;
   - the factory exists only with both `CLOUDFLARE_*`, a store and loadable styles, and only with
