@@ -532,3 +532,34 @@ def test_an_empty_text_entry_is_no_text_read(
     )
     assert Check.TEXT_IN_FRAME not in failing(checks)
     assert verdict is Verdict.PASS
+
+
+# --- T072: a signature always fails ------------------------------------------------------------
+
+
+def test_a_signature_fails_the_frame_readable_or_not(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    checks, verdict, _ = run_checks(
+        kitchen_shot(),
+        screenplay.scenes[0],
+        described(signature=True, text=[]),
+        judged(),
+        extraction,
+    )
+    assert failing(checks) == {Check.TEXT_IN_FRAME}
+    assert verdict is Verdict.FAIL
+    detail = next(c.detail for c in checks if c.check is Check.TEXT_IN_FRAME)
+    assert "a signature" in detail
+
+
+def test_no_signature_and_no_text_passes(screenplay: Screenplay, extraction: Extraction) -> None:
+    checks, verdict, _ = run_checks(
+        kitchen_shot(),
+        screenplay.scenes[0],
+        described(signature=False, text=[]),
+        judged(),
+        extraction,
+    )
+    assert Check.TEXT_IN_FRAME not in failing(checks)
+    assert verdict is Verdict.PASS

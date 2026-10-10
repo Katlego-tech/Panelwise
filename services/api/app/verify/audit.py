@@ -157,6 +157,8 @@ def run_checks(
     # Only legible words the script never wrote (T071): the shot's own text or the scene's place.
     # The heading's time of day isn't a haystack, so a painted "NIGHT" fails.
     words = [normalize_for_grounding(shot.source), normalize_for_grounding(scene.location)]
+    if description.signature:  # T072: writing nobody scripted, readable or not
+        failures[Check.TEXT_IN_FRAME].append("a signature or artist's mark")
     failures[Check.TEXT_IN_FRAME] += [
         f"text {t!r} isn't the script's"
         for t in description.text

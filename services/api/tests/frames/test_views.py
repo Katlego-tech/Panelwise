@@ -68,6 +68,7 @@ def test_an_audit_logged_before_t071_reads_its_text_as_empty() -> None:
     )  # fmt: skip
     view = audit_view(old)
     assert view.description is not None and view.description.text == []
+    assert view.description.signature is False  # T072: a row from before it
 
 
 def test_max_renders_grows_with_a_users_extra_attempt() -> None:
