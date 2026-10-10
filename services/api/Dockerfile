@@ -21,6 +21,8 @@ COPY alembic.ini ./
 COPY migrations ./migrations
 # The comic lettering font (docs/design/comic.md §2); a missing font fails the comic job.
 COPY assets ./assets
+# The public styles (docs/design/storyboard.md §3.5); the renderer loads them at start-up.
+COPY styles ./styles
 
 RUN useradd --system --uid 10001 panelwise
 USER panelwise

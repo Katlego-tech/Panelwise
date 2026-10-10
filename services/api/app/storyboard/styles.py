@@ -21,8 +21,9 @@ from enum import StrEnum
 from pathlib import Path
 from types import MappingProxyType
 
-# The repo's styles/, wherever the API is started from (like core/config.py's REPO_ENV).
-PUBLIC_STYLES = Path(__file__).resolve().parents[4] / "styles"
+# services/api/styles, inside the API image's build context (the repo-root styles/ is a symlink to
+# it: storyboard.md §3.5), wherever the API is started from.
+PUBLIC_STYLES = Path(__file__).resolve().parents[2] / "styles"
 
 # Whole words that would put someone or something legible in every frame, whatever the script
 # says. Not a proof a style is content-free; the audit catches the rest.

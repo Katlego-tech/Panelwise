@@ -1,5 +1,6 @@
-"""T026: the app builds its fal.ai renderer only when asked (`create_app(fal=True)`, the module's
-app), with a key, a store and styles that load (storyboard.md §3.5). No network."""
+"""T026: the app builds its Workers AI renderer only when asked (`create_app(render=True)`,
+the module's app), with both credentials, a store and styles that load (storyboard.md §3.5).
+No network."""
 
 from pathlib import Path
 
@@ -19,29 +20,51 @@ def factory_of(app: object) -> object:
         return client.app.state.renderer_factory  # type: ignore[attr-defined]
 
 
-def test_with_a_key_a_store_and_styles_the_app_has_a_renderer(migrated: str) -> None:
-    settings = Settings(database_url=migrated, fal_key="k", nebius_api_key="k")
-    app = create_app(settings, verifier=FakeVerifier(), store=MemoryStore(), fal=True)
+def test_with_credentials_a_store_and_styles_the_app_has_a_renderer(migrated: str) -> None:
+    settings = Settings(
+        database_url=migrated,
+        cloudflare_account_id="a",
+        cloudflare_api_token="t",
+        nebius_api_key="k",
+    )
+    app = create_app(settings, verifier=FakeVerifier(), store=MemoryStore(), render=True)
     assert callable(factory_of(app))
 
 
-def test_never_without_being_asked_without_a_key_or_without_a_store(migrated: str) -> None:
-    keyed = Settings(database_url=migrated, fal_key="k", nebius_api_key="k")
-    keyless = Settings(database_url=migrated, fal_key="", nebius_api_key="k")
+def test_never_without_being_asked_without_both_credentials_or_without_a_store(
+    migrated: str,
+) -> None:
+    keyed = Settings(
+        database_url=migrated,
+        cloudflare_account_id="a",
+        cloudflare_api_token="t",
+        nebius_api_key="k",
+    )
+    keyless = Settings(
+        database_url=migrated,
+        cloudflare_account_id="a",
+        cloudflare_api_token="",
+        nebius_api_key="k",
+    )
     assert factory_of(create_app(keyed, verifier=FakeVerifier(), store=MemoryStore())) is None
     assert (
-        factory_of(create_app(keyless, verifier=FakeVerifier(), store=MemoryStore(), fal=True))
+        factory_of(create_app(keyless, verifier=FakeVerifier(), store=MemoryStore(), render=True))
         is None
     )
-    assert factory_of(create_app(keyed, verifier=FakeVerifier(), store=None, fal=True)) is None
+    assert factory_of(create_app(keyed, verifier=FakeVerifier(), store=None, render=True)) is None
 
 
 def test_styles_that_do_not_load_mean_no_renderer_and_an_error_logged(
     migrated: str, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     monkeypatch.setattr(main, "PUBLIC_STYLES", Path("/nowhere/styles"))
-    settings = Settings(database_url=migrated, fal_key="k", nebius_api_key="k")
+    settings = Settings(
+        database_url=migrated,
+        cloudflare_account_id="a",
+        cloudflare_api_token="t",
+        nebius_api_key="k",
+    )
     with caplog.at_level("ERROR", logger="app.main"):
-        app = create_app(settings, verifier=FakeVerifier(), store=MemoryStore(), fal=True)
+        app = create_app(settings, verifier=FakeVerifier(), store=MemoryStore(), render=True)
         assert factory_of(app) is None
     assert any("styles didn't load" in r.getMessage() for r in caplog.records)

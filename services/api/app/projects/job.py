@@ -33,7 +33,12 @@ from app.script import Screenplay
 from app.storage import AssetStore
 from app.storyboard.build import build_storyboard
 from app.storyboard.model import StoryboardError
-from app.storyboard.render import RENDER_STAGE_FAILED, RenderRecorder
+from app.storyboard.render import (
+    RENDER_BUDGET_SPENT,
+    RENDER_STAGE_FAILED,
+    RenderQuotaExceeded,
+    RenderRecorder,
+)
 
 if TYPE_CHECKING:  # attempt.py imports fail_job from here: the type only, never the module
     from app.frames.attempt import RendererFactory
@@ -97,7 +102,7 @@ async def run_job(
     concurrency: int = 2,
 ) -> None:
     """With a renderer factory, the RENDERING stage follows planning (storyboard.md §4, §3.5):
-    every frame through verify's loop, `concurrency` at once (FAL_CONCURRENCY), progress 60 to
+    every frame through verify's loop, `concurrency` at once (RENDER_CONCURRENCY), progress 60 to
     100. Without one, the job ends at planning."""
     try:
         async with sessions() as session:
@@ -147,7 +152,9 @@ async def run_job(
             )
         except StoryboardError as error:
             shot = next(s for s in result.plan.shots if (s.scene_index, s.number) == error.shot)
-            message = RENDER_STAGE_FAILED.format(shot_id=shot_id(result.screenplay, shot))
+            spent = isinstance(error.__cause__, RenderQuotaExceeded)
+            copy = RENDER_BUDGET_SPENT if spent else RENDER_STAGE_FAILED
+            message = copy.format(shot_id=shot_id(result.screenplay, shot))
             await fail_job(sessions, job_id, message, Stage.RENDERING)
     except PipelineError as error:
         await fail_job(sessions, job_id, error.message, error.stage)

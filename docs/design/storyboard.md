@@ -1,15 +1,15 @@
 # Design — `storyboard` (frames, styles, the image chain, the storyboard PDF)
 
 **Status:** draft · **Owner:** Katlego (Claude) · **Tasks:** T008 (styles, redaction, prompts and a
-prompt-printing CLI: buildable now), T026 (the fal.ai renderer, Storage, the storyboard job: §3.5;
+prompt-printing CLI: buildable now), T026 (the Workers AI renderer, Storage, the storyboard job: §3.5;
 T021's loop is merged), T027 (the PDF and JSON, after T026) · **Spec:** [SPEC.md](../../SPEC.md) US1 (script → grounded storyboard)
 
 ---
 
 ## 1. What this covers
 
-Turning a `ShotPlan` (shots.md) into a **storyboard**: one frame per shot, rendered by FLUX.1 [schnell] on
-fal.ai (§3.5; ComfyUI on a Nebius GPU is an optional backend) in a chosen **style**, audited by verify.md's loop before anyone sees it, stored in
+Turning a `ShotPlan` (shots.md) into a **storyboard**: one frame per shot, rendered by FLUX.2 [klein] 4B on
+Cloudflare Workers AI (§3.5; ComfyUI on a Nebius GPU is an optional backend) in a chosen **style**, audited by verify.md's loop before anyone sees it, stored in
 **Supabase Storage**, and exported as one **PDF**. It owns four things:
 
 1. **The frame prompt**: built only from the shot's grounded fields (§3.1). This is where
@@ -17,7 +17,7 @@ fal.ai (§3.5; ComfyUI on a Nebius GPU is an optional backend) in a chosen **sty
    output.
 2. **The style registry**: public styles in `styles/`, an optional private pack from
    `PANELWISE_PRIVATE_STYLES`, the same validation for both.
-3. **The renderer**: verify.md's `Renderer` Protocol, implemented on fal.ai (§3.5, the default) and,
+3. **The renderer**: verify.md's `Renderer` Protocol, implemented on Cloudflare Workers AI (§3.5, the default) and,
    optionally, against a committed ComfyUI workflow graph (T003); each render stored by a content
    address, which is also the render cache.
 4. **The storyboard document**: the page layout and the PDF, with the withheld-frame text card.
@@ -417,108 +417,144 @@ default = true        # exactly one PUBLIC style sets this
   frame, so the card with its block shows exactly what verify.md §4 asks: the verbatim source, the
   span and the reason.
 
-### 3.5 The renderer: FLUX.1 [schnell] on fal.ai (T026; decided 2026-10-09)
+### 3.5 The renderer: FLUX.2 [klein] 4B on Cloudflare Workers AI (T026; decided 2026-10-10)
 
-**Decided by Tumo, 2026-10-09; Katlego approves with this PR.** The default renderer is FLUX.1
-[schnell] (Apache-2.0) on **fal.ai**, behind verify.md's `RecordingRenderer`. ComfyUI on a Nebius
-GPU (T003, `ComfyRenderer` below) stays an **optional** backend, for a demo session or the video,
-not the default. Why (the research, 2026-10-09, sources in §8):
+**Decided by Katlego, 2026-10-10**, on top of Tumo's fal.ai design (2026-10-09). Tumo's structure
+stays as it was: the cache covers every attempt, no failure is silent, CPU work runs off the event
+loop, the concurrency limit, the rendering stage in `run_job` and `create_app`'s factory. Only the
+service changes. The default renderer is **FLUX.2 [klein] 4B** (`@cf/black-forest-labs/flux-2-klein-4b`,
+Apache-2.0) on **Cloudflare Workers AI**, behind verify.md's `RecordingRenderer`. ComfyUI on a Nebius
+GPU (T003, `ComfyRenderer` below) stays an **optional** backend. Why:
 
-- **Nebius Token Factory serves no image model** (re-checked 2026-10-08: `flux-schnell`, `flux-dev`,
-  `sdxl` answer 404).
-- **A Nebius GPU** (L40S, $1.55/h on demand, $0.74/h preemptible, billed per second, disk billed
-  while stopped) would cost about $2,500 to keep up until 15 Dec, so it would be started per session
-  and judges would meet cold starts. Whether the hackathon credit covers AI Cloud at all is
-  unconfirmed.
-- **Cloudflare Workers AI's FLUX.1 [schnell]**, the interim idea in docs/HANDOFF.md §8, takes only
-  `prompt` and `steps` (its schema sets `additionalProperties: false`): **no seed, no size**. That
-  breaks `seed_for(shot, attempt)` and comic panels at their rect.
-- **fal.ai's FLUX.1 [schnell]** takes a `seed`, a custom `image_size` (`{width, height}`) and
-  `output_format: "png"`, at **$0.003 per megapixel, rounded up**. It is always on, with nothing to
-  start or stop.
+- **The project has no cash** (PLAN.md's budget: the only money is $25 of Token Factory credit,
+  for model calls). Every renderer that bills per frame is out, including **fal.ai** ($0.003 a frame,
+  the choice of 2026-10-09).
+- **Workers AI's free allocation** is **10,000 neurons a day** on Workers Free, with no card and a
+  reset at 00:00 UTC. Past it, requests fail.
+- **Not Workers AI's FLUX.1 [schnell].** 2026-10-09's research ruled it out: it takes no seed and
+  draws 1024 × 1024 only. **klein 4B takes both**: `seed`, and `width`/`height` in multiples of 16.
+- **Measured in the trial of 2026-10-09** (`services/api/storage/render-trial/`, git-ignored):
+  - klein's frames carry no artist signature, unlike schnell's;
+  - they stage the action as written;
+  - each costs **104.2 neurons** (4 output tiles × 26.05; three calls, `cf-ai-neurons: 104.20`).
+- **Nebius Token Factory serves no image model** (404 on 2026-10-08). A Nebius GPU costs about $1.55
+  an hour. "Runs on Nebius" is still met by every Nemotron call on Token Factory (deploy.md §1).
 
-"Runs on Nebius" is still met by every Nemotron call on Token Factory (deploy.md §1).
+**How the renderer works:**
 
-- **One call per attempt.** `POST https://fal.run/{FAL_MODEL}` (default `fal-ai/flux/schnell`), the
-  synchronous endpoint, with `Authorization: Key {FAL_KEY}`. The body is the canonical request:
-  `{"prompt": <text>, "image_size": {"width": dw, "height": dh}, "seed": <seed>,
-  "num_inference_steps": 4, "num_images": 1, "output_format": "png"}` (fal's OpenAPI schema for
-  `fal-ai/flux/schnell`, read 2026-10-09). The answer's `images[0].url` is fetched (`GET`, same
-  client) for the PNG; `images[0].width/height` must equal `dw × dh`, else `RendererError`.
-- **Draw size, priced to one megapixel.** fal bills each started megapixel, so a frame is drawn at
-  `fal_draw_size(width, height)`: scaled down (never up) so that `dw × dh ≤ 1,000,000`, each side
-  rounded **down** to a multiple of 16. 1280 × 720 draws as is (921,600 px), and a 1748 × 986 comic
-  panel draws at 1328 × 736. The PNG is then fitted to exactly the requested size by §3.3's `fit`
-  (cover, centre-crop by at most the rounding excess) and post-processed (the style's grayscale).
-  **Every frame and every panel costs $0.003.**
-- **The prompt sent** is `FramePrompt.text()`, plain: FLUX reads no ComfyUI weight syntax, so nothing
-  is escaped and the style's `emphasis` is not applied. FLUX.1 [schnell] has no negative prompt, so
-  the style's `negative` is not sent (§3.1's "no negations" already keeps what must not appear out of
-  the prompt; the audit catches the rest). `RenderedFrame.prompt` is exactly this text. The word
-  budget stays `COMFYUI_MAX_WORDS` (55), whatever its name says: raising it for FLUX's T5 encoder is
-  §10's open question, not this change.
-- **The render key** (§3.3) is the sha256 of the canonical JSON of `{"model": FAL_MODEL, "request":
-  <the body above>}`, then the requested `<width>x<height>`, `RENDER_VERSION` and the post-processing
-  step, each after a `"\x1f"`. The store is the cache, as §3.3 says: `exists(frames/<key>.png)` →
-  read back, no fal call, `RenderRecord.cached`. A re-run of a script costs nothing for frames it
-  already drew.
-- **Failures.** A network error, a 429 or a 5xx is retried twice (1 s, then 2 s), then
-  `RendererError`. Any other 4xx (a refused key, a rejected body) is `RendererError` at once, naming
-  the status and model, never the key or the prompt. `FAL_TIMEOUT_S` (default 60) is httpx's
-  per-phase timeout, per try; there is no total deadline beyond three tries. A read timeout on a call
-  fal.ai finished is retried and billed again: bounded (at most 3 drawings × 3 redraws × 3 tries per
-  attempt) and accepted. `RendererError` → verify's `FAILED` → the job fails, as §4 says.
-- **No failure is silent** (found in the first live run, 2026-10-10: a frame failed and nothing said
-  why). Each retry is logged at `WARNING` with the model, the try and the status (or the
-  exception's type); `build_storyboard` logs the `RendererError` of a frame that fails at `WARNING`
-  with its message, before the job fails. Never the key, the URL's query or the prompt.
-- **The cache covers redraws.** Before any call, the keys of all three redraw seeds are checked in
-  order; the first stored one is the drawing (a stored drawing was never flagged). So a shot whose
-  first seed was flagged costs nothing on a re-run either.
-- **Fail closed on the safety result.** An answer whose `has_nsfw_concepts` isn't a non-empty list of
-  booleans is `RendererError` (never assumed clean), and a drawing that is uniformly black is treated
-  as flagged even when the field says it isn't. A black frame is never stored.
-- **CPU work off the event loop.** `fit`, the post-processing and the PNG encoding run in
-  `asyncio.to_thread`, as the comic's Pillow work does.
-- **A frame fal's safety checker flags never reaches the audit.** The checker is always on for an
-  account without fal's authorization to disable it, and a flagged image comes back **black**, with
-  `has_nsfw_concepts[0]` true. T062 showed the audit passes a frame that contradicts nothing (a
-  black frame has an "unclear" setting and no people), so a black frame must not be returned. The
-  renderer redraws with derived seeds `(seed + k × 0x9E3779B1) mod 2³²`, k = 1, 2, which keeps the
-  attempt deterministic; the seed actually drawn is the one in the request, the render key and
-  `RenderedFrame.seed`. If all three are flagged, `RendererError` ("fal.ai's safety checker blocked
-  every drawing of this shot"). Prompts are only the script's own grounded words (§3.1), so a flag
-  should be rare.
-- **Privacy.** Each prompt (the redacted, grounded script words of one shot: no character names,
-  §3.1) is sent to fal.ai. The README says so (T033).
-- **Concurrency** `FAL_CONCURRENCY`, default **2**: fal.ai's limit for a new account (2 requests at
-  once, rising with purchased credit up to 40; a request over the limit is queued, and its wait counts
-  against `FAL_TIMEOUT_S`). The first live run sent 4 at once on a new account and one frame failed
-  after its three tries. At 2 a 21-shot storyboard renders in about the time of eleven shots; raise it
-  when the account's limit is higher.
-- **Cost of the sample:** the-red-kite (21 shots) costs $0.06–$0.19 for the storyboard (1–3
-  attempts), the same again for its comic, plus the audit calls. T030's spend cap covers fal.ai too.
+- **One call per try.** The request:
+  - `POST https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/{RENDER_MODEL}`,
+    with `Authorization: Bearer {CLOUDFLARE_API_TOKEN}`.
+  - The body is `multipart/form-data` with exactly four string fields: `prompt`, `width`, `height`
+    (the draw size) and `seed`.
+  - The answer is `{"result": {"image": <base64 JPEG>}}`. An answer whose image doesn't decode counts
+    as a failed try.
+  - Reference images (`input_image_0..3`, each under 512 × 512) are T025's (§10).
+- **The draw size is about one megapixel.** `draw_size(width, height)` scales the requested size to at most
+  `NATIVE_AREA` = 1024 × 1024 at the same aspect, **up or down**. Each side is rounded **down** to a
+  multiple of 16, and is at least 16. So a drawing never starts a fifth 512 × 512 tile, and every
+  frame and panel costs 104.2 neurons.
+  - 1280 × 720 draws at 1360 × 768.
+  - A 1748 × 986 comic panel draws at 1360 × 768.
+  - The drawing is then fitted to exactly the requested size by §3.3's `fit` (cover, then a
+    centre-crop by at most the rounding excess), and post-processed (the style's grayscale).
+- **The prompt sent** is `FramePrompt.text()`, plain:
+  - FLUX reads no ComfyUI weight syntax, so nothing is escaped and the style's `emphasis` isn't
+    applied.
+  - klein is distilled to 4 steps with no guidance, so there's no negative prompt and no step count.
+    The style's `negative` isn't sent, though `load_styles` still validates it.
+  - `RenderedFrame.prompt` is exactly this text.
+- **The word budget** is `RENDER_MAX_WORDS`, default **120**. It replaces `COMFYUI_MAX_WORDS` (55,
+  which was CLIP's 77 tokens). klein's text encoder is a Qwen3 language model, so it reads far more
+  than CLIP's limit. That closes §10's FLUX word-budget question.
+- **The render key** (§3.3) is the sha256 of the canonical JSON of
+  `{"model": RENDER_MODEL, "request": {"prompt", "width", "height", "seed"}}` (the four fields as
+  sent). After it come the requested `<width>x<height>`, `RENDER_VERSION` and the post-processing
+  step, each after a `"\x1f"`.
+  - The store is the cache, as §3.3 says. If `frames/<key>.png` exists, it is read back with no call,
+    and `RenderRecord.cached` is set.
+  - A re-run of a script spends no neurons on frames it already drew.
+- **Not reproducible from the seed.** Workers AI accepts the seed but returns a different image for
+  the same request. In the trial, two calls with seed 1 differed by a mean of 39.7 of 255 per pixel,
+  against 50.8 between seeds 1 and 2.
+  - So **the stored PNG is the reproduction**: an attempt's key always reads back the same bytes.
+  - The seed still goes in the request (it varies the attempts) and in `frame_audits.seed`.
+- **Failures,** inside one `render` call (the attempt never changes for them). Up to **3 tries**, with
+  `sleep` waits of 1 s and then 2 s:
 
-**The rendering stage in the job** (`run_job(…, factory)`, web.md §6): progress 60 at its start,
-`60 + round(40 × settled / shots)` as frames settle (written with `GREATEST`, so it never moves
-back), 100 with `DONE`. `build_storyboard` runs with concurrency `settings.fal_concurrency`
-(`FAL_CONCURRENCY`, above). A progress write that fails is logged and skipped: it never fails a shot.
+  | Answer | What `render` does |
+  |---|---|
+  | 200 with an image that decodes | fit, post-process, store, return |
+  | 200 without one; a network error or timeout; a 5xx; a 429 with code `3040` (out of capacity) | retry |
+  | 400 with code `8007` (the NSFW filter refused the prompt) | retry: the filter isn't deterministic (in the trial, shot 3.4's prompt passed once and was refused twice) |
+  | code `3036` or `4006` (the day's free neurons are used; klein answered `4006` in the live run, 2026-10-10) | `RenderQuotaExceeded` at once, with no retry |
+  | 401, 403 or any other 4xx | `RendererError` at once (a token, account or model problem) |
+
+  When the tries run out, the error is a `RendererError`, which says the prompt was refused if the
+  last answer was `8007`. Every message names the status, Cloudflare's code and the model, never the
+  token or the prompt.
+  - `RENDER_TIMEOUT_S` (default 120) is httpx's per-phase timeout, per try.
+  - A timed-out call that Cloudflare finished is billed again. That's bounded (at most 3 tries per
+    attempt) and accepted.
+  - `RendererError` and `RenderQuotaExceeded` lead to verify's `FAILED`, and the job fails as §4
+    says.
+- **A uniformly black drawing is treated as a failed try** and never stored. Workers AI refuses
+  with `8007` rather than blacking a frame out, but T062 showed the audit would pass a black frame,
+  so the renderer checks anyway.
+- **No failure is silent** (Tumo's live run, 2026-10-10).
+  - Each retry is logged at `WARNING` with the model, the try and the status, plus the code or the
+    exception's type.
+  - Each drawing is logged at `INFO` with the shot, the attempt, the seconds and its neurons.
+  - `build_storyboard` logs the `RendererError` of a frame that fails at `WARNING`.
+  - Never the token or the prompt.
+- **Neurons are recorded.** `RenderRecord.neurons` holds the response's `cf-ai-neurons` header (None
+  for a store hit), so a day's spend can be read from the API's logs. There's no database column.
+- **CPU work runs off the event loop.** The decode, `fit`, the post-processing and the PNG encoding
+  run in `asyncio.to_thread`.
+- **Privacy.** Each prompt (the redacted, grounded script words of one shot, with no character names,
+  §3.1) is sent to Cloudflare. The README says so (T033).
+- **Concurrency** is `RENDER_CONCURRENCY`, default **2**, at least 1 (a bad value fails at start-up).
+  More frames at once only spend the day's allocation faster.
+- **The daily budget.** The free allocation is about **95 frames a day**. A storyboard of n shots
+  takes n to 3n drawings (verify.md's `max_renders`), and the same again for its comic. The trial's
+  21-shot comic took about 40. So **about one project's storyboard and comic fits in a day**, and the
+  demo project must be rendered ahead and served from the cache. T030's demo account and §10 decide
+  what a judge's upload may spend.
+
+**The rendering stage in the job** (`run_job(…, factory)`, web.md §6):
+- Progress is 60 at its start and `60 + round(40 × settled / shots)` as frames settle, then 100 with
+  `DONE`. It's written with `GREATEST`, so it never moves back.
+- `build_storyboard` runs with concurrency `settings.render_concurrency`.
+- A progress write that fails is logged and skipped. It never fails a shot.
 
 **The job's failure copy.** A `StoryboardError` (a shot's renderer failed, §4) fails the upload's job
-at stage `rendering` with `RENDER_STAGE_FAILED`, the shot named as the web names it (`ShotView.id`);
-web.md §4.1a's `failed`/`rendering` row shows it verbatim. Anything else in the stage is web.md
-§4.1's `UNEXPECTED`. A re-upload is a new project, but the same script makes the same prompts,
-seeds and keys, so every drawing already made is a store hit (§3.3): nothing is paid for twice.
+at stage `rendering`. The shot is named as the web names it (`ShotView.id`), and web.md §4.1a's
+`failed`/`rendering` row shows the copy verbatim:
+- `RENDER_BUDGET_SPENT` when the cause was `RenderQuotaExceeded`;
+- `RENDER_STAGE_FAILED` for any other renderer failure.
 
-**The app's factory.** `create_app(fal=True)` (the module's `app`, never a test's) sets
-`app.state.renderer_factory` when `FAL_KEY` and the store are set and the public styles load (the
-image ships no `styles/`: compose mounts `./styles` at `/styles`; the hosted API needs the same, T063;
-a key set with styles that don't load is logged as an error at start-up and the app runs with no
-renderer, never half-configured): `lambda screenplay, extraction: FalRenderer(style=<the registry's default>, store=…,
-screenplay=…, extraction=…, client=<the app's shared httpx2 client>, settings=…)`, a fresh renderer
-per job or attempt, as verify.md §6 says. Without `FAL_KEY` it stays `None`: "Try another render"
-and "Make the comic" answer 503 `renderer_unavailable`, as today, and the storyboard job skips the
-RENDERING stage (planned is done, as before T026).
+Anything else in the stage is web.md §4.1's `UNEXPECTED`. A re-upload is a new project, but the same
+script makes the same prompts, seeds and keys. So every drawing already made is a store hit, and
+nothing is drawn twice.
+
+**The app's factory.** `create_app(render=True)` is used by the module's `app`, never by a test.
+- It sets `app.state.renderer_factory` when `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and the
+  store are all set and the public styles load.
+- The factory makes a fresh renderer per job or attempt, as verify.md §6 says:
+  `lambda screenplay, extraction: WorkersAIRenderer(style=<the registry's default>, store=…,
+  screenplay=…, extraction=…, client=<the app's shared httpx2 client>, account=WorkersAIAccount(…))`.
+- Credentials set but styles that don't load are logged as an error at start-up, and the app runs
+  with no renderer (never half-configured).
+- Without the credentials it stays `None`. "Try another render" and "Make the comic" then answer 503
+  `renderer_unavailable`, as today, and the storyboard job skips the RENDERING stage (planning is the
+  last stage, as before T026).
+
+**The styles ship in the API image.** The public styles move from the repo root `styles/` to
+`services/api/styles/`, inside the image's build context, and the Dockerfile copies them.
+- The root keeps a `styles` symlink, so the paths in docs and in `styles/README.md` still work.
+- `PUBLIC_STYLES` is `parents[2] / "styles"` from `styles.py`: `services/api/styles` in the repo,
+  and `/srv/api/styles` in the image.
+- Compose mounts nothing, and the hosted API (T063) needs nothing extra.
 
 ## 4. Flow
 
@@ -562,9 +598,9 @@ sequenceDiagram
     J-->>J: Storyboard (the PDF is built on demand by T027's endpoint, not here)
 ```
 
-- **With fal.ai** (§3.5, the default): `R` is `FalRenderer` and `C` is fal.ai's synchronous endpoint.
+- **With Workers AI** (§3.5, the default): `R` is `WorkersAIRenderer` and `C` is Workers AI's `ai/run` endpoint.
   There is no `check_workflow` step, and one call per drawing replaces the submit/poll/view. The job
-  calls `build_storyboard(…, concurrency=settings.fal_concurrency)`. The diagram's ComfyUI path is the optional backend (T003).
+  calls `build_storyboard(…, concurrency=settings.render_concurrency)`. The diagram's ComfyUI path is the optional backend (T003).
 - **The writer and its hooks** (T021). `build_storyboard` takes T021's `FrameWriter` (verify.md
   §6) and, for each shot, calls `frame_hooks(writer, renderer, shot)` to get the `(log, on_state)`
   pair it passes to `render_until_accepted`: `log` writes each attempt's `frame_audits` row with the
@@ -666,7 +702,7 @@ def build_frame_prompt(shot: Shot, screenplay: Screenplay, extraction: Extractio
 # app/storyboard/prompts.py — T008's live check (python -m app.storyboard.prompts <script.pdf> [--style KEY])
 async def main(argv: list[str]) -> int: ...             # parse, extract, plan; print each shot's parts, kinds and spans
 #   run as `sys.exit(asyncio.run(main(sys.argv[1:])))` under `if __name__ == "__main__"`, like app/shots/run.py;
-#   max_words = Settings().comfyui_max_words (COMFYUI_MAX_WORDS, T008), the same value T026's load_workflow receives
+#   max_words = Settings().render_max_words (RENDER_MAX_WORDS, §3.5; T008 named it COMFYUI_MAX_WORDS)
 
 # app/storyboard/workflow.py — pure
 @dataclass(frozen=True) class Workflow: name: str; graph: Mapping[str, Any]; native_area: int; max_words: int
@@ -681,11 +717,13 @@ def weighted(text: str, phrase: str, emphasis: float | None) -> str: ...        
 
 # app/storyboard/render.py
 class RendererError(RuntimeError): ...
-@dataclass(frozen=True) class RenderRecord: shot: tuple[int, int]; attempt: int; key: str; asset: str; prompt: FramePrompt; cached: bool; seconds: float | None
+@dataclass(frozen=True) class RenderRecord: shot: tuple[int, int]; attempt: int; key: str; asset: str; prompt: FramePrompt; cached: bool; seconds: float | None; neurons: float | None = None   # neurons: cf-ai-neurons, None for a store hit
 class RenderRecorder(RecordingRenderer, Protocol):     # what build_storyboard needs: a RecordingRenderer whose records are RenderRecords
     style: Style
     def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...
-RENDER_STAGE_FAILED: str = "Shot {shot_id} couldn't be drawn, so the storyboard stopped. Upload the script again to try once more: drawings already made aren't paid for twice."
+class RenderQuotaExceeded(RendererError): ...           # Workers AI 3036 or 4006: the day's free neurons are used (§3.5)
+RENDER_STAGE_FAILED: str = "Shot {shot_id} couldn't be drawn, so the storyboard stopped. Upload the script again to try once more: drawings already made aren't drawn twice."
+RENDER_BUDGET_SPENT: str = "Today's free drawing budget ran out at shot {shot_id}, so the storyboard stopped. It resets at 00:00 UTC: upload the script again after that, and drawings already made aren't drawn twice."
 class ComfyRenderer:                                    # implements app.verify.Renderer
     def __init__(self, *, style: Style, workflow: Workflow, store: AssetStore, screenplay: Screenplay,
                  extraction: Extraction, client: httpx2.AsyncClient, base_url: str,
@@ -693,22 +731,27 @@ class ComfyRenderer:                                    # implements app.verify.
     async def check_workflow(self) -> None: ...         # GET /object_info: titled nodes' classes exist, checkpoint installed
     async def render(self, shot: Shot, attempt: int, seed: int, width: int, height: int) -> RenderedFrame: ...
     def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...     # KeyError if not rendered
-#   ComfyRenderer is the optional backend (T003, §3.5); FalRenderer is the default.
+#   ComfyRenderer is the optional backend (T003, §3.5); WorkersAIRenderer is the default.
 
-# app/storyboard/fal.py (T026, §3.5)
-MAX_PIXELS: int = 1_000_000                              # fal bills each started megapixel
-def fal_draw_size(width: int, height: int) -> tuple[int, int]: ...   # scale down to ≤ MAX_PIXELS, each side floored to a multiple of 16
-def fal_request(prompt: str, seed: int, draw: tuple[int, int]) -> dict[str, Any]: ...   # the canonical body, §3.5
-class FalRenderer:                                      # implements app.verify.RecordingRenderer
+# app/storyboard/workers_ai.py (T026, §3.5)
+NATIVE_AREA: int = 1024 * 1024                           # klein's native area: 4 billed 512 x 512 tiles
+DEFAULT_MODEL: str = "@cf/black-forest-labs/flux-2-klein-4b"
+def draw_size(width: int, height: int) -> tuple[int, int]: ...   # scaled up or down to ≤ NATIVE_AREA, each side floored to a multiple of 16
+def workers_ai_request(prompt: str, seed: int, draw: tuple[int, int]) -> dict[str, str]: ...   # the four form fields, §3.5
+@dataclass(frozen=True)
+class WorkersAIAccount:
+    account_id: str; api_token: str; model: str = DEFAULT_MODEL; timeout_s: float = 120.0
+    @classmethod
+    def from_settings(cls, settings: Settings) -> WorkersAIAccount | None: ...   # None unless both CLOUDFLARE_* are set
+class WorkersAIRenderer:                                 # implements app.verify.RecordingRenderer
     def __init__(self, *, style: Style, store: AssetStore, screenplay: Screenplay, extraction: Extraction,
-                 client: httpx2.AsyncClient, key: str, model: str = "fal-ai/flux/schnell",
-                 max_words: int = 55, timeout_s: float = 60.0,
+                 client: httpx2.AsyncClient, account: WorkersAIAccount, max_words: int = 120,
                  sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None: ...
     async def render(self, shot: Shot, attempt: int, seed: int, width: int, height: int) -> RenderedFrame: ...
-    #   prompt → render key → store hit, or fal call (+ redraws on a flag) → fit → post-process → put; records before returning
+    #   prompt → render key → store hit, or up to 3 tries → decode → fit → post-process → put; records before returning
     def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...     # KeyError if not rendered
-def fal_factory(registry: StyleRegistry, store: AssetStore, client: httpx2.AsyncClient,
-                settings: Settings) -> RendererFactory: ...   # §3.5 The app's factory; the registry's default style
+def workers_ai_factory(registry: StyleRegistry, store: AssetStore, client: httpx2.AsyncClient,
+                       account: WorkersAIAccount, settings: Settings) -> RendererFactory: ...   # §3.5 The app's factory; the registry's default style
 
 # app/storage/store.py
 class StorageError(RuntimeError): ...
@@ -766,17 +809,18 @@ def to_json(storyboard: Storyboard, plan: ShotPlan, frame_urls: Mapping[tuple[in
 `frame_url` is present only for `passed` and `warned`; a `withheld` frame has none. `source` and
 `span` are the shot's, so the web app shows "from page 1, lines 5–9" on every frame (SPEC US1).
 
-**Environment** (added to `.env.example` and deploy.md §6: `PANELWISE_PRIVATE_STYLES` and `COMFYUI_MAX_WORDS` by T008, the other `COMFYUI_*` and Storage by T026):
+**Environment** (added to `.env.example` and deploy.md §6: `PANELWISE_PRIVATE_STYLES` and the word budget by T008, the renderer's and Storage by T026):
 
 | Variable | Where | What |
 |---|---|---|
-| `FAL_KEY` | API, **secret** | fal.ai's API key (§3.5). Unset: no renderer, "Try another render" and "Make the comic" answer 503, the storyboard job ends at planning |
-| `FAL_MODEL` | API | the fal model id, default `fal-ai/flux/schnell` |
-| `FAL_TIMEOUT_S` | API | per-call deadline, default 60 |
-| `FAL_CONCURRENCY` | API | frames drawn at once, default 2 (fal.ai's limit for a new account); at least 1, or the API refuses to start |
+| `CLOUDFLARE_ACCOUNT_ID` | API | the Cloudflare account that runs Workers AI (§3.5) |
+| `CLOUDFLARE_API_TOKEN` | API, **secret** | a token with Workers AI read and edit. Either one unset: no renderer, "Try another render" and "Make the comic" answer 503, the storyboard job ends at planning |
+| `RENDER_MODEL` | API | the Workers AI model, default `@cf/black-forest-labs/flux-2-klein-4b` |
+| `RENDER_TIMEOUT_S` | API | per-try deadline, default 120 |
+| `RENDER_CONCURRENCY` | API | frames drawn at once, default 2; at least 1, or the API refuses to start |
+| `RENDER_MAX_WORDS` | API | the frame prompt's word budget (§3.1, §3.5), default 120; replaces `COMFYUI_MAX_WORDS` |
 | `COMFYUI_URL` | API, optional | ComfyUI's base URL on a Nebius GPU, for the optional backend (T003; already in `.env.example`) |
 | `COMFYUI_TIMEOUT_S` | API | per-render deadline before the queue-aware extension, default 300 |
-| `COMFYUI_MAX_WORDS` | API | the workflow's prompt word budget (§3.1), set with the T003 model; default 55 (CLIP's 77 tokens) |
 | `SUPABASE_STORAGE_BUCKET` | API | the private bucket for frames and PDFs, default `panelwise` |
 | `PANELWISE_PRIVATE_STYLES` | API, optional | a directory of private style TOMLs outside the repo (already in `.env.example`); never set on the hosted demo |
 
@@ -795,10 +839,11 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | `services/api/app/storyboard/document.py` | new | §3.4, §6: layout, PDF, JSON; `run` writes the PDF to `DIR` and Storage | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
 | `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames | T053 |
-| `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, `COMFYUI_MAX_WORDS`), T026 (`COMFYUI_URL`, `COMFYUI_TIMEOUT_S`, `SUPABASE_STORAGE_BUCKET`) |
+| `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, the word budget), T026 (`CLOUDFLARE_*`, `RENDER_*`, `SUPABASE_STORAGE_BUCKET`) |
 | `styles/*.toml`, `styles/README.md` | new / changed | the styles the team keeps public (§10); the file format | T008 |
-| `services/api/app/storyboard/fal.py` | new | §3.5: `FalRenderer`, `fal_draw_size`, `fal_request`, `fal_factory` | T026 |
-| `services/api/app/projects/job.py`, `app/main.py` | changed | the RENDERING stage in `run_job` (`factory`), `renderer_factory` from `fal_factory` when `FAL_KEY` is set | T026 |
+| `services/api/app/storyboard/workers_ai.py` | new | §3.5: `WorkersAIRenderer`, `WorkersAIAccount`, `draw_size`, `workers_ai_request`, `workers_ai_factory` | T026 |
+| `services/api/styles/*.toml`, `styles/README.md` (moved from the root, which keeps a `styles` symlink); `services/api/Dockerfile` | moved / changed | §3.5: the styles ship in the API image | T026 |
+| `services/api/app/projects/job.py`, `app/main.py` | changed | the RENDERING stage in `run_job` (`factory`), `renderer_factory` from `workers_ai_factory` when both `CLOUDFLARE_*` are set | T026 |
 | `infra/comfyui/workflows/frame.json` | new | the frame graph, on T003's model (the optional backend) | T003 |
 | `services/api/assets/fonts/{CourierPrime-Regular,CourierPrime-Bold}.ttf`, `CourierPrime-OFL.txt` | new | the document's font and its licence | T027 |
 | `services/api/app/images/README.md` | removed | the provider chain and cache it described are not built (§8); the renderer lives in `storyboard/` | T026 |
@@ -810,7 +855,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
-| The renderer (2026-10-09, §3.5) | FLUX.1 [schnell] on fal.ai: seed, any size, PNG, $0.003 per ≤ 1 MP frame, always on | ComfyUI on a Nebius L40S as the default (≈ $2,500 to stay up to 15 Dec, or cold starts for judges; credit coverage unconfirmed: kept optional, T003); Cloudflare Workers AI FLUX.1 [schnell] (no seed and no size in its schema: breaks seeded attempts and comic panels); Nebius Token Factory (no image model, 404 on 2026-10-08). Sources: nebius.com/prices, the Cloudflare model schema, fal.ai's model page and OpenAPI |
+| The renderer (2026-10-10, §3.5) | FLUX.2 [klein] 4B on Cloudflare Workers AI: free (10,000 neurons a day, about 95 frames), a seed, any size in multiples of 16, always on | FLUX.1 [schnell] on fal.ai (Tumo's choice of 2026-10-09: $0.003 a frame, and the project has no cash); ComfyUI on a Nebius L40S as the default (≈ $2,500 to stay up to 15 Dec, or cold starts for judges; credit coverage unconfirmed: kept optional, T003); Cloudflare Workers AI FLUX.1 [schnell] (no seed and 1024 × 1024 only: breaks seeded attempts and comic panels; artist signatures in the trial); Nebius Token Factory (no image model, 404 on 2026-10-08). Sources: nebius.com/prices, the Cloudflare model schema, fal.ai's model page and OpenAPI |
 | What a frame prompt is made of | tagged parts from the shot's grounded fields, each script part carrying its span (§3.1) | FrameFlow's `storyboard_description` (free text: shots.md dropped it) or its fallback to the scene's first 400 characters of action (a cut mid-sentence, and other shots' events); a model writing the prompt: invention with extra steps |
 | Dialogue in the prompt | never; speakers enter as the `COUNT` and, with T025, as references | the speech text: not visible, and the surest way to get letters in the art (hard `TEXT_IN_FRAME`) |
 | Camera movement in the prompt | never; printed under the frame | FrameFlow's movement words: a still can't pan, and "handheld" reads as blur |
@@ -882,16 +927,28 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   input or the post-process changes and is stable across dict ordering; `draw_size` returns multiples
   of 64 near the native area for 16:9 and for comic.md's tall and wide panel rects; `fit` returns
   exactly the requested size.
-- **`FalRenderer`** (T026) with `httpx2.MockTransport` and an in-memory `AssetStore`: the request body
-  is §3.5's exactly (no negative, no weights, no escapes; `Authorization: Key …`); `fal_draw_size`
-  keeps every size ≤ 1,000,000 px in multiples of 16 (1280 × 720 as is, 1748 × 986 → 1328 × 736) and
-  the frame is fitted to exactly the requested size; a store hit makes no fal call; the record is
-  written before `render` returns; a 429 then a 200 succeeds after one sleep, three 5xx and a 401
-  are `RendererError` naming status and model and never the key or prompt; a returned size other
-  than the drawn one is `RendererError`; a flagged image is redrawn with the derived seeds, the
-  frame and key carry the seed drawn, and three flags are `RendererError`; the factory exists only
-  with `FAL_KEY`. `run_job` with a factory advances RENDERING at 60, writes every frame through
-  T021's writer and ends DONE at 100; without one it ends DONE at 60 as before.
+- **`WorkersAIRenderer`** (T026) with `httpx2.MockTransport` and an in-memory `AssetStore`:
+  - the request is §3.5's exactly: four multipart fields, no negative, no weights, no escapes,
+    `Authorization: Bearer …`;
+  - `draw_size` keeps every size at or under `NATIVE_AREA` in multiples of 16 (1280 × 720 → 1360 × 768,
+    1748 × 986 → 1360 × 768, a small panel scaled up), and the frame is fitted to exactly the
+    requested size;
+  - a store hit makes no call, and the record is written before `render` returns, with
+    `cf-ai-neurons` in it;
+  - a 429 with `3040`, then a 200, succeeds after one sleep;
+  - three 5xx, three 8007s (a refusal) and a 401 are each a `RendererError` naming the status, code
+    and model, never the token or the prompt;
+  - `3036` and `4006` are each a `RenderQuotaExceeded` after one call;
+  - a 200 with no image, or one that won't decode, is retried;
+  - a uniformly black drawing is retried and never stored;
+  - the factory exists only with both `CLOUDFLARE_*`, a store and loadable styles, and only with
+    `create_app(render=True)`.
+
+  `run_job` with a factory advances RENDERING at 60, writes every frame through T021's writer and
+  ends DONE at 100. Without one it ends DONE at 60 as before. A `RenderQuotaExceeded` fails the job
+  with `RENDER_BUDGET_SPENT`.
+- **The styles in the image:** `docker build services/api`, then `load_styles` in the image loads
+  every public style.
 - **`ComfyRenderer`** (optional, T003) with `httpx2.MockTransport` and an in-memory `AssetStore`: submit → poll
   (absent, then present) → view → resize → grayscale → `put` at `frames/<key>.png`; a store hit makes
   **no** ComfyUI call; the queue-aware extension then cancel; a history error, a 4xx on submit and no
@@ -912,9 +969,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   1240 × 1754; a withheld block draws the card with the checks in enum order and `audit error` for
   an `ERROR`; no withheld frame's pixels are ever read (its bytes are not passed in). `to_json`
   matches §6's shape and omits `frame_url` for a withheld frame.
-- **Live** (T026/T027; needs `FAL_KEY`, T021): an upload of the self-written sample on the local stack, in the default
+- **Live** (T026/T027; needs both `CLOUDFLARE_*`, T021, and about 2,200–6,300 of a day's neurons): an upload of the self-written sample on the local stack, in the default
   public style: every shot ends `PASSED`, `WARNED` or `WITHHELD`; the PDF and frames are in Storage;
-  seconds per frame, renders per frame and fal's cost are recorded in `docs/rendering.md` (render cost; T049 uses the same renders); the
+  seconds per frame, renders per frame and neurons are recorded in `docs/rendering.md` (render cost; T049 uses the same renders); the
   pages are committed as the visual reference.
 
 ## 10. Open questions
@@ -923,9 +980,13 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   2026-09-30 by the user:** all three of FrameFlow's drawn styles (`clean`, `ink`, `pencil`) are
   public in `styles/`, `clean` is the default, `classic` is dropped (§8), and the private pack is
   empty. Built by T008.
-- [ ] **A longer word budget for FLUX** (§3.5): FLUX.1's T5 encoder reads far more than CLIP's 77
-  tokens, so `COMFYUI_MAX_WORDS` (55) could rise and fewer script words would be cut. Decide with
-  real fal renders in hand; it changes T008's budget and its tests.
+- [x] **A longer word budget for FLUX** (§3.5). **Decided 2026-10-10:** `RENDER_MAX_WORDS`, 120.
+  klein's Qwen3 text encoder reads far more than CLIP's 77 tokens, and 2026-10-09's trial prompts
+  were drawn at that budget.
+- [ ] **What a judge's upload may spend** (§3.5's daily budget): the demo project is rendered ahead
+  and served from the cache. A judge's own script spends that day's neurons. T030 decides whether
+  the demo account may upload at all, and whether a single frame's card says "budget" instead of
+  "failed".
 - [ ] **The ComfyUI model and graph** (T003, the optional backend): which checkpoint, sampler, steps and cfg go in
   `frame.json`, its native size, and its licence (recorded in `infra/nebius/README.md`). The model
   decides `COMFYUI_MAX_WORDS` (CLIP's 77 tokens vs a T5 encoder's few hundred), whether comma phrases

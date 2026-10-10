@@ -26,17 +26,18 @@ class Settings(BaseSettings):
     llm_request_timeout_s: float = 120.0
     llm_max_attempts: int = 3
 
-    # Frames (docs/design/storyboard.md §6). The prompt's word budget, a conservative proxy for the
-    # text encoder's token limit: 55 words for CLIP's 77 tokens until T003 picks the model.
-    comfyui_max_words: int = 55
-    # The renderer: FLUX.1 [schnell] on fal.ai (storyboard.md §3.5). No key, no renderer: "Try
-    # another render" and "Make the comic" answer 503 and the storyboard job ends at planning.
-    fal_key: str = ""
-    fal_model: str = "fal-ai/flux/schnell"
-    fal_timeout_s: float = 60.0
-    # Frames drawn at once: fal.ai's limit for a new account is 2 (more are queued against the
-    # timeout); raise it with the account's limit (storyboard.md §3.5).
-    fal_concurrency: int = Field(default=2, ge=1)
+    # Frames (docs/design/storyboard.md §3.5). The prompt's word budget, a conservative proxy for
+    # the text encoder's token limit: klein's Qwen3 reads far more than CLIP's 77 tokens.
+    render_max_words: int = 120
+    # The renderer: FLUX.2 [klein] 4B on Cloudflare Workers AI (storyboard.md §3.5). Either unset,
+    # no renderer: "Try another render" and "Make the comic" answer 503 and the storyboard job ends
+    # at planning.
+    cloudflare_account_id: str = ""
+    cloudflare_api_token: str = ""
+    render_model: str = "@cf/black-forest-labs/flux-2-klein-4b"
+    render_timeout_s: float = 120.0
+    # Frames drawn at once; more only spend the day's free neurons faster (storyboard.md §3.5).
+    render_concurrency: int = Field(default=2, ge=1)
     # A directory of private style TOMLs outside the repo; empty means none. Never set on the
     # hosted demo.
     panelwise_private_styles: str = ""

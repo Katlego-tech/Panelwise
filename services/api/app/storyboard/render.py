@@ -8,16 +8,26 @@ from app.storyboard.prompt import FramePrompt
 from app.storyboard.styles import Style
 from app.verify.model import RecordingRenderer
 
-# storyboard.md §3.5, verbatim: the upload's job, failed at stage rendering by a StoryboardError.
+# storyboard.md §6, verbatim: the upload's job, failed at stage rendering by a StoryboardError.
 RENDER_STAGE_FAILED = (
-    "Shot {shot_id} couldn't be drawn, so the storyboard stopped. The frames already drawn are "
-    "kept: upload the script again to finish it."
+    "Shot {shot_id} couldn't be drawn, so the storyboard stopped. Upload the script again to try "
+    "once more: drawings already made aren't drawn twice."
+)
+# The same, when the renderer's cause was RenderQuotaExceeded (§3.5).
+RENDER_BUDGET_SPENT = (
+    "Today's free drawing budget ran out at shot {shot_id}, so the storyboard stopped. It resets "
+    "at 00:00 UTC: upload the script again after that, and drawings already made aren't drawn "
+    "twice."
 )
 
 
 class RendererError(RuntimeError):
     """A drawing couldn't be made: the backend refused, failed or timed out. Its message names the
     status and model, never a key or a prompt."""
+
+
+class RenderQuotaExceeded(RendererError):
+    """Workers AI's free neurons for the day are used (3036); they reset at 00:00 UTC (§3.5)."""
 
 
 @dataclass(frozen=True)
@@ -31,6 +41,7 @@ class RenderRecord:
     prompt: FramePrompt
     cached: bool
     seconds: float | None
+    neurons: float | None = None  # Workers AI's cf-ai-neurons; None for a store hit
 
 
 class RenderRecorder(RecordingRenderer, Protocol):

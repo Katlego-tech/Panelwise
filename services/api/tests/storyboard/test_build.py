@@ -1,6 +1,6 @@
 """T026: the storyboard job's RENDERING stage (storyboard.md §3.5, §4; web.md §4.1). The upload's
-job with the fal.ai renderer over a scripted fal.ai, a scripted audit, an in-memory store and a
-real Postgres; and frame_of, pure."""
+job with the Workers AI renderer over a scripted Workers AI, a scripted audit, an in-memory store
+and a real Postgres; and frame_of, pure."""
 
 import logging
 import uuid
@@ -23,9 +23,9 @@ from app.projects.pipeline import UNEXPECTED
 from app.projects.views import shot_id
 from app.shots import Shot
 from app.storyboard.build import build_storyboard, frame_of
-from app.storyboard.fal import FalRenderer
 from app.storyboard.model import StoryboardError
-from app.storyboard.render import RENDER_STAGE_FAILED
+from app.storyboard.render import RENDER_BUDGET_SPENT, RENDER_STAGE_FAILED
+from app.storyboard.workers_ai import WorkersAIRenderer
 from app.verify import loop
 from app.verify.model import (
     Audit,
@@ -42,7 +42,7 @@ from tests.fakes import MemoryStore
 from tests.frames.test_t021 import audit
 from tests.projects.test_pipeline import Models, make
 from tests.storyboard.conftest import STYLE
-from tests.storyboard.test_fal import Fal
+from tests.storyboard.test_workers_ai import ACCOUNT, WorkersAI
 
 type Key = tuple[int, int]
 
@@ -76,15 +76,15 @@ def scripted(monkeypatch: pytest.MonkeyPatch) -> Script:
 
 
 async def upload_and_run(
-    sessions: async_sessionmaker[AsyncSession], fal: Fal, store: MemoryStore
+    sessions: async_sessionmaker[AsyncSession], ai: WorkersAI, store: MemoryStore
 ) -> tuple[uuid.UUID, JobRow]:
     pid, jid = await project(sessions, store, run=False)
-    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fal))
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(ai))
 
-    def factory(screenplay: Any, extraction: Any) -> FalRenderer:
-        return FalRenderer(
+    def factory(screenplay: Any, extraction: Any) -> WorkersAIRenderer:
+        return WorkersAIRenderer(
             style=STYLE, store=store, screenplay=screenplay, extraction=extraction,
-            client=client, key="k",
+            client=client, account=ACCOUNT,
         )  # fmt: skip
 
     await run_job(jid, sessions=sessions, store=store, model=make(Models()), factory=factory)
@@ -109,14 +109,14 @@ async def rows(sessions: async_sessionmaker[AsyncSession], pid: uuid.UUID) -> li
 async def test_the_upload_renders_every_shot_and_ends_done_at_100(
     sessions: async_sessionmaker[AsyncSession], scripted: Script
 ) -> None:
-    store, fal = MemoryStore(), Fal()
+    store, ai = MemoryStore(), WorkersAI()
     pid, _ = await project(sessions, MemoryStore(), run=True)  # to learn the fixture's plan
     async with sessions() as s:
         plan = load_plan((await s.get(ProjectRow, pid)).plan)  # type: ignore[union-attr]
     first = (plan.shots[0].scene_index, plan.shots[0].number)
     scripted.verdicts[first] = [Verdict.FAIL, Verdict.FAIL, Verdict.FAIL]
 
-    pid, job = await upload_and_run(sessions, fal, store)
+    pid, job = await upload_and_run(sessions, ai, store)
 
     assert (job.state, job.stage, job.progress, job.error) == ("done", "rendering", 100, None)
     frames = await rows(sessions, pid)
@@ -129,16 +129,16 @@ async def test_the_upload_renders_every_shot_and_ends_done_at_100(
     async with sessions() as s:
         audits = list(await s.scalars(select(FrameAuditRow).where(FrameAuditRow.project_id == pid)))
     assert {a.target for a in audits} == {"storyboard"} and len(audits) == len(plan.shots) + 2
-    assert len(fal.posts) == len(plan.shots) + 2  # one drawing per attempt
+    assert len(ai.posts) == len(plan.shots) + 2  # one drawing per attempt
 
 
 @pytest.mark.db
 async def test_a_renderer_failure_fails_the_job_naming_the_shot_as_the_web_does(
     sessions: async_sessionmaker[AsyncSession], scripted: Script
 ) -> None:
-    store, fal = MemoryStore(), Fal()
-    fal.statuses = [401]  # fal.ai refuses the key on the first drawing
-    pid, job = await upload_and_run(sessions, fal, store)
+    store, ai = MemoryStore(), WorkersAI()
+    ai.answers = [(401, 10000)]  # Workers AI refuses the token on the first drawing
+    pid, job = await upload_and_run(sessions, ai, store)
     async with sessions() as s:
         row = await s.get(ProjectRow, pid)
     assert row is not None and row.plan is not None and row.screenplay is not None
@@ -147,7 +147,7 @@ async def test_a_renderer_failure_fails_the_job_naming_the_shot_as_the_web_does(
     assert (job.state, job.stage) == ("failed", "rendering")
     assert job.error == RENDER_STAGE_FAILED.format(shot_id=named)
     frames = await rows(sessions, pid)
-    # The first shot failed; the one already in flight (2 at once, FAL_CONCURRENCY's default:
+    # The first shot failed; the one already in flight (2 at once, RENDER_CONCURRENCY's default:
     # storyboard.md §3.5) was finished and kept, as §4 says: its drawing and audit are paid for.
     # No third shot started.
     assert (frames[0].state, frames[0].failure) == ("failed", "render")
@@ -155,26 +155,41 @@ async def test_a_renderer_failure_fails_the_job_naming_the_shot_as_the_web_does(
 
 
 @pytest.mark.db
+async def test_the_days_budget_spent_fails_the_job_with_its_own_copy(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    store, ai = MemoryStore(), WorkersAI()
+    ai.answers = [(429, 4006)] * 2  # both shots in flight meet the spent allocation
+    pid, job = await upload_and_run(sessions, ai, store)
+    async with sessions() as s:
+        row = await s.get(ProjectRow, pid)
+    assert row is not None and row.plan is not None and row.screenplay is not None
+    named = shot_id(load_screenplay(row.screenplay), load_plan(row.plan).shots[0])
+    assert (job.state, job.stage) == ("failed", "rendering")
+    assert job.error == RENDER_BUDGET_SPENT.format(shot_id=named)
+
+
+@pytest.mark.db
 async def test_after_a_renderer_failure_no_new_shot_starts(
     sessions: async_sessionmaker[AsyncSession], scripted: Script, caplog: pytest.LogCaptureFixture
 ) -> None:
-    store, fal = MemoryStore(), Fal()
+    store, ai = MemoryStore(), WorkersAI()
     pid, jid = await project(sessions, store, run=True)
     async with sessions() as s:
         row = await s.get(ProjectRow, pid)
     assert row is not None and row.plan and row.screenplay and row.extraction
     plan = load_plan(row.plan)
     screenplay, extraction = load_screenplay(row.screenplay), load_extraction(row.extraction)
-    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fal))
-    renderer = FalRenderer(
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(ai))
+    renderer = WorkersAIRenderer(
         style=STYLE,
         store=store,
         screenplay=screenplay,
         extraction=extraction,
         client=client,
-        key="k",
+        account=ACCOUNT,
     )
-    fal.statuses = [401]
+    ai.answers = [(401, 10000)]
     caplog.set_level(logging.WARNING, logger="app.storyboard.build")
     with pytest.raises(StoryboardError) as failed:
         await build_storyboard(
@@ -182,11 +197,11 @@ async def test_after_a_renderer_failure_no_new_shot_starts(
             writer=FrameWriter(sessions, pid, jid), concurrency=1,
         )  # fmt: skip
     assert failed.value.shot == (plan.shots[0].scene_index, plan.shots[0].number)
-    assert len(fal.posts) == 1 and scripted.calls == []  # one shot at a time: nothing else started
+    assert len(ai.posts) == 1 and scripted.calls == []  # one shot at a time: nothing else started
     assert [f.state for f in await rows(sessions, pid)] == ["failed"]
     # Never silent (storyboard.md §3.5): the renderer's own message is logged with the shot.
     (line,) = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    assert "answered 401 for fal-ai/flux/schnell" in line and str(failed.value.shot) in line
+    assert "answered 401, code 10000" in line and str(failed.value.shot) in line
 
 
 @pytest.mark.db
@@ -194,7 +209,7 @@ async def test_an_audit_that_breaks_is_unexpected_never_blamed_on_the_renderer(
     sessions: async_sessionmaker[AsyncSession], scripted: Script
 ) -> None:
     scripted.broken = True
-    _, job = await upload_and_run(sessions, Fal(), MemoryStore())
+    _, job = await upload_and_run(sessions, WorkersAI(), MemoryStore())
     assert (job.state, job.error) == ("failed", UNEXPECTED)
 
 
@@ -252,21 +267,21 @@ def test_frame_of_names_a_withheld_frame_s_hard_checks_and_a_warned_one_s_soft_i
 async def test_a_progress_write_that_fails_never_fails_a_shot(
     sessions: async_sessionmaker[AsyncSession], scripted: Script
 ) -> None:
-    store, fal = MemoryStore(), Fal()
+    store, ai = MemoryStore(), WorkersAI()
     pid, jid = await project(sessions, store, run=True)
     async with sessions() as s:
         row = await s.get(ProjectRow, pid)
     assert row is not None and row.plan and row.screenplay and row.extraction
     plan = load_plan(row.plan)
     screenplay, extraction = load_screenplay(row.screenplay), load_extraction(row.extraction)
-    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fal))
-    renderer = FalRenderer(
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(ai))
+    renderer = WorkersAIRenderer(
         style=STYLE,
         store=store,
         screenplay=screenplay,
         extraction=extraction,
         client=client,
-        key="k",
+        account=ACCOUNT,
     )
 
     async def broken(settled: int, total: int) -> None:

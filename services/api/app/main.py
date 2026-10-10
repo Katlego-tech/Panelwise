@@ -20,8 +20,8 @@ from app.frames.attempt import RendererFactory
 from app.jobs import fail_interrupted, fail_interrupted_frames
 from app.llm import LLMConfigError, NebiusChatModel
 from app.storage import AssetStore, SupabaseStore
-from app.storyboard.fal import fal_factory
 from app.storyboard.styles import PUBLIC_STYLES, StyleError, load_styles
+from app.storyboard.workers_ai import WorkersAIAccount, workers_ai_factory
 
 log = logging.getLogger(__name__)
 
@@ -55,15 +55,15 @@ def create_app(
     store: AssetStore | _Unset | None = UNSET,
     model: NebiusChatModel | _Unset | None = UNSET,
     renderer_factory: RendererFactory | None = None,
-    fal: bool = False,
+    render: bool = False,
 ) -> FastAPI:
     """The app. `verifier` and `store` default to Supabase's, built from settings (None when
     SUPABASE_URL or its secret key is unset: the routes then answer 503); `model` defaults to
     Token Factory's (None without NEBIUS_API_KEY: a job then fails at once); `renderer_factory` is
-    given by a test, or built for fal.ai (storyboard.md §3.5) only with `fal=True` -- the
-    module's `app`, never a test's -- when FAL_KEY and the store are set and the public styles
-    load; else None ("Try another render" and "Make the comic" answer 503, the upload's job ends
-    at planning)."""
+    given by a test, or built for Workers AI (storyboard.md §3.5) only with `render=True` -- the
+    module's `app`, never a test's -- when both CLOUDFLARE_* and the store are set and the public
+    styles load; else None ("Try another render" and "Make the comic" answer 503, the upload's job
+    ends at planning)."""
     settings = settings or Settings()
 
     @asynccontextmanager
@@ -105,15 +105,16 @@ def create_app(
         else:
             app.state.model = model
         app.state.renderer_factory = renderer_factory
-        if renderer_factory is None and fal and settings.fal_key and app.state.store is not None:
+        account = WorkersAIAccount.from_settings(settings)
+        if renderer_factory is None and render and account and app.state.store is not None:
             try:
                 private = settings.panelwise_private_styles
                 registry = load_styles(PUBLIC_STYLES, Path(private) if private else None)
             except StyleError, OSError:
                 log.exception("the styles didn't load: running without a renderer")
             else:
-                app.state.renderer_factory = fal_factory(
-                    registry, app.state.store, client, settings
+                app.state.renderer_factory = workers_ai_factory(
+                    registry, app.state.store, client, account, settings
                 )
         tasks: set[asyncio.Task[None]] = set()  # running jobs: one reference each, never GC'd
         app.state.tasks = tasks
@@ -138,4 +139,4 @@ def create_app(
     return app
 
 
-app = create_app(fal=True)
+app = create_app(render=True)
