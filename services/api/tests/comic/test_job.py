@@ -552,3 +552,37 @@ async def test_a_concurrency_below_one_is_refused(
     row = await planned(sessions, store)
     with pytest.raises(ValueError, match="concurrency"):
         await make_comic(sessions, store, row.id, concurrency=0)
+
+
+async def test_a_panel_still_in_its_audit_counts_as_drawn_so_the_renderer_isn_t_down(
+    sessions: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T073 review: the first panel draws and sits in a slow audit while the others fail fast.
+    One panel reached its audit, so the renderer works: failed cards, not COMIC_RENDERER_DOWN."""
+    store = MemoryStore()
+    row = await planned(sessions, store)
+    keys = [(s.scene_index, s.number) for s in load_plan(row.plan).shots]  # type: ignore[arg-type]
+    assert len(keys) == 3
+    monkeypatch.setattr(comic_job, "DOWN_AFTER", 2)  # both others failing would be enough
+    first = keys[0]
+
+    async def slow_for_the_first(
+        model: Any, frame: RenderedFrame, shot: Shot, screenplay: Any, extraction: Any
+    ) -> Audit:
+        if frame.shot == first:
+            await asyncio.sleep(0.3)
+        return replace(audit(frame.attempt, Verdict.PASS), shot=frame.shot, seed=frame.seed)
+
+    monkeypatch.setattr(loop, "audit_frame", slow_for_the_first)
+
+    class FailsButTheFirst(Overlap):
+        async def render(
+            self, shot: Shot, attempt: int, seed: int, width: int, height: int
+        ) -> RenderedFrame:
+            if (shot.scene_index, shot.number) != first:
+                await asyncio.sleep(0.1)  # fails after the first panel has reached its audit
+                raise RuntimeError("renderer error")
+            return await super().render(shot, attempt, seed, width, height)
+
+    job = await make_comic(sessions, store, row.id, FailsButTheFirst(store), concurrency=2)
+    assert (job.state, job.error) == ("done", None)

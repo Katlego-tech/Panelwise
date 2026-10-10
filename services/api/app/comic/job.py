@@ -286,9 +286,8 @@ async def run_comic_job(
             for p in panels
         }
         to_render = sum(found is None for found in reuse.values())
-        audited = failed = settled = (
-            0  # this job's panels: reached their audit / renderer raised / done
-        )
+        failed = settled = 0  # this job's panels whose renderer raised / that are done
+        drawn: set[Key] = set()  # panels that reached their audit: the renderer works (T067)
         gate = asyncio.Semaphore(concurrency)
         stop = asyncio.Event()  # set by a panel failing the job, before it frees its slot
         progress_lock = asyncio.Lock()
@@ -300,7 +299,7 @@ async def run_comic_job(
                 await _progress(sessions, job_id, round(PANELS_SHARE * settled / len(panels)))
 
         async def one(panel: Any) -> None:
-            nonlocal audited, failed
+            nonlocal failed
             key = (panel.scene_index, panel.shot_number)
             shot = shots[key]
             size = (panel.rect[2], panel.rect[3])
@@ -311,54 +310,56 @@ async def run_comic_job(
                 return
             prior = priors.get(key)
             states: list[FrameState] = []
-            log_audit, on_state = _hooks(writer, renderer, key, states)
+            log_audit, record_state = _hooks(writer, renderer, key, states)
+
+            async def on_state(state: FrameState, attempt: int) -> None:
+                await record_state(state, attempt)
+                if state is FrameState.AUDITING:  # counted at once, not when the panel ends
+                    drawn.add(key)
+
             async with gate:
                 if stop.is_set():  # a panel already failed the job: start nothing new
                     return
                 try:
-                    outcome = await render_until_accepted(
-                        model,
-                        renderer,
-                        shot,
-                        screenplay,
-                        extraction,
-                        width=size[0],
-                        height=size[1],
-                        max_renders=MAX_RENDERS,
-                        first_attempt=1 + (prior.last_attempt if prior else 0),
-                        log=log_audit,
-                        on_state=on_state,
-                    )
-                except Exception as error:
-                    if not states or states[-1] is not FrameState.FAILED:
-                        stop.set()
-                        raise
-                    # §4a Failure (T067): this panel gets the failed card and the comic goes on,
-                    # unless the renderer looks down.
-                    log.warning("comic job %s: panel %s couldn't be drawn: %s", job_id, key, error)
-                    if FrameState.AUDITING in states:
-                        audited += 1
-                    failed += 1
-                    if not audited and failed >= min(DOWN_AFTER, to_render):
-                        stop.set()
-                        raise _RendererDown(f"{failed} panel(s) failed, none drawn") from error
-                    frames[key] = failed_panel(shot)
-                    await settle()
-                    return
-                # Still holding the slot: a panel that fails the job does so before another starts.
-                if FrameState.AUDITING in states:
-                    audited += 1
-                try:
+                    try:
+                        outcome = await render_until_accepted(
+                            model,
+                            renderer,
+                            shot,
+                            screenplay,
+                            extraction,
+                            width=size[0],
+                            height=size[1],
+                            max_renders=MAX_RENDERS,
+                            first_attempt=1 + (prior.last_attempt if prior else 0),
+                            log=log_audit,
+                            on_state=on_state,
+                        )
+                    except Exception as error:
+                        if not states or states[-1] is not FrameState.FAILED:
+                            raise
+                        # §4a Failure (T067): this panel gets the failed card and the comic goes
+                        # on, unless the renderer looks down.
+                        log.warning(
+                            "comic job %s: panel %s couldn't be drawn: %s", job_id, key, error
+                        )
+                        failed += 1
+                        if not drawn and failed >= min(DOWN_AFTER, to_render):
+                            raise _RendererDown(f"{failed} panel(s) failed, none drawn") from error
+                        frames[key] = failed_panel(shot)
+                        await settle()
+                        return
+                    # Still holding the slot: a panel that fails the job does so before another
+                    # starts.
                     frames[key] = panel_frame(outcome, shot)  # ComicError if not accepted/withheld
-                except ComicError:
-                    stop.set()
+                    if outcome.frame is not None and not frames[key].withheld:
+                        size_drawn = _size(outcome.frame.png)
+                        if size_drawn != size:  # §4a step 3: the renderer ignored the size
+                            raise _RenderFailed(f"{key} was drawn at {size_drawn}, not {size}")
+                        paths[key] = renderer.record(key, outcome.frame.attempt).asset
+                except BaseException:
+                    stop.set()  # whatever failed the job, before the slot is freed
                     raise
-                if outcome.frame is not None and not frames[key].withheld:
-                    drawn = _size(outcome.frame.png)
-                    if drawn != size:  # §4a step 3: the renderer ignored the size; fail now
-                        stop.set()
-                        raise _RenderFailed(f"{key} was drawn at {drawn}, not {size}")
-                    paths[key] = renderer.record(key, outcome.frame.attempt).asset
             await settle()
 
         await _all_or_cancel([one(panel) for panel in panels])
