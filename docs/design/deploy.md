@@ -189,6 +189,20 @@ has Docker; `ci.yml` needs no service of its own):
   `docker port`. One `trap … EXIT` stops the container on every exit path, including the early
   `exit 1`s.
 
+**The image (T068, 2026-10-10).** The API is deployed from its Dockerfile, built by the host from
+`main` (Railway, or Render in T063). A Dockerfile that no longer builds, or an image missing a file
+the app imports, would otherwise be found only there, after the merge. So the gate builds it too:
+- For each project directory with a `Dockerfile` (today `services/api`), `docker build` with that
+  directory as the context, as compose builds it, tagged `panelwise-gate/<dir name>:check`; then
+  one `docker run --rm` of the image that imports the app (`.venv/bin/python -c "import
+  app.main"`), so a module or package left out of the image fails here. Both count as one check;
+  the image is removed afterwards.
+- Docker is required: without it the check **fails** ("Docker is needed to build the API's image"),
+  never a skip, as for the test Postgres.
+- It runs after the per-project checks, once per Dockerfile, and not for `--list` or
+  `--install-deps`. Docker's layer cache keeps a re-run to seconds; a cold build (CI) is a minute or
+  two.
+
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
