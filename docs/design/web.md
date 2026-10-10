@@ -721,7 +721,7 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 
 | Method, path | Body | Response | Task |
 |---|---|---|---|
-| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 400 `{error: "no_file" \| "bad_form"}` · 411 `{error: "length_required"}` · 413 `{error: "too_large"}` · 401 `{error: "unauthorized"}` · 503 `{error: "auth_unavailable" \| "storage_unavailable"}` (§6 *API internals*) | T053 |
+| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 400 `{error: "no_file" \| "bad_form"}` · 411 `{error: "length_required"}` · 413 `{error: "too_large"}` · 413 `{error: "too_many_pages", max_pages: number}` (T069) · 429 `{error: "llm_budget_spent"}` · 429 `{error: "upload_limit", per_day: number}` (T069; limits.md §4 gives the order) · 401 `{error: "unauthorized"}` · 503 `{error: "auth_unavailable" \| "storage_unavailable"}` (§6 *API internals*) | T053, T069 |
 | `GET /projects` | — | 200 `ProjectSummary[]`, newest first · 401 · 503 `auth_unavailable` | T053 |
 | `GET /projects/{id}` | — | 200 `Project` | T047 |
 | `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T047 |
@@ -1119,6 +1119,8 @@ shared (components/shared/): Verdict, SpanRef, Quote (Courier), Meter (T040); Jo
 | Failed frame (T061) | "The renderer failed on this frame." · "Rendering was interrupted by a restart." |
 | Audit log (T061) | §4.4 step 5's rules, verbatim |
 | Comic (T024) | §4.5, verbatim: the notes, "Make the comic" ("Starting…"), "Make the comic again", "Making the comic · {p}%", "Download PDF", "From the script", "Lettering on this page", the traced line's facts, the page alt text |
+| Upload, the demo's limits (T069, limits.md §6) | `llm_budget_spent` "The demo has used this month's model budget. Your existing storyboards still open; new uploads start again next month." · `upload_limit` "This demo makes {per_day} storyboards a day per account. Try again tomorrow." · `too_many_pages` "This demo takes scripts of up to {max_pages} pages." |
+| Try another render / Make the comic, the budget (T069) | 429 `llm_budget_spent` "The demo has used this month's model budget." |
 | Export tooltip | "Available when every frame has settled" (T027) · staged until then: "The PDF export isn't built yet" |
 | Storyboard cards, states, eyebrows | §4.3, verbatim: "Not rendered yet", "Rendering attempt {n} of {max}", "Auditing attempt {n} of {max}", "Render failed", "The renderer failed on this frame.", "Lined script", "speaker on screen", "speaker off screen", "Storyboard" (the failed page's eyebrow) |
 
