@@ -6,6 +6,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { FrameView, SceneView, ShotView } from "@/lib/api/types";
 
 import { FrameCard } from "./FrameCard";
+import { retryable } from "./board";
 
 export function FrameBoard({
   scenes,
@@ -50,7 +51,7 @@ export function FrameBoard({
                   onHighlight={onHighlight}
                   href={hrefFor(shot.id)}
                   onOpen={onOpen}
-                  retry={byShot.get(shot.id)?.state === "withheld" ? retryFor(shot) : null}
+                  retry={retryable(byShot.get(shot.id)?.state) ? retryFor(shot) : null}
                 />
               ))}
             </div>

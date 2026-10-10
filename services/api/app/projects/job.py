@@ -28,7 +28,6 @@ from app.projects.pipeline import (
     StageResult,
     run_pipeline,
 )
-from app.projects.views import shot_id
 from app.script import Screenplay
 from app.storage import AssetStore
 from app.storyboard.build import build_storyboard
@@ -145,10 +144,8 @@ async def run_job(
                 factory=factory,
                 concurrency=concurrency,
             )
-        except StoryboardError as error:
-            shot = next(s for s in result.plan.shots if (s.scene_index, s.number) == error.shot)
-            message = RENDER_STAGE_FAILED.format(shot_id=shot_id(result.screenplay, shot))
-            await fail_job(sessions, job_id, message, Stage.RENDERING)
+        except StoryboardError:  # the renderer looks down (storyboard.md §4); logged per frame
+            await fail_job(sessions, job_id, RENDER_STAGE_FAILED, Stage.RENDERING)
     except PipelineError as error:
         await fail_job(sessions, job_id, error.message, error.stage)
     except Exception:
