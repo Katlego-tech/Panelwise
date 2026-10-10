@@ -469,7 +469,7 @@ not the default. Why (the research, 2026-10-09, sources in §8):
   fal.ai finished is retried and billed again: bounded (at most 3 drawings × 3 redraws × 3 tries per
   attempt) and accepted. `RendererError` → verify's `FAILED` → the job fails, as §4 says.
 - **No failure is silent** (found in the first live run, 2026-10-10: a frame failed and nothing said
-  why). Each retry is logged at `WARNING` with the shot, the attempt and the status (or the
+  why). Each retry is logged at `WARNING` with the model, the try and the status (or the
   exception's type); `build_storyboard` logs the `RendererError` of a frame that fails at `WARNING`
   with its message, before the job fails. Never the key, the URL's query or the prompt.
 - **The cache covers redraws.** Before any call, the keys of all three redraw seeds are checked in
@@ -773,7 +773,7 @@ def to_json(storyboard: Storyboard, plan: ShotPlan, frame_urls: Mapping[tuple[in
 | `FAL_KEY` | API, **secret** | fal.ai's API key (§3.5). Unset: no renderer, "Try another render" and "Make the comic" answer 503, the storyboard job ends at planning |
 | `FAL_MODEL` | API | the fal model id, default `fal-ai/flux/schnell` |
 | `FAL_TIMEOUT_S` | API | per-call deadline, default 60 |
-| `FAL_CONCURRENCY` | API | frames drawn at once, default 2 (fal.ai's limit for a new account) |
+| `FAL_CONCURRENCY` | API | frames drawn at once, default 2 (fal.ai's limit for a new account); at least 1, or the API refuses to start |
 | `COMFYUI_URL` | API, optional | ComfyUI's base URL on a Nebius GPU, for the optional backend (T003; already in `.env.example`) |
 | `COMFYUI_TIMEOUT_S` | API | per-render deadline before the queue-aware extension, default 300 |
 | `COMFYUI_MAX_WORDS` | API | the workflow's prompt word budget (§3.1), set with the T003 model; default 55 (CLIP's 77 tokens) |
