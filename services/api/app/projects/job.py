@@ -9,19 +9,34 @@ background task); a cancelled one stays RUNNING for the next start's sweep.
 
 import logging
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
-from sqlalchemy import update
+from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.frames.writer import FrameWriter
 from app.grounding import Extraction
 from app.jobs import JobRow, JobState
 from app.llm import NebiusChatModel
 from app.projects.codec import dump_extraction, dump_plan, dump_screenplay
 from app.projects.model import ProjectRow
-from app.projects.pipeline import UNEXPECTED, PipelineError, Stage, StageResult, run_pipeline
+from app.projects.pipeline import (
+    UNEXPECTED,
+    PipelineError,
+    PipelineResult,
+    Stage,
+    StageResult,
+    run_pipeline,
+)
+from app.projects.views import shot_id
 from app.script import Screenplay
 from app.storage import AssetStore
+from app.storyboard.build import build_storyboard
+from app.storyboard.model import StoryboardError
+from app.storyboard.render import RENDER_STAGE_FAILED, RenderRecorder
+
+if TYPE_CHECKING:  # attempt.py imports fail_job from here: the type only, never the module
+    from app.frames.attempt import RendererFactory
 
 log = logging.getLogger(__name__)
 
@@ -78,7 +93,12 @@ async def run_job(
     sessions: async_sessionmaker[AsyncSession],
     store: AssetStore,
     model: NebiusChatModel,
+    factory: RendererFactory | None = None,
+    concurrency: int = 2,
 ) -> None:
+    """With a renderer factory, the RENDERING stage follows planning (storyboard.md §4, §3.5):
+    every frame through verify's loop, `concurrency` at once (FAL_CONCURRENCY), progress 60 to
+    100. Without one, the job ends at planning."""
     try:
         async with sessions() as session:
             job = await session.get(JobRow, job_id)
@@ -107,14 +127,74 @@ async def run_job(
                 session,
                 job_id=job_id,
                 project_id=project_id,
-                stage=Stage.PLANNING,
+                stage=Stage.PLANNING if factory is None else Stage.RENDERING,
                 progress=60,
                 column="plan",
                 value=dump_plan(result.plan),
-                state=JobState.DONE,
+                state=JobState.DONE if factory is None else JobState.RUNNING,
             )
+        if factory is None:
+            return
+        try:
+            await _render(
+                job_id,
+                project_id,
+                result,
+                sessions=sessions,
+                model=model,
+                factory=factory,
+                concurrency=concurrency,
+            )
+        except StoryboardError as error:
+            shot = next(s for s in result.plan.shots if (s.scene_index, s.number) == error.shot)
+            message = RENDER_STAGE_FAILED.format(shot_id=shot_id(result.screenplay, shot))
+            await fail_job(sessions, job_id, message, Stage.RENDERING)
     except PipelineError as error:
         await fail_job(sessions, job_id, error.message, error.stage)
     except Exception:
         log.exception("job %s failed unexpectedly", job_id)
         await fail_job(sessions, job_id, UNEXPECTED, None)
+
+
+async def _render(
+    job_id: uuid.UUID,
+    project_id: uuid.UUID,
+    result: PipelineResult,
+    *,
+    sessions: async_sessionmaker[AsyncSession],
+    model: NebiusChatModel,
+    factory: RendererFactory,
+    concurrency: int,
+) -> None:
+    """The RENDERING stage: the storyboard through T021's writer, the job's progress mapped into
+    60-100 as frames settle, DONE at 100. A StoryboardError propagates to run_job."""
+    renderer = cast(RenderRecorder, factory(result.screenplay, result.extraction))
+    writer = FrameWriter(sessions, project_id, job_id)
+
+    async def progress(settled: int, total: int) -> None:
+        async with sessions() as session, session.begin():
+            await session.execute(
+                update(JobRow)
+                .where(JobRow.id == job_id)
+                # GREATEST: shots settle concurrently, so writes can land out of order
+                .values(
+                    progress=func.greatest(
+                        JobRow.progress, 60 + round(40 * settled / max(total, 1))
+                    )
+                )
+            )
+
+    await build_storyboard(
+        model,
+        renderer,
+        result.plan,
+        result.screenplay,
+        result.extraction,
+        writer=writer,
+        progress=progress,
+        concurrency=concurrency,
+    )
+    async with sessions() as session, session.begin():
+        await session.execute(
+            update(JobRow).where(JobRow.id == job_id).values(state=JobState.DONE, progress=100)
+        )

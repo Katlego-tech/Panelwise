@@ -64,7 +64,14 @@ def start(request: Request, job_id: uuid.UUID) -> None:
         log.error("job %s cannot run: NEBIUS_API_KEY is not set", job_id)
         work = fail_job(state.sessions, job_id, UNEXPECTED, None)
     else:
-        work = run_job(job_id, sessions=state.sessions, store=state.store, model=state.model)
+        work = run_job(
+            job_id,
+            sessions=state.sessions,
+            store=state.store,
+            model=state.model,
+            factory=state.renderer_factory,
+            concurrency=state.settings.fal_concurrency,
+        )
     task = asyncio.create_task(work)
     state.tasks.add(task)
     task.add_done_callback(state.tasks.discard)
