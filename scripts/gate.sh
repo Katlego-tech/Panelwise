@@ -631,6 +631,47 @@ duplication_check() {
   rm -f "$out"
 }
 
+# ------------------------------------------------------------------ image ---
+# The API is deployed from its Dockerfile, built by the host from main (docs/design/deploy.md
+# §6, *The image*, T068). A Dockerfile that no longer builds, or an image missing a module the
+# app imports, would otherwise be found only there, after the merge. So each project directory
+# with a Dockerfile is built here, with that directory as the context (as compose builds it), and
+# the image is started once to import the app. One check per Dockerfile; Docker is required.
+image_dirs() {
+  # Python projects only: the web's Dockerfile serves compose, and Vercel builds the web itself.
+  while IFS= read -r dir; do
+    [ -f "$dir/Dockerfile" ] && is_python_project "$dir" && printf '%s
+' "$dir"
+  done < <(project_dirs)
+}
+
+image_check() {
+  local dir="$1" rel="$2" tag err
+  step "image build ($rel)"
+  ran=$((ran + 1))
+  if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+    bad "Docker is needed to build the API's image ($rel/Dockerfile): start Docker."
+    bad "   A check that did not run is a failed check."
+    fail=1
+    return 0
+  fi
+  tag="panelwise-gate/$(basename "$dir" | tr '[:upper:]' '[:lower:]'):check"
+  err="$(mktemp)"
+  if ! docker build -q -t "$tag" "$dir" >/dev/null 2>"$err"; then
+    bad "$rel/Dockerfile doesn't build:"
+    tail -n 25 "$err" | sed 's/^/     /'
+    fail=1
+  elif ! docker run --rm "$tag" .venv/bin/python -c "import app.main" >/dev/null 2>"$err"; then
+    bad "$rel's image builds, but the app doesn't import in it:"
+    tail -n 25 "$err" | sed 's/^/     /'
+    fail=1
+  else
+    say "   built and imported app.main in $tag"
+  fi
+  docker image rm -f "$tag" >/dev/null 2>&1 || true
+  rm -f "$err"
+}
+
 # ---------------------------------------------------------------- install ---
 # CI installs dependencies by calling `gate.sh --install-deps`, so the installer walks
 # exactly the directories project_dirs() lists and uses exactly the package manager
@@ -771,6 +812,10 @@ if [ "$list_only" -eq 1 ]; then
     command -v osv-scanner >/dev/null 2>&1 || say "   (osv-scanner not on PATH -- would FAIL)"
     say "-> would run: duplication check (jscpd $JSCPD_VERSION, threshold $DUPLICATION_THRESHOLD%)"
     command -v npx >/dev/null 2>&1 || say "   (npx not on PATH -- would FAIL)"
+    while IFS= read -r dir; do
+      say "-> would run: image build (${dir#"$root"/})"
+      command -v docker >/dev/null 2>&1 || say "   (docker not on PATH -- would FAIL)"
+    done < <(image_dirs)
   fi
   say ""
   say "(--list: no checks were run. $manifests project manifest(s) found.)"
@@ -785,6 +830,9 @@ secret_sweep
 if [ "$manifests" -gt 0 ]; then
   [ "${#LOCKFILES[@]}" -gt 0 ] && vuln_scan
   duplication_check
+  while IFS= read -r dir; do
+    image_check "$dir" "${dir#"$root"/}"
+  done < <(image_dirs)
 fi
 
 # --- the two ways a gate lies about being green ----------------------------
