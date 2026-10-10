@@ -40,7 +40,7 @@ box itself (T003, `infra/nebius/`); the `Job` table, the `frames` table and the 
 | Character rules | characters.md §3 rules 1–3 (no names in prompts; only the script's words; undescribed stays undescribed) and its redaction |
 | Hosting | deploy.md §1 (Supabase Storage for images), §6 (env), §10 (local Storage: decided here, §8) |
 | ComfyUI | `infra/comfyui/workflows/` (committed API-format JSON, inputs set by node title: characters.md §6) |
-| Visual reference | none yet. The first live run of `python -m app.storyboard.run` on the self-written sample commits its PDF pages as PNGs under `docs/design/reference/storyboard/`, the reference later changes are compared against (T027 Done) |
+| Visual reference | none yet. The first live Export PDF of the-red-kite on the local stack (T027) commits its PDF pages as PNGs under `docs/design/reference/storyboard/`, the reference later changes are compared against (T027 Done) |
 | Fonts | **Courier Prime** Regular and Bold (SIL OFL 1.1), committed under `services/api/assets/fonts/` with their licence: the screenplay's own typeface, and the PDF prints script text verbatim |
 
 ## 3. Domain model
@@ -363,9 +363,9 @@ default = true        # exactly one PUBLIC style sets this
   changes the pixels is in the key (characters.md §6, which this makes exact).
 - **Storage paths**: `frames/<render key>.png` for every rendered attempt (the `frame_audits.frame_asset`
   column, verify.md §6, points at it, including attempts that failed their audit);
-  `storyboards/<sha256 of the PDF bytes>.pdf` for an export (built on demand by T027's
-  `GET /projects/{id}/storyboard.pdf`, web.md §6). Paths are content addresses: the same
-  bytes always land at the same path, so a `put` is idempotent.
+  `storyboards/<document key>.pdf` for an export (built on demand by T027's
+  `GET /projects/{id}/storyboard/pdf`, web.md §6; the key is §3.4's). Paths are content addresses:
+  the same inputs always land at the same path, so a `put` is idempotent.
 - **The store is the render cache.** Before submitting a graph, the renderer checks `exists(frames/<key>.png)`;
   a hit is read back and returned without touching the GPU (`RenderRecord.cached`). A failed job's
   already-rendered frames therefore cost nothing when the job is run again. There is no other image
@@ -416,6 +416,32 @@ default = true        # exactly one PUBLIC style sets this
   `Script p.<page> l.<line_start>–<line_end>`. The shot's `source` is printed under it as under every
   frame, so the card with its block shows exactly what verify.md §4 asks: the verbatim source, the
   span and the reason.
+- **Failed card** (T027): a frame that ended `FAILED` (its renderer raised, or a restart cut it off,
+  `frames.failure`) has no picture and no audit to show. Its frame box draws the withheld card's
+  box and type with `Frame not drawn: the renderer failed` (`render`) or `Frame not drawn: the job
+  was interrupted` (`restart`), then `Script p.<page> l.<line_start>–<line_end>`; `audit_line` is
+  `None`; the source is printed under it as under every frame.
+- **From the rows** (T027): the document is built after the job, from the project's `frames` rows
+  and their `storyboard` audits (verify.md §6), not from the job's in-memory `Storyboard`.
+  `frames_from_rows` gives one `StoryboardFrame` per row: `attempts` is the row's `attempt`; the
+  verdict, seed and noted checks come from the row's audit at that attempt, the noted checks exactly
+  as `frame_of` picks them (hard failures for `WITHHELD`, soft for `WARNED`, in enum order); a row
+  with no audit at its attempt (a frame that failed before its audit) has verdict `ERROR` and no
+  seed; `prompt` is `None` (rows don't keep the text sent); `failure` is the row's.
+- **Style**: the footer's `<style label>` is the registry's default style, the one `fal_factory`
+  draws every frame in (§3.5); `create_app` loads the styles at startup whether or not `FAL_KEY` is
+  set, so a storyboard drawn earlier can still be exported.
+- **Document key**: `sha256` of the canonical JSON (sorted keys, no whitespace) of
+  `{"version": DOCUMENT_VERSION, "project": <id>, "style": <style key>, "frames": [[scene_index,
+  shot_number, state, asset, verdict, [noted checks], failure], …]}` in plan order. Every input that
+  changes the pages is in it (a project's screenplay and plan never change after planning), so a
+  second Export of the same storyboard is a store hit; "Try another render" changes a row and so
+  the key. Bump `DOCUMENT_VERSION` whenever the layout or drawing changes.
+- **Delivery**: `GET /projects/{id}/storyboard/pdf` builds the PDF if `storyboards/<key>.pdf` doesn't
+  exist (reading the accepted frames' PNGs from the store), stores it, and answers a signed URL
+  (an hour), as the comic's PDF is served (comic.md §4a). The web route answers `307` to it, so the
+  PDF never passes through a Vercel function (whose response limit is about 4.5 MB; a 20-shot
+  storyboard is several MB).
 
 ### 3.5 The renderer: FLUX.1 [schnell] on fal.ai (T026; decided 2026-10-09)
 
@@ -723,7 +749,7 @@ class SupabaseStore:                                    # Supabase Storage REST 
 
 # app/storyboard/model.py
 type Rect = tuple[int, int, int, int]
-@dataclass(frozen=True) class StoryboardFrame: shot: tuple[int, int]; state: FrameState; asset: str | None; prompt: str | None; seed: int | None; attempts: int; verdict: Verdict; noted_checks: tuple[Check, ...]
+@dataclass(frozen=True) class StoryboardFrame: shot: tuple[int, int]; state: FrameState; asset: str | None; prompt: str | None; seed: int | None; attempts: int; verdict: Verdict; noted_checks: tuple[Check, ...]; failure: str | None = None   # T027: "render" or "restart" for FAILED, from the row
 @dataclass(frozen=True) class Storyboard: style: str; width: int; height: int; frames: tuple[StoryboardFrame, ...]; renders: int; cached: int
 @dataclass(frozen=True) class Block: shot: tuple[int, int]; y: int; frame_rect: Rect | None; title: str; span_label: str; audit_line: str | None; source_lines: tuple[str, ...]; continued: bool
 @dataclass(frozen=True) class StoryboardPage: number: int; scene_index: int; blocks: tuple[Block, ...]
@@ -738,15 +764,23 @@ async def build_storyboard(model: NebiusChatModel, renderer: RenderRecorder, pla
                            width: int = 1280, height: int = 720, concurrency: int = 2,
                            max_renders: int = 3) -> Storyboard: ...
 
-# app/storyboard/document.py
-def layout_document(storyboard: Storyboard, plan: ShotPlan, screenplay: Screenplay) -> tuple[StoryboardPage, ...]: ...   # pure; measures with Courier Prime
-def render_pdf(pages: Sequence[StoryboardPage], storyboard: Storyboard, plan: ShotPlan,
-               screenplay: Screenplay, style: Style, frames: Mapping[tuple[int, int], bytes]) -> bytes: ...
-#   frames: PNG bytes of the PASSED/WARNED frames only; Pillow page images, one PDF via save_all
-def to_json(storyboard: Storyboard, plan: ShotPlan, frame_urls: Mapping[tuple[int, int], str]) -> dict[str, object]: ...
+# app/storyboard/document.py (T027)
+DOCUMENT_VERSION: int = 1
+def frames_from_rows(rows: Sequence[FrameRow], audits: Sequence[FrameAuditRow]) -> tuple[StoryboardFrame, ...]: ...   # pure, §3.4 From the rows; audits are the project's storyboard-target rows, any order
+def layout_document(frames: Sequence[StoryboardFrame], plan: ShotPlan, screenplay: Screenplay) -> tuple[StoryboardPage, ...]: ...   # pure; measures with Courier Prime; one block per plan shot (a shot with no frame is a ValueError)
+def render_pdf(pages: Sequence[StoryboardPage], frames: Sequence[StoryboardFrame], plan: ShotPlan,
+               screenplay: Screenplay, style: Style, images: Mapping[tuple[int, int], bytes]) -> bytes: ...
+#   images: PNG bytes of the PASSED/WARNED frames only; Pillow page images, one PDF via save_all
+def document_key(project_id: uuid.UUID, style: Style, frames: Sequence[StoryboardFrame]) -> str: ...   # sha256 hex, §3.4
+async def export_pdf(store: AssetStore, project_id: uuid.UUID, style: Style, plan: ShotPlan,
+                     screenplay: Screenplay, frames: Sequence[StoryboardFrame]) -> str: ...
+#   the store path of the project's PDF: a hit on storyboards/<key>.pdf, else the accepted frames read
+#   from the store, render_pdf, put. StorageError propagates.
 ```
 
-**Storyboard JSON** (an export, written by `run` and T027; the web pages read `frames` rows instead, web.md §6):
+**Storyboard JSON**: **not built** (T027, 2026-10-10). It was the `run` CLI's export, and T026 has no
+run CLI (§7); the web pages read `frames` rows (web.md §6), and nothing else would call `to_json`.
+The shape is kept here for a later export:
 
 ```json
 {
@@ -792,7 +826,8 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | --- | --- | --- | --- |
 | `services/api/app/storyboard/{__init__,styles,prompt,prompts}.py` | new | §3.1–§3.2, §6; `prompts.py`: `python -m app.storyboard.prompts <script.pdf> [--style KEY]` parses, extracts and plans on the real account and prints every shot's prompt parts with their spans, so the team can read the prompts before any GPU exists | T008 |
 | `services/api/app/storyboard/{model,workflow,render,build}.py` | new | §3.3, §4, §6: `fit`, the render key and post-processing, `RenderRecord`, `build_storyboard`. No separate run CLI: `build_storyboard` writes through T021's writer, so the live check is an upload through the local stack (§9) | T026 |
-| `services/api/app/storyboard/document.py` | new | §3.4, §6: layout, PDF, JSON; `run` writes the PDF to `DIR` and Storage | T027 |
+| `services/api/app/storyboard/document.py` | new | §3.4, §6: `frames_from_rows`, the layout, the PDF, the document key, `export_pdf` (no JSON, no `run`: §6) | T027 |
+| `services/api/app/api/v1/projects.py`, `schemas.py`, `app/main.py` | changed | `GET /projects/{id}/storyboard/pdf` (web.md §6); `app.state.styles` loaded at startup (§3.4 Style) | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
 | `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames | T053 |
 | `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, `COMFYUI_MAX_WORDS`), T026 (`COMFYUI_URL`, `COMFYUI_TIMEOUT_S`, `SUPABASE_STORAGE_BUCKET`) |
@@ -910,8 +945,11 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   header or footer; a long source continues onto the next page with every line present (the joined
   lines equal the `source` modulo wrapping); `render_pdf` makes one PDF page per `StoryboardPage` at
   1240 × 1754; a withheld block draws the card with the checks in enum order and `audit error` for
-  an `ERROR`; no withheld frame's pixels are ever read (its bytes are not passed in). `to_json`
-  matches §6's shape and omits `frame_url` for a withheld frame.
+  an `ERROR`; a failed block draws the failed card for `render` and `restart`; no withheld or failed
+  frame's pixels are ever read (its bytes are not passed in). `frames_from_rows` takes each frame's
+  audit at its own attempt (not a later or earlier one) and gives `ERROR` with no audit;
+  `document_key` changes with any frame field, the style and the version, not with row order;
+  `export_pdf` builds and stores once, then answers the stored path without reading a frame.
 - **Live** (T026/T027; needs `FAL_KEY`, T021): an upload of the self-written sample on the local stack, in the default
   public style: every shot ends `PASSED`, `WARNED` or `WITHHELD`; the PDF and frames are in Storage;
   seconds per frame, renders per frame and fal's cost are recorded in `docs/rendering.md` (render cost; T049 uses the same renders); the
