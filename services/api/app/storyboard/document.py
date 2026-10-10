@@ -30,7 +30,7 @@ from app.storyboard.prompt import heading_span
 from app.storyboard.styles import Style
 from app.verify.model import Check, FrameState, Severity, Verdict
 
-DOCUMENT_VERSION = 1  # bump whenever the layout or the drawing changes (§3.4 Document key)
+DOCUMENT_VERSION = 2  # bump whenever the layout or the drawing changes (§3.4 Document key)
 
 PAGE_W, PAGE_H = 1240, 1754  # A4 portrait at 150 dpi
 DPI = 150
