@@ -91,6 +91,18 @@ def _in_words(needle: str, haystacks: Sequence[str]) -> bool:
     return bool(words) and any(pattern.search(h) for h in haystacks)
 
 
+def _names_any(support: str | None, names: Sequence[str]) -> bool:
+    """The support names one of `names` (T072): a quote about a character excuses no stranger."""
+    return any(_in_words(name, [normalize_for_grounding(support or "")]) for name in names)
+
+
+def _named_prop(name: str, props: Sequence[frozenset[str]]) -> bool:
+    """Every word of `name` is a word of one prop the extraction names (T072): `kite` against
+    `RED KITE`. Such a thing is a story choice, never set dressing."""
+    words = frozenset(normalize_for_grounding(name).split())
+    return bool(words) and any(words <= prop for prop in props)
+
+
 def _calls_each_once(indexes: Sequence[int], n: int) -> bool:
     return sorted(indexes) == list(range(n))
 
@@ -121,6 +133,11 @@ def run_checks(
         for q in e.quotes
     ]
     heading = [normalize_for_grounding(scene.heading)]
+    props = [
+        frozenset(normalize_for_grounding(e.name).split())
+        for e in extraction.entities
+        if e.kind is EntityKind.PROP
+    ]
     failures: dict[Check, list[str]] = {check: [] for check in Check}
 
     positions: dict[str, Position] = {}
@@ -134,6 +151,8 @@ def run_checks(
             positions[name] = person.position
         elif not _found(call.support, supports):
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: no shot character, no support")
+        elif _names_any(call.support, people):
+            failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support is about a character")
 
     for call in sorted(judgement.objects, key=lambda c: c.object):
         obj = description.objects[call.object]
@@ -147,6 +166,8 @@ def run_checks(
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: prop without support")
             case ObjectKind.SET_DRESSING if obj.held:
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: held, so not set dressing")
+            case ObjectKind.SET_DRESSING if _named_prop(obj.name, props):
+                failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: the script names it")
             case ObjectKind.SET_DRESSING if obj.category in _NEVER_DRESSING:
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: never set dressing")
             case ObjectKind.SET_DRESSING if not _found(call.support, heading):
