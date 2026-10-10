@@ -343,6 +343,23 @@ async def test_a_long_retry_after_still_waits_at_most_30_seconds() -> None:
     assert sleeps.calls == [30.0]
 
 
+async def test_the_backoff_itself_is_capped_at_30_seconds() -> None:
+    sleeps = Sleeps()
+    rec = Recorder(*(httpx2.ConnectError("dropped") for _ in range(7)))
+    model = NebiusChatModel(
+        api_key=KEY,
+        base_url="https://api.tokenfactory.nebius.com/v1",
+        models=MODELS,
+        max_attempts=7,
+        transport=httpx2.MockTransport(rec),
+        sleep=sleeps,
+    )
+
+    with pytest.raises(LLMRequestError):
+        await model.chat(HI)
+    assert sleeps.calls == [2.0, 4.0, 8.0, 16.0, 30.0, 30.0]
+
+
 async def test_each_request_carries_a_10_second_connect_timeout() -> None:
     rec = Recorder(ok(completion()))
     await make(rec).chat(HI)
