@@ -393,5 +393,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
       Done:    the gate's vulnerability scan passes with no new exemption
+- [ ] T075 [US1] **The model client rides out a minute-long network drop.** Found on 2026-10-10: Token Factory dropped connections on and off from 21:28 to 21:38; each `ConnectError` took about 20 s, three ended a call in 45 s, and 3 of sipho-and-siphokazi's 31 audits were withheld as `audit_error`. Lane `llm` (Claude for Tumo). On `main`; not on the renderer.
+      Design:  docs/design/llm.md §4 (sequence, failure paths), §6 (`connect_timeout_s`, `max_attempts` 5, Settings), §7, §8 (three rows), §9 (T075)
+      Files:   services/api/app/llm/client.py; services/api/app/core/config.py; .env.example; services/api/tests/llm/test_client.py
+      Contract:llm.md §6 verbatim: `NebiusChatModel(..., connect_timeout_s: float = 10.0, max_attempts: int = 5)`; `llm_connect_timeout_s` (10), `llm_max_attempts` (5)
+      Verify:  bash scripts/gate.sh (tests first: llm.md §9's T075 items)
+      Done:    a call that meets four dropped connections answers on the fifth try after 30 s of waits, and a call that meets two read timeouts gives up
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
