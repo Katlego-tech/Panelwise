@@ -192,7 +192,8 @@ has Docker; `ci.yml` needs no service of its own):
 **The image (T068, 2026-10-10).** The API is deployed from its Dockerfile, built by the host from
 `main` (Railway, or Render in T063). A Dockerfile that no longer builds, or an image missing a file
 the app imports, would otherwise be found only there, after the merge. So the gate builds it too:
-- For each project directory with a `Dockerfile` (today `services/api`), `docker build` with that
+- For each **Python** project directory with a `Dockerfile` (today `services/api`; the web's
+  Dockerfile serves compose only, and Vercel builds the web itself), `docker build` with that
   directory as the context, as compose builds it, tagged `panelwise-gate/<dir name>:check`; then
   one `docker run --rm` of the image that imports the app (`.venv/bin/python -c "import
   app.main"`), so a module or package left out of the image fails here. Both count as one check;
