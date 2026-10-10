@@ -20,6 +20,7 @@ from app.comic.job import (
     COMIC_LAYOUT_FAILED,
     COMIC_LAYOUT_FAILED_ANY,
     COMIC_RENDER_FAILED,
+    COMIC_RENDERER_DOWN,
     COMIC_UNEXPECTED,
     ComicRefused,
     run_comic_job,
@@ -233,7 +234,24 @@ async def test_a_stored_panel_of_another_size_is_drawn_again(
 # --- failures ---------------------------------------------------------------------------------
 
 
-async def test_a_renderer_error_fails_the_job_and_keeps_the_previous_comic(
+class Broken(Sizes):
+    """A renderer that raises for the panels in `fails` (every panel when None)."""
+
+    def __init__(self, store: MemoryStore, fails: set[Key] | None = None) -> None:
+        super().__init__(store)
+        self.fails = fails
+
+    async def render(
+        self, shot: Shot, attempt: int, seed: int, width: int, height: int
+    ) -> RenderedFrame:
+        key = (shot.scene_index, shot.number)
+        if self.fails is None or key in self.fails:
+            self.asked.append((key, attempt, width, height))
+            raise RuntimeError("the pencil broke")
+        return await super().render(shot, attempt, seed, width, height)
+
+
+async def test_a_renderer_that_fails_every_panel_stops_and_keeps_the_previous_comic(
     sessions: async_sessionmaker[AsyncSession], scripted: Script
 ) -> None:
     store = MemoryStore()
@@ -243,17 +261,45 @@ async def test_a_renderer_error_fails_the_job_and_keeps_the_previous_comic(
     scripted.verdicts[first] = [Verdict.FAIL, Verdict.FAIL, Verdict.FAIL]
     one = await make_comic(sessions, store, row.id)
 
-    class Broken(SketchRenderer):
-        async def render(
-            self, shot: Shot, attempt: int, seed: int, width: int, height: int
-        ) -> RenderedFrame:
-            raise RuntimeError("the pencil broke")
-
-    two = await make_comic(sessions, store, row.id, Broken(store))
-    assert (two.state, two.error) == ("failed", COMIC_RENDER_FAILED)
+    # The second job reuses every panel the first accepted, so only the withheld one is drawn
+    # again: one failure with none drawn is min(3, panels to render), and the renderer is down.
+    broken = Broken(store)
+    two = await make_comic(sessions, store, row.id, broken)
+    assert (two.state, two.error) == ("failed", COMIC_RENDERER_DOWN)
+    assert [asked[0] for asked in broken.asked] == [first]
     async with sessions() as s:
         comic = await s.get(ComicRow, row.id)
     assert comic is not None and comic.job_id == one.id
+
+
+async def test_a_renderer_down_from_the_start_stops_after_three_panels(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    store = MemoryStore()
+    row = await planned(sessions, store)
+    broken = Broken(store)
+    job = await make_comic(sessions, store, row.id, broken)
+    assert (job.state, job.error) == ("failed", COMIC_RENDERER_DOWN)
+    panels = len(load_plan(row.plan).shots)  # type: ignore[arg-type]
+    assert len(broken.asked) == min(3, panels)  # no further panel tried
+
+
+async def test_one_failed_panel_gets_its_card_and_the_comic_is_made(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    store = MemoryStore()
+    row = await planned(sessions, store)
+    plan = load_plan(row.plan)  # type: ignore[arg-type]
+    last = (plan.shots[-1].scene_index, plan.shots[-1].number)
+    job = await make_comic(sessions, store, row.id, Broken(store, {last}))
+    assert (job.state, job.error, job.progress) == ("done", None, 100)
+    async with sessions() as s:
+        comic = await s.get(ComicRow, row.id)
+    assert comic is not None and comic.job_id == job.id
+    panels = [p for page in comic.layout["pages"] for p in page["panels"]]
+    by_shot = {tuple(p["shot"]): p for p in panels}
+    assert by_shot[last]["withheld"] is True and "frame_url" not in by_shot[last]
+    assert all(p["withheld"] is False for key, p in by_shot.items() if key != last)
 
 
 async def test_a_panel_drawn_at_the_wrong_size_fails_at_once(

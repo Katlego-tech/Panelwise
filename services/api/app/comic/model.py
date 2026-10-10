@@ -96,10 +96,12 @@ class ComicBook:
 
 @dataclass(frozen=True)
 class WithheldCard:
-    """What a withheld panel's card letters (comic.md §4 step 6): the failed checks and the span."""
+    """What a withheld panel's card letters (comic.md §4 step 6): the failed checks and the span;
+    `failed` for a panel whose renderer raised (T067), which has no checks."""
 
     checks: str
     span: Span
+    failed: bool = False
 
 
 @dataclass(frozen=True)

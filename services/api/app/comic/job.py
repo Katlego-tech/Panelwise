@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.comic.bubbles import place_lettering
 from app.comic.layout import layout_geometry
 from app.comic.model import ComicBook, ComicError, PanelFrame
-from app.comic.render import panel_frame, render_pages, to_json, to_pdf
+from app.comic.render import failed_panel, panel_frame, render_pages, to_json, to_pdf
 from app.comic.rows import ComicRow
 from app.frames.attempt import RendererFactory
 from app.frames.model import AuditTarget, FrameAuditRow
@@ -42,7 +42,10 @@ from app.verify.model import Audit, FrameState, Position, RecordingRenderer
 log = logging.getLogger(__name__)
 
 # comic.md §4a, verbatim: what a failed comic job says (the web shows it as written).
-COMIC_RENDER_FAILED = "A panel couldn't be drawn, so the comic stopped."
+# T067: the renderer looks down (§4a Failure).
+COMIC_RENDERER_DOWN = "No panel could be drawn, so the comic stopped. Try again in a few minutes."
+COMIC_RENDER_FAILED = "A panel couldn't be drawn, so the comic stopped."  # a wrong-size PNG
+DOWN_AFTER = 3  # renderer failures with no panel drawn that mean it is down
 COMIC_LAYOUT_FAILED = "Shot {shot_id}'s lettering didn't fit its panel, so the comic stopped."
 COMIC_LAYOUT_FAILED_ANY = "The lettering didn't fit the panels, so the comic stopped."
 COMIC_UNEXPECTED = "Something went wrong on our side while making the comic. Make it again."
@@ -63,6 +66,10 @@ class ComicRefused(RuntimeError):
     def __init__(self, code: RefusalCode) -> None:
         super().__init__(code)
         self.code: RefusalCode = code
+
+
+class _RendererDown(RuntimeError):
+    """No panel drawn in this job and min(3, panels to render) renderer failures (§4a, T067)."""
 
 
 class _RenderFailed(RuntimeError):
@@ -254,12 +261,20 @@ async def run_comic_job(
         writer = FrameWriter(sessions, project.id, job_id, target=AuditTarget.COMIC)
         frames: dict[Key, PanelFrame] = {}
         paths: dict[Key, str] = {}
+        reuse = {
+            (p.scene_index, p.shot_number): await _reused(
+                store, priors.get((p.scene_index, p.shot_number)), (p.rect[2], p.rect[3])
+            )
+            for p in panels
+        }
+        to_render = sum(found is None for found in reuse.values())
+        audited = failed = 0  # this job's panels that reached their audit / whose renderer raised
 
         for k, panel in enumerate(panels, 1):
             key = (panel.scene_index, panel.shot_number)
             shot = shots[key]
             size = (panel.rect[2], panel.rect[3])
-            reused = await _reused(store, priors.get(key), size)
+            reused = reuse[key]
             if reused is not None:
                 frames[key], paths[key] = reused
             else:
@@ -281,9 +296,21 @@ async def run_comic_job(
                         on_state=on_state,
                     )
                 except Exception as error:
-                    if states and states[-1] is FrameState.FAILED:
-                        raise _RenderFailed(f"the renderer raised on {key}") from error
-                    raise
+                    if not states or states[-1] is not FrameState.FAILED:
+                        raise
+                    # §4a Failure (T067): this panel gets the failed card and the comic goes on,
+                    # unless the renderer looks down.
+                    log.warning("comic job %s: panel %s couldn't be drawn: %s", job_id, key, error)
+                    if FrameState.AUDITING in states:
+                        audited += 1
+                    failed += 1
+                    if not audited and failed >= min(DOWN_AFTER, to_render):
+                        raise _RendererDown(f"{failed} panel(s) failed, none drawn") from error
+                    frames[key] = failed_panel(shot)
+                    await _progress(sessions, job_id, round(PANELS_SHARE * k / len(panels)))
+                    continue
+                if FrameState.AUDITING in states:
+                    audited += 1
                 frames[key] = panel_frame(outcome, shot)  # ComicError if not accepted/withheld
                 if outcome.frame is not None and not frames[key].withheld:
                     drawn = _size(outcome.frame.png)
@@ -310,6 +337,9 @@ async def run_comic_job(
             await session.execute(
                 update(JobRow).where(JobRow.id == job_id).values(state=JobState.DONE, progress=100)
             )
+    except _RendererDown:
+        log.exception("comic job %s: the renderer looks down", job_id)
+        await _fail(sessions, job_id, COMIC_RENDERER_DOWN)
     except _RenderFailed:
         log.exception("comic job %s: a panel couldn't be drawn", job_id)
         await _fail(sessions, job_id, COMIC_RENDER_FAILED)

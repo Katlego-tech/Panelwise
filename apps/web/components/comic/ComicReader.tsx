@@ -131,7 +131,7 @@ export function ComicReader({ projectId, title, comic: initial }: { projectId: s
               <div key={panel.shot_id} className="contents">
                 <Link
                   href={storyboardHref(panel.shot_id)}
-                  aria-label={`Shot ${panel.shot_id} in the storyboard${panel.withheld ? ", frame withheld" : ""}`}
+                  aria-label={`Shot ${panel.shot_id} in the storyboard${panel.withheld ? ", frame not shown" : ""}`}
                   className="group absolute block no-underline hover:bg-[rgb(44_110_158/0.07)] hover:outline-2 hover:-outline-offset-2 hover:outline-pencil hover:outline-dashed focus-visible:bg-[rgb(44_110_158/0.07)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-pencil focus-visible:outline-dashed"
                   style={placed(panel.rect, page)}
                 >
