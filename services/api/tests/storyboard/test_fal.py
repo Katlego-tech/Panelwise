@@ -8,6 +8,7 @@ import logging
 import httpx2
 import pytest
 from PIL import Image
+from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.grounding import Extraction
@@ -246,6 +247,29 @@ async def test_every_retry_is_logged_without_the_key_or_the_prompt(
     assert len(lines) == 2
     assert "503" in lines[0] and "429" in lines[1] and "fal-ai/flux/schnell" in lines[0]
     assert all(KEY not in line and "pours" not in line for line in lines)
+
+
+async def test_a_network_error_retry_names_the_errors_type(
+    fal: Fal,
+    lighthouse: Screenplay,
+    cast: Extraction,
+    slept: list[float],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.WARNING, logger="app.storyboard.fal")
+    fal.network_errors = 1
+    await renderer(fal, MemoryStore(), lighthouse, cast, slept).render(
+        shot_of(lighthouse, 0, [0]), 1, 7, 1280, 720
+    )
+    (line,) = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert "ConnectError" in line and "try 1 of 3" in line and KEY not in line
+
+
+@pytest.mark.parametrize("value", [0, -1])
+def test_a_concurrency_below_one_is_refused_at_startup(value: int) -> None:
+    # Semaphore(0) would leave every shot waiting forever, silently (review of #91).
+    with pytest.raises(ValidationError, match="fal_concurrency"):
+        Settings(fal_concurrency=value)
 
 
 async def test_an_image_of_another_size_is_refused(
