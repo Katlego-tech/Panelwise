@@ -749,6 +749,9 @@ class WorkersAIRenderer:                                 # implements app.verify
                  sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None: ...
     async def render(self, shot: Shot, attempt: int, seed: int, width: int, height: int) -> RenderedFrame: ...
     #   prompt → render key → store hit, or up to 3 tries → decode → fit → post-process → put; records before returning
+    async def render_text(self, shot: Shot, attempt: int, seed: int, width: int, height: int,
+                          text: str, prompt: FramePrompt) -> RenderedFrame: ...
+    #   render's path with the prompt text given (render calls it with prompt.text()); T049's injected frames (eval.md §6a.3)
     def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...     # KeyError if not rendered
 def workers_ai_factory(registry: StyleRegistry, store: AssetStore, client: httpx2.AsyncClient,
                        account: WorkersAIAccount, settings: Settings) -> RendererFactory: ...   # §3.5 The app's factory; the registry's default style

@@ -7,7 +7,7 @@ Measured numbers for the README and the Devpost story, on the three self-written
 | Measure | Task | Status |
 | --- | --- | --- |
 | Extraction faithfulness and recall, shot-plan partition, grounding re-checked in code | T032 | below |
-| Frame-audit accuracy (precision, recall, false-FAIL rate on labelled renders) | T049 | blocked on T026 (renders need T003's GPU) |
+| Frame-audit accuracy (precision, recall, false-FAIL rate on labelled renders) | T049 | below: not measured yet |
 
 ## Extraction and shot planning (T032)
 
@@ -51,3 +51,20 @@ How to read it:
 
 The gate's `tests/tools/test_evaluate.py` recomputes this table from the newest committed result
 and fails if they differ. A new run writes a new dated file; results are never overwritten.
+
+## Frame-audit accuracy (T049)
+
+How often the frame audit (verify.md) gets a drawn frame right, measured on the frames the real
+renderer drew for `the-red-kite` (Workers AI, 2026-10-10). Each frame is labelled by eye: is
+everything in it scripted (`correct`), or does it show something the script doesn't
+(`unscripted`)? Twelve more are drawn with one person or object deliberately added
+(`injected_person`, `injected_object`). Each frame is audited three times, because the audit
+varies run to run. Design: [eval.md §6a](../docs/design/eval.md).
+
+```bash
+cd services/api && uv run python -m tools.audit_eval run --runs 3
+```
+
+Results: not measured yet. The frames are collected and labelled first
+([`frames/`](frames/)), and every label is reviewed before the first run.
+

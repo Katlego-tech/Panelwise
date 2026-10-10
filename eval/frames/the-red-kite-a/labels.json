@@ -1,0 +1,297 @@
+[
+  {
+    "frame": "frames/5f2c1a11591c52ee53c5845cee5fd3b660232c73f31f0922b2fce06243a083db.png",
+    "sha256": "c872c477207cafd7dee211963a2b54c652ad8c6618816855aec9f3ef29582eae",
+    "shot": [
+      0,
+      1
+    ],
+    "attempt": 1,
+    "label": "unscripted",
+    "seen": [
+      "a second kite",
+      "the words RED KITE painted on the kite"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/5f89705e6afc67e5897da36bfdf6a2614d70add24079ceefd2f42a14e38db807.png",
+    "sha256": "9c0bccbe80e1a8d526750b3f45597ff85c272f950d472ff2d96a694f0e00b4a1",
+    "shot": [
+      0,
+      1
+    ],
+    "attempt": 2,
+    "label": "correct",
+    "seen": [],
+    "note": ""
+  },
+  {
+    "frame": "frames/fc056eb7803262001c885872d55437850cb7ecea002cabb5a405dc1c305860dc.png",
+    "sha256": "f891872d9d10a95f34b959b3731be7a0c591ad3e3e5410f0da5ec998ebf1e540",
+    "shot": [
+      0,
+      1
+    ],
+    "attempt": 3,
+    "label": "correct",
+    "seen": [],
+    "note": "drawn from street level rather than on the roof (setting, soft)"
+  },
+  {
+    "frame": "frames/4b709900c0bb2161a1033e973fccca287a13a71f01c97d57d17d662071ac74bb.png",
+    "sha256": "ec9aad6cf2ff8c3cf43959a112e3de864e50a1b0edf75351673a0734c6df5e94",
+    "shot": [
+      0,
+      2
+    ],
+    "attempt": 1,
+    "label": "unscripted",
+    "seen": [
+      "an artist's signature, bottom right",
+      "a second kite"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/ef2fce6407bf2fd03bd261528e60ebdf909eb1d50d6ef1ef0874449067f30361.png",
+    "sha256": "be74129bbe81cb5a028dcd4da87bc76ca30ff343b8c41079ad21533edce28a4c",
+    "shot": [
+      0,
+      2
+    ],
+    "attempt": 2,
+    "label": "correct",
+    "seen": [],
+    "note": ""
+  },
+  {
+    "frame": "frames/3424fed754e9b7570ff96389ddec5c81c9b7d78fd34b8583dcdea601a333cad6.png",
+    "sha256": "42ccde8877d9670f63c02f7e7ff066618b5d7c6618fc0d741c45efff96146478",
+    "shot": [
+      0,
+      2
+    ],
+    "attempt": 3,
+    "label": "unscripted",
+    "seen": [
+      "an artist's signature, bottom right"
+    ],
+    "note": "small"
+  },
+  {
+    "frame": "frames/cc62244bee4c27eb6b3e4fa1321a29093770caa1474e9251457d02387c915055.png",
+    "sha256": "a3dbe5faba65dba0891a14259585aecd857fa0d5364de49ef90db2bc98a180eb",
+    "shot": [
+      0,
+      3
+    ],
+    "attempt": 1,
+    "label": "unscripted",
+    "seen": [
+      "a bearded man in his 30s where the shot has Mokgosi (70s)",
+      "an artist's signature, bottom right"
+    ],
+    "note": "Lerato missing"
+  },
+  {
+    "frame": "frames/8e009b7ffecc1f1d781ff7eecd52065860eba98c2b5a53cd8520ab221ae09392.png",
+    "sha256": "f9d617550d09f18784388ea691a438e5b1564bae1e1ad594b51cbf933464773d",
+    "shot": [
+      0,
+      3
+    ],
+    "attempt": 2,
+    "label": "unscripted",
+    "seen": [
+      "writing, bottom right",
+      "a man far younger than Mokgosi (70s)"
+    ],
+    "note": "Lerato missing"
+  },
+  {
+    "frame": "frames/a4cbf6b5c3cf3c94e455bdd4b69e299cc7bddd5fb22004b4a2f2c59f8acf59a2.png",
+    "sha256": "079a90bc70337a148dfa098ff3d40bb29b1198246fa1f1229ec7a142ae18a7e7",
+    "shot": [
+      0,
+      3
+    ],
+    "attempt": 3,
+    "label": "unscripted",
+    "seen": [
+      "a man in his 30s or 40s where the shot has Mokgosi (70s)"
+    ],
+    "note": "Lerato missing"
+  },
+  {
+    "frame": "frames/cf5ae7a25a8269d9113bd95d4123dc130fa466a5da6477a940d56d2fb589386c.png",
+    "sha256": "60feebb0216eaf1bef37d7891608461f45b765a141c39f435cc33a4e0dc4af43",
+    "shot": [
+      1,
+      1
+    ],
+    "attempt": 1,
+    "label": "correct",
+    "seen": [],
+    "note": "Lerato reads as a boy (likeness, T025)"
+  },
+  {
+    "frame": "frames/59ca8fdfdf7a4f158cb1f2c9b8d155ede2ff9a752c2aed01a64601548f0e5bad.png",
+    "sha256": "7061bc4b7a404c800635f5e3efa2980c0fd59abc80f8f5ba33f67443980e9cb5",
+    "shot": [
+      1,
+      1
+    ],
+    "attempt": 2,
+    "label": "correct",
+    "seen": [],
+    "note": "Lerato reads as a boy (likeness, T025)"
+  },
+  {
+    "frame": "frames/614dacd32a2603773dd4fda366ea82bd0c72c9a3b8630c8a3c7aa6c2976c96fa.png",
+    "sha256": "ef4326703b09237bf4c04ff2aef944699f0e52787b25fdf0e5a83a6217fd2dcb",
+    "shot": [
+      1,
+      1
+    ],
+    "attempt": 3,
+    "label": "unscripted",
+    "seen": [
+      "artist's signatures, bottom left and bottom right"
+    ],
+    "note": "Lerato reads as a boy"
+  },
+  {
+    "frame": "frames/69fd0fcec1464a5a48afecd9f9999c102e2d7a55ac3a84e0a77d7649afde36a7.png",
+    "sha256": "6a4a2614a7467858946f77d5a474251811d72ee30114277dbb22bbd22c532613",
+    "shot": [
+      1,
+      2
+    ],
+    "attempt": 1,
+    "label": "unscripted",
+    "seen": [
+      "a second grown man where the shot has Lerato (10)",
+      "an artist's signature, bottom left"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/ffb9a922e97e01d7ae8d062408e02fa279a8b83c26c44b78c92209498341782e.png",
+    "sha256": "60d51a439c08873f0205521e7c343a8ced5d9d358d10ffc75d5b24f739e5c5df",
+    "shot": [
+      1,
+      2
+    ],
+    "attempt": 2,
+    "label": "unscripted",
+    "seen": [
+      "writing, top right",
+      "a grown woman where the shot has Lerato (10)",
+      "a man far younger than Mokgosi (70s)"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/4d392d35380ba6000ac55e9b6a691481df27ffb0820b54600cf5b94270aa5c6f.png",
+    "sha256": "9ba89d565ca070680f21ecb5594cad991be911ccf345c45c029a775eb3e60e1d",
+    "shot": [
+      1,
+      2
+    ],
+    "attempt": 3,
+    "label": "unscripted",
+    "seen": [
+      "a second grown man where the shot has Lerato (10)",
+      "an artist's signature, bottom left"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/f3a7fff9ce8e5e92992a8a59a9987eca417c3b6a867f69c80a1bafc94b3fe2e6.png",
+    "sha256": "c2c601c3dc2f49a3e0a956b417b5f62e82882f3c2967f229b576183a891dbb90",
+    "shot": [
+      1,
+      3
+    ],
+    "attempt": 1,
+    "label": "unscripted",
+    "seen": [
+      "two grown adults where the shot has Mokgosi (70s) and Lerato (10)",
+      "an artist's signature, bottom right"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/264863c7da75127a0ae0d773ac012a5258da65f76521400a2895ceae70baf53f.png",
+    "sha256": "0e3ca1ee9be0bb0924c69b7dee259075f94637501e732202c50c976021ae1ced",
+    "shot": [
+      1,
+      3
+    ],
+    "attempt": 2,
+    "label": "unscripted",
+    "seen": [
+      "three men where the shot has Mokgosi and Lerato",
+      "an artist's signature, bottom left"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/6339858d828c6e9099b037b096bf16e755b81c0e0ebd79b91ccffd639a66adf4.png",
+    "sha256": "01cda81f20f691abe4b3b38b2c67170e685306d2eb41a4561c273cd5d5442e83",
+    "shot": [
+      1,
+      4
+    ],
+    "attempt": 1,
+    "label": "unscripted",
+    "seen": [
+      "an artist's signature, bottom left"
+    ],
+    "note": "small"
+  },
+  {
+    "frame": "frames/137ce0dc171b9ed102c2efc666176a4d296b42c49ccae058d8bc7e2e285bdd18.png",
+    "sha256": "122dedbd5172e4d1934cd4a821e8951f406bcd37a0ad8d784c0cfa5c9384a6d7",
+    "shot": [
+      1,
+      5
+    ],
+    "attempt": 1,
+    "label": "unscripted",
+    "seen": [
+      "an old man where the shot has only Lerato (10)"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/078b34963ab8c19ad49db05c8c1121cbaf2209fd292e96846dcdaf25dba3f8cb.png",
+    "sha256": "7f7f24b081ec24f486ad3b685d16f22cc8c514ecb5a7969007b5b89f06d57c93",
+    "shot": [
+      1,
+      5
+    ],
+    "attempt": 2,
+    "label": "unscripted",
+    "seen": [
+      "a grown man where the shot has only Lerato (10)"
+    ],
+    "note": ""
+  },
+  {
+    "frame": "frames/b0a6d3c6b6a53fc127dccd8f6843d33edd6bd1ba1112a4f19739211ec69008c4.png",
+    "sha256": "6ce56818e7d8fd5fbc0828f42e5fb1172b21c643f92de4e27902f322c7dfcb9b",
+    "shot": [
+      1,
+      5
+    ],
+    "attempt": 3,
+    "label": "unscripted",
+    "seen": [
+      "an old man where the shot has only Lerato (10)",
+      "an artist's signature, bottom right"
+    ],
+    "note": ""
+  }
+]

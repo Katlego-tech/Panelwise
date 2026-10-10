@@ -26,7 +26,7 @@ from app.grounding import Extraction
 from app.script import Screenplay
 from app.shots import Shot
 from app.storage import AssetStore
-from app.storyboard.prompt import PromptError, build_frame_prompt
+from app.storyboard.prompt import FramePrompt, PromptError, build_frame_prompt
 from app.storyboard.render import RendererError, RenderQuotaExceeded, RenderRecord
 from app.storyboard.styles import Style, StyleRegistry
 from app.storyboard.workflow import fit, png_bytes, postprocess, render_key
@@ -149,7 +149,21 @@ class WorkersAIRenderer:
             )
         except PromptError as exc:  # a style or budget problem: configuration, never a cut prompt
             raise RendererError(f"shot {key}: {exc}") from exc
-        text = prompt.text()
+        return await self.render_text(shot, attempt, seed, width, height, prompt.text(), prompt)
+
+    async def render_text(
+        self,
+        shot: Shot,
+        attempt: int,
+        seed: int,
+        width: int,
+        height: int,
+        text: str,
+        prompt: FramePrompt,
+    ) -> RenderedFrame:
+        """`render` with the prompt's text given: the frame prompt's own, or T049's with one
+        sentence injected (eval.md §6a.3). `prompt` is what the record keeps."""
+        key = (shot.scene_index, shot.number)
         draw = draw_size(width, height)
         fields = workers_ai_request(text, seed, draw)
         step = "grayscale" if self.style.grayscale else "none"
