@@ -521,3 +521,14 @@ def test_seeds_are_deterministic_per_shot_and_attempt() -> None:
     assert seed_for(shot, 2) == seed_for(kitchen_shot(), 2)
     assert len({seed_for(shot, a) for a in (1, 2, 3)}) == 3
     assert 0 <= seed_for(shot, 1) < 2**32
+
+
+@pytest.mark.parametrize("text", [[""], ["  "], ["", "LIGHTHOUSE KITCHEN"]])
+def test_an_empty_text_entry_is_no_text_read(
+    screenplay: Screenplay, extraction: Extraction, text: list[str]
+) -> None:
+    checks, verdict, _ = run_checks(
+        kitchen_shot(), screenplay.scenes[0], described(text=text), judged(), extraction
+    )
+    assert Check.TEXT_IN_FRAME not in failing(checks)
+    assert verdict is Verdict.PASS

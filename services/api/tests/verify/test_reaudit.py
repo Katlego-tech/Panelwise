@@ -5,6 +5,7 @@ import io
 import logging
 import uuid
 from dataclasses import replace
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -19,7 +20,7 @@ from app.projects.model import ProjectRow
 from app.shots import Shot
 from app.verify import reaudit as module
 from app.verify.model import Audit, Check, RenderedFrame, Verdict
-from app.verify.reaudit import Reaudit, reaudit, summary
+from app.verify.reaudit import Reaudit, line, reaudit, summary
 from tests.api.test_read import project
 from tests.fakes import MemoryStore
 from tests.frames.test_t021 import audit
@@ -152,3 +153,11 @@ def test_summary_counts_before_and_after_and_each_hard_check_after() -> None:
     assert "before: pass 0, warn 0, fail 3, error 1" in text
     assert "after:  pass 1, warn 1, fail 2, error 0" in text
     assert "text_in_frame 2" in text and "unscripted_person 1" in text
+
+
+def test_a_line_names_the_shot_as_the_web_does_with_an_arrow_and_the_failed_checks() -> None:
+    scenes = [SimpleNamespace(number="1"), SimpleNamespace(number="6")]
+    passed = Reaudit((1, 4), 1, "comic", Verdict.FAIL, Verdict.PASS, ())
+    failed = Reaudit((0, 2), 3, "storyboard", Verdict.FAIL, Verdict.FAIL, (Check.TEXT_IN_FRAME,))
+    assert line(passed, scenes) == "6.4 a1 comic: fail → pass"  # type: ignore[arg-type]
+    assert line(failed, scenes) == "1.2 a3 storyboard: fail → fail (text_in_frame)"  # type: ignore[arg-type]

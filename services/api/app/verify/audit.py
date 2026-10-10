@@ -158,7 +158,9 @@ def run_checks(
     # The heading's time of day isn't a haystack, so a painted "NIGHT" fails.
     words = [normalize_for_grounding(shot.source), normalize_for_grounding(scene.location)]
     failures[Check.TEXT_IN_FRAME] += [
-        f"text {t!r} isn't the script's" for t in description.text if not _in_words(t, words)
+        f"text {t!r} isn't the script's"
+        for t in description.text
+        if normalize_for_grounding(t) and not _in_words(t, words)  # "" is no text read
     ]
 
     contradicts = {IntExt.INT: Setting.EXTERIOR, IntExt.EXT: Setting.INTERIOR}

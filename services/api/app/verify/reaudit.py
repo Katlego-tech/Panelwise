@@ -28,6 +28,7 @@ from app.frames.model import AuditTarget, FrameAuditRow
 from app.llm import NebiusChatModel
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.model import ProjectRow
+from app.script import Scene
 from app.storage import AssetNotFound, AssetStore, SupabaseStore
 from app.verify.audit import audit_frame
 from app.verify.model import Check, RenderedFrame, Severity, Verdict
@@ -98,6 +99,13 @@ async def reaudit(
     return out
 
 
+def line(row: Reaudit, scenes: Sequence[Scene]) -> str:
+    """One re-audited attempt as the CLI prints it: `6.4 a1 comic: fail → pass` (pure)."""
+    why = f" ({', '.join(c.value for c in row.failed)})" if row.failed else ""
+    shot = f"{scenes[row.shot[0]].number}.{row.shot[1]}"
+    return f"{shot} a{row.attempt} {row.target}: {row.before.value} → {row.after.value}{why}"
+
+
 def _counts(verdicts: Sequence[Verdict]) -> str:
     seen = Counter(verdicts)
     return ", ".join(f"{v.value} {seen[v]}" for v in Verdict)
@@ -142,9 +150,7 @@ async def _main(project_id: uuid.UUID, target: AuditTarget | None, limit: int | 
     assert project is not None
     scenes = load_screenplay(project.screenplay).scenes  # type: ignore[arg-type]
     for r in rows:
-        why = f" ({', '.join(c.value for c in r.failed)})" if r.failed else ""
-        shot = f"{scenes[r.shot[0]].number}.{r.shot[1]}"
-        print(f"{shot} a{r.attempt} {r.target}: {r.before.value} 2192 {r.after.value}{why}")
+        print(line(r, scenes))
     print()
     print(summary(rows))
     return 0
