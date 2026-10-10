@@ -36,6 +36,7 @@ block_height = document._height  # pyright: ignore[reportPrivateUsage]
 content_top = document._content_top  # pyright: ignore[reportPrivateUsage]
 content_bottom = document._content_bottom  # pyright: ignore[reportPrivateUsage]
 card_lines = document._card_lines  # pyright: ignore[reportPrivateUsage]
+content_heading = document._heading_lines  # pyright: ignore[reportPrivateUsage]
 
 
 def screenplay() -> Screenplay:
@@ -181,6 +182,7 @@ def test_the_key_changes_with_every_input_but_not_with_frame_order(
     changed = [
         document_key(uuid.uuid4(), STYLE, frames),
         document_key(PID, replace(STYLE, key="other"), frames),
+        document_key(PID, replace(STYLE, label="Relabelled"), frames),  # the footer prints it
         document_key(PID, STYLE, [replace(frames[0], asset="frames/z.png"), *frames[1:]]),
         document_key(PID, STYLE, [replace(frames[0], state=FrameState.WARNED), *frames[1:]]),
         document_key(PID, STYLE, [replace(frames[0], verdict=Verdict.WARN), *frames[1:]]),
@@ -277,6 +279,20 @@ def test_source_lines_keep_element_breaks_and_are_never_cut_or_folded() -> None:
     assert " ".join(first.source_lines[:-1]) == text.split("\n")[0]  # curly quotes, dash kept
 
 
+def test_the_heading_is_its_span_line_even_after_a_form_feed() -> None:
+    # Spans number lines by split("\n"); splitlines() would also break on the form feed and
+    # shift every later line (review of T027).
+    text, starts = two_page_text()
+    sp = parse_text(text.replace("FADE IN:", "FADE IN:\f"), starts)
+    assert "\f" in sp.text  # the form feed survives parsing, so the case is real
+    p = plan(sp)
+    heading = content_heading(sp, 1)
+    printed = sp.text.split("\n")[sp.scenes[1].span.line_start - 1]
+    assert heading == [" ".join(printed.split())]  # its words, a run of spaces as one
+    assert "EXT. LIGHTHOUSE GALLERY" in heading[0]
+    assert layout_document(mixed(p), p, sp, STYLE)  # and the document still lays out
+
+
 def test_a_shot_without_a_frame_is_refused() -> None:
     sp = screenplay()
     p = plan(sp)
@@ -297,6 +313,8 @@ def test_the_withheld_and_failed_cards_say_why_and_where() -> None:
     assert card_lines(withheld, p.shots[2]) == withheld_card
     assert card_lines(error, p.shots[3])[0] == "Frame withheld: failed audit (audit error)"
     assert card_lines(failed, p.shots[4])[0] == "Frame not drawn: the renderer failed"
+    unnamed = replace(withheld, noted_checks=())  # a row whose audit names no check
+    assert card_lines(unnamed, p.shots[2])[0] == "Frame withheld: failed audit"
     restarted = replace(failed, failure="restart")
     assert card_lines(restarted, p.shots[4])[0] == "Frame not drawn: the job was interrupted"
 
