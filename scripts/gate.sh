@@ -645,6 +645,13 @@ image_dirs() {
   done < <(project_dirs)
 }
 
+# Run in the image (deploy.md §6, *The image*): the app imports, and the files it reads at run time
+# are there. The public styles join this once an image ships them (the renderer PR).
+IMAGE_PROBE='import pathlib, app.main
+from app.comic.layout import FONT_PATH
+for need in (FONT_PATH, pathlib.Path("alembic.ini"), pathlib.Path("migrations/env.py")):
+    assert need.is_file(), f"missing in the image: {need}"'
+
 image_check() {
   local dir="$1" rel="$2" tag err
   step "image build ($rel)"
@@ -661,12 +668,12 @@ image_check() {
     bad "$rel/Dockerfile doesn't build:"
     tail -n 25 "$err" | sed 's/^/     /'
     fail=1
-  elif ! docker run --rm "$tag" .venv/bin/python -c "import app.main" >/dev/null 2>"$err"; then
-    bad "$rel's image builds, but the app doesn't import in it:"
+  elif ! docker run --rm --entrypoint .venv/bin/python "$tag" -c "$IMAGE_PROBE" >/dev/null 2>"$err"; then
+    bad "$rel's image builds, but the app doesn't import or a file it reads is missing:"
     tail -n 25 "$err" | sed 's/^/     /'
     fail=1
   else
-    say "   built and imported app.main in $tag"
+    say "   built $tag; app.main imports, the font, alembic.ini and migrations are in it"
   fi
   docker image rm -f "$tag" >/dev/null 2>&1 || true
   rm -f "$err"
