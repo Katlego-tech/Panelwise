@@ -18,10 +18,14 @@ DESCRIBE_PROMPT = (
     "its light: day, night, dawn_or_dusk, or unclear. Give the shot size: wide (whole bodies "
     "and their surroundings), medium (people from the waist up), close (a head and shoulders) "
     "or extreme_close (part of a face, or one object filling the frame). List every notable "
-    "object a viewer would notice, but not the walls, floor or sky themselves: each with a "
-    "category from the list and whether someone in the image holds it. Set has_text to true if "
-    "any letters, words, numbers or writing-like marks appear anywhere: on signs, screens, "
-    "paper, clothing or anything else. When unsure, say unclear."
+    "object a viewer would notice, each with a category from the list and whether someone in "
+    "the image holds it. Don't list what a person wears: put it in that person's appearance. "
+    "Don't list the place itself or its structure: walls, floor, ceiling, sky, windows, doors, "
+    "roofs, chimneys, stairs. Set has_text to true if any letters, words, numbers or "
+    "writing-like marks appear anywhere: on signs, screens, paper, clothing or anything else. "
+    "Under text, write out word for word each piece of writing you can read, as it is "
+    "written; leave out scribbles, a signature you can't read and marks that aren't letters. "
+    "When unsure, say unclear."
 )
 
 JUDGE_PROMPT = (

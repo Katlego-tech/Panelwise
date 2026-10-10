@@ -8,6 +8,7 @@ filter finds one (verify.md §8). A failed call is an ERROR audit, never a pass.
 import base64
 import hashlib
 import logging
+import re
 from collections.abc import Sequence
 
 from pydantic import ValidationError
@@ -46,15 +47,18 @@ _SEVERITY = {
     Check.FRAMING: Severity.SOFT,
 }
 # Things a location never "naturally holds": each is a story choice the script must make.
+# A sign may be dressing (T071): its words are what could be unscripted, and TEXT_IN_FRAME
+# checks them.
 _NEVER_DRESSING = frozenset(
     {
         ObjectCategory.ANIMAL,
         ObjectCategory.VEHICLE,
         ObjectCategory.WEAPON,
-        ObjectCategory.SCREEN_OR_SIGN,
         ObjectCategory.FOOD,
     }
 )
+# Costume and the place's own structure: never a story choice when nobody holds it (T071).
+_NEVER_UNSCRIPTED = frozenset({ObjectCategory.CLOTHING, ObjectCategory.ARCHITECTURE})
 _NIGHT_TIMES = frozenset({"NIGHT", "MIDNIGHT", "EVENING"})
 _DAY_TIMES = frozenset({"DAY", "MORNING", "AFTERNOON"})
 _FRAMING_STEP = {
@@ -77,6 +81,14 @@ def seed_for(shot: Shot, attempt: int) -> int:
 def _found(support: str | None, haystacks: Sequence[str]) -> bool:
     needle = normalize_for_grounding(support or "")
     return bool(needle) and any(needle in h for h in haystacks)
+
+
+def _in_words(needle: str, haystacks: Sequence[str]) -> bool:
+    """`needle`, normalised, appears in a haystack as whole words (T071): a stray letter inside
+    another word isn't the script's."""
+    words = normalize_for_grounding(needle)
+    pattern = re.compile(rf"(?<!\w){re.escape(words)}(?!\w)")
+    return bool(words) and any(pattern.search(h) for h in haystacks)
 
 
 def _calls_each_once(indexes: Sequence[int], n: int) -> bool:
@@ -126,6 +138,8 @@ def run_checks(
     for call in sorted(judgement.objects, key=lambda c: c.object):
         obj = description.objects[call.object]
         what = f"object {call.object} ({obj.name}, {obj.category})"
+        if obj.category in _NEVER_UNSCRIPTED and not obj.held:
+            continue
         match call.kind:
             case ObjectKind.UNSCRIPTED:
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: unscripted")
@@ -140,8 +154,14 @@ def run_checks(
             case _:
                 pass
 
-    if description.has_text:
-        failures[Check.TEXT_IN_FRAME].append("text in the frame")
+    # Only legible words the script never wrote (T071): the shot's own text or the scene's place.
+    # The heading's time of day isn't a haystack, so a painted "NIGHT" fails.
+    words = [normalize_for_grounding(shot.source), normalize_for_grounding(scene.location)]
+    failures[Check.TEXT_IN_FRAME] += [
+        f"text {t!r} isn't the script's"
+        for t in description.text
+        if normalize_for_grounding(t) and not _in_words(t, words)  # "" is no text read
+    ]
 
     contradicts = {IntExt.INT: Setting.EXTERIOR, IntExt.EXT: Setting.INTERIOR}
     if contradicts.get(scene.int_ext) == description.setting:

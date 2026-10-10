@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.frames.model import FrameRow
-from app.frames.views import MAX_RENDERS, frame_view
+from app.frames.model import FrameAuditRow, FrameRow
+from app.frames.views import MAX_RENDERS, audit_view, frame_view
 from app.script import parse_pdf
 from tools.build_samples import SAMPLES
 
@@ -46,6 +46,28 @@ def test_no_other_state_ever_has_an_image(state: str) -> None:
 
 def test_max_renders_is_verify_mds_three() -> None:
     assert MAX_RENDERS == 3
+
+
+def test_max_renders_is_the_setting_it_is_given() -> None:
+    assert (
+        frame_view(row("withheld"), SCREENPLAY, None, max_renders=1).max_renders == 2
+    )  # attempt 2
+    assert frame_view(row("withheld"), SCREENPLAY, None, max_renders=3).max_renders == 3
+
+
+def test_an_audit_logged_before_t071_reads_its_text_as_empty() -> None:
+    old = FrameAuditRow(
+        project_id=uuid.uuid4(), job_id=uuid.uuid4(), scene_index=1, shot_number=3, attempt=1,
+        seed=7, frame_asset="frames/a.png",
+        description={
+            "people": [], "setting": "interior", "light": "night", "shot_size": "medium",
+            "objects": [], "has_text": True,
+        },
+        judgement=None, checks=[], positions={}, verdict="fail", models=["v"],
+        prompt_tokens=1, completion_tokens=1, created_at=datetime(2026, 10, 10, tzinfo=UTC),
+    )  # fmt: skip
+    view = audit_view(old)
+    assert view.description is not None and view.description.text == []
 
 
 def test_max_renders_grows_with_a_users_extra_attempt() -> None:
