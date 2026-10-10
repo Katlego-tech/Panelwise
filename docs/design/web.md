@@ -494,7 +494,8 @@ state (§4.1), drawn in storyboard-states.png.
   words. **Staged, until T061:** the withheld card has no "Try another render" button (T061 adds
   it, on T021's endpoint); no frame can be withheld before T021 writes `frames` rows.
   A `failed` card reads by `FrameView.failure` (T021's field, T061's wording): `render` (or null) "The renderer failed on
-  this frame.", `restart` "Rendering was interrupted by a restart."
+  this frame.", `restart` "Rendering was interrupted by a restart." It carries "Try another render"
+  too (T066), as the withheld card does.
   **"Try another render"** (T061, on T021's endpoint) is a quiet button in the withheld card, `relative z-10` above the
   card's stretched link (§4.4). It POSTs `/api/projects/[id]/frames/[scene]/[number]/attempts`
   (`scene` the shot's `scene_index`, `number` its number); while sending it reads "Starting…",
@@ -512,8 +513,10 @@ state (§4.1), drawn in storyboard-states.png.
   `GET /api/projects/[id]/storyboard/pdf` and opens the `pdf_url` it answers (storyboard.md §3.4
   Delivery; the PDF is built on demand); a 409 (a frame went live again since the page was drawn)
   shows "Available when every frame has settled" under the button, a 401 goes to `/sign-in`, and
-  anything else shows "The PDF couldn't be made. Try again in a minute." (A job that failed on a
-  renderer error leaves its frame `failed` and later shots with no row, so Export stays disabled.)
+  anything else shows "The PDF couldn't be made. Try again in a minute." A `failed` frame is
+  settled: a storyboard with one is exported with its failed card (storyboard.md §3.4). (A job
+  that failed because the renderer looked down, storyboard.md §4, leaves later shots with no row,
+  so Export stays disabled.)
   T042 staged it as always disabled ("The PDF export isn't built yet"); T027 adds
   `GET /api/projects/[id]/storyboard/pdf` (answering `StoryboardPdfView`, added to the Response
   types below with T027's code) and the rule above.
@@ -733,7 +736,7 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 | `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T047 |
 | `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row (no rows exist until T021 writes them) | T047 (creates and reads `frames`) |
 | `GET /projects/{id}/storyboard/pdf` | — | 200 `{"pdf_url": str}`, a signed URL (an hour) to the PDF, built on demand and stored by its document key (storyboard.md §3.4, §6 `export_pdf`) · 404 `not_found` · 409 `{"error": "not_ready"}` unless the upload's job is `done`, every plan shot has a `frames` row and none is `rendering` or `auditing` · 503 `storage_unavailable` · 503 `{"error": "styles_unavailable"}` when the styles didn't load · 401/503 as every route | T027 |
-| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state · 409 `{"error": "not_ready"}` without a plan or that shot · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
+| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` or `failed` → `rendering`, under a new `frame_attempt` job; `failed` since T066) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state (the code keeps its T021 name) · 409 `{"error": "not_ready"}` without a plan or that shot · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
 | `POST /projects/{id}/comic` | — | 202 `{job: Job}` (kind `comic`, `RUNNING`) · 404 `not_found` · 409 `{"error": "not_ready"}` (no plan, or the upload's job not `done`) · 409 `{"error": "comic_running"}` · 503 `renderer_unavailable` · 503 `storage_unavailable`, each before anything is written, in comic.md §4a's order · 401/503 as every route | T064 |
 | `GET /projects/{id}/comic` | — | 200 `ComicView` (every URL signed for 3600 s) · 409 `not_ready` before the plan · 404 · 503 `storage_unavailable` when signing fails | T064 |
 
@@ -860,7 +863,8 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
   (1) `current_caller` (401/503 as every route).
   (2) The project by owner and its `frames` row for `(scene_index, number)`, locked: missing or
   someone else's → 404 `not_found`.
-  (3) The row not `withheld` → 409 `not_withheld`; the project without a plan, or the plan without
+  (3) The row neither `withheld` nor `failed` (T066) → 409 `not_withheld` (the code keeps its T021
+  name); the project without a plan, or the plan without
   that shot → 409 `not_ready` (a data bug, never sent on to the task).
   (4) Anything the attempt needs missing → 503, nothing written: `app.state.renderer_factory` or
   `app.state.model` None → `renderer_unavailable`; `app.state.store` None → `storage_unavailable`.
@@ -870,7 +874,8 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
   instance would mix projects), in the **default style** (projects store no style yet; T026 may add
   a column and pass it). It is None until T026 sets it in the lifespan.
   (5) A `frame_attempt` job `RUNNING` at stage `rendering`, progress 60; the row → `rendering`,
-  attempt n + 1, that job, `withheld_check` null; commit; 202 with the row's `FrameView`.
+  attempt n + 1, that job, `withheld_check` and `failure` null; commit; 202 with the row's
+  `FrameView`.
   (6) An asyncio task in `app.state.tasks` (as the upload's job, §4.1), with its own sessions from
   `app.state.sessions`: build the renderer, a `FrameWriter(sessions, project_id, job_id)` and
   `frame_hooks(writer, renderer, shot)` (verify.md §6), then `render_until_accepted(...,
