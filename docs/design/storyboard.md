@@ -402,7 +402,8 @@ default = true        # exactly one PUBLIC style sets this
   - `title` (Bold 24 px): `<Scene.number>.<Shot.number>  <FRAMING> / <MOVEMENT>`, e.g. `12A.3  CLOSE
     UP / STATIC` (the script's own scene number, a string; the shot number is shots.md's, 1-based;
     enum values upper-cased, `_` as space). On a continuation: `<Scene.number>.<Shot.number> (cont.)`;
-  - `span_label` (Regular 20 px, right-aligned on the title's line): `p.<page> l.<line_start>–<line_end>`;
+  - `span_label` (Regular 20 px, right-aligned on the title's line): `p.<page> l.<line_start>–<line_end>`,
+    or `p.<page> l.<line>` for a one-line span, exactly as the web's `SpanRef` prints it;
   - `audit_line` (Regular 20 px): `Audit: pass` or `Audit: warn (<noted checks>)`; `None` for a
     withheld frame (its card says it) and on a continuation;
   - `source_lines` (Regular 22 px, 30 px line pitch): the shot's **`source`, verbatim**. Each of its
@@ -419,17 +420,18 @@ default = true        # exactly one PUBLIC style sets this
   new page (same scene header). A block taller than an empty page puts its frame and as many source
   lines as fit on that page and continues the rest at the top of the next, `continued = True`.
 - **Withheld card** (verify.md §4), in the frame box: white, 4 px `#808080` border, centred text in
-  Regular 26 px, wrapped to 1000 px: `Frame withheld: failed audit (<checks>)` (the `noted_checks`
+  Regular 26 px, wrapped to 800 px (the 880 px box less 40 px a side, so no line crosses the
+  border; 1000 px did, in the live run of 2026-10-10): `Frame withheld: failed audit (<checks>)` (the `noted_checks`
   names, lower case, `_` as spaces, joined by `, `; `audit error` for an `ERROR` verdict;
   `Frame withheld: failed audit` alone if a row's audit names neither, never an empty `()` and
   never a failed export), then
-  `Script p.<page> l.<line_start>–<line_end>`. The shot's `source` is printed under it as under every
+  `Script ` and the span as `span_label` prints it. The shot's `source` is printed under it as under every
   frame, so the card with its block shows exactly what verify.md §4 asks: the verbatim source, the
   span and the reason.
 - **Failed card** (T027): a frame that ended `FAILED` (its renderer raised, or a restart cut it off,
   `frames.failure`) has no picture and no audit to show. Its frame box draws the withheld card's
   box and type with `Frame not drawn: the renderer failed` (`render`) or `Frame not drawn: the job
-  was interrupted` (`restart`), then `Script p.<page> l.<line_start>–<line_end>`; `audit_line` is
+  was interrupted` (`restart`), then `Script ` and the span as `span_label` prints it; `audit_line` is
   `None`; the source is printed under it as under every frame. A failed row with no `failure`
   (none is written today) says `Frame not drawn` alone.
 - **From the rows** (T027): the document is built after the job, from the project's `frames` rows
@@ -786,7 +788,7 @@ async def build_storyboard(model: NebiusChatModel, renderer: RenderRecorder, pla
                            max_renders: int = 3) -> Storyboard: ...
 
 # app/storyboard/document.py (T027)
-DOCUMENT_VERSION: int = 1
+DOCUMENT_VERSION: int = 2
 def frames_from_rows(rows: Sequence[FrameRow], audits: Sequence[FrameAuditRow]) -> tuple[StoryboardFrame, ...]: ...   # pure, §3.4 From the rows; audits are the project's storyboard-target rows, any order
 def layout_document(frames: Sequence[StoryboardFrame], plan: ShotPlan, screenplay: Screenplay,
                     style: Style) -> tuple[StoryboardPage, ...]: ...   # pure; measures with Courier Prime (the style's label sizes the footer); one block per plan shot (a shot with no frame is a ValueError)
