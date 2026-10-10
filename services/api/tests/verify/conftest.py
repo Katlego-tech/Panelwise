@@ -61,6 +61,7 @@ def described(**kw: Any) -> FrameDescription:
             "shot_size": kw.get("shot_size", "medium"),
             "objects": kw.get("objects", [{"name": "coat", "category": "clothing", "held": False}]),
             "has_text": kw.get("has_text", False),
+            "text": kw.get("text", []),
         }
     )
 
