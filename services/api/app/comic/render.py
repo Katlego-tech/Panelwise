@@ -73,12 +73,19 @@ def panel_frame(outcome: FrameOutcome, shot: Shot) -> PanelFrame:
     )
 
 
+def failed_panel(shot: Shot) -> PanelFrame:
+    """A panel whose renderer raised (comic.md §4 step 6, T067): only the failed card."""
+    return PanelFrame(b"", {}, True, WithheldCard("", shot.span, failed=True))
+
+
 def card_lines(card: WithheldCard) -> tuple[str, str]:
     span = card.span
-    return (
-        f"Frame withheld: failed audit ({card.checks})",
-        f"Script p.{span.page} l.{span.line_start}\u2013{span.line_end}",  # an en dash
+    first = (
+        "Frame not drawn: the renderer failed"
+        if card.failed
+        else f"Frame withheld: failed audit ({card.checks})"
     )
+    return first, f"Script p.{span.page} l.{span.line_start}\u2013{span.line_end}"  # an en dash
 
 
 def render_pages(book: ComicBook, frames: Mapping[Key, PanelFrame]) -> list[bytes]:
