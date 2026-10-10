@@ -1,6 +1,7 @@
-""" "Try another render": one more audited attempt on a withheld frame (web.md §6, "Try another
-render, in order"; T021). The endpoint starts it; this runs it in the background, like the upload's
-job (web.md §4.1), and always leaves the frame and its job in a settled state.
+""" "Try another render": one more audited attempt on a withheld or failed frame (T066; web.md
+§6, "Try another render, in order"; T021). The endpoint starts it; this runs it in the
+background, like the upload's job (web.md §4.1), and always leaves the frame and its job in a
+settled state.
 """
 
 import logging

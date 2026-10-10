@@ -2,6 +2,7 @@
 job with the fal.ai renderer over a scripted fal.ai, a scripted audit, an in-memory store and a
 real Postgres; and frame_of, pure."""
 
+import asyncio
 import logging
 import uuid
 from dataclasses import replace
@@ -53,6 +54,7 @@ class Script:
         self.verdicts: dict[Key, list[Verdict]] = {}
         self.calls: list[Key] = []
         self.broken = False
+        self.delay = 0.0  # seconds each audit takes
 
 
 @pytest.fixture
@@ -65,6 +67,7 @@ def scripted(monkeypatch: pytest.MonkeyPatch) -> Script:
         if script.broken:
             raise RuntimeError("the database went away mid-audit")
         script.calls.append(frame.shot)
+        await asyncio.sleep(script.delay)
         queue = script.verdicts.get(frame.shot, [])
         verdict = queue.pop(0) if queue else Verdict.PASS
         failed = (Check.UNSCRIPTED_PERSON,) if verdict is Verdict.FAIL else ()
@@ -230,6 +233,36 @@ async def test_once_a_frame_is_drawn_failures_are_taken_one_frame_at_a_time(
     assert states == [FrameState.PASSED] + [FrameState.FAILED] * (len(plan.shots) - 1)
     failed = [f for f in board.frames if f.state is FrameState.FAILED]
     assert all(f.failure == "render" and f.asset is None for f in failed)
+
+
+@pytest.mark.db
+async def test_a_frame_still_in_its_audit_counts_as_drawn(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    # Review of T066: the first shot draws and sits in a slow audit while the next three fail.
+    # A drawing exists, so the renderer isn't down: the storyboard goes on and the job is done.
+    store, fal = MemoryStore(), Fal()
+    pid, jid = await project(sessions, store, run=True)
+    async with sessions() as s:
+        row = await s.get(ProjectRow, pid)
+    assert row is not None and row.plan and row.screenplay and row.extraction
+    plan = load_plan(row.plan)
+    first = plan.shots[0]
+    plan = replace(plan, shots=tuple(replace(first, number=n) for n in range(1, 6)))
+    screenplay, extraction = load_screenplay(row.screenplay), load_extraction(row.extraction)
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fal))
+    renderer = FalRenderer(
+        style=STYLE, store=store, screenplay=screenplay, extraction=extraction,
+        client=client, key="k",
+    )  # fmt: skip
+    fal.statuses = [200, 401, 401, 401, 401]
+    scripted.delay = 0.5
+    board = await build_storyboard(
+        make(Models()), renderer, plan, screenplay, extraction,
+        writer=FrameWriter(sessions, pid, jid), concurrency=2,
+    )  # fmt: skip
+    states = [f.state for f in board.frames]
+    assert states == [FrameState.PASSED] + [FrameState.FAILED] * 4
 
 
 @pytest.mark.db
