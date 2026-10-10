@@ -54,7 +54,8 @@ def cites_this_shot(
     """Every script part cites this scene's heading (SETTING), the heading its clock came from
     (TIME), the line that introduces a visible character (AGE, T074, with exactly the age
     `introduced_age` reads there) or an Action element the shot covers (ACTION), and says only
-    what that line says, redacted; no other part cites anything. storyboard.md §3.1's invariant, checked live."""
+    what that line says, redacted; no other part cites anything. storyboard.md §3.1's invariant,
+    checked live."""
     scene = screenplay.scenes[shot.scene_index]
     lines = screenplay.text.split("\n")
     source = time_source(screenplay.scenes, scene.index)
