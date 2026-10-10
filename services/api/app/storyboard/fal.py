@@ -199,16 +199,22 @@ class FalRenderer:
                 response = await self.client.request(
                     method, url, headers=headers, timeout=self.timeout_s, **kwargs
                 )
-            except httpx2.TransportError:
+            except httpx2.TransportError as exc:
                 status = None
+                self._retrying(type(exc).__name__, tried)
                 continue
             status = response.status_code
             if 200 <= status < 300:
                 return response
             if status != 429 and status < 500:
                 raise RendererError(f"fal.ai answered {status} for {self.model}")
+            self._retrying(str(status), tried)
         what = "no answer" if status is None else f"{status}"
         raise RendererError(f"fal.ai failed for {self.model} after {TRIES} tries ({what})")
+
+    def _retrying(self, what: str, tried: int) -> None:
+        """Never silent (§3.5): what went wrong on this try; never the key, query or prompt."""
+        log.warning("fal.ai %s for %s (try %d of %d)", what, self.model, tried + 1, TRIES)
 
 
 def fal_factory(

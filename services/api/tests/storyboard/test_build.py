@@ -2,6 +2,7 @@
 job with the fal.ai renderer over a scripted fal.ai, a scripted audit, an in-memory store and a
 real Postgres; and frame_of, pure."""
 
+import logging
 import uuid
 from dataclasses import replace
 from typing import Any
@@ -146,15 +147,16 @@ async def test_a_renderer_failure_fails_the_job_naming_the_shot_as_the_web_does(
     assert (job.state, job.stage) == ("failed", "rendering")
     assert job.error == RENDER_STAGE_FAILED.format(shot_id=named)
     frames = await rows(sessions, pid)
-    # The first shot failed; the others were already in flight (4 at once) and were finished and
-    # kept, as storyboard.md §4 says: their drawings and audits are paid for.
+    # The first shot failed; the one already in flight (2 at once, FAL_CONCURRENCY's default:
+    # storyboard.md §3.5) was finished and kept, as §4 says: its drawing and audit are paid for.
+    # No third shot started.
     assert (frames[0].state, frames[0].failure) == ("failed", "render")
-    assert all(f.state == "passed" for f in frames[1:])
+    assert [f.state for f in frames[1:]] == ["passed"]
 
 
 @pytest.mark.db
 async def test_after_a_renderer_failure_no_new_shot_starts(
-    sessions: async_sessionmaker[AsyncSession], scripted: Script
+    sessions: async_sessionmaker[AsyncSession], scripted: Script, caplog: pytest.LogCaptureFixture
 ) -> None:
     store, fal = MemoryStore(), Fal()
     pid, jid = await project(sessions, store, run=True)
@@ -173,6 +175,7 @@ async def test_after_a_renderer_failure_no_new_shot_starts(
         key="k",
     )
     fal.statuses = [401]
+    caplog.set_level(logging.WARNING, logger="app.storyboard.build")
     with pytest.raises(StoryboardError) as failed:
         await build_storyboard(
             make(Models()), renderer, plan, screenplay, extraction,
@@ -181,6 +184,9 @@ async def test_after_a_renderer_failure_no_new_shot_starts(
     assert failed.value.shot == (plan.shots[0].scene_index, plan.shots[0].number)
     assert len(fal.posts) == 1 and scripted.calls == []  # one shot at a time: nothing else started
     assert [f.state for f in await rows(sessions, pid)] == ["failed"]
+    # Never silent (storyboard.md §3.5): the renderer's own message is logged with the shot.
+    (line,) = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert "answered 401 for fal-ai/flux/schnell" in line and str(failed.value.shot) in line
 
 
 @pytest.mark.db

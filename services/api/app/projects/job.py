@@ -40,8 +40,6 @@ if TYPE_CHECKING:  # attempt.py imports fail_job from here: the type only, never
 
 log = logging.getLogger(__name__)
 
-RENDER_CONCURRENCY = 4  # hosted rendering has no single GPU queue (storyboard.md §3.5)
-
 
 def _column(finished: StageResult | None) -> tuple[str | None, dict[str, Any] | None]:
     """The stage column a finished stage's result goes in (web.md §6's on_advance table)."""
@@ -96,9 +94,11 @@ async def run_job(
     store: AssetStore,
     model: NebiusChatModel,
     factory: RendererFactory | None = None,
+    concurrency: int = 2,
 ) -> None:
     """With a renderer factory, the RENDERING stage follows planning (storyboard.md §4, §3.5):
-    every frame through verify's loop, progress 60 to 100. Without one, the job ends at planning."""
+    every frame through verify's loop, `concurrency` at once (FAL_CONCURRENCY), progress 60 to
+    100. Without one, the job ends at planning."""
     try:
         async with sessions() as session:
             job = await session.get(JobRow, job_id)
@@ -137,7 +137,13 @@ async def run_job(
             return
         try:
             await _render(
-                job_id, project_id, result, sessions=sessions, model=model, factory=factory
+                job_id,
+                project_id,
+                result,
+                sessions=sessions,
+                model=model,
+                factory=factory,
+                concurrency=concurrency,
             )
         except StoryboardError as error:
             shot = next(s for s in result.plan.shots if (s.scene_index, s.number) == error.shot)
@@ -158,6 +164,7 @@ async def _render(
     sessions: async_sessionmaker[AsyncSession],
     model: NebiusChatModel,
     factory: RendererFactory,
+    concurrency: int,
 ) -> None:
     """The RENDERING stage: the storyboard through T021's writer, the job's progress mapped into
     60-100 as frames settle, DONE at 100. A StoryboardError propagates to run_job."""
@@ -185,7 +192,7 @@ async def _render(
         result.extraction,
         writer=writer,
         progress=progress,
-        concurrency=RENDER_CONCURRENCY,
+        concurrency=concurrency,
     )
     async with sessions() as session, session.begin():
         await session.execute(

@@ -100,6 +100,8 @@ async def build_storyboard(
                 )
             except Exception as error:
                 if states and states[-1] is FrameState.FAILED:
+                    # Never silent (§3.5): the renderer's own message, never the key or prompt.
+                    log.warning("shot %s couldn't be drawn: %s", key, error)
                     failed.append(key)  # the loop has already written the frame FAILED
                 else:
                     errors.append(error)

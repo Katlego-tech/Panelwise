@@ -70,6 +70,7 @@ def start(request: Request, job_id: uuid.UUID) -> None:
             store=state.store,
             model=state.model,
             factory=state.renderer_factory,
+            concurrency=state.settings.fal_concurrency,
         )
     task = asyncio.create_task(work)
     state.tasks.add(task)

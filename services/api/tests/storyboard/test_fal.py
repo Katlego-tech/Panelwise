@@ -3,6 +3,7 @@ an in-memory store, the self-written lighthouse script. No network."""
 
 import io
 import json
+import logging
 
 import httpx2
 import pytest
@@ -225,6 +226,26 @@ async def test_busy_and_down_are_retried_and_a_refusal_is_not(
     fal.network_errors = 3
     with pytest.raises(RendererError, match="no answer"):
         await renderer(fal, MemoryStore(), lighthouse, cast, slept).render(shot, 1, 4, 1280, 720)
+
+
+async def test_every_retry_is_logged_without_the_key_or_the_prompt(
+    fal: Fal,
+    lighthouse: Screenplay,
+    cast: Extraction,
+    slept: list[float],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # The first live run (2026-10-10) lost a frame with nothing in the logs to say why.
+    caplog.set_level(logging.WARNING, logger="app.storyboard.fal")
+    fal.statuses = [503, 429]
+    fal.network_errors = 0
+    await renderer(fal, MemoryStore(), lighthouse, cast, slept).render(
+        shot_of(lighthouse, 0, [0]), 1, 6, 1280, 720
+    )
+    lines = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(lines) == 2
+    assert "503" in lines[0] and "429" in lines[1] and "fal-ai/flux/schnell" in lines[0]
+    assert all(KEY not in line and "pours" not in line for line in lines)
 
 
 async def test_an_image_of_another_size_is_refused(
