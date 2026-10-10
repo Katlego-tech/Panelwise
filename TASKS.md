@@ -393,5 +393,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
       Done:    the gate's vulnerability scan passes with no new exemption
+- [ ] T076 [US2] **The frame sheet sits above the board.** Found by Tumo on 2026-10-11: with a withheld frame's sheet open, the other withheld cards' "Try another render" (`relative z-10`, above the card's stretched link) painted over the sheet's text, because the sheet's scrim and panel had no z-index. Lane `web` (Claude for Tumo).
+      Design:  docs/design/web.md §4.4 (the sheet opens over the board); no change
+      Files:   apps/web/components/storyboard/FrameSheet.tsx; FrameSheet.test.tsx
+      Contract:none
+      Verify:  bash scripts/gate.sh; open a withheld frame's sheet on a board with other withheld cards
+      Done:    no card control shows through the open sheet or its scrim
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
