@@ -635,9 +635,9 @@ sequenceDiagram
   storyboard three times). No fallback provider and no placeholder image (§8).
 - **The renderer looks down** → no new shot starts, the shots in flight are **awaited**, not
   cancelled (their drawings and audits are paid for; their rows are kept), then the job fails with
-  `StoryboardError` (`RENDER_STAGE_FAILED`). "Down" is: **no frame drawn yet** (no shot has settled
-  `PASSED`, `WARNED` or `WITHHELD`, each of which had a drawing) and **`min(3, shots)` frames
-  `FAILED`**. A wrong key, an account out of credit or an outage fails every shot the same way;
+  `StoryboardError` (`RENDER_STAGE_FAILED`). "Down" is: **no frame drawn yet** (no shot has
+  reached `AUDITING`, which only a drawing does: a frame still being judged counts as drawn) and
+  **`min(3, shots)` frames `FAILED`**. A wrong key, an account out of credit or an outage fails every shot the same way;
   without this, a 21-shot storyboard would spend half an hour on timeouts to say so. Once one frame
   has been drawn, failures are taken one frame at a time.
 - **A prompt whose fixed parts exceed the word budget** → `PromptError`, raised by the renderer as
@@ -891,7 +891,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | One PDF per | screenplay, scenes starting new pages | FrameFlow's one PDF per scene: a crew hands around one document |
 | Local development Storage (deploy.md §10) | a dev bucket in the same Supabase project, through the same `SupabaseStore`; tests use an in-memory fake `AssetStore` | a local filesystem adapter: a second code path to keep honest, plus an API route to serve its files to the browser |
 | Signed URLs | the bucket is private; the API hands out signed URLs | a public bucket: frames of unreleased scripts readable by anyone with the path (RLS: deploy.md §6, T009) |
-| Renderer failure | the job fails, naming the shot | a placeholder frame: AGENTS.md §2a, and a board that looks complete but isn't |
+| Renderer failure | that frame fails, with its card and "Try another render"; the job fails only when the renderer looks down (§4, T066) | a placeholder frame: AGENTS.md §2a, and a board that looks complete but isn't; stopping the whole job on one passing error (the first live runs) |
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none.
 
