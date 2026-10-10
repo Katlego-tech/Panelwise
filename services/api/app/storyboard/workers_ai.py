@@ -43,7 +43,9 @@ TRIES = 3  # one call and two retries (§3.5's table)
 # Workers AI's error codes (§3.5)
 REFUSED = 8007  # the NSFW filter refused the prompt; not deterministic, so retried
 OUT_OF_CAPACITY = 3040
-DAILY_ALLOCATION = 3036  # the day's free neurons are used; resets 00:00 UTC
+# The day's free neurons are used; resets 00:00 UTC. klein answers 4006 (live run, 2026-10-10);
+# 3036 is the code Workers AI documents.
+DAILY_ALLOCATION = frozenset({3036, 4006})
 
 
 def draw_size(width: int, height: int) -> tuple[int, int]:
@@ -228,10 +230,9 @@ class WorkersAIRenderer:
             neurons = response.headers.get("cf-ai-neurons")
             return raw, float(neurons) if neurons else None
         code = _error(response)
-        if code == DAILY_ALLOCATION:
+        if code in DAILY_ALLOCATION:
             raise RenderQuotaExceeded(
-                f"the day's free Workers AI neurons are used ({DAILY_ALLOCATION}); "
-                "they reset at 00:00 UTC"
+                f"the day's free Workers AI neurons are used ({code}); they reset at 00:00 UTC"
             )
         if status >= 500 or (status == 429 and code == OUT_OF_CAPACITY) or code == REFUSED:
             raise _Retry(f"{status}, code {code}", code)

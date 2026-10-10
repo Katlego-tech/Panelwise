@@ -237,10 +237,11 @@ async def test_capacity_down_and_a_refusal_are_retried_a_bad_request_is_not(
         await renderer(ai, MemoryStore(), lighthouse, cast, slept).render(shot, 1, 5, 1280, 720)
 
 
+@pytest.mark.parametrize("code", [3036, 4006])  # 4006: klein's answer in the live run
 async def test_the_days_budget_spent_is_raised_at_once(
-    ai: WorkersAI, lighthouse: Screenplay, cast: Extraction, slept: list[float]
+    ai: WorkersAI, lighthouse: Screenplay, cast: Extraction, slept: list[float], code: int
 ) -> None:
-    ai.answers = [(429, 3036)]
+    ai.answers = [(429, code)]
     store = MemoryStore()
     with pytest.raises(RenderQuotaExceeded, match="00:00 UTC"):
         await renderer(ai, store, lighthouse, cast, slept).render(

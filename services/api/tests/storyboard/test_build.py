@@ -159,7 +159,7 @@ async def test_the_days_budget_spent_fails_the_job_with_its_own_copy(
     sessions: async_sessionmaker[AsyncSession], scripted: Script
 ) -> None:
     store, ai = MemoryStore(), WorkersAI()
-    ai.answers = [(429, 3036)] * 2  # both shots in flight meet the spent allocation
+    ai.answers = [(429, 4006)] * 2  # both shots in flight meet the spent allocation
     pid, job = await upload_and_run(sessions, ai, store)
     async with sessions() as s:
         row = await s.get(ProjectRow, pid)
