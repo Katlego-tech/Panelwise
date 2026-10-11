@@ -56,6 +56,24 @@ describe("uploadOutcome (by status and error code, never the message)", () => {
     });
   });
 
+  it("the hosted demo's limits, each with its figure (T069)", () => {
+    expect(uploadOutcome(413, { error: "too_many_pages", max_pages: 15 })).toEqual({
+      kind: "error",
+      message: "This demo takes scripts of up to 15 pages.",
+    });
+    expect(uploadOutcome(429, { error: "upload_limit", per_day: 3 })).toEqual({
+      kind: "error",
+      message: "This demo makes 3 storyboards a day per account. Try again tomorrow.",
+    });
+    expect(uploadOutcome(429, { error: "llm_budget_spent" })).toEqual({
+      kind: "error",
+      message:
+        "The demo has used this month's model budget. Your existing storyboards still open; new uploads start again next month.",
+    });
+    // A limit without its figure still says something true, never "undefined".
+    expect(uploadOutcome(429, { error: "upload_limit" })).toEqual({ kind: "error", message: UPLOAD_COPY.unavailable });
+  });
+
   it("401 sends the browser to sign in", () => {
     expect(uploadOutcome(401, { error: "unauthorized" })).toEqual({ kind: "sign-in" });
   });

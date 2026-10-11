@@ -97,6 +97,13 @@ describe("FrameSheet (web.md §4.4; storyboard-frame.png)", () => {
     expect(within(inFrame).getByRole("listitem")).toHaveTextContent("NANDIleft");
   });
 
+  it("sits above the board: its scrim and panel outrank a card's `relative z-10` Try another render", () => {
+    at("3.1");
+    render(page([frame({ shot_id: "3.1", state: "withheld", withheld_check: "text_in_frame" })]));
+    expect(document.querySelector("[data-sheet-scrim]")).toHaveClass("z-50");
+    expect(screen.getByRole("dialog")).toHaveClass("z-50");
+  });
+
   it("an id that names no shot opens nothing", () => {
     at("9.9");
     render(page());

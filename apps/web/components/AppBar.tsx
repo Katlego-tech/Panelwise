@@ -18,7 +18,7 @@ export function Wordmark({ className }: { className?: string }) {
   );
 }
 
-export type ProjectTab = "script" | "storyboard";
+export type ProjectTab = "script" | "storyboard" | "comic";
 
 function ProjectTabs({ id, tab }: { id: string; tab?: ProjectTab }) {
   const item = "rounded-paper px-3 py-1.5 font-body text-[13px] font-bold tracking-[0.02em] no-underline";
@@ -35,10 +35,7 @@ function ProjectTabs({ id, tab }: { id: string; tab?: ProjectTab }) {
     <nav aria-label="Project" className="order-5 -ml-3 flex w-full gap-1 min-[641px]:order-none min-[641px]:ml-2 min-[641px]:w-auto">
       {link("script", "Script")}
       {link("storyboard", "Storyboard")}
-      {/* T024 builds the comic reader; until then the tab is disabled (web.md §6, Web routes). */}
-      <a aria-disabled="true" title="Comic pages aren't built yet" className={cn(item, "text-bar-dim")}>
-        Comic
-      </a>
+      {link("comic", "Comic")}
     </nav>
   );
 }

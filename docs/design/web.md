@@ -19,8 +19,11 @@ screenplay page, with one vertical line per shot drawn over exactly the lines th
 script supervisor's convention: a straight line while the speaker is on screen, a wavy one while
 they're off). A frame never appears without the line it came from next to it.
 
-**Not covered:** the comic reader (T024; its own section is added here before T024 starts),
-rendering and the PDF itself (T026, T027: docs/design/storyboard.md), the
+It also covers the comic reader (§4.5, T024): the lettered pages, one at a time, every bubble and
+caption traceable to its script line.
+
+**Not covered:** making the comic (comic.md §4a, T064; this doc fixes only its two routes and
+`ComicView`), rendering and the PDF itself (T026, T027: docs/design/storyboard.md), the
 audit logic (verify.md).
 
 ## 2. Reference material
@@ -39,11 +42,15 @@ code, and `tokens.css` is the token source every value below comes from.
 | Frame detail (sheet) | [web/storyboard-frame.png](web/storyboard-frame.png) | [web/mockups/storyboard-frame.html](web/mockups/storyboard-frame.html) |
 | Storyboard on a phone | [web/storyboard-phone.png](web/storyboard-phone.png) (390 px) | same file, narrow viewport |
 | Storyboard: before any frame (today's real state), still reading, failed (§4.3) | [web/storyboard-states.png](web/storyboard-states.png) | [web/mockups/storyboard-states.html](web/mockups/storyboard-states.html) |
+| Comic reader (§4.5) | [web/comic.png](web/comic.png) (1440 px) | [web/mockups/comic.html](web/mockups/comic.html) |
+| Comic on a phone | [web/comic-phone.png](web/comic-phone.png) (390 px) | same file, narrow viewport |
+| Comic: plan not ready; planned but the storyboard still running; no comic, without a renderer (today's real state) and with; being made; failed, with and without a renderer (§4.5) | [web/comic-states.png](web/comic-states.png) | [web/mockups/comic-states.html](web/mockups/comic-states.html) |
 
 - Content in the mockups is the self-written lighthouse script from
   `services/api/tests/script/conftest.py`: its real lines, line numbers and page break. The frame
   images are **pencil sketches standing in for renders**; the app shows real frames (T026, audited by T021) and
-  nothing where there is none (§4.3).
+  nothing where there is none (§4.3). The comic mockup's page is comic.md's committed reference page 1
+  of the-red-kite (real layout and lettering over test-fixture frames), with its real rects.
 - Tokens: [web/mockups/tokens.css](web/mockups/tokens.css): palette, the three typefaces, radius,
   the page shadow, the six shot-line colours and the verdict colours. T040 ports them to
   `apps/web/app/globals.css` (Tailwind v4 `@theme`); shadcn/ui components are restyled with them,
@@ -487,7 +494,8 @@ state (§4.1), drawn in storyboard-states.png.
   words. **Staged, until T061:** the withheld card has no "Try another render" button (T061 adds
   it, on T021's endpoint); no frame can be withheld before T021 writes `frames` rows.
   A `failed` card reads by `FrameView.failure` (T021's field, T061's wording): `render` (or null) "The renderer failed on
-  this frame.", `restart` "Rendering was interrupted by a restart."
+  this frame.", `restart` "Rendering was interrupted by a restart." It carries "Try another render"
+  too (T066), as the withheld card does.
   **"Try another render"** (T061, on T021's endpoint) is a quiet button in the withheld card, `relative z-10` above the
   card's stretched link (§4.4). It POSTs `/api/projects/[id]/frames/[scene]/[number]/attempts`
   (`scene` the shot's `scene_index`, `number` its number); while sending it reads "Starting…",
@@ -500,11 +508,18 @@ state (§4.1), drawn in storyboard-states.png.
 - **Job strip** under the bar while polling (above): T041's `JobStrip`, unchanged (§4.2).
 - **Export PDF** (bar, right): disabled with the tooltip "Available when every frame has settled"
   until the storyboard job is `DONE` and every shot has a settled `frames` row, with no frame
-  `rendering` or `auditing`; then it downloads T027's PDF, built on demand. (A job that failed on a
-  renderer error leaves its frame `failed` and later shots with no row, so Export stays disabled.)
-  **Staged, until T027 builds the PDF:** `ExportButton` (T042) is always disabled, with the tooltip
-  "The PDF export isn't built yet"; T027 adds `GET /api/projects/[id]/storyboard.pdf` and the rule
-  above. (No frame settles before T021 and T026, so the rule couldn't enable it yet anyway.)
+  `rendering` or `auditing` (`canExport`, read from the project summary the page was drawn with;
+  the page refreshes when the job's stage changes). Then a click shows "Making the PDF…", fetches
+  `GET /api/projects/[id]/storyboard/pdf` and opens the `pdf_url` it answers (storyboard.md §3.4
+  Delivery; the PDF is built on demand); a 409 (a frame went live again since the page was drawn)
+  shows "Available when every frame has settled" under the button, a 401 goes to `/sign-in`, and
+  anything else shows "The PDF couldn't be made. Try again in a minute." A `failed` frame is
+  settled: a storyboard with one is exported with its failed card (storyboard.md §3.4). (A job
+  that failed because the renderer looked down, storyboard.md §4, leaves later shots with no row,
+  so Export stays disabled.)
+  T042 staged it as always disabled ("The PDF export isn't built yet"); T027 adds
+  `GET /api/projects/[id]/storyboard/pdf` (answering `StoryboardPdfView`, added to the Response
+  types below with T027's code) and the rule above.
 - **The staging T042 undoes** (§4.1a, §4.2): a projects-list title (every row but a failed one)
   links to `/projects/{id}/storyboard`; an accepted upload goes there (§4.1 step 5); the script
   page's Storyboard tab is enabled and its scenes column gains "Open the storyboard" (script.png).
@@ -597,6 +612,89 @@ A right-hand sheet over the board (Radix Dialog, focus trapped, Esc and × close
   weight, no position); "No one in frame" when there are neither. Then `rationale`. Before T021,
   `audits` is `[]`, so chips carry no position: the real state.
 
+### 4.5 Comic (T024)
+
+Build to [comic.png](web/comic.png) (1440 px), [comic-phone.png](web/comic-phone.png) (390 px) and
+[comic-states.png](web/comic-states.png). The pages are the API's own PNGs (comic.md §4a: lettering
+drawn by `render_pages`, so the screen, the PDF and the reference pages are one image); the web app
+draws nothing on a page except the hit areas over it.
+
+Server component: `GET /api/v1/projects/{id}` → `Project`; once `shots` is set, `GET …/comic` →
+`ComicView` (§6). The client part polls `GET /api/projects/[id]/comic` every 2 s **while
+`ComicView.job` is `queued` or `running`**, and `GET /api/projects/[id]/status` while the upload's job
+is (as §4.3); when a polled job's `state` changes → `router.refresh()`. A 401 goes to `/sign-in`; a
+failed poll is retried on the next tick. 404 and unavailable as §4.2.
+
+**`/projects/[id]/comic`**, by the project and its `ComicView`:
+
+| State | The page |
+|---|---|
+| `shots` null, the upload's job `queued`/`running` | the job strip (§4.2's `JobStrip`), the eyebrow "Comic", the title, a note: "The comic is made from the shot plan, which isn't ready yet." / "This page updates when planning finishes." |
+| the upload's job `failed` | the script page's failed card, as §4.3 |
+| `shots` set, the upload's job still `queued`/`running` (T026's rendering stage) | the job strip, the title, the note "The comic can be made once the storyboard is finished." / "This page updates when it is.", no button (POST would answer 409 `not_ready`) |
+| `comic` null, `job` null | the note "No comic yet." / "Making one draws each of the {shots} shots again at its panel's size, audits every drawing against the script, and letters the panels with the script's own dialogue." and **Make the comic**; when `can_make` is false, the line "Drawing isn't set up on this server yet, so a comic can't be made here." above the button, which is disabled (every deployment before T026: the real state) |
+| `job` `queued`/`running` (`comic` null) | the strip "Making the comic · {progress}%" with the meter, and the note "Drawing and auditing the panels. The pages appear here when the comic is done." |
+| `job` `failed`, `comic` null | the note with a `--withheld` left rule: `job.error` verbatim (comic.md §4a's copy), "Panels the audit already accepted are reused when you make it again." (comic.md §4a step 1), and **Make the comic again** (disabled, with the "isn't set up" line above it, when `can_make` is false: comic-states.png's last screen) |
+| `comic` set, `job` `done` or null | **the reader** (below). A remake is not offered in this version (§10) |
+| `comic` set, `job` `queued`/`running` or `failed` (a remake started outside the reader, §10) | the reader, with the making strip above it while the job runs, or the failed note above it (no button) when it failed: the previous comic stays readable (comic.md §4a) |
+
+**Make the comic** posts `POST /api/projects/[id]/comic`: "Starting…" while sending; 202 → the
+making row at once (the answer's job) and polling starts; 409 `comic_running` → `router.refresh()`;
+503 `renderer_unavailable` → the "isn't set up" line and the button disabled; 409 `not_ready` →
+`router.refresh()`; 401 → `/sign-in`; anything else → "The comic couldn't be started. Try again." under
+the button, which stays enabled.
+
+**The reader** (comic.png):
+
+- **Layout:** the page (left) and a 340 px rail (right) side by side, centred together on the desk
+  (`grid-template-columns: auto 340px; justify-content: center`). The page is a white sheet with the
+  page shadow, its height `min(100vh − 154px, 1100px)` at the page's aspect ratio (`width / height`
+  from `ComicPage`), the pager under it. The rail: the eyebrow "Comic", the title, the meta line
+  "{n} pages · {panels} panels · made {made_at}" (the projects list's date format), then the
+  **From the script** card, then **Lettering on this page**. The bar's tools hold **Download PDF**, a
+  link to `pdf_url` with `download` (absent until a comic exists).
+- **One page at a time.** `?page=n` (1-based; missing, not a number or out of range → 1, replaced in
+  the URL) so a page can be linked to. **Previous** / **Next** (disabled at the ends) and the ← / →
+  keys (ignored while focus is in a text field) change it with `router.replace`, scroll to the top,
+  clear the selection, and preload the next page's image. "Page {n} of {N}" between them.
+- **Hit areas** over the image, placed by each rect as percentages of the page's `width` and `height`
+  (`left = x / width`, …), so they scale with the image:
+  - per panel, a link to `/projects/[id]/storyboard?shot={shot_id}` labelled "Shot {shot_id} in the
+    storyboard" (", frame not shown" appended when `withheld`: withheld by the audit, or not drawn,
+    T067); hover or focus shows a dashed pencil
+    outline and a "Shot {id}" tag in the corner;
+  - per lettering, a `<button aria-pressed>` labelled "{who}: {text} ({span})", stacked above its
+    panel's link. **DOM order is tab order:** panel by panel in page order, each panel's link then its
+    lettering in order (comic.html is generated in that order).
+  - **Page DOM order** is intro, sheet (page and pager), rail; on wide screens the grid
+    (`grid-template-areas: "sheet intro" "sheet rail"`) shows the intro beside the page, which changes
+    where it is drawn, not the reading or tab order.
+- **Tracing a line (the signature):** selecting a lettering (click, Enter or Space, on the page or in
+  the list) traces it on the page with a 3 px `--pencil` outline and its span in a pencil tag above
+  it, marks its list row (`--pencil-soft`, a pencil inset rule), and fills **From the script**:
+  the `cue` (Courier Prime, indented as a cue), the `text` (Courier Prime), then "{span} · {kind
+  word} · shot {shot_id}" and **Open shot {id} in the storyboard** (the panel's link). A `SCENE`
+  caption shows no cue and reads "{span} · scene heading · shot {id}". Selecting it again or Escape
+  clears it; the card then reads "Select any bubble or caption to see the script line it comes
+  from." The card is `aria-live="polite"`.
+  - **who** (the list's label and the hit area's): `speech` → the speaker; `off_panel` → "{speaker}
+    · off panel"; `voice_over` → "{speaker} · voice-over"; `scene` → "Scene". **kind word**:
+    "speech", "off panel", "voice-over", "scene heading".
+  - Spans use the shared `SpanRef` ("p.2 l.93–94"); quotes the shared Courier `Quote`. Nothing on
+    the rail is ours but the labels: every quoted word is the API's verbatim `text` or `cue`.
+- **Lettering on this page:** one row per lettering of the page, panel by panel in page order and
+  within a panel in `lettering` order (the reading order), each a button with the who, the text and
+  the span. It is also the page's text for a screen reader: the image's `alt` is "Comic page {n} of
+  {N}. Its lettering is listed beside the page."
+- **A withheld panel** is already the withheld card in the page image (comic.md §4 step 6), and a
+  panel whose renderer failed its failed card (T067); the reader adds nothing but the ", frame not
+  shown" in its link's label.
+- **Images:** a plain `<img>` (signed, expiring URLs, as `FrameMedia`). If a page image fails to
+  load, the client fetches `…/comic` once and swaps in the fresh URLs; a second failure shows
+  "This page couldn't be loaded. Reload to try again." in the sheet.
+- **Phone** (comic-phone.png, ≤ 900 px): one column: the intro, the page at full width, the pager,
+  then the two rail cards. Hit areas, keys and selection are the same.
+
 ## 5. State
 
 The project page's view follows the job (deploy.md §5) and its stage:
@@ -633,14 +731,16 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 
 | Method, path | Body | Response | Task |
 |---|---|---|---|
-| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 400 `{error: "no_file" \| "bad_form"}` · 411 `{error: "length_required"}` · 413 `{error: "too_large"}` · 401 `{error: "unauthorized"}` · 503 `{error: "auth_unavailable" \| "storage_unavailable"}` (§6 *API internals*) | T053 |
+| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 400 `{error: "no_file" \| "bad_form"}` · 411 `{error: "length_required"}` · 413 `{error: "too_large"}` · 413 `{error: "too_many_pages", max_pages: number}` (T069) · 429 `{error: "llm_budget_spent"}` · 429 `{error: "upload_limit", per_day: number}` (T069; limits.md §4 gives the order) · 401 `{error: "unauthorized"}` · 503 `{error: "auth_unavailable" \| "storage_unavailable"}` (§6 *API internals*) | T053, T069 |
 | `GET /projects` | — | 200 `ProjectSummary[]`, newest first · 401 · 503 `auth_unavailable` | T053 |
 | `GET /projects/{id}` | — | 200 `Project` | T047 |
 | `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T047 |
 | `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T047 |
 | `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row (no rows exist until T021 writes them) | T047 (creates and reads `frames`) |
-| `GET /projects/{id}/storyboard.pdf` | — | 200 PDF, built on demand (storyboard.md §6 `layout_document`, `render_pdf`) and stored by content hash · 409 unless the job is `DONE` and every shot is settled | T027 |
-| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state · 409 `{"error": "not_ready"}` without a plan or that shot · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
+| `GET /projects/{id}/storyboard/pdf` | — | 200 `{"pdf_url": str}`, a signed URL (an hour) to the PDF, built on demand and stored by its document key (storyboard.md §3.4, §6 `export_pdf`) · 404 `not_found` · 409 `{"error": "not_ready"}` unless the upload's job is `done`, every plan shot has a `frames` row and none is `rendering` or `auditing` · 503 `storage_unavailable` · 503 `{"error": "styles_unavailable"}` when the styles didn't load · 401/503 as every route | T027 |
+| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` or `failed` → `rendering`, under a new `frame_attempt` job; `failed` since T066) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state (the code keeps its T021 name) · 409 `{"error": "not_ready"}` without a plan or that shot · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
+| `POST /projects/{id}/comic` | — | 202 `{job: Job}` (kind `comic`, `RUNNING`) · 404 `not_found` · 409 `{"error": "not_ready"}` (no plan, or the upload's job not `done`) · 409 `{"error": "comic_running"}` · 503 `renderer_unavailable` · 503 `storage_unavailable`, each before anything is written, in comic.md §4a's order · 401/503 as every route | T064 |
+| `GET /projects/{id}/comic` | — | 200 `ComicView` (every URL signed for 3600 s) · 409 `not_ready` before the plan · 404 · 503 `storage_unavailable` when signing fails | T064 |
 
 **The pipeline core** (T043; no database: T046 runs it as a job and writes what it reports, T026
 adds the rendering stage):
@@ -765,7 +865,8 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
   (1) `current_caller` (401/503 as every route).
   (2) The project by owner and its `frames` row for `(scene_index, number)`, locked: missing or
   someone else's → 404 `not_found`.
-  (3) The row not `withheld` → 409 `not_withheld`; the project without a plan, or the plan without
+  (3) The row neither `withheld` nor `failed` (T066) → 409 `not_withheld` (the code keeps its T021
+  name); the project without a plan, or the plan without
   that shot → 409 `not_ready` (a data bug, never sent on to the task).
   (4) Anything the attempt needs missing → 503, nothing written: `app.state.renderer_factory` or
   `app.state.model` None → `renderer_unavailable`; `app.state.store` None → `storage_unavailable`.
@@ -775,7 +876,8 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
   instance would mix projects), in the **default style** (projects store no style yet; T026 may add
   a column and pass it). It is None until T026 sets it in the lifespan.
   (5) A `frame_attempt` job `RUNNING` at stage `rendering`, progress 60; the row → `rendering`,
-  attempt n + 1, that job, `withheld_check` null; commit; 202 with the row's `FrameView`.
+  attempt n + 1, that job, `withheld_check` and `failure` null; commit; 202 with the row's
+  `FrameView`.
   (6) An asyncio task in `app.state.tasks` (as the upload's job, §4.1), with its own sessions from
   `app.state.sessions`: build the renderer, a `FrameWriter(sessions, project_id, job_id)` and
   `frame_hooks(writer, renderer, shot)` (verify.md §6), then `render_until_accepted(...,
@@ -869,6 +971,8 @@ interface ProjectSummary {
   job: Job;                                                                    // the latest storyboard job (never a frame_attempt)
 }
 
+interface StoryboardPdfView { pdf_url: string }                               // T027: a signed URL to the PDF, valid an hour
+
 interface SpanRef { page: number; line_start: number; line_end: number }        // script.md Span
 interface QuoteView { text: string; span: SpanRef }
 interface EntityView {
@@ -915,6 +1019,8 @@ interface AuditView {                    // one frame_audits row (verify.md §6)
     people: { position: "left" | "centre" | "right"; appearance: string }[];
     setting: string; light: string; shot_size: string;
     objects: { name: string; category: string; held: boolean }[]; has_text: boolean;
+    text: string[];                     // T071: the writing the describer read, verbatim; [] before T071
+    signature: boolean;                 // T072: a signature or artist's mark seen; false before T072
   } | null;
   judgement: {
     people: { person: number; character: string | null; support: string | null }[];
@@ -929,6 +1035,30 @@ interface FrameView {
   withheld_check: string | null;         // the first failed hard check, when withheld (or "audit_error")
   failure: "render" | "restart" | null;  // T021: why a failed frame failed (the renderer, or the restart sweep); null unless failed
   audits: AuditView[];                   // [] until T021
+}
+// The comic (T064, comic.md §4a). The gate reads a fixed-length tuple such as
+// [number, number, number, number] as Pydantic's tuple[int, int, int, int].
+type LetteringKind = "speech" | "off_panel" | "voice_over" | "scene";    // comic.md BubbleKind ∪ CaptionKind
+interface LetteringView {                // one bubble or caption (comic.md §6 Bubble, Caption)
+  kind: LetteringKind;
+  speaker: string | null;                // Dialogue.cue verbatim; null for a scene caption
+  cue: string | null;                    // the cue as the script prints it: cue, then " (" extension ")" if any; null for a scene caption
+  text: string;                          // verbatim: Dialogue.text, or the scene caption's words
+  span: SpanRef;
+  rect: [number, number, number, number];   // x, y, w, h in page px
+}
+interface ComicPanelView {
+  shot_id: string;                       // as ShotView.id
+  rect: [number, number, number, number];
+  withheld: boolean;
+  lettering: LetteringView[];            // the SCENE caption, then bubbles and voice-over captions in element order
+}
+interface ComicPageView { number: number; width: number; height: number; image_url: string; panels: ComicPanelView[] }
+interface ComicView {
+  can_make: boolean;                     // a renderer factory, a model and a store: POST …/comic would not answer 503
+  shots: number;                         // panels in a comic of this plan
+  job: Job | null;                       // the latest comic job (its error mapped, comic.md §4a)
+  comic: { made_at: string; pdf_url: string; pages: ComicPageView[] } | null;   // the last finished comic
 }
 ```
 
@@ -953,10 +1083,10 @@ rows, so their builders are T047's (`FrameView`, with `audits` `[]`) and T021's 
 `FrameView` model itself refuses an `image_url` outside `passed`/`warned`, so no builder can send one.
 
 **Web routes** (Next.js App Router): `/sign-in`, `/projects`, `/projects/[id]/script`,
-`/projects/[id]/storyboard` (`?shot=` opens the sheet), `/projects/[id]/comic` (T024; until then
-the tab is disabled, with the tooltip "Comic pages aren't built yet"). `/` has no page: the proxy redirects it (§4.0). Route handlers proxy the API server-side (deploy.md §4): `POST /api/projects`, `GET /api/projects` (the list, polled by `/projects`, §4.1a),
-`GET /api/projects/[id]/status` (T041: the job, for the script page's poll and T042's), `GET /api/projects/[id]/frames`, `GET /api/projects/[id]/storyboard.pdf`,
-`POST /api/projects/[id]/frames/[scene]/[number]/attempts`.
+`/projects/[id]/storyboard` (`?shot=` opens the sheet), `/projects/[id]/comic` (T024, §4.5; `?page=`;
+until T024 the tab is disabled, with the tooltip "Comic pages aren't built yet"). `/` has no page: the proxy redirects it (§4.0). Route handlers proxy the API server-side (deploy.md §4): `POST /api/projects`, `GET /api/projects` (the list, polled by `/projects`, §4.1a),
+`GET /api/projects/[id]/status` (T041: the job, for the script page's poll and T042's), `GET /api/projects/[id]/frames`, `GET /api/projects/[id]/storyboard/pdf`,
+`POST /api/projects/[id]/frames/[scene]/[number]/attempts`, `GET` and `POST /api/projects/[id]/comic` (T024).
 
 **Component tree** (`apps/web/components/`, each built on shadcn/ui primitives restyled with the
 tokens):
@@ -980,6 +1110,11 @@ StoryboardPage
 ├── FailedCard (T041's, from components/script/, for a failed job)
 ├── FrameBoard → SceneHeader, FrameCard (FrameMedia | PendingMedia | WithheldCard | RenderFailedCard)   [T042]
 └── FrameSheet → FrameMedia, SourceBlock, InFrame   [T045], AuditLog → AttemptItem → CheckList   [T061]
+ComicPage   [T024]
+├── JobStrip (shared), FailedCard (T041's), ComicNote (the §4.5 notes and Make the comic)
+├── ComicSheet → page image, PanelHit*, LetteringHit*, Pager
+├── TracedCard (From the script)
+└── LetteringList → LetteringRow*
 shared (components/shared/): Verdict, SpanRef, Quote (Courier), Meter (T040); JobStrip (T041)
 ```
 
@@ -999,12 +1134,19 @@ shared (components/shared/): Verdict, SpanRef, Quote (Courier), Meter (T040); Jo
 | Withheld | "Frame withheld: failed audit ({check in words})" · button "Try another render" ("Starting…") · "Rendering isn't available right now." · "That didn't start. Try again in a minute." |
 | Failed frame (T061) | "The renderer failed on this frame." · "Rendering was interrupted by a restart." |
 | Audit log (T061) | §4.4 step 5's rules, verbatim |
-| Export tooltip | "Available when every frame has settled" (T027) · staged until then: "The PDF export isn't built yet" |
+| Comic (T024) | §4.5, verbatim: the notes, "Make the comic" ("Starting…"), "Make the comic again", "Making the comic · {p}%", "Download PDF", "From the script", "Lettering on this page", the traced line's facts, the page alt text |
+| Upload, the demo's limits (T069, limits.md §6) | `llm_budget_spent` "The demo has used this month's model budget. Your existing storyboards still open; new uploads start again next month." · `upload_limit` "This demo makes {per_day} storyboards a day per account. Try again tomorrow." · `too_many_pages` "This demo takes scripts of up to {max_pages} pages." |
+| Try another render / Make the comic, the budget (T069) | 429 `llm_budget_spent` "The demo has used this month's model budget." |
+| Export tooltip | "Available when every frame has settled" (T027) |
+| Export, while asking | "Making the PDF…" (T027) |
+| Export failed | "The PDF couldn't be made. Try again in a minute." (T027) |
 | Storyboard cards, states, eyebrows | §4.3, verbatim: "Not rendered yet", "Rendering attempt {n} of {max}", "Auditing attempt {n} of {max}", "Render failed", "The renderer failed on this frame.", "Lined script", "speaker on screen", "speaker off screen", "Storyboard" (the failed page's eyebrow) |
 
 Check names in words: `unscripted_person` "unscripted person", `unscripted_object` "unscripted
 object", `text_in_frame` "text in frame", `setting` "wrong setting", `missing_character` "missing
-character", `light` "light", `framing` "framing", `audit_error` "the audit couldn't run".
+character", `light` "light", `framing` "framing", `signature` "artist's signature" (T077),
+`no_character` "no character in frame" (T080),
+`audit_error` "the audit couldn't run".
 
 ## 7. Structure
 
@@ -1036,7 +1178,8 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `components/storyboard/{FrameSheet,SourceBlock,InFrame}*` | new | §4.4 steps 1–4 | T045 |
 | `components/storyboard/AuditLog.tsx` (AttemptItem, CheckList inside), the "Try another render" action (an edit to T042's `FrameCard.tsx`), `apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts` | new | §4.4 step 5; §4.3 retry | T061 (the API side: T021) |
 | `components/storyboard/ExportButton.tsx` | new | §4.3 export, staged (always disabled until T027) | T042 |
-| `apps/web/app/api/projects/[id]/storyboard.pdf/route.ts`, `ExportButton.tsx`'s enable rule | new | §4.3 export | T027 |
+| `apps/web/app/api/projects/[id]/storyboard/pdf/route.ts`, `ExportButton.tsx` and `canExport` (`board.ts`) | new / changed | §4.3 export | T027 |
+| `apps/web/app/projects/[id]/comic/`, `components/comic/*` (ComicPage, ComicNote, ComicSheet, TracedCard, LetteringList, `comic.ts` for the words and the rect percentages), `apps/web/app/api/projects/[id]/comic/route.ts` (GET, POST), `AppBar.tsx` (the Comic tab enabled), `lib/api/types.ts` (§6 comic types) | new | §4.5 | T024 |
 
 ## 8. Decisions & alternatives
 
@@ -1085,7 +1228,16 @@ restyled).
   (not found and unavailable included), `…/frames` fetched on every tick while frames are set (a
   `rendering` → `auditing` change with the same counts reaches the card), an unchanged frame
   keeping its image URL, Export always disabled with its staged tooltip, cards not clickable.
-- **Visual:** each screen side by side with its PNG in §2 at 1440 px (and the storyboard at 390 px),
+- **Comic reader (T024):** vitest + Testing Library: every row of §4.5's page table; Make the comic
+  by status and code; polling only while the comic job is queued or running, `router.refresh()` on a
+  state change; the reader: `?page` parsing and replacing, Previous/Next and the arrow keys (not in a
+  text field), a hit area's percentages from its rect, tab order panel then lettering, selecting
+  from the page and from the list is one selection, the traced card's cue/text/facts and its
+  storyboard link, Escape and re-selecting clear it, the who and kind words for all four kinds, the
+  withheld label, Download PDF only with a comic, one URL refetch on an image error; the route
+  relays GET and POST; the Comic tab enabled. Then on the local stack, a T062 copy's comic (comic.md
+  §4a's local check) read in the browser against comic.png and comic-phone.png.
+- **Visual:** each screen side by side with its PNG in §2 at 1440 px (and the storyboard and the comic at 390 px),
   layout, tokens and copy matching; a difference is fixed in the code or, if the reference is
   wrong, in this doc first.
 - **End to end:** DEMO.md steps 1–4 and 9 on the local stack with a real Supabase project.
@@ -1095,6 +1247,8 @@ restyled).
 - [ ] Upload limits (bytes, pages) and the extraction budget message's page figure: T030 sets them.
 - [ ] How many extra attempts "Try another render" may start per frame (SPEC open question 4).
 - [ ] Who can see a project beyond its owner (SPEC open question 6); this doc assumes owner only.
+- [ ] Remaking a finished comic (after a new upload or a changed plan): the API allows a second
+  `POST …/comic`, which replaces the comic when it finishes; the reader offers no button for it yet (T024).
 - [x] Sign-up: **decided 2026-10-02 by Katlego: off.** Supabase's "Allow new users to sign up" is
   switched off in the dashboard (Katlego; required before the demo URL is public), so the sign-up
   endpoint refuses everyone, publishable key or not; only the secret key

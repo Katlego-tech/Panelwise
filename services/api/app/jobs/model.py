@@ -26,12 +26,13 @@ class JobState(StrEnum):
 class JobKind(StrEnum):
     STORYBOARD = "storyboard"  # the upload's job
     FRAME_ATTEMPT = "frame_attempt"  # one "Try another render" (T021)
+    COMIC = "comic"  # making the project's comic (comic.md §4a, T064)
 
 
 class JobRow(Base):
     __tablename__ = "jobs"
     __table_args__ = (
-        CheckConstraint("kind IN ('storyboard', 'frame_attempt')", name="jobs_kind"),
+        CheckConstraint("kind IN ('storyboard', 'frame_attempt', 'comic')", name="jobs_kind"),
         CheckConstraint("state IN ('queued', 'running', 'done', 'failed')", name="jobs_state"),
         CheckConstraint(
             "stage IS NULL OR stage IN ('parsing', 'extracting', 'planning', 'rendering')",

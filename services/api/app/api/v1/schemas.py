@@ -157,6 +157,8 @@ class DescriptionView(_View):
     shot_size: str
     objects: list[DescribedObject]
     has_text: bool
+    text: list[str] = []  # T071; a row logged before it has none
+    signature: bool = False  # T072; likewise
 
 
 class JudgedPerson(_View):
@@ -210,3 +212,58 @@ class FrameView(_View):
         if self.failure is not None and self.state != "failed":
             raise ValueError("failure is sent only for failed frames")
         return self
+
+
+class StoryboardPdfView(_View):
+    """GET /projects/{id}/storyboard/pdf (T027): a signed URL to the PDF, valid an hour."""
+
+    pdf_url: str
+
+
+# --- the comic (web.md §6 comic types; comic.md §4a; T064) ------------------------------------
+
+type LetteringKind = Literal["speech", "off_panel", "voice_over", "scene"]
+type Rect = tuple[int, int, int, int]  # x, y, w, h in page px
+
+
+class LetteringView(_View):
+    """One bubble or caption of a panel, verbatim from the script, with its span."""
+
+    kind: LetteringKind
+    speaker: str | None
+    cue: str | None
+    text: str
+    span: SpanRef
+    rect: Rect
+
+
+class ComicPanelView(_View):
+    shot_id: str
+    rect: Rect
+    withheld: bool
+    lettering: list[LetteringView]
+
+
+class ComicPageView(_View):
+    number: int
+    width: int
+    height: int
+    image_url: str
+    panels: list[ComicPanelView]
+
+
+class ComicMade(_View):
+    """The last finished comic: its pages and PDF, signed at read time."""
+
+    made_at: datetime
+    pdf_url: str
+    pages: list[ComicPageView]
+
+
+class ComicView(_View):
+    """GET /projects/{id}/comic. Built by `app/comic/views.py`."""
+
+    can_make: bool
+    shots: int
+    job: Job | None
+    comic: ComicMade | None

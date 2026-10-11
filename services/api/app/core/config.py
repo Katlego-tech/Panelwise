@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -24,11 +24,24 @@ class Settings(BaseSettings):
     nebius_model_reasoning: str = "nvidia/nemotron-3-super-120b-a12b"
     nebius_model_vision: str = "deepseek-ai/DeepSeek-V4.1-Flash"
     llm_request_timeout_s: float = 120.0
-    llm_max_attempts: int = 3
+    # T075: a dead connection fails in 10 s, and 5 attempts ride out about 80 s of drops.
+    llm_connect_timeout_s: float = 10.0
+    llm_max_attempts: int = 5
+    # A full render loop's attempts per frame (verify.md §4, T071): 1 while the pass rate is
+    # unknown, so a systematic FAIL isn't paid for three times.
+    render_max_attempts: int = Field(default=3, ge=1, le=3)
 
     # Frames (docs/design/storyboard.md §6). The prompt's word budget, a conservative proxy for the
     # text encoder's token limit: 55 words for CLIP's 77 tokens until T003 picks the model.
     comfyui_max_words: int = 55
+    # The renderer: FLUX.1 [schnell] on fal.ai (storyboard.md §3.5). No key, no renderer: "Try
+    # another render" and "Make the comic" answer 503 and the storyboard job ends at planning.
+    fal_key: str = ""
+    fal_model: str = "fal-ai/flux-2/klein/4b"  # storyboard.md §3.5 (2026-10-11)
+    fal_timeout_s: float = 60.0
+    # Frames drawn at once: fal.ai's limit for a new account is 2 (more are queued against the
+    # timeout); raise it with the account's limit (storyboard.md §3.5).
+    fal_concurrency: int = Field(default=2, ge=1)
     # A directory of private style TOMLs outside the repo; empty means none. Never set on the
     # hosted demo.
     panelwise_private_styles: str = ""
@@ -40,6 +53,17 @@ class Settings(BaseSettings):
     # Below Vercel's ~4.5 MB function body limit, which every upload passes through (web.md §4.1);
     # T030 may lower it.
     upload_max_bytes: int = 4_000_000
+
+    # The hosted demo's limits (docs/design/limits.md, T069); unset or 0: off.
+    llm_monthly_token_cap: int | None = None
+    uploads_per_day: int | None = None
+    upload_max_pages: int | None = None
+
+    @field_validator("llm_monthly_token_cap", "uploads_per_day", "upload_max_pages", mode="before")
+    @classmethod
+    def _blank_is_off(cls, value: object) -> object:
+        # `.env.example` lists the caps with no value: an empty one means off, not an error.
+        return None if isinstance(value, str) and not value.strip() else value
 
     @field_validator("database_url")
     @classmethod

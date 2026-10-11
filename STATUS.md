@@ -3,11 +3,11 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-08 — by Katlego (via Claude)_
+_Last updated: 2026-10-11 — by Tumo (via Claude)_
 
 ---
 
-## ⇄ HANDOFF: none
+## ⇄ HANDOFF: ACTIVE
 
 > Leave this block here even when dormant — it is the first thing every AI reads, and it only
 > works as a signal if it always lives in the same spot. Set it to `ACTIVE` and fill the rows
@@ -16,12 +16,12 @@ _Last updated: 2026-10-08 — by Katlego (via Claude)_
 
 | Field | Value |
 |---|---|
-| Status | 🟢 none |
-| Raised | — (last: 2026-10-03, Katlego (via Claude); picked up 2026-10-05 by Tumo (via Claude), resumed at T040) |
-| Reason | — |
-| Document | — ([docs/HANDOFF.md](docs/HANDOFF.md) kept as the record of 2026-10-03) |
-| Branch | — |
-| Resume at | — |
+| Status | 🟡 ACTIVE |
+| Raised | 2026-10-11, Tumo (via Claude), for Katlego (last before: 2026-10-03, Katlego → Tumo) |
+| Reason | Tumo hands the storyboard, prompt and audit work to Katlego to take further |
+| Document | [docs/HANDOFF.md](docs/HANDOFF.md) |
+| Branch | `main`: everything is merged (PRs #90–#130, today) |
+| Resume at | docs/HANDOFF.md §6 step 1: the first live run of T079 + T080 on the-red-kite (klein, 3 attempts) |
 | Blocking | — |
 
 ---
@@ -39,9 +39,9 @@ _Last updated: 2026-10-08 — by Katlego (via Claude)_
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
-| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Tumo | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ✅ T040 sign-in, projects, upload (PR #64) · ✅ T041 script page (PR #66; design commits from #65, T042 Files fix here) · ✅ compose gives web the publishable pair (PR #67) · ✅ T042 storyboard (PR #69 design, PR #70 code) · ✅ T045 frame sheet (PR #74 design, PR #75 code) · ✅ T061 audit log + "Try another render" (PR #78) |
-| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · 🟡 T062 the architecture check (Tumo, Claude) |
-| `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) |
+| `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Tumo | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ✅ T040 sign-in, projects, upload (PR #64) · ✅ T041 script page (PR #66; design commits from #65, T042 Files fix here) · ✅ compose gives web the publishable pair (PR #67) · ✅ T042 storyboard (PR #69 design, PR #70 code) · ✅ T045 frame sheet (PR #74 design, PR #75 code) · ✅ T061 audit log + "Try another render" (PR #78) · ✅ T024 the comic reader (PR #87; Tumo, Claude) |
+| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021 | Katlego | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · ✅ T062 the architecture check code (PR #82 design, #83 code; Tumo, Claude) · ✅ its live run on the-red-kite (2026-10-09) · 🟡 the browser check of the copy (Tumo) |
+| `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) · ✅ T064/T024 design (PR #85) · ✅ T064 the comic job, store and API (PR #86; Tumo, Claude) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
 | `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · 🔴 T049 audit accuracy blocked on T026 |
 
@@ -54,9 +54,44 @@ _Last updated: 2026-10-08 — by Katlego (via Claude)_
 | Task | What | Where | State |
 |---|---|---|---|
 | T061 | Web: the audit log in the frame sheet, "Try another render", the failed-frame wordings | PR #78, `apps/web/components/storyboard/*` | ✅ merged 2026-10-08 |
-| T062 | The architecture check: the real audit loop on drawn sketches in a throwaway copy of a project, no image model | branch `feat/verify-t062`, `services/api/app/frames/check.py` | 🟡 code written, tests next; the live run waits on Tumo's go-ahead (a few audit calls) |
+| T062 | The architecture check: the real audit loop on drawn sketches in a throwaway copy of a project, no image model | branch `feat/verify-t062`, `services/api/app/frames/check.py` | ✅ code merged (PR #82 design, #83 code) · ✅ live run 2026-10-09: copy `865c0f44…` "the-red-kite (architecture check)", shots 0.1 and 0.2 passed at attempt 1, 0.3 withheld (`audit_error`: attempt 1 FAIL on an unscripted "square outline", attempt 2 an empty vision response); the original untouched · ✅ the copy's frame sheets seen by Tumo in the browser (2026-10-09) |
+| T064 + T024 | The comic: the job that makes, stores and serves a project's comic (T064), then the web reader (T024). Design first, its own PR; then T064's code; then T024's | `docs/design/{comic,verify,web}.md`, `docs/design/web/comic*.png`, TASKS.md | ✅ design merged (PR #85) · ✅ T064 merged (PR #86) · ✅ the local comic check run on the T062 copy (2026-10-09: 5 pages, 21 panels, 3 withheld, ~66 audit calls) · ✅ T024 merged (PR #87) · 🟡 Tumo's look at the reader in the browser beside comic.png / comic-phone.png |
+| T069 | The hosted demo's caps (monthly token budget, 3 uploads a day, 15 pages) and the judge seed (split from T030) | `docs/design/limits.md`, then `feat/demo-limits` | ✅ merged 2026-10-11 (PR #108, #109) |
+| T026 (renderer) | The renderer is fal.ai, model FLUX.2 [klein] 4B since 2026-10-11 (FLUX.1 [schnell] before) (decided by Tumo 2026-10-09; ComfyUI on a Nebius GPU optional, T003), then T026 on it: real frames, Try another render and Make the comic | design PR (storyboard.md §3.5, PLAN, deploy.md, CLAUDE.md's stack line, TASKS T003/T026), then branch `feat/storyboard-t026` | ✅ merged 2026-10-11 (PR #90 design, #91 code; FLUX.2 [klein] 4B by default (Tumo, 2026-10-11)) |
+| T027 | The storyboard PDF: built from the frames rows, two shots a page, the withheld and failed cards, stored by a document key and opened by Export PDF as a signed URL | design PR #96 (on #90), then branch `feat/storyboard-t027` (on #91) | ✅ merged 2026-10-11 (PR #96, #99) |
+| T066 | One failed frame no longer stops the storyboard (only a renderer that looks down does: no frame drawn and three failed); "Try another render" on a failed frame | design branch `docs/storyboard-keep-going` (on #96), then `feat/storyboard-t066` (on T027's code) | ✅ merged 2026-10-11 (PR #100, #101) |
+| T067 | One failed panel no longer stops the comic (only a renderer that looks down does); the failed card | design branch `docs/comic-keep-going` (on main), then `feat/comic-t067` | ✅ merged 2026-10-11 (PR #102, #103) |
+| T073 | The comic draws panels as many at once as the renderer allows (24 min for 15 panels one at a time on 2026-10-10) | `docs/design/comic.md` §4a, §6, §8, §9; `services/api/app/comic/job.py` | ✅ merged 2026-10-11 (PR #112, #113) |
+| T065 | The comic's lettering places a panel's boxes as a set (PR #92's bug: on a detailed frame the first bubble cornered the next and the comic stopped) | `docs/design/comic.md` §4 step 7, then `services/api/app/comic/bubbles.py` | ✅ merged 2026-10-11 (PR #94, #95) |
+| T068 | The gate builds the API's image and imports the app in it, so a broken Dockerfile fails before the host builds main | `scripts/gate.sh`, design branch `docs/gate-image` | ✅ merged 2026-10-11 (PR #104, #105) |
+| T070 | Storage retries a transient error (a 520 lost a paid-for frame in the 2026-10-10 live run) | `docs/design/storyboard.md` §4, §6, §8, §9; `services/api/app/storage/store.py` | ✅ merged 2026-10-11 (PR #110, #111) |
+| T076 | The frame sheet sits above the board: a withheld card's "Try another render" painted through it (Tumo, 2026-10-11) | `apps/web/components/storyboard/FrameSheet.tsx` | ✅ merged 2026-10-11 (PR #122) |
+| T075 | The model client rides out a minute-long network drop: 5 attempts, waits 2 to 16 s, a 10 s connect timeout, at most 2 read timeouts | `docs/design/llm.md` §4, §6, §7, §8, §9; `services/api/app/llm/client.py`, `app/core/config.py`, `.env.example` | ✅ merged 2026-10-11 (PR #120, #121) |
+| T079 | The prompt gives each visible character's sex and look from their introduction; an off-screen line has its listeners on screen | `docs/design/storyboard.md`; `services/api/app/storyboard/{prompt,prompts}.py` | ✅ merged 2026-10-11 (PR #127, #128) |
+| T074 | The prompt gives each visible character's age from the script; the clean style asks for a plain background | `docs/design/storyboard.md` §3.1, §3.2, §6, §8, §9; `services/api/app/storyboard/prompt.py`, `styles/clean.toml` | ✅ merged 2026-10-11 (PR #118, #119) |
+| T071 | The audit fails what the script didn't write, not every mark; `RENDER_MAX_ATTEMPTS`; a re-audit of stored drawings | `docs/design/{verify,web}.md`; `services/api/app/verify/**`, `app/comic/job.py`, `app/frames/views.py` | ✅ merged 2026-10-11 (PR #114, #115) |
+| T080 | The judge refuses a wrong sex or look; a frame with none of the people the prompt drew fails | `docs/design/{verify,web}.md`; `services/api/app/verify/{model,audit,prompts}.py`, `apps/web/components/storyboard/cards.ts` | ✅ merged 2026-10-11 (PR #129, #130) |
+| T078 | A part of a shot's prop is that prop (a kite string of the RED KITE); the describer leaves out the drawing's own marks | `docs/design/verify.md`; `services/api/app/verify/{prompts,audit}.py` | ✅ merged 2026-10-11 (PR #123, #124) |
+| T077 | A signature warns; it no longer withholds a frame (re-judged: klein 2 → 6 of 22 accepted) | `docs/design/{verify,web}.md`; `services/api/app/verify/{model,audit}.py`, `apps/web/components/storyboard/cards.ts` | ✅ merged 2026-10-11 (PR #125, #126) |
+| T072 | The judge: a wrong age is not the character; ordinary things are set dressing, weather an event; a signature fails | `docs/design/{verify,web}.md`; `services/api/app/verify/**` | ✅ merged 2026-10-11 (PR #116, #117) |
 
-Claimed files: `apps/web/**`, `services/api/app/frames/**`, `services/api/app/verify/loop.py`. Everything else is open.
+**📝 Katlego: why Tumo took the audit wording fix (T071) from the `verify` lane (2026-10-10).**
+Tumo's live test (lost-property, fal schnell, the storyboard then the comic) drew 257 frames and
+accepted 3. 237 of the 249 FAILs had text, mostly words our own prompt asks for ("lost property
+office", "night"), and 172 failed only on text or objects such as a jacket, a pocket or the
+office's own sign. Your wording fix (eval.md §6a.6) is the cure, but it was never pushed and it
+waits on T049, which sits on #98 (Workers AI). We could not test anything further without it, so
+we wrote it as T071 on `main`, using nothing from #97/#98, and measure it on the stored frames
+with a re-audit instead of new drawings. The text rule (only legible words that aren't the
+script's own fail) was Tumo's call. Please review the PRs; if your local version differs, tell
+us what it does better and we fold it in. T049's numbers will still say how well it works.
+**T072 follows from the-red-kite's run after T071**, and your labels back it: 14 of your 27 frames
+drew the wrong age and 15 had a signature or scribble, the two things T072 makes the audit catch.
+We score T071 and T072 against your labels (your frames are in the dev bucket; the script stays
+local, nothing of #107 is copied). A suggestion: `collect` and `run` don't need Workers AI, only
+`inject` does, so T049 could land on `main` without waiting for the renderer decision.
+
+Claimed files: `apps/web/**`, `services/api/app/frames/**`, `services/api/app/verify/loop.py`, `services/api/app/comic/**`, `services/api/migrations/versions/0005_*`, `services/api/app/jobs/model.py`. Everything else is open.
 
 **Done since your handoff (2026-10-03), all merged:** the web app end to end on the local stack —
 sign-in, projects + upload (T040), the script page (T041), the storyboard with the lined script
@@ -120,6 +155,8 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 - **Pipeline core (T043):** `app/projects/pipeline.py` — `run_pipeline(pdf, model, on_advance=...)` parses, extracts and plans, announcing each stage with its web.md §3 progress band and the result before it; every failure is a `PipelineError(stage, message)` with web.md §4.1's copy, chosen by code or type (the chunk budget is checked before any model call). No database: T046 runs it as a job. `Screenplay.page_starts`, `ScriptParseError.code`, `ExtractionError.scene`, `ShotError.scene`. Live: `uv run python -m app.projects.run <script.pdf>`.
 - **API schemas and views (T044):** `app/api/v1/schemas.py` — every web.md §6 response type as a Pydantic model (a test parses the doc's TypeScript and compares fields, nesting, nullability and unions); `FrameView` refuses an image outside passed/warned. `app/projects/views.py` — pure builders for lines, scenes (`time_carried`), entities, report and shots (`segments`, off-screen dialogue marked). T047 serves them.
 - **Frame audit (T020):** `app/verify` — `audit_frame`: a vision model (DeepSeek-V4.1-Flash) describes the frame blind to the shot, Nemotron 3 Super judges it against the shot's grounded spec, code runs the 7 checks (hard: unscripted person/object, text in frame, setting; soft: missing character, light, framing) and gives PASS / WARN / FAIL; any failed call is ERROR, never a pass. Live: `uv run python -m app.verify.run <script.pdf> <scene>.<shot> <frame.png>`. Design: [docs/design/verify.md](docs/design/verify.md).
+- **The comic job (T064):** `app/comic/{job,views,check,rows}.py`, migration `0005` — `POST /projects/{id}/comic` checks in order (404, 409 `not_ready`/`comic_running`, 503) and runs the job: every panel drawn at its rect through `render_until_accepted` and audited (attempts in `frame_audits` as `comic`), a re-run reusing panels the audit accepted at that size; pages and PDF stored by content hash, one `comics` row per project. `GET` gives `ComicView`, signed. Until T026 sets a renderer, the app answers 503; `python -m app.comic.check <T062 copy>` makes a comic with the sketch renderer (run on the-red-kite's copy 2026-10-09). Design: comic.md §4a.
+- **Comic reader (T024):** `/projects/[id]/comic` — one API-rendered page at a time (`?page=`, ← →), every bubble and caption traceable to its verbatim script line, span and storyboard shot; Make the comic, the making strip, every no-comic state. web.md §4.5; comic.png.
 - **Comic lettering and export (T023):** `app/comic/{bubbles,render}.py` — every covered line of dialogue lettered verbatim with its span (speech, off-panel, voice-over caption; scene captions), placed by image detail on a 12 × 8 grid, 32 then 28 px or `ComicError`; withheld frames drawn as the card, never their pixels; pages → PNG, 300 dpi PDF, reader JSON. Reference pages: `docs/design/comic/the-red-kite-page-*.png` (fixture frames). Real renders wait on T026.
 - **Designs (all agreed):** script, grounding, llm, shots, verify, comic, characters, deploy, storyboard, **web** ([docs/design/web.md](docs/design/web.md): visual reference `docs/design/web/*.png` + HTML mockups; the storyboard is a lined script).
 - **Prompt redaction, extended (T048, T050, T051, T052):** a line-break hyphen joins in element text (`sea-green`); a title goes with its name ("MR. DUBE" → "a person"); extraction grounds an animal's `species` and other names (nicknames, a toy's name); frame prompts label them — "the ginger cat", "the giraffe", `it` when unsure — and count only people as figures; the audit expects an animal as an object. `app/characters/labels.py`. Residual: a name the extraction misses still reaches a prompt (samples/README.md).
@@ -133,6 +170,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 - FrameFlow (private, `Katlego-tech/FrameFlow`) is the source for every ported module. Both of us have access.
 - Nebius Token Factory: $25 promo (`NEBIUS-DEVPOST-GLOBAL26`) + $25 from the AI Builder Program. Keys go in `.env`, never in the repo.
 - **Local machine, 2026-09-30:** at the user's request, the Lefika Logic dev servers (ports 3000, 3001) were stopped and FrameFlow's `frameflow-db` / `frameflow-cache` containers were stopped (not removed; `docker start frameflow-db frameflow-cache` brings them back). Panelwise's own stack is down too.
+- **Port 5432 on Tumo's machine (2026-10-09):** a native Windows Postgres listens on `0.0.0.0:5432`, so a host-side command (`uv run python -m app.…`) does not reach compose's database (password refused). Run such commands in the compose `api` container instead: `docker compose exec -e NEBIUS_MODEL_VISION=deepseek-ai/DeepSeek-V4.1-Flash api .venv/bin/python -m app.frames.check <project-id>`.
 - **Local `.env`:** `NEBIUS_MODEL_VISION=` is set but empty, which overrides the default. Set it to `deepseek-ai/DeepSeek-V4.1-Flash` or delete the line before running the audit.
 - The original Nebius migration plan (unknowns U1–U6, model tiers, costs) is in
   `~/Documents/projects/personal/frameflow-nebius-hackathon/PLAN.md` on Katlego's machine.
@@ -173,6 +211,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
+- 2026-10-11 — Tumo (via Claude) — merged T026 (fal.ai, now FLUX.2 [klein] 4B), T027, T065–T080 into main (#90–#130); closed #97/#98 in favour of fal with klein; handoff to Katlego raised (docs/HANDOFF.md). Next: §6 step 1, the live T079 + T080 run. Blocked on: nothing.
 - 2026-09-27 — Katlego (via Claude) — scaffold, disclosure note, lanes and Phase 1 task list. Next: T001 + T002. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — drafted the Devpost story in `docs/submission/about.md` (`eval+submission`, unclaimed; ⟨TBD⟩s filled by T033–T035). Next: T001 probe. Blocked on: Token Factory key in `.env`.
 - 2026-09-28 — Katlego (via Claude) — T001 done: `docs/nebius-findings.md` (json_schema enforced, thinking off works, one host, no image gen, no NVIDIA vision → option A). ~$0.004 of trial credit. Next: T004. Blocked on: nothing.

@@ -13,7 +13,8 @@ docs only: no data, domain or running service moves
 
 Where Panelwise runs once it leaves a laptop, and what each hosted service is for. It replaces
 PLAN.md's earlier target ("API + web on Nebius; Postgres + Redis self-hosted"). **Not covered:**
-ComfyUI on the Nebius GPU (T003, `infra/nebius/`), which is unchanged.
+the image renderer: FLUX.1 [schnell] on fal.ai (storyboard.md §3.5, decided 2026-10-09), with
+ComfyUI on a Nebius GPU kept as an optional backend (T003).
 
 | Piece | Runs on | Why |
 |---|---|---|
@@ -24,10 +25,10 @@ ComfyUI on the Nebius GPU (T003, `infra/nebius/`), which is unchanged.
 | Sign-in, seeded judge account | **Supabase Auth** | T030 needs a judge login in the testing instructions |
 | Job status and progress | **a Postgres table** | replaces Redis: one fewer service to host and pay for |
 | Models | Nebius Token Factory | unchanged; this call is what satisfies "runs on Nebius" |
-| Rendering | ComfyUI on a Nebius AI Cloud GPU (T003) | unchanged |
+| Rendering | FLUX.1 [schnell] on **fal.ai** (storyboard.md §3.5; ComfyUI on a Nebius GPU optional, T003) | changed 2026-10-09: Token Factory has no image model, a GPU kept up to 15 Dec costs ≈ $2,500, Cloudflare's FLUX takes no seed or size |
 
 **Hackathon rules still hold:** "runs on Nebius" means a runtime Token Factory call *or* Nebius
-compute. Panelwise makes both (Nemotron calls, ComfyUI GPU). Hosting the app elsewhere is allowed
+compute. Every Nemotron call is a Token Factory call; rendering on fal.ai doesn't change that. Hosting the app elsewhere is allowed
 (frameflow-nebius-hackathon/PLAN.md, rules). The demo must stay up, free, until 15 Dec.
 
 ## 2. Reference material
@@ -91,6 +92,8 @@ sequenceDiagram
 - **Secrets by place:** `SUPABASE_SECRET_KEY`, `DATABASE_URL`, `NEBIUS_API_KEY` live only on
   Render. `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` live on Vercel.
   `API_URL` (server-only, Vercel) points at the Render domain (`https://<name>.onrender.com`).
+- **`FAL_KEY`** (the renderer's, storyboard.md §3.5) is a secret of the API host only, like
+  `NEBIUS_API_KEY`; it never reaches Vercel or a browser.
 
 **Failure paths:** the API down → the web health route answers 502 (already built); Supabase
 Postgres down → the API health answers 503 `degraded`; a Render deploy whose instance isn't
@@ -131,6 +134,10 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | web (Vercel) | Auth in the browser (T040) |
 | `API_URL` | web, server-side only | the Render domain, no trailing slash |
 | `NEBIUS_*`, `LLM_*` | API only | unchanged (docs/design/llm.md) |
+| `FAL_KEY` | API only, secret | fal.ai's key; unset, no renderer (storyboard.md §3.5, T026) |
+| `FAL_MODEL`, `FAL_TIMEOUT_S`, `FAL_CONCURRENCY` | API | default `fal-ai/flux-2/klein/4b` (2026-10-11), 60 s, 2 (storyboard.md §3.5) |
+| `LLM_MONTHLY_TOKEN_CAP`, `UPLOADS_PER_DAY`, `UPLOAD_MAX_PAGES` | API only | the hosted demo's limits (limits.md, T069); unset or blank: off |
+| `JUDGE_EMAIL`, `JUDGE_PASSWORD` | local only | the judge seed (`python -m app.demo.seed`, limits.md §4); never the hosted API's environment |
 | `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget, default 55 (storyboard.md §3.1, T008) |
 | `PANELWISE_PRIVATE_STYLES` | API, optional | a directory of private style TOMLs outside the repo; **never set on the hosted demo** (storyboard.md §3.2, T008) |
 | `REDIS_URL` | — | **removed** |
@@ -292,6 +299,29 @@ has Docker; `ci.yml` needs no service of its own):
   `--install-deps`. The host port is Docker's choice (`-p 127.0.0.1::5432`), read back with
   `docker port`. One `trap … EXIT` stops the container on every exit path, including the early
   `exit 1`s.
+
+**The image (T068, 2026-10-10).** The API is deployed from its Dockerfile, built by the host from
+`main` (Railway, or Render in T063). A Dockerfile that no longer builds, or an image missing a module
+or a file the app needs, would otherwise be found only there, after the merge. So the gate builds it
+too:
+- For each **Python** project directory with a `Dockerfile` (today `services/api`; the web's
+  Dockerfile serves compose only, and Vercel builds the web itself), `docker build` with that
+  directory as the context, as compose builds it, tagged `panelwise-gate/<dir name>:check`; then
+  one `docker run --rm --entrypoint .venv/bin/python` of the image (the entrypoint set, so a future
+  `ENTRYPOINT` such as a migrate-then-serve script never runs here) with a probe that imports
+  `app.main` and asserts the files the app reads at run time are in the image: the comic font
+  (`app.comic.layout.FONT_PATH`), `alembic.ini` and `migrations/env.py`. Both count as one check; the
+  image is removed afterwards.
+- **Not yet probed: the public styles** (`PUBLIC_STYLES`, storyboard.md §3.2). Today's image doesn't
+  ship them (compose mounts `./styles`; the hosted API would run with no renderer), so probing them
+  would fail `main`. The renderer PR that ships them in the image (#98 moves them into
+  `services/api`; #91's line otherwise) adds `load_styles(PUBLIC_STYLES, None)` to the probe.
+- Docker is required: without it the check **fails** ("Docker is needed to build the API's image"),
+  never a skip, as for the test Postgres.
+- It runs after the per-project checks, once per Dockerfile, on **every** run of the gate, including
+  CI's `--changed-files` runs and docs-only pushes (the change list feeds only the sweeps), and not
+  for `--list` or `--install-deps`. Docker's layer cache keeps a re-run to seconds; a cold build (CI)
+  is a minute or two.
 
 ## 7. Structure
 

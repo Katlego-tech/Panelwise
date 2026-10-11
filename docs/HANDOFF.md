@@ -1,128 +1,97 @@
 # `Panelwise` — Handoff
 
-**Written:** 2026-10-03 · **Branch:** `main` (everything merged; nothing unpushed) · **By:** Katlego (via Claude)
+> The record of 2026-10-03's handoff (Katlego → Tumo) is in git history: `git log -- docs/HANDOFF.md`.
+
+**Written:** 2026-10-11 · **Branch:** `main` (everything is merged) · **By:** Tumo (via Claude), for Katlego
 
 ---
 
 ## 1. What is done
 
-| Area | Status |
-|---|---|
-| Parser, grounding, shot planner, frame prompts, frame audit, comic layout + lettering, eval (T005–T008, T020, T022, T023, T031, T032, T039, T043, T044, T048, T050–T052) | ✅ merged |
-| Supabase project (eu-west-1, Postgres 17.11): private buckets `panelwise` + `panelwise-dev`, email Auth, dev user, sign-up **off** decided | ✅ (Katlego must flip the dashboard switch; see §8) |
-| **T009** database foundation: Alembic, `projects`/`jobs`, RLS on every table, restart sweep, the gate's own test Postgres | ✅ PR #51; migrated on Supabase |
-| **T053** token check (local ES256 JWKS), `SupabaseStore`, `POST`/`GET /api/v1/projects` | ✅ PR #52 |
-| **T046** `run_job`: the upload's job runs parse → extract → plan, `codec.py` | ✅ PR #53 |
-| **T047** `GET /projects/{id}`, `/lines`, `/shots`, `/frames`; `frames` table (migration 0002) | ✅ PR #55; migrated on Supabase |
-| **T040–T045** web screens (Next.js) | ❌ not started — **next** |
-| T021 re-render loop, T024 comic reader | ❌ not started (after T045) |
-| T003 GPU / T026 renderer / T027 storyboard PDF / T025 portraits / T049 audit accuracy | ❌ blocked on GPU access; interim renderer proposed (§8) |
-| T037 deploy check / T030 hosted demo | ❌ blocked on Vercel + Railway accounts |
-| T033 README | ⚠️ draft PR #36 waits on Katlego's feedback section |
-| T055 `braces` advisory | ⚠️ accepted in `osv-scanner.toml` until 2026-10-31 |
+All of this is on `main`, each change gated and independently reviewed. Run `bash scripts/gate.sh`: 11 checks, 1,042 API tests and 338 web tests on the day of writing.
 
-**How to verify the current state is green:** `bash scripts/gate.sh` (Docker running) →
-`== gate passed (10 check(s) run across 2 project(s))`, ~700 API tests including the `db` ones.
+- **The renderer (T026, #90/#91).** fal.ai, with **FLUX.2 [klein] 4B** as the default `FAL_MODEL`. Your klein choice in #97/#98 was right; fal won only because it was already built and live-tested. #97/#98 are closed with a note.
+- **The storyboard.**
+  - **T027 (#96/#99):** the PDF export.
+  - **T066 (#100/#101):** one failed frame no longer stops the board.
+  - **T070 (#110/#111):** Storage retries a transient error.
+- **The comic.**
+  - **T067 (#102/#103):** one failed panel no longer stops the comic.
+  - **T073 (#112/#113):** panels render as many at once as the renderer allows; 5 min instead of 38.
+  - **T065 (#94/#95):** lettering is placed as a set (your #92 repro).
+- **The prompt (storyboard.md §3.1).**
+  - **T074 (#118/#119):** each visible character's age from their introduction (`LERATO (10)` → "a 10-year-old").
+  - **T079 (#127/#128):** their sex from the introduction's own pronouns ("a 10-year-old girl"); their look, verbatim ("braids tied back"); listeners on screen for a line spoken off screen.
+- **The audit (verify.md).**
+  - **T071 (#114/#115):** only legible text the script didn't write fails; `RENDER_MAX_ATTEMPTS`; `python -m app.verify.reaudit`.
+  - **T072 (#116/#117):** the judge refuses a wrong age, knows set dressing, and treats weather as an event.
+  - **T077 (#125/#126):** a signature only warns (Tumo's decision).
+  - **T078 (#123/#124):** a part of a shot's prop counts as that prop ("kite string"); the describer skips the drawing's own marks.
+  - **T080 (#129/#130):** the judge refuses a wrong sex or look; a frame with none of the people the prompt drew fails `NO_CHARACTER`.
+- **Plumbing.**
+  - **T075 (#120/#121):** model calls ride out a minute of dropped connections.
+  - **T076 (#122):** the frame sheet sits above the board.
+  - **T068 (#104/#105):** the gate builds the API image.
+  - **T069 (#108/#109):** the hosted demo's caps and judge seed; migration `0006`.
+- **Not started:** everything in §6.
 
 ## 2. Decisions already locked (do not relitigate)
 
-| Decision | Choice | Why |
-|---|---|---|
-| DB tests | the gate starts a throwaway `postgres:17.11-trixie`; CI uses the same path (runner has Docker); no Docker → gate **fails** | option A (Katlego 2026-10-01); one source for hook and CI |
-| Postgres version | **17.11** everywhere (compose, PLAN, tests) | matches Supabase (Katlego 2026-10-02) |
-| gate.sh change | merged under Katlego's AGENTS.md §4 lead exception (STATUS log, PR #51) | Katlego, 2026-10-02 |
-| Sign-up | **off**; judges use T030's seeded account(s), credentials only in Devpost's testing instructions | Katlego 2026-10-02 (web.md §10) |
-| Token check | local ES256/RS256 verification against the project JWKS (PyJWT); refetch ≤1/min behind a lock; outage → 503 never 401 | web.md §6 *API internals* |
-| RLS | on for every `public` table incl. `alembic_version`, no policies, anon/authenticated revoked via `migrations/helpers.py::lock_down` — **every new migration that creates a table must call it** | deploy.md §6 |
-| Migrations | Alembic; Railway pre-deploy `/srv/api/.venv/bin/alembic -c /srv/api/alembic.ini upgrade head`; never at app startup | deploy.md §6 |
-| Errors | `{"error": "<code>"}` via `app/api/errors.py::ApiError`; one 404 `not_found` for malformed/missing/foreign ids | web.md §6 |
-| Animals / named props in prompts | grounded `species` + `other_names`; labels `the <species>` / `the <prop>` / `it` | Katlego 2026-10-01 (T051/T052) |
-| Design first | a design gap gets its own docs PR before code (CLAUDE.md) | every T0xx this session followed it |
-
-**Non-negotiables still in force:** a panel never shows a character, prop, line or event not in
-the screenplay — every panel traces to a verbatim span (PLAN.md Non-negotiable 1). No copyrighted
-scripts anywhere.
+- **fal.ai with klein** (Tumo, 2026-10-11). On the-red-kite at 3 attempts a frame it accepted **15 of 22** frames, against 3 of 21 for schnell. `FAL_MODEL` makes the model one setting.
+- **A signature only warns** (T077, Tumo). It is no character, prop, line or event. Legible words read inside it still fail as text.
+- **Every word in a prompt traces to the script.** The age, sex word and look come only from the line that introduces the character (storyboard.md §3.1's invariant, tested).
+- **The audit is measured on stored drawings first.** Same prompt and seed give the same drawing, so `reaudit` and the scorecard test an audit change for free. Only a prompt or renderer change needs new drawings.
 
 ## 3. Environment — how to run it
 
-```bash
-# API (services/api, Python 3.14, uv). Secrets live in the repo-root .env (gitignored).
-cd services/api && uv sync
-bash ../../scripts/gate.sh                       # everything; needs Docker running
-
-# DB tests by hand: a Postgres whose database name ends in _test (the fixture refuses others)
-docker run -d --rm --name pw-test -e POSTGRES_PASSWORD=t -e POSTGRES_DB=panelwise_test \
-  -p 127.0.0.1:55433:5432 postgres:17.11-trixie
-TEST_DATABASE_URL=postgresql://postgres:t@127.0.0.1:55433/panelwise_test uv run pytest -q tests/db
-
-# Live against Supabase: SUPABASE_DB_URL is the session pooler (DATABASE_URL in .env stays local)
-DATABASE_URL="$(grep ^SUPABASE_DB_URL= ../../.env | cut -d= -f2-)" uv run alembic upgrade head
-DATABASE_URL="$(grep ^SUPABASE_DB_URL= ../../.env | cut -d= -f2-)" HEALTH_CHECK_TIMEOUT_S=10 \
-  uv run uvicorn app.main:app --port 8013 &  echo $! > /tmp/api.pid   # stop with kill $(cat /tmp/api.pid)
+```
+bash scripts/gate.sh        # with TEST_DATABASE_URL=postgresql://…/panelwise_test PANELWISE_REQUIRE_DB=1
+python -m app.verify.reaudit <project-id> [--target storyboard|comic] [--limit N]   # writes nothing
 ```
 
-- `.env` keys: everything in `.env.example`, plus local-only `SUPABASE_DB_URL`,
-  `PANELWISE_DEV_EMAIL`, `PANELWISE_DEV_PASSWORD` (the dev user for live checks).
-  `SUPABASE_STORAGE_BUCKET=panelwise-dev` locally.
-- Port **5432** on Katlego's machine belongs to another project's container (`alfred-postgres-1`):
-  use `POSTGRES_HOST_PORT` for compose; don't stop alfred.
-- Web (`apps/web`, Next.js 16, pnpm): only `/api/health` exists so far.
+- **Live settings:** `FAL_KEY`; `FAL_MODEL` (default klein); `FAL_CONCURRENCY=2`; `RENDER_MAX_ATTEMPTS` (1–3, default 3); `NEBIUS_MODEL_VISION=deepseek-ai/DeepSeek-V4.1-Flash`; `LLM_MAX_ATTEMPTS` (default 5, so an old `.env` saying 3 overrides it).
+- **Run gates one at a time.** Never run two DB test suites at once on one test Postgres: they collide.
+- **New worktrees:** run `pnpm install --frozen-lockfile` in `apps/web`, or the gate's web checks don't run.
 
 ## 4. Verified facts
 
-| Fact | Value | How confirmed |
-|---|---|---|
-| Supabase token format | ES256, `kid` in header, JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`; claims aud `authenticated`, iss `{url}/auth/v1`, `role`, `is_anonymous`, 1 h lifetime | decoded the dev user's token, 2026-10-02 |
-| Storage quirks | duplicate upload → **400** with body `"statusCode":"409"`; missing object GET → 400 with `"404"`; HEAD missing → bare 400 | live probe, 2026-10-02 (encoded in `SupabaseStore`) |
-| Supabase DB from South Africa | cold connection 2–4 s (> the 2 s health timeout) — use `HEALTH_CHECK_TIMEOUT_S=10` locally | live, 2026-10-02 |
-| RLS on Supabase | Data API: anon 401, signed-in user 403 on `projects`, `jobs`, `frames`, `alembic_version` | live, 2026-10-02/03 |
-| Full live run | `the-red-kite` via the real API: queued → parsing → extracting 5 → planning 40 → done 60 in ~40 s; 5 pages, 5 scenes, 22 shots, faithfulness 1.0 | live, 2026-10-03 |
-| Token Factory image models | **none** (catalog and `/images/generations` both checked) | live, 2026-10-03 |
-| Cloudflare FLUX.1 [schnell] price | 1024×576 @ 4 steps = 48 neurons ≈ $0.0005; ~200 frames/day free | Cloudflare's own pricing page, 2026-10-03 |
-| Supabase is empty | 0 projects, 0 jobs, 0 frames; test users deleted (the dev user remains) | after the T047 live check |
+- **klein's sizes.** It draws in multiples of **32**, so 1280 × 720 comes back 1280 × 736. `fit` crops it, and the size check accepts up to 31 px more than asked.
+- **Run-to-run noise.** The judge's verdicts move by about ±1–2 frames per run on everyday objects. Compare runs on the same stored drawings, not single numbers.
+- **Cost.** A red-kite run at 3 attempts is about 49 drawings.
+- **Where frames still fail** (klein run, after T077):
+  - unscripted everyday objects (the judge), about two-thirds of withholds;
+  - painted text;
+  - an occasional invented person.
+- **T080 on that run's stored drawings.** It caught the empty roof (1.3) and some boys drawn as Lerato. It still accepted the boy in 3.1, 4.1, 4.4 and 5.1: the judge only sees Lerato's extracted quotes. T079 fixes this at the source, but it is not yet measured live (§6, step 1).
+- **The labelled frames.** On your 27 labelled frames (eval.md §6a) T078 gave 23/27 agreement. T077 lowers agreement by 2, because your labels count a signature as bad. Relabel those two as a note, or keep them and read the number knowing why.
 
 ## 5. Corrections
 
-- **Previously said:** the gate passing locally means a PR is complete. **Actually:** an
-  unanchored `storage/` rule in `.gitignore` hid `app/storage/` from PR #52, and ruff skips ignored
-  files. **Impact:** fixed (`/storage/`); check `git check-ignore -v` on new directories.
-- **Previously said (STATUS, 2026-10-01):** PR #31 merged after review. **Actually:** merged before
-  its CI finished (CI passed after). Recorded in STATUS.
+- I said #91 "runs klein with no code change". It didn't: the size check refused 736. Fixed in #91 before merging.
 
 ## 6. Next steps, in order
 
-1. **T040** (web: tokens, sign-in, projects list, upload). Read TASKS.md T040 and web.md §4.0
-   (sign-in), §4.1 (upload), §5–§7 and the visual references `docs/design/web/signin.png`,
-   `docs/design/web/projects.png` and `docs/design/web/mockups/tokens.css`. Load the `frontend-design` skill first (CLAUDE.md). The API it
-   calls is merged: `POST`/`GET /api/v1/projects` with `Authorization: Bearer <Supabase token>`;
-   the browser never calls the API directly (Next.js route handlers do, server-side).
-2. T041 script page → T042 storyboard board → T045 frame sheet, each against its PNG reference.
-3. If Katlego approves the Cloudflare renderer: a design PR for an interim `Renderer` (verify.md's
-   Protocol) beside ComfyUI, a plan-change note, then T026's pieces that don't need the GPU.
-4. Then T021 (needs T045) and T024.
+1. **The first live run of T079 + T080.** Upload the-red-kite (klein, 3 attempts, about $0.15–0.20) and check:
+   - that Lerato is drawn as a girl with braids;
+   - that shot 1.3 shows her;
+   - how many of 22 frames are accepted (15 before).
+2. **Re-point #107 (T049) at `main`.** Its base, `feat/t026-workers-ai`, is closed. Then re-run the scorecard with the new audit.
+3. **The judge on everyday objects**, the biggest remaining lever. A wording that called everyday things set dressing gained nothing and let a wrong person through (verify.md §8). Measure any idea on stored drawings first.
+4. **Lettering vs signature.** Since T077, gibberish lettering the describer calls a signature only warns (the klein run's 4.2).
+5. **Props a shot needs but the frame lacks** ("the kite under her arm"). Nothing checks this yet.
+6. **Weather.** "A storm" in the script doesn't yet support a drawn lightning bolt.
+7. **Deploy.**
+   - Hosted settings: `FAL_KEY`, `FAL_MODEL`, `RENDER_MAX_ATTEMPTS=3`.
+   - Render vs Railway: your #80/#81, conflicting now.
+   - Batch-sign frame URLs: the board takes 7–29 s to load.
 
 ## 7. Gotchas
 
-- **Never `pkill -f "<pattern>"` in a command whose text contains the pattern** — it kills the
-  shell (exit 144) and the rest silently doesn't run. Kill by PID.
-- **A new table needs `lock_down()`** in its migration, or Supabase exposes it to the publishable
-  key. `tests/db/test_schema.py` fails if any public table has RLS off.
-- **Models must match migrations**: `Base.type_annotation_map` maps `str`→TEXT,
-  `datetime`→timestamptz; a drift test compares models and the migrated DB.
-- **Timestamps use `clock_timestamp()`**, not `now()` (rows in one transaction would tie).
-- **POST /projects has no `UploadFile`/`Form` parameter on purpose** — FastAPI would read the body
-  before auth. Order: auth → storage → Content-Length → `request.form` → size → `%PDF-`.
-- **Route ids are `str`** parsed by hand (a typed UUID gives FastAPI's 422, not our 404).
-- Code reviewers need their own detached worktree; never switch branches under them.
-- STATUS/TASKS conflicts: see the memory notes; grep for duplicates before committing.
+- **Stacked PRs and STATUS/TASKS conflicts.** Every PR adds a row near the same anchors. Merge `main` in and keep both rows, checking for duplicates.
+- **`_ACTION_FLOOR`.** Looks give way to the 55-word budget and keep 12 words for actions. Don't make `LOOK` a fixed part: a two-character shot would exceed 55 and fail to render.
+- **The deferred import.** `audit_frame` imports `visible_characters` inside the function, because `app.storyboard`'s renderer modules import `app.verify`.
 
 ## 8. Open questions
 
-- **Interim renderer:** FLUX.1 [schnell] on Cloudflare Workers AI recommended; needs Katlego's
-  Cloudflare account (token + account ID in `.env`) and a plan change (the locked stack names
-  ComfyUI on a Nebius GPU). Not started.
-- **Sign-up switch:** decided off, but Katlego still has to disable "Allow new users to sign up"
-  in the Supabase dashboard; nobody has confirmed it. Check with a sign-up call (expect a refusal).
-- **Devpost rules** must accept a login for the demo ("free and unrestricted"): unchecked (T030).
-- **T033 feedback section** (PR #36) and the two wording calls in STATUS ⚠️: Katlego's.
-- **T055:** if no `braces` fix exists by 2026-10-31 the exemption expires and the gate fails.
+- Should "every shot character missing" also count characters the prompt didn't draw? T080 says no, on purpose.
+- Should the comic run at 3 attempts too? It does now (`RENDER_MAX_ATTEMPTS`); watch the spend.
