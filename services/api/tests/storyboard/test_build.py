@@ -250,13 +250,22 @@ async def test_a_frame_still_in_its_audit_counts_as_drawn(
     first = plan.shots[0]
     plan = replace(plan, shots=tuple(replace(first, number=n) for n in range(1, 6)))
     screenplay, extraction = load_screenplay(row.screenplay), load_extraction(row.extraction)
-    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fal))
+
+    async def refusals_take_a_moment(request: httpx2.Request) -> httpx2.Response:
+        # A refusal comes back over the network too: without this, three instant 401s could land
+        # before the first frame's fetch and store reach its audit (main's CI, 2026-10-11).
+        response = fal(request)
+        if response.status_code >= 400:
+            await asyncio.sleep(0.2)
+        return response
+
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(refusals_take_a_moment))
     renderer = FalRenderer(
         style=STYLE, store=store, screenplay=screenplay, extraction=extraction,
         client=client, key="k",
     )  # fmt: skip
     fal.statuses = [200, 401, 401, 401, 401]
-    scripted.delay = 0.5
+    scripted.delay = 1.0  # the first frame is still in its audit while the others fail
     board = await build_storyboard(
         make(Models()), renderer, plan, screenplay, extraction,
         writer=FrameWriter(sessions, pid, jid), concurrency=2,
