@@ -32,9 +32,11 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ### L007 · The audit is the expensive part of a run · open
 
-- **Seen:** 2026-10-11. the-red-kite: 38 audits, 143,679 prompt and 80,697 completion tokens.
-  sipho-and-siphokazi: 82 audits, 295,459 prompt and 190,974 completion tokens, about 2,300
-  completion tokens an audit (both [run reports](../eval/runs/README.md)).
+- **Seen:** 2026-10-11, the-red-kite and sipho-and-siphokazi,
+  [run report](../eval/runs/2026-10-11-the-red-kite.md) and
+  [run report](../eval/runs/2026-10-11-sipho-and-siphokazi.md). the-red-kite: 38 audits, 143,679
+  prompt and 80,697 completion tokens. sipho-and-siphokazi: 82 audits, 295,459 prompt and 190,974
+  completion tokens, about 2,300 completion tokens an audit.
 - **Cause:** two Token Factory calls an audit (the describer, then the judge), and up to 3
   drawings a shot.
 - **Action:** none yet. Size the hosted demo's `LLM_MONTHLY_TOKEN_CAP` (T030) from these numbers:
@@ -43,17 +45,23 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ### L006 · A storm doesn't support lightning · open
 
-- **Seen:** 2026-10-11. the-red-kite 3.2 withheld for "lightning bolts" in a storm; sipho-and-
-  siphokazi's `nature · unscripted` (23) includes "lightning bolt" and "storm clouds".
+- **Seen:** 2026-10-11, the-red-kite and sipho-and-siphokazi,
+  [run report](../eval/runs/2026-10-11-the-red-kite.md) and
+  [run report](../eval/runs/2026-10-11-sipho-and-siphokazi.md). the-red-kite 3.2 withheld for
+  "lightning bolts" in a storm; sipho-and-siphokazi's `nature · unscripted` (23 failures) includes
+  "lightning bolt" and "storm clouds".
 - **Cause:** the judge reads weather as an event (T072) but not what the event shows.
 - **Action:** none yet (docs/HANDOFF.md §6 step 6).
 - **Measured:** not yet.
 
 ### L005 · Everyday things of a place fail as unscripted · open
 
-- **Seen:** 2026-10-11. sipho-and-siphokazi: `other · unscripted` 36 (pen, rope, life ring,
-  wristwatch), `nature · unscripted` 23 (grass, moon, rocks), `food · never set dressing` 8 in
-  the bait shop. the-red-kite: 3 of its 5 withheld frames (a picture frame, a toaster, a mug).
+- **Seen:** 2026-10-11, sipho-and-siphokazi and the-red-kite,
+  [run report](../eval/runs/2026-10-11-sipho-and-siphokazi.md) and
+  [run report](../eval/runs/2026-10-11-the-red-kite.md). sipho-and-siphokazi, in failures:
+  `other · unscripted` 36 (pen, rope, life ring, wristwatch), `nature · unscripted` 23 (grass,
+  moon, rocks), `food · never set dressing` 8 (apples, a basket of food, a bowl of fruit).
+  the-red-kite: 3 of its 5 withheld frames (a picture frame, a toaster, a mug).
 - **Cause:** the judge calls a thing set dressing only when the heading's location would hold it,
   and code never lets food, vehicles, animals or weapons be set dressing
   (`verify/audit.py` `_NEVER_DRESSING`).
@@ -64,7 +72,8 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ### L004 · Painted text the script didn't write · open
 
-- **Seen:** 2026-10-11. sipho-and-siphokazi: `text_in_frame` failed 42 attempts and withheld 12
+- **Seen:** 2026-10-11, sipho-and-siphokazi,
+  [run report](../eval/runs/2026-10-11-sipho-and-siphokazi.md): `text_in_frame` failed 42 attempts and withheld 12
   shots in the end: boat names, shop signs ("MILK", "Café"), numbers ("7.5.82", "9:15").
   `signature` warned on 55 attempts.
 - **Cause:** klein letters signs and hulls on its own; only legible words the script didn't
@@ -74,7 +83,7 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ### L003 · Parts of things the shot's text names fail · open
 
-- **Seen:** 2026-10-11, sipho-and-siphokazi: `vehicle · never set dressing` 31 attempts (boats,
+- **Seen:** 2026-10-11, sipho-and-siphokazi: `vehicle · never set dressing` 31 failures (boats,
   boat masts, a dashboard). Shot 1.1's text is "a single row of forty-year-old wooden
   fishing-boats", and its frame's "fishing boats" passed while its "boat masts" failed.
 - **Cause:** `verify/audit.py` `part_of_prop` (T078) counts a part only of an extracted prop of

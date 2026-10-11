@@ -2,6 +2,7 @@
 details made by `run_checks` itself so the parsers are tested against the real shapes."""
 
 import dataclasses
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -16,7 +17,7 @@ from app.projects.model import ProjectRow
 from app.script import Screenplay
 from app.shots import PlanReport, Shot, ShotPlan
 from app.storyboard.styles import PUBLIC_STYLES, StyleRegistry, load_styles
-from app.verify import run_checks
+from app.verify import Severity, run_checks
 from app.verify.report import (
     NOT_DRAWN,
     build_report,
@@ -251,6 +252,8 @@ def test_counts_states_and_checks(
     first = lines[f"{screenplay.scenes[0].number}.1"]
     assert (first.state, first.attempts, first.failed) == ("withheld", 3, ("unscripted_object",))
     assert [v.value for v in first.verdicts] == ["fail", "fail", "fail"]
+    second = lines[f"{screenplay.scenes[0].number}.2"]
+    assert [v.value for v in second.verdicts] == ["error", "pass"]
     fourth = lines[f"{screenplay.scenes[0].number}.4"]
     assert (fourth.state, fourth.attempts, fourth.verdicts, fourth.failed) == ("failed", 0, (), ())
     assert lines[f"{screenplay.scenes[0].number}.5"].state == NOT_DRAWN
@@ -316,5 +319,97 @@ def test_the_markdown_in_order(
     ]
     assert "prompts rebuilt with the code that wrote this report" in text
     assert "The run had not finished: 1 shots still in progress." in text
+    unfinished = build_report(
+        project, frames, audits, target=AuditTarget.STORYBOARD, styles=styles, max_words=55
+    )
+    assert unfinished.counts.not_drawn == 2  # shot 5 (no row) and shot 3 (rendering)
+    assert [s.state for s in unfinished.shots][2] == "rendering"
     assert "none from the script" in text
     assert "1 of 5 accepted" in text
+
+
+def test_the_last_audit_is_the_highest_attempt_whatever_the_row_order(
+    screenplay: Screenplay, extraction: Extraction, styles: StyleRegistry
+) -> None:
+    bad = _vehicle_and_rope(screenplay, extraction)
+    good = _checks(screenplay, extraction)
+    audits = [_audit(1, 2, "pass", good, minutes=2), _audit(1, 1, "fail", bad, minutes=1)]
+    project = _project(screenplay, extraction, _five_shots()[:1])
+    report = build_report(
+        project,
+        [_frame(1, "passed", 2)],
+        audits,
+        target=AuditTarget.STORYBOARD,
+        styles=styles,
+        max_words=55,
+    )
+    shot = report.shots[0]
+    assert [v.value for v in shot.verdicts] == ["fail", "pass"]
+    assert shot.failed == ()
+    objects = {k.check.value: k for k in report.checks}["unscripted_object"]
+    assert (objects.attempts, objects.final) == (1, 0)
+    assert report.counts.first_attempt_accepted == 0
+
+
+def test_a_comic_state_is_its_last_audit_verdict(
+    screenplay: Screenplay, extraction: Extraction, styles: StyleRegistry
+) -> None:
+    bad = _vehicle_and_rope(screenplay, extraction)
+    good = _checks(screenplay, extraction)
+    comic = AuditTarget.COMIC
+    audits = [
+        _audit(1, 2, "warn", good, target=comic),
+        _audit(1, 1, "fail", bad, target=comic),
+        _audit(2, 1, "error", [], target=comic),
+        _audit(3, 1, "fail", bad, target=comic),
+    ]
+    project = _project(screenplay, extraction, _five_shots())
+    report = build_report(project, [], audits, target=comic, styles=styles, max_words=55)
+    assert [s.state for s in report.shots] == [
+        "warned",
+        "withheld",
+        "withheld",
+        NOT_DRAWN,
+        NOT_DRAWN,
+    ]
+
+
+def test_hard_checks_come_before_soft_in_check_order(
+    screenplay: Screenplay, extraction: Extraction, styles: StyleRegistry
+) -> None:
+    project, frames, audits = _run(screenplay, extraction)
+    report = build_report(
+        project, frames, audits, target=AuditTarget.STORYBOARD, styles=styles, max_words=55
+    )
+    severities = [k.severity for k in report.checks]
+    assert Severity.HARD in severities and Severity.SOFT in severities
+    hard = severities.count(Severity.HARD)
+    assert all(s is Severity.HARD for s in severities[:hard])
+    order = [k.check for k in report.checks]
+    assert order[:hard] == sorted(order[:hard], key=list(type(order[0])).index)
+    assert order[hard:] == sorted(order[hard:], key=list(type(order[0])).index)
+
+
+def _unescaped_pipes(line: str) -> int:
+    return len(re.findall(r"(?<!\\)\|", line))
+
+
+def test_model_text_never_breaks_a_table(
+    screenplay: Screenplay, extraction: Extraction, styles: StyleRegistry
+) -> None:
+    project, frames, audits = _run(screenplay, extraction)
+    report = build_report(
+        project, frames, audits, target=AuditTarget.STORYBOARD, styles=styles, max_words=55
+    )
+    odd = dataclasses.replace(report.objects[0], key="A|B", examples=("line one\nline two",))
+    shots = (dataclasses.replace(report.shots[0], prompt="a | b\nc"), *report.shots[1:])
+    text = to_markdown(dataclasses.replace(report, objects=(odd,), shots=shots))
+    assert "A\\|B" in text
+    table: list[str] = []
+    for line in [*text.splitlines(), ""]:
+        if line.startswith("|"):
+            table.append(line)
+            continue
+        if table:
+            assert {_unescaped_pipes(row) for row in table} == {_unescaped_pipes(table[0])}
+            table = []
