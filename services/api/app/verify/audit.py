@@ -103,6 +103,29 @@ def _named_prop(name: str, props: Sequence[frozenset[str]]) -> bool:
     return bool(words) and any(words <= prop for prop in props)
 
 
+# Words that make a thing another copy of a prop rather than a part of it (T078).
+_COPY_WORDS = frozenset(
+    {"second", "another", "other", "extra", "spare", "two", "three", "more", "duplicate"}
+)
+
+
+def part_of_prop(name: str, shot: Shot, extraction: Extraction) -> str | None:
+    """The shot prop whose part `name` is (T078): its head noun (the prop name's last word) comes
+    before the name's own last word, with no copy word. `kite string` is part of `RED KITE`;
+    `kite`, `blue kite` and `second kite` are the prop or a copy, judged as before."""
+    words = normalize_for_grounding(name).lower().split()
+    if not words or _COPY_WORDS & set(words):
+        return None
+    for prop in shot.props:
+        quoted = any(
+            e.kind is EntityKind.PROP and e.name == prop and e.quotes for e in extraction.entities
+        )
+        head = normalize_for_grounding(prop).lower().split()[-1:]
+        if quoted and head and head[0] in words[:-1]:
+            return prop
+    return None
+
+
 def _calls_each_once(indexes: Sequence[int], n: int) -> bool:
     return sorted(indexes) == list(range(n))
 
@@ -159,6 +182,8 @@ def run_checks(
         what = f"object {call.object} ({obj.name}, {obj.category})"
         if obj.category in _NEVER_UNSCRIPTED and not obj.held:
             continue
+        if call.kind is not ObjectKind.SCRIPTED_PROP and part_of_prop(obj.name, shot, extraction):
+            continue  # T078: a scripted prop, its support the prop's quote, which `supports` holds
         match call.kind:
             case ObjectKind.UNSCRIPTED:
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: unscripted")
