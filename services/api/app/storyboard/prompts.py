@@ -28,12 +28,15 @@ from app.storyboard.prompt import (
     build_frame_prompt,
     heading_span,
     introduced_age,
+    introduced_look,
     time_source,
     visible_characters,
 )
 from app.storyboard.styles import PUBLIC_STYLES, Style, StyleError, load_styles
 
-_SCRIPT_KINDS = frozenset({PartKind.SETTING, PartKind.TIME, PartKind.AGE, PartKind.ACTION})
+_SCRIPT_KINDS = frozenset(
+    {PartKind.SETTING, PartKind.TIME, PartKind.AGE, PartKind.LOOK, PartKind.ACTION}
+)
 
 
 def _span(span: Span | None) -> str:
@@ -67,16 +70,27 @@ def cites_this_shot(
             e.span: e.text for i in shot.elements if isinstance(e := scene.elements[i], Action)
         },
     }
-    ages = [introduced_age(c, screenplay) for c in visible_characters(shot, screenplay, extraction)]
+    visible = visible_characters(shot, screenplay, extraction)
+    ages = [introduced_age(c, screenplay) for c in visible]
     # Keyed by (age, span): two characters introduced in one line share its span (T074 review).
     introduced = {age for age in ages if age is not None}
     if source is not None:
         clock = heading_span(screenplay.scenes[source])
         allowed[PartKind.TIME] = {clock: lines[clock.line_start - 1]}
     labels = redaction_labels(extraction, screenplay)
+    # T079: each visible character's look, redacted and collapsed as the prompt writes it.
+    looks = {
+        (" ".join(redact(look[0], labels).split()), look[1])
+        for c in visible
+        if (look := introduced_look(c, screenplay)) is not None
+    }
     for p in prompt.parts:
         if p.span is None:
             if p.kind in _SCRIPT_KINDS:
+                return False
+            continue
+        if p.kind is PartKind.LOOK:
+            if (p.text, p.span) not in looks:  # exactly the introduction's own description
                 return False
             continue
         if p.kind is PartKind.AGE:
