@@ -69,7 +69,7 @@ it before changing the prompt or the audit; add to it after every live run.
   doesn't mention (other, nature, furniture, sign) warns as `background_object` instead of
   withholding. (docs/HANDOFF.md §6 step 3: a judge wording that called everyday things set
   dressing gained nothing and let a wrong person through; this is a code rule instead.)
-- **Measured:** with T083, sipho-and-siphokazi 7 → 13 of 30 and the-red-kite 16 → 19 of 21 shots
+- **Measured:** with T083, sipho-and-siphokazi 7 → 12 of 30 and the-red-kite 16 → 19 of 21 shots
   with an accepted attempt (`recheck`, stored audits); see L009 for the wrong-sex frames it let
   through, and L003.
 
