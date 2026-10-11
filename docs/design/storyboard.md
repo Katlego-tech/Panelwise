@@ -174,7 +174,7 @@ truncates drops the tail.
 | `TIME` | `shot.time_of_day` (resolved, shots.md) | lower-cased; omitted when `None` | the heading span of the scene that **supplied** the clock (`time_source`, below) |
 | `COUNT` | code, from `visible_characters(shot, screenplay, extraction)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
 | `AGE` (T074, T079) | `introduced_age(character, screenplay)` for each `visible_characters` member, in their order; one part per character whose introduction gives an age | `(10)` → "a 10-year-old", `(70s)` → "a person in their 70s"; **T079:** with the sex the introduction's pronouns give (`introduced_sex`, below): "a 10-year-old girl" / "boy" under 18, "a 30-year-old woman" / "man" from 18, "a woman in her 70s" / "a man in his 70s" (the first number in the parenthesis after the character's name where an `Action` line introduces it: `LERATO (10), braids…`, `NANDI (60s, oilskin coat)`); omitted when the script gives none | that `Action` element's span |
-| `LOOK` (T079) | `introduced_look(character, screenplay)` for each `visible_characters` member, right after its `AGE` | the introduction's own description, verbatim, redacted: the parenthesis's items after the age (`NANDI (60s, oilskin coat)` → "oilskin coat") and the comma phrase right after the parenthesis (`LERATO (10), braids tied back, grips…` → "braids tied back"; `MOKGOSI (70s), reading glasses pushed up on his forehead, solders…` → that phrase), joined by ", "; a phrase over 8 words, or one with no comma closing it before the sentence ends, is left out (it is an action, not a look: `AMAHLE (8), who is wearing pyjamas … crying.`); omitted when nothing is left | that `Action` element's span |
+| `LOOK` (T079) | `introduced_look(character, screenplay)` for each `visible_characters` member, right after its `AGE` | the introduction's own description, verbatim, redacted: the parenthesis's items after the age (`NANDI (60s, oilskin coat)` → "oilskin coat") and the comma phrase right after the parenthesis (`LERATO (10), braids tied back, grips…` → "braids tied back"; `MOKGOSI (70s), reading glasses pushed up on his forehead, solders…` → that phrase), joined by ", "; a phrase over 8 words, or one with no comma closing it before the sentence ends, is left out (it is an action, not a look: `AMAHLE (8), who is wearing pyjamas … crying.`); omitted when nothing is left, and when the shot covers that introducing line (its `ACTION` part already says it, word for word). **Not a fixed part:** looks give way to the budget (Word budget, below) | that `Action` element's span |
 | `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`), and is accepted only when `visible_characters` has exactly two members (else `ValueError`), so it can never contradict `COUNT` | the phrase; T026's renderer passes `None`, T025 passes it | `None` |
 | `ACTION` | a covered `Action` element's text | verbatim, whitespace collapsed, redacted | the element's span |
 
@@ -312,7 +312,10 @@ none of which names a person, prop or event.
 - **Word budget.** `max_words` (the workflow's, §6) counts **whitespace-separated words** of
   `text()`, a deliberately conservative proxy for the encoder's token limit (the default 55 for
   CLIP's 77 tokens; T003 sets it for the real encoder). The **fixed parts** (`STYLE`, `FRAMING`,
-  `SETTING`, `TIME`, `COUNT`, `AGE`, `LOOK`, `PLACEMENT`) are never dropped; if they alone exceed `max_words`,
+  `SETTING`, `TIME`, `COUNT`, `AGE`, `PLACEMENT`) are never dropped; **`LOOK` parts (T079)** are kept
+  only while the fixed parts and the kept looks leave at least 12 words (`_ACTION_FLOOR`) for the
+  `ACTION` parts, dropped from the last character back, so a look never fails a render (at 55 words
+  a two-character the-red-kite shot's fixed words with looks reached 64); if they alone exceed `max_words`,
   `build_frame_prompt` raises `PromptError` naming the shot (a style or location too long for the
   encoder is a configuration error, surfaced as the renderer's failure, never a silently truncated
   prompt). Otherwise, over budget, whole `ACTION` parts are dropped from the **tail** backwards,
@@ -559,9 +562,10 @@ def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] |
 #   None when no introduction gives one. Never a word the script doesn't have but the age's own number
 #   T079: the phrase carries the sex `introduced_sex` reads: "a 10-year-old girl", "a man in his 70s"
 def introduced_sex(character: str, screenplay: Screenplay) -> Literal["female", "male"] | None: ...   # T079, pure
-#   in that same introducing element: "she"/"he" in the character's own stretch (from its name to the next
-#   `NAME (` introduction or the element's end) and "her"/"his" inside its `introduced_look`, whole words, any
-#   case; one sex only, else None ("watches her" after MAMA THEMBI is Siphokazi, an object: not counted)
+#   in that same introducing element: "she"/"he" in the introducing sentence (from the name to the sentence's
+#   end or the next `NAME (` introduction) and "her"/"his" inside its `introduced_look`, whole words, any case;
+#   one sex only, else None ("watches her" after MAMA THEMBI is Siphokazi, an object: not counted; a later
+#   sentence's "She waves" may be anyone)
 def introduced_look(character: str, screenplay: Screenplay) -> tuple[str, Span] | None: ...   # T079, pure
 #   §3.1's LOOK: the parenthesis's items after the age and the comma phrase right after it, each at most 8
 #   words, verbatim (whitespace collapsed), joined by ", "; the introducing element's span; None if empty
@@ -757,11 +761,12 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   2026-10-10's 3 of 22 accepted on the same seeds.
 - **T079:** `introduced_sex`: `LERATO (10), braids tied back, grips … as tall as she is` → female;
   `MOKGOSI (70s), reading glasses pushed up on his forehead` → male; `MAMA THEMBI (60s), the shop's
-  owner, watches her …` → None; both `she` and `his` → None. `introduced_look`: "braids tied back",
+  owner, watches her …` → None; `KOOS (70s), the night cleaner, pushes a broom. She waves.` → None. `introduced_look`: "braids tied back",
   "reading glasses pushed up on his forehead", `(60s, oilskin coat)` → "oilskin coat", `AMAHLE (8),
   who is wearing pyjamas … crying.` → None, a 9-word phrase → None. `introduced_age`: "a 10-year-old
   girl", "a man in his 70s", "a person in their 60s" when no sex. `build_frame_prompt`: each visible
-  character's `AGE` then `LOOK`, counted as fixed words; a shot of only an `O.S.` line gets the
+  character's `AGE` then `LOOK`; no `LOOK` when the shot covers the introduction; looks dropped from
+  the last character back to keep 12 action words, never a `PromptError`; a shot of only an `O.S.` line gets the
   planner's other characters as listeners, and `COUNT` counts them; a shot with an on-screen
   character gets no listener. `cites_this_shot` accepts `LOOK` with exactly `introduced_look`'s text
   and refuses any other text on that span. Live, with Tumo's go-ahead: one upload of the-red-kite.
