@@ -186,3 +186,66 @@ def test_no_listener_when_someone_is_already_on_screen() -> None:
     shot = shot_of(sp, 0, [1, 2], characters=["LERATO", "MOKGOSI"], time_of_day="DAY")
     prompt = build_frame_prompt(shot, sp, cast, STYLE, max_words=100)
     assert [p.text for p in prompt.parts if p.kind is K.AGE] == ["a man in his 70s"]
+
+
+# --- T079 review ---------------------------------------------------------------------------------
+
+
+def test_a_he_after_another_character_s_name_is_theirs() -> None:
+    sp = screenplay_of(
+        [
+            heading("1", "INT. SHOP - DAY"),
+            (ACTION, "MAMA THEMBI (60s), the shop's owner, watches SIPHO as he counts."),
+            (CUE, "SIPHO"),
+            (DIALOGUE, "Forty."),
+        ]
+    )
+    assert introduced_sex("MAMA THEMBI", sp) is None
+    found = introduced_age("MAMA THEMBI", sp)
+    assert found is not None and found[0] == "a person in their 60s"
+
+
+def test_a_prop_in_capitals_doesn_t_cut_the_pronoun_off() -> None:
+    assert introduced_sex("LERATO", one_line(LERATO)) == "female"  # RED KITE is no name
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "OFFICER MOLOI (40s), and OFFICER VAN WYK (20s), new, eager.",  # another introduction
+        "PRIYA (20), as the train leaves, runs.",  # a conjunction
+        "GRACE (30s), with 2 bags, comes in.",  # a number
+        "LERATO (10, braids. She holds a kite (red), runs.",  # no ")" before the sentence ends
+    ],
+)
+def test_what_is_not_a_look_is_left_out(line: str) -> None:
+    who = line.split(" (")[0]
+    assert introduced_look(who, one_line(line)) is None
+
+
+def test_another_character_s_name_is_never_a_look() -> None:
+    sp = screenplay_of(
+        [
+            heading("1", "INT. ROOM - DAY"),
+            (ACTION, "AMAHLE (8), Grace's daughter, sleeps."),
+            (CUE, "GRACE"),
+            (DIALOGUE, "Shh."),
+        ]
+    )
+    assert introduced_look("AMAHLE", sp) is None
+
+
+def test_a_voice_over_the_planner_doesn_t_list_still_brings_listeners() -> None:
+    """The RADIO ANNOUNCER (V.O.) isn't one of the shot's characters; Lerato still hears him."""
+    sp = screenplay_of(
+        [
+            heading("1", "INT. WORKSHOP - DAY"),
+            (ACTION, LERATO),
+            (CUE, "RADIO ANNOUNCER (V.O.)"),
+            (DIALOGUE, "A storm moving in from the west."),
+        ]
+    )
+    cast = extraction_of(sp, [("LERATO", "LERATO (10)")])
+    shot = shot_of(sp, 0, [1], characters=["LERATO"], time_of_day="DAY")
+    prompt = build_frame_prompt(shot, sp, cast, STYLE, max_words=100)
+    assert [p.text for p in prompt.parts if p.kind is K.COUNT] == ["one figure"]

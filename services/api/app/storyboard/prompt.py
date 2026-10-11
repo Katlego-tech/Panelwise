@@ -121,12 +121,14 @@ def visible_characters(
     beings = animals(extraction)
     own = {c: _own_labels(c, screenplay, extraction) for c in shot.characters}
     shown: set[str] = set()
-    heard: set[str] = set()  # T079: who speaks off screen in the covered elements
+    heard: set[str] = set()  # T079: planner characters who speak off screen here
+    off_screen = False  # T079: any covered line spoken off screen, by anyone
     for i in shot.elements:
         element = scene.elements[i]
         if isinstance(element, Dialogue):
             extension = (element.extension or "").upper()
             if any(mark in extension for mark in OFF_SCREEN_MARKS):
+                off_screen = True
                 if (who := match_speaker(element.cue, shot.characters)) is not None:
                     heard.add(who)
                 continue
@@ -136,7 +138,7 @@ def visible_characters(
             # Named in the line exactly when redacting that one character changes it.
             shown.update(c for c in shot.characters if redact(element.text, own[c]) != element.text)
     people = tuple(c for c in shot.characters if c in shown and c not in beings)
-    if people or not heard:
+    if people or not off_screen:
         return people
     # T079: a line heard off screen and no one on screen: the planner's others are listening.
     return tuple(c for c in shot.characters if c not in heard and c not in beings)
@@ -156,23 +158,51 @@ def _introduction(character: str, screenplay: Screenplay) -> tuple[Action, re.Ma
     return None
 
 
+def _other_names(character: str, screenplay: Screenplay) -> frozenset[str]:
+    """Other characters' name words, lower case (T079 review): every dialogue cue and every
+    `NAME (` introduction, less `character`'s own words and titles. Props in capitals (RED KITE)
+    are neither, so they bound nothing."""
+    names: set[str] = set()
+    for scene in screenplay.scenes:
+        for element in scene.elements:
+            if isinstance(element, Dialogue):
+                names.add(element.cue)
+            else:
+                names.update(m.group(1) for m in _INTRODUCED.finditer(element.text))
+    own = set(character.lower().split())
+    words = {w for n in names for w in re.findall(r"[a-z]+", n.lower())}
+    return frozenset(w for w in words - own - _TITLES if len(w) > 1)
+
+
+_INTRODUCED = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Z'. -]*[A-Z])\s*\(\s*\d")
+_TITLES = frozenset({"mr", "mrs", "ms", "dr", "officer", "mama", "papa", "the"})
+_NOT_A_LOOK = re.compile(r"[(\d]|^(?:and|who|then|as|while|but)\b", re.IGNORECASE)
 _NEXT_INTRODUCTION = re.compile(r"(?<![A-Za-z0-9])[A-Z][A-Z'. -]*[A-Z]\s*\(")
 _LOOK_MAX_WORDS = 8
 _ACTION_FLOOR = 12  # words a shot's action keeps before any look (T079)
 
 
-def _look_of(element: Action, m: re.Match[str]) -> str | None:
+def _look_of(element: Action, m: re.Match[str], name: str, screenplay: Screenplay) -> str | None:
     """§3.1's LOOK, read from an introduction's match: the parenthesis's items after the age, then
     the comma phrase right after it when a comma closes that phrase before the sentence ends."""
     text = element.text
     close = text.find(")", m.end() - 1)
-    if close < 0:
+    # No closing parenthesis in the introducing sentence: nothing here is surely a look.
+    if close < 0 or re.search(r"[.!?]", text[m.end() - 1 : close]):
         return None
     items = [i.strip() for i in re.split(r"[,;]", text[m.end() - 1 : close].lstrip(",;)"))]
     after = re.match(r"\s*,\s*([^,.;!?]+),", text[close + 1 :])
     if after:
         items.append(after.group(1).strip())
-    kept = [" ".join(i.split()) for i in items if i and len(i.split()) <= _LOOK_MAX_WORDS]
+    others = _other_names(name, screenplay)
+    kept = [
+        " ".join(i.split())
+        for i in items
+        if i
+        and len(i.split()) <= _LOOK_MAX_WORDS
+        and not _NOT_A_LOOK.search(i)  # a conjunction, a parenthesis or a number: not a look
+        and not others & set(re.findall(r"[a-z]+", i.lower()))  # nor someone else's
+    ]
     return ", ".join(kept) or None
 
 
@@ -183,7 +213,7 @@ def introduced_look(character: str, screenplay: Screenplay) -> tuple[str, Span] 
     found = _introduction(character, screenplay)
     if found is None:
         return None
-    look = _look_of(*found)
+    look = _look_of(*found, character, screenplay)
     return (look, found[0].span) if look else None
 
 
@@ -199,10 +229,16 @@ def introduced_sex(character: str, screenplay: Screenplay) -> Literal["female", 
     rest = element.text[m.end() :]
     if nxt := _NEXT_INTRODUCTION.search(rest):
         rest = rest[: nxt.start()]
+    # T079 review: a "he" after another character's name may be theirs ("watches SIPHO as he").
+    others = _other_names(character, screenplay)
+    if hit := next(
+        (w for w in re.finditer(r"[A-Za-z]+", rest) if w.group().lower() in others), None
+    ):
+        rest = rest[: hit.start()]
     if end := re.search(r"[.!?](?:\s|$)", rest):
         rest = rest[: end.start()]
     words = set(re.findall(r"[a-z]+", rest.lower()) if rest else [])
-    look = set(re.findall(r"[a-z]+", (_look_of(element, m) or "").lower()))
+    look = set(re.findall(r"[a-z]+", (_look_of(element, m, character, screenplay) or "").lower()))
     female = "she" in words or "her" in look
     male = "he" in words or "his" in look
     if female == male:
