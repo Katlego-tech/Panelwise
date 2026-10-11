@@ -94,6 +94,7 @@ classDiagram
         verdicts: list~Verdict~
         failed: list~str~
         prompt: str | None
+        prompt_error: str | None
         source: str
     }
     RunReport *-- Counts
@@ -173,8 +174,8 @@ shown at a glance.
 **ShotLine.prompt**: `build_frame_prompt(shot, screenplay, extraction, styles.get(None),
 max_words=max_words)`'s text, with `max_words` from `Settings().comfyui_max_words`, as
 `fal_factory` draws. This is the prompt **rebuilt with the code the report runs**, not a stored
-copy; the report says so. When the build raises, `prompt` is `None` and the shot's row shows the
-error's type and message instead.
+copy; the report says so. When the build raises, `prompt` is `None`, `prompt_error` is
+`"<type>: <message>"`, and the shot's row shows it instead.
 
 ## 4. Flow
 
@@ -212,7 +213,8 @@ def build_report(project: ProjectRow, frames: Sequence[FrameRow], audits: Sequen
 def to_markdown(report: RunReport) -> str: ...   # pure; layout below
 def object_causes(audits: Sequence[FrameAuditRow]) -> list[Cause]: ...   # pure; §3 Causes
 def person_causes(audits: Sequence[FrameAuditRow]) -> list[Cause]: ...    # pure
-def text_causes(audits: Sequence[FrameAuditRow]) -> list[Cause]: ...      # pure
+def text_causes(audits: Sequence[FrameAuditRow], *, label: Callable[[int, int], str]) -> list[Cause]: ...   # pure;
+#   label(scene_index, shot_number) is the shot label of §3 (build_report passes its own)
 # python -m app.verify.report <project-id> [--target storyboard|comic]   (default storyboard)
 #   reads Settings() for the database and comfyui_max_words only (never Storage: unlike reaudit it
 #   needs no Supabase keys), load_styles(PUBLIC_STYLES, private) as
