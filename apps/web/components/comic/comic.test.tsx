@@ -199,7 +199,7 @@ describe("the reader (comic.png)", () => {
       "Shot 1.2 in the storyboard",
       "LERATO: Come on. Come on, wind. (p.2 l.84)",
       "LERATO: No, no, no! (p.2 l.90)",
-      "Shot 1.3 in the storyboard, frame withheld",
+      "Shot 1.3 in the storyboard, frame not shown",
       "MOKGOSI · off panel: Is that my good shirt you are flying? (p.2 l.93–94)",
     ]);
     const link = within(page).getByRole("link", { name: "Shot 1.2 in the storyboard" });
