@@ -1,6 +1,6 @@
 """The frame audit. Design: docs/design/verify.md."""
 
-from app.verify.audit import audit_frame, describe_frame, run_checks, seed_for
+from app.verify.audit import audit_frame, describe_frame, part_of_prop, run_checks, seed_for
 from app.verify.model import (
     Audit,
     Check,
@@ -54,6 +54,7 @@ __all__ = [
     "Verdict",
     "audit_frame",
     "describe_frame",
+    "part_of_prop",
     "render_spec",
     "run_checks",
     "seed_for",

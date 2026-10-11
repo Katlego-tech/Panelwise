@@ -3,6 +3,7 @@
 import uuid
 
 from app.core.auth import AuthError, Caller
+from app.storage import AssetNotFound
 
 
 class FakeVerifier:
@@ -22,6 +23,8 @@ class MemoryStore:
         return path in self.objects
 
     async def get(self, path: str) -> bytes:
+        if path not in self.objects:
+            raise AssetNotFound(f"get: no object at {path}")  # as SupabaseStore says it
         return self.objects[path][0]
 
     async def put(self, path: str, data: bytes, content_type: str) -> None:
