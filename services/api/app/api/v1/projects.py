@@ -212,7 +212,15 @@ async def read_frames(
             except StorageError as exc:
                 raise ApiError(503, "storage_unavailable") from exc
         attempts = audits.get((frame.scene_index, frame.shot_number), [])
-        views.append(frame_view(frame, screenplay, url, attempts))
+        views.append(
+            frame_view(
+                frame,
+                screenplay,
+                url,
+                attempts,
+                max_renders=request.app.state.settings.render_max_attempts,
+            )
+        )
     return views
 
 
@@ -279,7 +287,12 @@ async def try_another_render(
         frame.state, frame.attempt, frame.job_id = "rendering", frame.attempt + 1, job.id
         frame.withheld_check = None
         attempt = frame.attempt
-        view = frame_view(frame, load_screenplay(project.screenplay), None)
+        view = frame_view(
+            frame,
+            load_screenplay(project.screenplay),
+            None,
+            max_renders=state.settings.render_max_attempts,
+        )
     task = asyncio.create_task(
         run_attempt(
             job.id,
@@ -335,7 +348,14 @@ async def make_comic(
     if factory is None or model is None or store is None:  # start_comic refused these already
         raise ApiError(503, "renderer_unavailable")
     task = asyncio.create_task(
-        run_comic_job(job.id, sessions=state.sessions, store=store, model=model, factory=factory)
+        run_comic_job(
+            job.id,
+            sessions=state.sessions,
+            store=store,
+            model=model,
+            factory=factory,
+            max_renders=state.settings.render_max_attempts,
+        )
     )
     state.tasks.add(task)
     task.add_done_callback(state.tasks.discard)
