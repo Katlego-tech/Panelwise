@@ -325,6 +325,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:web.md §6 the comic types and the two `/api/projects/[id]/comic` handlers, verbatim; §4.5's copy verbatim
       Verify:  pnpm test (and bash scripts/gate.sh): web.md §9 Comic reader, every item; then on the local stack, the T062 copy's comic (T064's check) in the browser at 1440 px and 390 px beside comic.png and comic-phone.png
       Done:    on the local stack, the Comic tab of a project with a comic reads it page by page as comic.png draws it; selecting any bubble or caption shows its verbatim script line, span and shot, and opens that shot in the storyboard; the PDF downloads; every state of web.md §4.5's table without a comic looks as comic-states.png draws it
+- [ ] T065 [US3] **Lettering places a panel's boxes as a set.** Lane `comic` (Claude for Tumo). Depends on T023. Found by Katlego (PR #92): on a detailed frame the first bubble takes a late grid cell and the next has none, so a comic on real frames stops.
+      Design:  docs/design/comic.md §4 step 7 (*The boxes are placed as a set*), §8 (*A panel's boxes*), §9 Placement
+      Files:   services/api/app/comic/bubbles.py (`_place`, `SEARCH_LIMIT`); services/api/tests/comic/test_bubbles.py
+      Contract:comic.md §4 step 7 verbatim: each box's preference order (32 px by cost, ties to the earlier cell, then 28 px the same way), a depth-first search in reading order, the first complete placement wins, at most `SEARCH_LIMIT = 10_000` candidate placements per panel, then `ComicError` naming the shot and the text
+      Verify:  bash scripts/gate.sh: comic.md §9 Placement, every item, with a test on PR #92's `busy()` frame (dense lines but for the bottom-right ninth) that lettered nothing before; the existing placement tests unchanged; then PR #92's repro on a planned project in the local stack prints `lettered`
+      Done:    a two-bubble panel on a frame that is quiet only in its bottom-right corner is lettered, both bubbles in reading order; every panel the old rule lettered is lettered in exactly the same place; the gate is green
 - [ ] T025 [US4] Reference portraits used across panels. Port from `portrait_service.py`, `portrait_jobs.py`. Depends on T012. Lane `characters`. Also (T052 deferred it here, characters.md rule 2): an animal character's portrait uses its `the <species>` label and passes with no person and one animal object.
 
 ---
