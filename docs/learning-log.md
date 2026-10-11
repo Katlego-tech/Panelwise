@@ -65,10 +65,13 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Cause:** the judge calls a thing set dressing only when the heading's location would hold it,
   and code never lets food, vehicles, animals or weapons be set dressing
   (`verify/audit.py` `_NEVER_DRESSING`).
-- **Action:** none yet (docs/HANDOFF.md §6 step 3: a wording that called everyday things set
-  dressing gained nothing and let a wrong person through, verify.md §8). Measure any idea on the
-  stored drawings first.
-- **Measured:** not yet.
+- **Action:** T083 (Tumo's call, 2026-10-11): an everyday thing nobody holds and the script
+  doesn't mention (other, nature, furniture, sign) warns as `background_object` instead of
+  withholding. (docs/HANDOFF.md §6 step 3: a judge wording that called everyday things set
+  dressing gained nothing and let a wrong person through; this is a code rule instead.)
+- **Measured:** with T083, sipho-and-siphokazi 7 → 13 of 30 and the-red-kite 16 → 19 of 21 shots
+  with an accepted attempt (`recheck`, stored audits); see L009 for the wrong-sex frames it let
+  through, and L003.
 
 ### L004 · Painted text the script didn't write · open
 
