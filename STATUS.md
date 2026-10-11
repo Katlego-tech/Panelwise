@@ -3,11 +3,11 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-11 — by Tumo (via Claude)_
+_Last updated: 2026-10-11 — by Katlego (via Claude)_
 
 ---
 
-## ⇄ HANDOFF: ACTIVE
+## ⇄ HANDOFF: none
 
 > Leave this block here even when dormant — it is the first thing every AI reads, and it only
 > works as a signal if it always lives in the same spot. Set it to `ACTIVE` and fill the rows
@@ -16,12 +16,12 @@ _Last updated: 2026-10-11 — by Tumo (via Claude)_
 
 | Field | Value |
 |---|---|
-| Status | 🟡 ACTIVE |
-| Raised | 2026-10-11, Tumo (via Claude), for Katlego (last before: 2026-10-03, Katlego → Tumo) |
-| Reason | Tumo hands the storyboard, prompt and audit work to Katlego to take further |
-| Document | [docs/HANDOFF.md](docs/HANDOFF.md) |
-| Branch | `main`: everything is merged (PRs #90–#130, today) |
-| Resume at | docs/HANDOFF.md §6 step 1: the first live run of T079 + T080 on the-red-kite (klein, 3 attempts) |
+| Status | 🟢 none |
+| Raised | — (last: 2026-10-11, Tumo (via Claude) → Katlego; picked up 2026-10-11 by Katlego (via Claude), resumed at §6 step 7, the deploy) |
+| Reason | — |
+| Document | — ([docs/HANDOFF.md](docs/HANDOFF.md) kept as the record of 2026-10-11; its §6 steps 2–6 are still the audit's to-do list) |
+| Branch | — |
+| Resume at | — |
 | Blocking | — |
 
 ---
@@ -35,7 +35,7 @@ _Last updated: 2026-10-11 — by Tumo (via Claude)_
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037, T063 | Katlego | Claude | 🟡 T063 API host Railway → Render: design PR `docs/deploy-render` in review, then the code · ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037, T063 | Katlego | Claude | 🟡 T063 API host Railway → Render, plan `0.5c-512mb` (paid, 2026-10-11), the public styles into the API image, Vercel functions in `fra1`: design #80 revised, then the code #81 · ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
@@ -189,6 +189,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 - **`main` is unprotected on the server** (decided 2026-09-28 while private + GitHub Free). The repo is now public, so branch protection is free: turning it on is the team's call (a repo setting). Until then only the pre-push hook and AGENTS.md §4 guard it; Tumo's clone has the hook since 2026-10-05.
 - **No copyrighted scripts** in the repo, demo or video. Only public-domain or self-written samples.
 - GPU cost: $50 of credit covers Token Factory calls, not a GPU VM. Check the cost of the ComfyUI box in T003.
+- **Render plan: `0.5c-512mb` (paid, ~$7/month), not Free — decided 2026-10-11 by Katlego** (deploy.md §8): the team will pay for hosting; Free sleeps, restarts at any time and has 0.1 CPU. Migrations stay in the image's start command (one instance) and the keep-alive stays as the uptime alert and Supabase's activity. `1c-2g` only if T063's 512 MB check fails. Supersedes the budget part of the next line; fal.ai is paid too (2026-10-11).
 - **API host: Render Free, not Railway — decided 2026-10-08 by Katlego** (deploy.md §8, §11; T063). Nothing was deployed to Railway, so it's a config + docs change. **Budget: the project's only money is $25 of Token Factory credit, for model calls** (Katlego, 2026-10-08), so hosting and rendering must be free: Render Free ($0; Starter's $7/month rejected), migrations in the image's start command (Free has no pre-deploy), a GitHub Actions ping every 10 min keeps it awake (and Supabase), one free service per Render workspace. Render may restart a Free instance at any time, and a restart fails running jobs (accepted). The same budget rules out a Nebius GPU for T003: the renderer decision (with Tumo) is now between free options.
 - **Stack changed 2026-09-29** (Katlego): web on Vercel, API on Railway (Render since 2026-10-08), Supabase for Postgres/Storage/Auth, Redis removed — the Hackathon kit's stack. [docs/design/deploy.md](docs/design/deploy.md). Needs Katlego's Vercel, Railway and Supabase accounts (T037).
 
@@ -211,6 +212,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
+- 2026-10-11 — Katlego (via Claude) — picked up Tumo's handoff. §6 step 1 (the live T079 + T080 run) **suspended until after the deploy**: Tumo ran it while testing, but no result is recorded, so it is re-measured on the hosted stack. Resumed at §6 step 7: #80 revised (Render `0.5c-512mb`, paid; the public styles move into the API image, which had none on Render; Vercel functions in `fra1`; `FAL_KEY` in the Blueprint; a 512 MB check), `main` merged in; #81 follows. Next: #81, then T037 on the real accounts. Blocked on: Render and Vercel accounts.
 - 2026-10-11 — Tumo (via Claude) — merged T026 (fal.ai, now FLUX.2 [klein] 4B), T027, T065–T080 into main (#90–#130); closed #97/#98 in favour of fal with klein; handoff to Katlego raised (docs/HANDOFF.md). Next: §6 step 1, the live T079 + T080 run. Blocked on: nothing.
 - 2026-09-27 — Katlego (via Claude) — scaffold, disclosure note, lanes and Phase 1 task list. Next: T001 + T002. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — drafted the Devpost story in `docs/submission/about.md` (`eval+submission`, unclaimed; ⟨TBD⟩s filled by T033–T035). Next: T001 probe. Blocked on: Token Factory key in `.env`.
