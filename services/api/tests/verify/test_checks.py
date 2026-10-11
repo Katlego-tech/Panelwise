@@ -532,3 +532,78 @@ def test_an_empty_text_entry_is_no_text_read(
     )
     assert Check.TEXT_IN_FRAME not in failing(checks)
     assert verdict is Verdict.PASS
+
+
+# --- T072: a signature always fails ------------------------------------------------------------
+
+
+def test_a_signature_fails_the_frame_readable_or_not(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    checks, verdict, _ = run_checks(
+        kitchen_shot(),
+        screenplay.scenes[0],
+        described(signature=True, text=[]),
+        judged(),
+        extraction,
+    )
+    assert failing(checks) == {Check.TEXT_IN_FRAME}
+    assert verdict is Verdict.FAIL
+    detail = next(c.detail for c in checks if c.check is Check.TEXT_IN_FRAME)
+    assert "a signature" in detail
+
+
+def test_no_signature_and_no_text_passes(screenplay: Screenplay, extraction: Extraction) -> None:
+    checks, verdict, _ = run_checks(
+        kitchen_shot(),
+        screenplay.scenes[0],
+        described(signature=False, text=[]),
+        judged(),
+        extraction,
+    )
+    assert Check.TEXT_IN_FRAME not in failing(checks)
+    assert verdict is Verdict.PASS
+
+
+# --- T072 review: a character's quote supports no stranger; a named prop is never dressing ---
+
+
+def test_a_quote_naming_a_shot_character_supports_no_stranger(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    """A child Lerato drawn as an adult: the judge refuses the match, then can't excuse the stranger
+    with Lerato's own quote. Here: NANDI's quote for a person who isn't Nandi."""
+    judgement = judged(
+        people=[{"person": 0, "character": None, "support": "NANDI (60s, oilskin coat)"}]
+    )
+    checks, verdict, _ = run_checks(
+        kitchen_shot(), screenplay.scenes[0], described(), judgement, extraction
+    )
+    assert Check.UNSCRIPTED_PERSON in failing(checks)
+    assert verdict is Verdict.FAIL
+
+
+def test_a_quote_naming_no_character_still_supports_a_stranger(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    judgement = judged(people=[{"person": 0, "character": None, "support": "pours tea"}])
+    checks, _, _ = run_checks(
+        kitchen_shot(), screenplay.scenes[0], described(), judgement, extraction
+    )
+    assert Check.UNSCRIPTED_PERSON not in failing(checks)
+
+
+@pytest.mark.parametrize(
+    ("name", "ok"),
+    [("map", False), ("torn map", False), ("bucket", True), ("cup of tea", True)],
+)
+def test_a_thing_the_script_names_is_never_set_dressing(
+    screenplay: Screenplay, extraction: Extraction, name: str, ok: bool
+) -> None:
+    """The extraction names the prop "torn map": a map called set dressing is a story choice."""
+    description = described(objects=[{"name": name, "category": "other", "held": False}])
+    judgement = judged(objects=[{"object": 0, "kind": "set_dressing", "support": "kitchen"}])
+    checks, _, _ = run_checks(
+        kitchen_shot(), screenplay.scenes[0], description, judgement, extraction
+    )
+    assert (Check.UNSCRIPTED_OBJECT not in failing(checks)) is ok

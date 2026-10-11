@@ -5,7 +5,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.verify.loop import MAX_RENDERS
-from app.verify.prompts import DESCRIBE_PROMPT
+from app.verify.prompts import DESCRIBE_PROMPT, JUDGE_PROMPT
 from app.verify.schema import FrameDescription
 
 
@@ -40,3 +40,26 @@ def test_render_max_attempts_defaults_to_the_loop_s_three(monkeypatch: pytest.Mo
     assert Settings(_env_file=None).render_max_attempts == MAX_RENDERS == 3  # type: ignore[call-arg]
     monkeypatch.setenv("RENDER_MAX_ATTEMPTS", "1")
     assert Settings(_env_file=None).render_max_attempts == 1  # type: ignore[call-arg]
+
+
+# --- T072 ------------------------------------------------------------------------------------
+
+
+def test_the_describer_gives_each_person_s_age_first_and_reports_a_signature() -> None:
+    prompt = DESCRIBE_PROMPT.lower()
+    assert "how old" in prompt
+    for age in ("a child", "a teenager", "an adult", "an old man", "an old woman"):
+        assert age in prompt
+    assert "signature" in prompt and "initials" in prompt and "artist's mark" in prompt
+    schema = FrameDescription.model_json_schema()
+    assert "signature" in schema["required"]
+    assert schema["properties"]["signature"]["type"] == "boolean"
+
+
+def test_the_judge_refuses_a_wrong_age_and_knows_set_dressing_and_weather() -> None:
+    prompt = JUDGE_PROMPT.lower()
+    assert "age" in prompt and "contradicts" in prompt and "null" in prompt
+    assert "set_dressing" in prompt and "would hold" in prompt
+    for thing in ("lightning", "rain", "storm"):
+        assert thing in prompt
+    assert "event" in prompt
