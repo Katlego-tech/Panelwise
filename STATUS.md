@@ -16,7 +16,7 @@ _Last updated: 2026-10-11 — by Tumo (via Claude)_
 
 | Field | Value |
 |---|---|
-| Status | ⚪ none: picked up 2026-10-11 by Tumo (via Claude) in person; its step 1 (the T079 + T080 live run) done |
+| Status | 🟢 none: picked up 2026-10-11 by Tumo (via Claude) in person; its step 1 (the T079 + T080 live run) done |
 | Raised | 2026-10-11, Tumo (via Claude), for Katlego (last before: 2026-10-03, Katlego → Tumo) |
 | Reason | — |
 | Document | [docs/HANDOFF.md](docs/HANDOFF.md) (the record; its §6 steps 2–7 are in the plan below) |
@@ -35,7 +35,7 @@ _Last updated: 2026-10-11 — by Tumo (via Claude)_
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Katlego | Claude | ✅ T037 code merged (PR #13) · 🔴 its deploy check blocked on accounts · 🔴 T003 needs GPU access |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037 | Tumo (T030, T037 deploy, from 2026-10-11); Katlego (#80/#81, T063) | Claude | ✅ T037 code merged (PR #13) · 🟡 T030 on Render (decided 2026-10-11, Tumo) · 🔴 T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027 | Katlego | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
@@ -131,7 +131,7 @@ renderer has been picked yet.
    `frame_hooks` (storyboard.md §4, §6). That one change turns on rendering, the audit, re-renders,
    "Try another render" and the frames on the board. T027 (PDF), T025 (portraits) and T049 (audit
    accuracy) follow it.
-2. **Vercel + Railway accounts → T037's deploy check, then T030 (hosted demo).** docs/deploy.md has
+2. **Vercel + Railway accounts → T037's deploy check, then T030 (hosted demo).** (The API is on Render since 2026-10-11: see ⚠️ "Stack changed".) docs/deploy.md has
    the steps; the code side is merged. Note PR #67's compose change (the web container now gets the
    publishable Supabase pair) if you touch `docker-compose.yml`.
 3. **T033's README feedback section (PR #36)** — it must be the team's own words, so it's yours or
@@ -159,10 +159,10 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 
 ## 🧱 What's built so far
 
-- **Local stack (T002, T037):** `docker compose up --build --wait` runs postgres, api and web on pinned versions (PLAN.md § Technical Context); no Redis since T037. Host ports default to 5432/8000/3000 and can be overridden in `.env` (FrameFlow's containers hold 5432 on Katlego's machine). Deploy config: `apps/web/vercel.json`; Railway is set in its dashboard (`docs/deploy.md`: `railway.json` is deprecated, closed to new services, dead on 2026-12-01).
+- **Local stack (T002, T037):** `docker compose up --build --wait` runs postgres, api and web on pinned versions (PLAN.md § Technical Context); no Redis since T037. Host ports default to 5432/8000/3000 and can be overridden in `.env` (FrameFlow's containers hold 5432 on Katlego's machine). Deploy config: `apps/web/vercel.json`; (the API moves to Render since 2026-10-11, see ⚠️ "Stack changed") Railway is set in its dashboard (`docs/deploy.md`: `railway.json` is deprecated, closed to new services, dead on 2026-12-01).
 - **API** (`services/api`, FastAPI, uv): `GET /api/v1/health` pings Postgres (Redis removed in T037); 503 + exception type on failure, with a timeout.
 - **Web** (`apps/web`, Next.js 16, pnpm): `GET /api/health` reports web + API health; 502 when the API is unreachable. Pages: sign-in, `/projects` (list + upload, T040), `/projects/[id]/script` with the job strip (T041). Local stack signs in once `.env` has the publishable pair (PR #67).
-- **Gate:** 11 checks across 2 projects (ruff, pyright, pytest, eslint+tsc, vitest, next build, placeholder, secrets, osv-scanner, jscpd, the API image, T068).
+- **Gate:** 11 checks across 2 projects (ruff, pyright, pytest, eslint+tsc, vitest, next build, placeholder, secrets, osv-scanner, jscpd, the API image (T068)).
 - **Token Factory findings (T001):** [docs/nebius-findings.md](docs/nebius-findings.md).
 - **Script module (T005):** `app/script` — `parse_pdf` → ordered scenes; every action/dialogue element carries its page and line span; a line-break hyphen joins with no space (`sea-green`, T048). `resolve_times`, `match_speaker`. Design: [docs/design/script.md](docs/design/script.md).
 - **Shot planner (T007):** `app/shots` — each scene becomes shots that cover every element exactly once, cite their page/line span and verbatim text, and name only extracted characters/props present in the scene; time of day from `resolve_times`. Live: `uv run python -m app.shots.run <script.pdf>`.
@@ -229,7 +229,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
 - 2026-10-11 — Tumo (via Claude) — merged T026 (fal.ai, now FLUX.2 [klein] 4B), T027, T065–T080 into main (#90–#130); closed #97/#98 in favour of fal with klein; handoff to Katlego raised (docs/HANDOFF.md). Next: §6 step 1, the live T079 + T080 run. Blocked on: nothing.
-- 2026-10-11 — Tumo (via Claude) — Picked up the handoff in person (block set to none); plan to submit 29 Oct in ⏭️. Hosting decided by Tumo: web on Vercel, API on Render (paid plan, not free), not Railway. **T079 + T080 live run** (local stack on main, klein, 3 attempts, API at 512 MB; project `2ea4819f…`, 7 min, 38 drawings): 21 shots, **16 accepted** (4 pass, 12 warn), 5 withheld. Lerato is a girl with braids in 1.3, 4.1, 4.4, 5.1; 1.3 shows her on the roof (empty last run). Withheld: 1.1 (Lerato alone): attempt 1 drew a second child, attempts 2–3 a lone child with shoulder-length hair, refused as not Lerato (T080's look rule; braids tied back); 2.1, 2.2, 3.1 everyday objects (picture frame, toaster, mug, stars, mountains); 3.2 storm lightning + painted sound-effect text. Seen: gibberish lettering in a corner passes as a signature (4.4). API memory ~134 MB while drawing. Next: the T030 design on Render. Blocked on: Tumo's Render instance type.
+- 2026-10-11 — Tumo (via Claude) — Picked up the handoff in person (block set to none); plan to submit 29 Oct in ⏭️. Hosting decided by Tumo: web on Vercel, API on Render (paid plan, not free), not Railway. **T079 + T080 live run** (local stack on main, klein, 3 attempts, API at 512 MB; project `2ea4819f…`, 7 min, 38 drawings): 21 shots, **16 accepted** (4 pass, 12 warn), 5 withheld. Lerato is a girl with braids in 1.3, 4.1, 4.4 and 5.1, among others; 1.3 shows her on the roof (empty last run). Withheld: 1.1 (Lerato alone): attempt 1 drew a second child, attempts 2–3 a lone child with shoulder-length hair, refused as not Lerato (T080's look rule; braids tied back); 2.1, 2.2, 3.1 everyday objects (picture frame, toaster, mug, stars, mountains); 3.2 storm lightning + painted sound-effect text. Seen: gibberish lettering in a corner passes as a signature (4.4). API memory ~134 MB while drawing. Next: the T030 design on Render. Blocked on: Tumo's Render instance type.
 - 2026-09-27 — Katlego (via Claude) — scaffold, disclosure note, lanes and Phase 1 task list. Next: T001 + T002. Blocked on: nothing.
 - 2026-09-28 — Katlego (via Claude) — drafted the Devpost story in `docs/submission/about.md` (`eval+submission`, unclaimed; ⟨TBD⟩s filled by T033–T035). Next: T001 probe. Blocked on: Token Factory key in `.env`.
 - 2026-09-28 — Katlego (via Claude) — T001 done: `docs/nebius-findings.md` (json_schema enforced, thinking off works, one host, no image gen, no NVIDIA vision → option A). ~$0.004 of trial credit. Next: T004. Blocked on: nothing.
