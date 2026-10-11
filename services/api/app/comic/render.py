@@ -53,26 +53,39 @@ def panel_frame(outcome: FrameOutcome, shot: Shot) -> PanelFrame:
     """verify's outcome as the comic needs it: the accepted frame, or only the card."""
     key = (shot.scene_index, shot.number)
     if outcome.shot != key:
-        raise ComicError(f"{panel_name(key)} was given the outcome of {panel_name(outcome.shot)}")
+        raise ComicError(
+            f"{panel_name(key)} was given the outcome of {panel_name(outcome.shot)}", shot=key
+        )
     last = outcome.audits[-1] if outcome.audits else None
     if outcome.state in (FrameState.PASSED, FrameState.WARNED):
         if outcome.frame is None or last is None:
-            raise ComicError(f"{panel_name(key)} is {outcome.state} without its frame and audit")
+            raise ComicError(
+                f"{panel_name(key)} is {outcome.state} without its frame and audit", shot=key
+            )
         return PanelFrame(outcome.frame.png, dict(last.positions), False)
     if outcome.state is FrameState.WITHHELD:
         checks = "" if last is None else withheld_checks(last)
         if not checks:
-            raise ComicError(f"{panel_name(key)} is withheld without a failed hard check")
+            raise ComicError(f"{panel_name(key)} is withheld without a failed hard check", shot=key)
         return PanelFrame(b"", {}, True, WithheldCard(checks, shot.span))
-    raise ComicError(f"{panel_name(key)}: its frame is {outcome.state}, not accepted or withheld")
+    raise ComicError(
+        f"{panel_name(key)}: its frame is {outcome.state}, not accepted or withheld", shot=key
+    )
+
+
+def failed_panel(shot: Shot) -> PanelFrame:
+    """A panel whose renderer raised (comic.md §4 step 6, T067): only the failed card."""
+    return PanelFrame(b"", {}, True, WithheldCard("", shot.span, failed=True))
 
 
 def card_lines(card: WithheldCard) -> tuple[str, str]:
     span = card.span
-    return (
-        f"Frame withheld: failed audit ({card.checks})",
-        f"Script p.{span.page} l.{span.line_start}\u2013{span.line_end}",  # an en dash
+    first = (
+        "Frame not drawn: the renderer failed"
+        if card.failed
+        else f"Frame withheld: failed audit ({card.checks})"
     )
+    return first, f"Script p.{span.page} l.{span.line_start}\u2013{span.line_end}"  # an en dash
 
 
 def render_pages(book: ComicBook, frames: Mapping[Key, PanelFrame]) -> list[bytes]:
@@ -84,7 +97,7 @@ def render_pages(book: ComicBook, frames: Mapping[Key, PanelFrame]) -> list[byte
             key = (panel.scene_index, panel.shot_number)
             frame = frames.get(key)
             if frame is None:
-                raise ComicError(f"{panel_name(key)} has no frame")
+                raise ComicError(f"{panel_name(key)} has no frame", shot=key)
             canvas.paste(_tile(panel, frame, key), panel.rect[:2])
             _letter(ImageDraw.Draw(canvas), panel)
         buffer = BytesIO()

@@ -92,7 +92,8 @@ def layout_geometry(plan: ShotPlan, screenplay: Screenplay) -> ComicBook:
                 if i in forced or weights[i] >= FULL_TIER:
                     raise ComicError(
                         f"{shot_name(beats[i].shot)}: its lettering needs more than 35% of the "
-                        "panel even in a solo tier"
+                        "panel even in a solo tier",
+                        shot=(beats[i].shot.scene_index, beats[i].shot.number),
                     )
             forced.update(over)
         relayouts += 1
@@ -112,7 +113,10 @@ def layout_geometry(plan: ShotPlan, screenplay: Screenplay) -> ComicBook:
 
 def _weight(shot: Shot, scene: Scene, first_in_scene: bool, lettered_chars: int) -> Fraction:
     if shot.scene_index != scene.index:
-        raise ComicError(f"{shot_name(shot)} weighed against scene {scene.index}")
+        raise ComicError(
+            f"{shot_name(shot)} weighed against scene {scene.index}",
+            shot=(shot.scene_index, shot.number),
+        )
     weight = BASE_WEIGHT[shot.framing] + (ESTABLISHING if first_in_scene else 0)
     return weight + LETTERING_STEP * -(-lettered_chars // LETTERING_CHARS)
 
@@ -124,7 +128,10 @@ def _beats(plan: ShotPlan, screenplay: Screenplay) -> list[_Beat]:
     for shot in plan.shots:
         scene = scenes.get(shot.scene_index)
         if scene is None or not all(0 <= i < len(scene.elements) for i in shot.elements):
-            raise ComicError(f"{shot_name(shot)} cites a scene or element the screenplay lacks")
+            raise ComicError(
+                f"{shot_name(shot)} cites a scene or element the screenplay lacks",
+                shot=(shot.scene_index, shot.number),
+            )
         first = shot.scene_index not in seen
         seen.add(shot.scene_index)
         caption = [scene_caption(scene)] if first else []

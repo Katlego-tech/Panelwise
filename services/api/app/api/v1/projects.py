@@ -14,11 +14,24 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.errors import ApiError
-from app.api.v1.schemas import FrameView, LinesView, Project, ProjectSummary, ShotView
+from app.api.v1.schemas import (
+    ComicView,
+    FrameView,
+    LinesView,
+    Project,
+    ProjectSummary,
+    ShotView,
+    StoryboardPdfView,
+)
+from app.comic.job import ComicRefused, run_comic_job, start_comic
+from app.comic.rows import ComicRow
+from app.comic.views import comic_job_view, comic_view
 from app.core.auth import Caller, current_caller
 from app.frames import ACCEPTED, FrameRow, audits_of, frame_view, frames_of
-from app.frames.attempt import run_attempt
+from app.frames.attempt import RendererFactory, run_attempt
 from app.jobs import JobKind, JobRow, JobState
+from app.limits.checks import budget_spent, check_budget, check_pages, check_uploads
+from app.llm import NebiusChatModel
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.job import fail_job, run_job
 from app.projects.model import ProjectRow
@@ -26,6 +39,8 @@ from app.projects.pipeline import UNEXPECTED, Stage
 from app.projects.repo import create_upload, get_project, list_summaries, summary
 from app.projects.views import entity_views, lines_view, report_view, scene_views, shot_views
 from app.storage import AssetStore, StorageError
+from app.storyboard.document import export_pdf, frames_from_rows
+from app.storyboard.styles import StyleRegistry
 
 router = APIRouter()
 log = logging.getLogger(__name__)
@@ -60,7 +75,15 @@ def start(request: Request, job_id: uuid.UUID) -> None:
         log.error("job %s cannot run: NEBIUS_API_KEY is not set", job_id)
         work = fail_job(state.sessions, job_id, UNEXPECTED, None)
     else:
-        work = run_job(job_id, sessions=state.sessions, store=state.store, model=state.model)
+        work = run_job(
+            job_id,
+            sessions=state.sessions,
+            store=state.store,
+            model=state.model,
+            factory=state.renderer_factory,
+            concurrency=state.settings.fal_concurrency,
+            max_renders=state.settings.render_max_attempts,
+        )
     task = asyncio.create_task(work)
     state.tasks.add(task)
     task.add_done_callback(state.tasks.discard)
@@ -71,10 +94,15 @@ async def upload(
     request: Request, caller: Annotated[Caller, Depends(current_caller)]
 ) -> JSONResponse:
     """In web.md §6's order. No UploadFile or Form parameter: FastAPI would read the whole body
-    before the caller is checked. So: who (401/503), storage (503), the declared length (411/413),
-    then the form, the file's own size (413), the PDF header (400), and only then storage."""
+    before the caller is checked. So: who (401/503), storage (503), the demo's budget and the
+    day's uploads (429, T069), the declared length (411/413), then the form, the file's own size
+    (413), the PDF header (400), its pages (413, T069), and only then storage."""
     settings = request.app.state.settings
     store = _store(request)
+    # The hosted demo's limits (limits.md §4, T069): nothing read or stored past a refusal.
+    async with request.app.state.sessions() as session:
+        await check_budget(request, session)
+        await check_uploads(request, session, caller.user_id)
     length = request.headers.get("content-length")
     if length is None or not length.isdigit():
         raise ApiError(411, "length_required")
@@ -93,6 +121,7 @@ async def upload(
     data = await file.read()
     if not data.startswith(b"%PDF-"):
         raise ApiError(400, "not_a_pdf")
+    await asyncio.to_thread(check_pages, request, data)
 
     project_id = uuid.uuid4()
     path = f"scripts/{caller.user_id}/{project_id}.pdf"
@@ -208,7 +237,15 @@ async def read_frames(
             except StorageError as exc:
                 raise ApiError(503, "storage_unavailable") from exc
         attempts = audits.get((frame.scene_index, frame.shot_number), [])
-        views.append(frame_view(frame, screenplay, url, attempts))
+        views.append(
+            frame_view(
+                frame,
+                screenplay,
+                url,
+                attempts,
+                max_renders=request.app.state.settings.render_max_attempts,
+            )
+        )
     return views
 
 
@@ -231,10 +268,10 @@ async def try_another_render(
     number: str,
     caller: Annotated[Caller, Depends(current_caller)],
 ) -> FrameView:
-    """One more audited attempt on a withheld frame, in web.md §6's order: who; the frame,
-    locked from its read to the commit (one attempt per frame at a time); its state (409); what
-    the attempt needs (503, nothing written); then the job and the row together, and the work in
-    the background."""
+    """One more audited attempt on a withheld or failed frame (T066), in web.md §6's order: who;
+    the frame, locked from its read to the commit (one attempt per frame at a time); its state
+    (409); what the attempt needs (503, nothing written); then the job and the row together, and
+    the work in the background."""
     project, _ = await _owned(request, caller, project_id)
     shot = (_index(scene_index), _index(number))
     state = request.app.state
@@ -250,14 +287,15 @@ async def try_another_render(
         )
         if frame is None:
             raise ApiError(404, "not_found")
-        if frame.state != "withheld":
-            raise ApiError(409, "not_withheld")
+        if frame.state not in ("withheld", "failed"):
+            raise ApiError(409, "not_withheld")  # the code keeps its T021 name
         if (
             project.screenplay is None
             or project.plan is None
             or not any((s.scene_index, s.number) == shot for s in load_plan(project.plan).shots)
         ):
             raise ApiError(409, "not_ready")
+        await check_budget(request, session)  # T069: after the 409s, before the 503s
         if state.renderer_factory is None or state.model is None:
             raise ApiError(503, "renderer_unavailable")
         if state.store is None:
@@ -273,9 +311,14 @@ async def try_another_render(
         session.add(job)
         await session.flush()
         frame.state, frame.attempt, frame.job_id = "rendering", frame.attempt + 1, job.id
-        frame.withheld_check = None
+        frame.withheld_check = frame.failure = None
         attempt = frame.attempt
-        view = frame_view(frame, load_screenplay(project.screenplay), None)
+        view = frame_view(
+            frame,
+            load_screenplay(project.screenplay),
+            None,
+            max_renders=state.settings.render_max_attempts,
+        )
     task = asyncio.create_task(
         run_attempt(
             job.id,
@@ -290,3 +333,132 @@ async def try_another_render(
     state.tasks.add(task)
     task.add_done_callback(state.tasks.discard)
     return view
+
+
+# --- the comic (T064; comic.md §4a, web.md §6) ------------------------------------------------
+
+_COMIC_STATUS = {
+    "not_found": 404,
+    "not_ready": 409,
+    "comic_running": 409,
+    "llm_budget_spent": 429,
+    "renderer_unavailable": 503,
+    "storage_unavailable": 503,
+}
+
+
+@router.post("/projects/{project_id}/comic", status_code=202)
+async def make_comic(
+    request: Request, project_id: str, caller: Annotated[Caller, Depends(current_caller)]
+) -> JSONResponse:
+    """Start the project's comic: comic.md §4a's checks in order, nothing written before an
+    answer, then the job runs in the background like the upload's."""
+    try:
+        pid = uuid.UUID(project_id)
+    except ValueError as exc:
+        raise ApiError(404, "not_found") from exc
+    state = request.app.state
+    factory: RendererFactory | None = state.renderer_factory
+    model: NebiusChatModel | None = state.model
+    store: AssetStore | None = state.store
+    try:
+        async with state.sessions() as session, session.begin():
+            job = await start_comic(
+                session,
+                pid,
+                caller.user_id,
+                renderer=factory is not None and model is not None,
+                store=store is not None,
+                budget_spent=await budget_spent(request, session),
+            )
+    except ComicRefused as refused:
+        raise ApiError(_COMIC_STATUS[refused.code], refused.code) from refused
+    if factory is None or model is None or store is None:  # start_comic refused these already
+        raise ApiError(503, "renderer_unavailable")
+    task = asyncio.create_task(
+        run_comic_job(
+            job.id,
+            sessions=state.sessions,
+            store=store,
+            model=model,
+            factory=factory,
+            max_renders=state.settings.render_max_attempts,
+            concurrency=state.settings.fal_concurrency,
+        )
+    )
+    state.tasks.add(task)
+    task.add_done_callback(state.tasks.discard)
+    return JSONResponse(
+        status_code=202, content={"job": comic_job_view(job).model_dump(mode="json")}
+    )
+
+
+@router.get("/projects/{project_id}/storyboard/pdf")
+async def storyboard_pdf(
+    request: Request, project_id: str, caller: Annotated[Caller, Depends(current_caller)]
+) -> StoryboardPdfView:
+    """T027 (web.md §6; storyboard.md §3.4 Delivery): the PDF of a settled storyboard, built on
+    demand from the frames rows and stored by its document key, as a signed URL."""
+    project, made = await _owned(request, caller, project_id)
+    if made.job.state != "done" or project.plan is None or project.screenplay is None:
+        raise ApiError(409, "not_ready")
+    state = request.app.state
+    async with state.sessions() as session:
+        rows = await frames_of(session, project.id)
+        audits = await audits_of(session, project.id)
+    plan = load_plan(project.plan)
+    by_shot = {(r.scene_index, r.shot_number): r for r in rows}
+    ordered = [by_shot.get((s.scene_index, s.number)) for s in plan.shots]
+    if any(r is None or r.state in ("rendering", "auditing") for r in ordered):
+        raise ApiError(409, "not_ready")
+    store: AssetStore | None = state.store
+    if store is None:
+        raise ApiError(503, "storage_unavailable")
+    styles: StyleRegistry | None = state.styles
+    if styles is None:
+        raise ApiError(503, "styles_unavailable")
+    frames = frames_from_rows(
+        [r for r in ordered if r is not None], [a for listed in audits.values() for a in listed]
+    )
+    try:
+        path = await export_pdf(
+            store, project.id, styles.get(None), plan, load_screenplay(project.screenplay), frames
+        )
+        url = await store.signed_url(path, _SIGNED_URL_S)
+    except StorageError as exc:
+        raise ApiError(503, "storage_unavailable") from exc
+    return StoryboardPdfView(pdf_url=url)
+
+
+@router.get("/projects/{project_id}/comic")
+async def read_comic(
+    request: Request, project_id: str, caller: Annotated[Caller, Depends(current_caller)]
+) -> ComicView:
+    """The latest comic job and the last finished comic, every page and the PDF signed."""
+    project, _ = await _owned(request, caller, project_id)
+    if project.plan is None:
+        raise ApiError(409, "not_ready")
+    state = request.app.state
+    async with state.sessions() as session:
+        job = await session.scalar(
+            select(JobRow)
+            .where(JobRow.project_id == project.id, JobRow.kind == JobKind.COMIC)
+            .order_by(JobRow.created_at.desc(), JobRow.id.desc())
+            .limit(1)
+        )
+        comic = await session.get(ComicRow, project.id)
+    page_urls: list[str] = []
+    pdf_url: str | None = None
+    if comic is not None:
+        store: AssetStore | None = state.store
+        if store is None:
+            raise ApiError(503, "storage_unavailable")
+        try:
+            page_urls = [await store.signed_url(path, _SIGNED_URL_S) for path in comic.pages]
+            pdf_url = await store.signed_url(comic.pdf, _SIGNED_URL_S)
+        except StorageError as exc:
+            raise ApiError(503, "storage_unavailable") from exc
+    can_make = (
+        state.renderer_factory is not None and state.model is not None and state.store is not None
+    )
+    return comic_view(project, job, comic, page_urls, pdf_url, can_make=can_make)

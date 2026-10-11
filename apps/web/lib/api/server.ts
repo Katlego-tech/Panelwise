@@ -2,7 +2,7 @@
 
 import type { CurrentUser } from "@/lib/supabase/server";
 
-import type { FrameView, LinesView, Project, ProjectSummary, ShotView } from "./types";
+import type { ComicView, FrameView, LinesView, Project, ProjectSummary, ShotView } from "./types";
 
 export function apiUrl(): string {
   return process.env.API_URL ?? "http://localhost:8000";
@@ -79,6 +79,20 @@ export async function getBoard(user: CurrentUser, id: string): Promise<BoardRead
       read<FrameView[]>("frames"),
     ]);
     return { kind: "ok", lines, shots, frames };
+  } catch {
+    return { kind: "unavailable" };
+  }
+}
+
+export type ComicRead = { kind: "ok"; view: ComicView } | { kind: "not-ready" } | { kind: "unavailable" };
+
+/** A planned project's comic view (web.md §4.5): its latest comic job and last finished comic. */
+export async function getComic(user: CurrentUser, id: string): Promise<ComicRead> {
+  try {
+    const res = await apiFetch(`${projectPath(id)}/comic`, user);
+    if (res.status === 409) return { kind: "not-ready" };
+    if (!res.ok) return { kind: "unavailable" };
+    return { kind: "ok", view: (await res.json()) as ComicView };
   } catch {
     return { kind: "unavailable" };
   }

@@ -367,16 +367,40 @@ async def test_a_failure_before_the_loop_still_fails_the_frame(
     assert frame is not None and (frame.state, frame.failure) == ("failed", "render")
 
 
-async def test_only_a_withheld_frame_can_be_retried(
+async def test_only_a_withheld_or_failed_frame_can_be_retried(
     sessions: async_sessionmaker[AsyncSession], client_for: Any
 ) -> None:
+    # A frame left auditing would be swept to failed (restart) when the app starts, and a failed
+    # frame can be retried (T066); a passed one can't.
     pid, shot = await withheld(sessions)
     async with sessions() as s, s.begin():
         frame = await s.get(FrameRow, (pid, *shot))
         assert frame is not None
-        frame.state = "auditing"
+        frame.state, frame.withheld_check, frame.asset = "passed", None, "frames/3.png"
     c = client_for(renderer=FakeRenderer())
     assert post(c, pid, shot) == (409, {"error": "not_withheld"})
+
+
+async def test_a_failed_frame_can_be_retried_and_its_failure_is_cleared(
+    sessions: async_sessionmaker[AsyncSession], client_for: Any, scripted: list[Verdict]
+) -> None:
+    # T066 (verify.md §5 FAILED -> RENDERING): a frame whose renderer failed gets another attempt.
+    pid, shot = await withheld(sessions)
+    async with sessions() as s, s.begin():
+        frame = await s.get(FrameRow, (pid, *shot))
+        assert frame is not None
+        frame.state, frame.withheld_check, frame.failure = "failed", None, "render"
+    scripted.append(Verdict.PASS)
+    status, body = post(client_for(renderer=FakeRenderer()), pid, shot)
+    assert status == 202 and (body["state"], body["attempt"], body["failure"]) == (
+        "rendering",
+        4,
+        None,
+    )
+    await wait_for_job(sessions, pid)
+    async with sessions() as s:
+        frame = await s.get(FrameRow, (pid, *shot))
+    assert frame is not None and (frame.state, frame.failure) == ("passed", None)
 
 
 async def test_nothing_is_written_without_a_renderer_a_model_or_a_store(
@@ -433,7 +457,7 @@ async def test_a_409_comes_before_any_503(
     async with sessions() as s, s.begin():
         frame = await s.get(FrameRow, (pid, *shot))
         assert frame is not None
-        frame.state = "auditing"
+        frame.state, frame.withheld_check, frame.asset = "passed", None, "frames/3.png"
     assert post(client_for(renderer=None, model=False, store=False), pid, shot) == (
         409,
         {"error": "not_withheld"},

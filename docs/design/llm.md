@@ -1,6 +1,6 @@
 # Design — `llm` (Nebius Token Factory provider)
 
-**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T004 · **Spec:** [SPEC.md](../../SPEC.md)
+**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T004, T075 · **Spec:** [SPEC.md](../../SPEC.md)
 (every story calls a model through this)
 
 ---
@@ -87,11 +87,11 @@ sequenceDiagram
     C->>S: messages, Tier, ResponseModel
     S->>S: inline JSON schema into the system message
     S->>M: chat(..., response_format=json_schema strict)
-    loop up to max_attempts (default 3)
+    loop up to max_attempts (default 5, T075)
         M->>N: POST /chat/completions
         alt 429 or 5xx or network error
             N-->>M: status (+ Retry-After)
-            M->>M: sleep Retry-After (capped 30 s) or backoff 1 s, 2 s, …
+            M->>M: sleep Retry-After or backoff 2 s, 4 s, 8 s, 16 s (each capped 30 s)
         else 200
             N-->>M: choices[0].message, usage, model
         end
@@ -112,6 +112,11 @@ sequenceDiagram
   request body (the body quotes the screenplay).
 - Retries exhausted on 429 / 5xx / network → `LLMRequestError` with the last status (`None` for
   network).
+- A connection that doesn't open within `connect_timeout_s` (10 s) is a network error like any
+  other, and retried. A response that doesn't arrive within `timeout_s` (120 s) is a read timeout:
+  retried once, and the second read timeout of a call ends it with `LLMRequestError(None)`
+  (`_MAX_READ_TIMEOUTS = 2`, T075). A model that hangs is not an outage that passes, and five
+  waits of 120 s would hold the call for ten minutes.
 - 200 whose body isn't JSON (something in front of Token Factory answered) → `LLMRequestError(200)`,
   no retry. Every failure this module raises is an `LLMError`.
 - 200 with empty content → `LLMEmptyResponse`. If the message carries `reasoning_content`, the
@@ -138,7 +143,8 @@ type Message = dict[str, Any]   # OpenAI chat message; content may be a str or a
 
 class NebiusChatModel:
     def __init__(self, *, api_key: str, base_url: str, models: Mapping[Tier, str],
-                 timeout_s: float = 120.0, max_attempts: int = 3,
+                 timeout_s: float = 120.0, connect_timeout_s: float = 10.0,  # T075
+                 max_attempts: int = 5,                                    # T075: was 3
                  transport: httpx2.AsyncBaseTransport | None = None,
                  sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None: ...
     @classmethod
@@ -173,7 +179,8 @@ if there is none. Never a second system message: some chat templates accept only
 
 **Settings** (`app/core/config.py`, env names in `.env.example`): `nebius_api_key`,
 `nebius_base_url`, `nebius_model_fast`, `nebius_model_reasoning`, `nebius_model_vision`,
-`llm_request_timeout_s` (120), `llm_max_attempts` (3).
+`llm_request_timeout_s` (120), `llm_connect_timeout_s` (10, T075), `llm_max_attempts` (5, T075:
+was 3).
 
 ## 7. Structure
 
@@ -183,7 +190,8 @@ if there is none. Never a second system message: some chat templates accept only
 | `services/api/app/llm/client.py` | new | `Tier`, `Usage`, `ChatResult`, errors, `NebiusChatModel` |
 | `services/api/app/llm/structured.py` | new | `StructuredResult`, `structured_chat` |
 | `services/api/app/llm/smoke.py` | new | `python -m app.llm.smoke`: one real call per configured tier, prints model + usage (the T004 Verify step) |
-| `services/api/app/core/config.py` | changed | the Nebius settings |
+| `services/api/app/core/config.py` | changed | the Nebius settings (T075: `llm_connect_timeout_s`, `llm_max_attempts` 5) |
+| `.env.example` | changed | T075: `LLM_MAX_ATTEMPTS=5`, `LLM_CONNECT_TIMEOUT_S=10` |
 | `services/api/tests/llm/test_client.py`, `test_structured.py` | new | `httpx2.MockTransport` tests, no network |
 
 ## 8. Decisions & alternatives
@@ -196,6 +204,9 @@ if there is none. Never a second system message: some chat templates accept only
 | Thinking | off by default on FAST | on everywhere: ~68× output tokens for a one-number answer (U2) |
 | One base URL | yes | per-tier URLs: every Nemotron model answers on the default host (U3) |
 | Retry on 4xx | never (except 429) | a malformed request fails the same way every time and costs credit |
+| How long a call rides out an outage (T075) | 5 attempts, waits 2, 4, 8, 16 s, a 10 s connect timeout: a dropped connection is retried for about 80 s | 3 attempts, waits 1 s and 2 s, no connect timeout of its own (before T075): on 2026-10-10 Token Factory dropped connections on and off from 21:28 to 21:38, each `ConnectError` took about 20 s, and three of them ended a call in 45 s; 3 of sipho-and-siphokazi's 31 audits were withheld as `audit_error` for it |
+| A read timeout (T075) | at most 2 per call | retried like a dropped connection: five waits of 120 s on a hung model |
+| Re-audit an `audit_error` later in the job (T075) | not now: a follow-up in the storyboard and comic jobs | here: the client can't know a drawing exists. Those jobs sit on the renderer PRs (#91, #98), which wait on the renderer decision |
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none.
 
@@ -208,6 +219,11 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - `structured_chat` tests: schema inlined into the existing system message (not a second one),
   valid on the first try → `repaired=False`, invalid then valid → `repaired=True` with the repair
   turn shaped as specified, invalid twice → `ValidationError`.
+- **T075:** with an injected `sleep` and a `MockTransport`: four `ConnectError`s then a 200 answer,
+  after waits of 2, 4, 8 and 16 s; five `ConnectError`s give `LLMRequestError(None)` after 5
+  attempts; two `ReadTimeout`s end the call after 2 attempts, while a `ReadTimeout` then a
+  `ConnectError` then a 200 answers; `from_settings` passes the connect timeout to the client's
+  `httpx2.Timeout`; a `Retry-After` of 60 still waits 30 s.
 - `uv run python -m app.llm.smoke` against the real account: FAST and REASONING answer, and FAST
   reports `reasoning_tokens == 0`.
 

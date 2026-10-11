@@ -170,3 +170,26 @@ async def test_a_description_that_never_validates_is_an_error_and_nothing_is_jud
     assert audit.verdict is Verdict.ERROR
     assert [b["model"] for b in handler.bodies] == ["vision-model", "vision-model"]  # + repair
     assert audit.description is None and audit.judgement is None
+
+
+async def test_a_failed_call_logs_its_step_and_why_never_the_script(
+    screenplay: Screenplay, extraction: Extraction, caplog: pytest.LogCaptureFixture
+) -> None:
+    # An empty reply from the describer: its step and the LLMError's own words (model, finish
+    # reason), so a run's log tells budget-starved thinking from a model that said nothing.
+    handler = Scripted("", judged().model_dump_json())
+    with caplog.at_level("WARNING", logger="app.verify.audit"):
+        audit = await audit_frame(
+            model_for(handler), frame(), kitchen_shot(), screenplay, extraction
+        )
+    assert audit.verdict is Verdict.ERROR
+    (record,) = [r for r in caplog.records if r.name == "app.verify.audit"]
+    assert "attempt 2 failed at describe: vision-model returned no content" in record.getMessage()
+    # A judgement that never validates: the judge step, its type only (it can quote the script).
+    caplog.clear()
+    handler = Scripted(described().model_dump_json(), '{"people": "nobody"}')
+    with caplog.at_level("WARNING", logger="app.verify.audit"):
+        await audit_frame(model_for(handler), frame(), kitchen_shot(), screenplay, extraction)
+    (record,) = [r for r in caplog.records if r.name == "app.verify.audit"]
+    assert record.getMessage().endswith("failed at judge: ValidationError")
+    assert "nobody" not in record.getMessage()
