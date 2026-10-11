@@ -408,7 +408,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 - [ ] T078 [US2] **A part of a shot's prop is that prop; the describer leaves out the drawing's own marks.** Found on 2026-10-11 on eval.md §6a's 27 labelled frames: the good frames failed on a `kite string` of the RED KITE (3 times) and on "pencil shading". Measured on saved judgements: 21 → 23 of 27 agree, no labelled-bad frame newly passing. Lane `verify` (Claude for Tumo). Stacked on T072 (#116/#117).
       Design:  docs/design/verify.md §3 (What the describer leaves out, A part of a prop), §6 (`part_of_prop`), §8 (two rows), §9 (T078)
       Files:   services/api/app/verify/{prompts,audit}.py; services/api/tests/verify/
-      Contract:verify.md §6 verbatim: `part_of_prop(name: str, shot: Shot, extraction: Extraction) -> str | None`
+      Contract:verify.md §6 verbatim: `part_of_prop(name: str, category: ObjectCategory, shot: Shot, extraction: Extraction) -> str | None`
       Verify:  bash scripts/gate.sh (tests first: verify.md §9's T078 list); free, with Tumo's go-ahead: the 27 labelled frames with and without T078
       Done:    a kite string with the RED KITE in the shot passes, a second kite still fails, and no labelled-bad frame passes that T072 withheld
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
