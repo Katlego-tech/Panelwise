@@ -494,7 +494,8 @@ state (§4.1), drawn in storyboard-states.png.
   words. **Staged, until T061:** the withheld card has no "Try another render" button (T061 adds
   it, on T021's endpoint); no frame can be withheld before T021 writes `frames` rows.
   A `failed` card reads by `FrameView.failure` (T021's field, T061's wording): `render` (or null) "The renderer failed on
-  this frame.", `restart` "Rendering was interrupted by a restart."
+  this frame.", `restart` "Rendering was interrupted by a restart." It carries "Try another render"
+  too (T066), as the withheld card does.
   **"Try another render"** (T061, on T021's endpoint) is a quiet button in the withheld card, `relative z-10` above the
   card's stretched link (§4.4). It POSTs `/api/projects/[id]/frames/[scene]/[number]/attempts`
   (`scene` the shot's `scene_index`, `number` its number); while sending it reads "Starting…",
@@ -507,11 +508,18 @@ state (§4.1), drawn in storyboard-states.png.
 - **Job strip** under the bar while polling (above): T041's `JobStrip`, unchanged (§4.2).
 - **Export PDF** (bar, right): disabled with the tooltip "Available when every frame has settled"
   until the storyboard job is `DONE` and every shot has a settled `frames` row, with no frame
-  `rendering` or `auditing`; then it downloads T027's PDF, built on demand. (A job that failed on a
-  renderer error leaves its frame `failed` and later shots with no row, so Export stays disabled.)
-  **Staged, until T027 builds the PDF:** `ExportButton` (T042) is always disabled, with the tooltip
-  "The PDF export isn't built yet"; T027 adds `GET /api/projects/[id]/storyboard.pdf` and the rule
-  above. (No frame settles before T021 and T026, so the rule couldn't enable it yet anyway.)
+  `rendering` or `auditing` (`canExport`, read from the project summary the page was drawn with;
+  the page refreshes when the job's stage changes). Then a click shows "Making the PDF…", fetches
+  `GET /api/projects/[id]/storyboard/pdf` and opens the `pdf_url` it answers (storyboard.md §3.4
+  Delivery; the PDF is built on demand); a 409 (a frame went live again since the page was drawn)
+  shows "Available when every frame has settled" under the button, a 401 goes to `/sign-in`, and
+  anything else shows "The PDF couldn't be made. Try again in a minute." A `failed` frame is
+  settled: a storyboard with one is exported with its failed card (storyboard.md §3.4). (A job
+  that failed because the renderer looked down, storyboard.md §4, leaves later shots with no row,
+  so Export stays disabled.)
+  T042 staged it as always disabled ("The PDF export isn't built yet"); T027 adds
+  `GET /api/projects/[id]/storyboard/pdf` (answering `StoryboardPdfView`, added to the Response
+  types below with T027's code) and the rule above.
 - **The staging T042 undoes** (§4.1a, §4.2): a projects-list title (every row but a failed one)
   links to `/projects/{id}/storyboard`; an accepted upload goes there (§4.1 step 5); the script
   page's Storyboard tab is enabled and its scenes column gains "Open the storyboard" (script.png).
@@ -652,7 +660,8 @@ the button, which stays enabled.
 - **Hit areas** over the image, placed by each rect as percentages of the page's `width` and `height`
   (`left = x / width`, …), so they scale with the image:
   - per panel, a link to `/projects/[id]/storyboard?shot={shot_id}` labelled "Shot {shot_id} in the
-    storyboard" (", frame withheld" appended when `withheld`); hover or focus shows a dashed pencil
+    storyboard" (", frame not shown" appended when `withheld`: withheld by the audit, or not drawn,
+    T067); hover or focus shows a dashed pencil
     outline and a "Shot {id}" tag in the corner;
   - per lettering, a `<button aria-pressed>` labelled "{who}: {text} ({span})", stacked above its
     panel's link. **DOM order is tab order:** panel by panel in page order, each panel's link then its
@@ -677,8 +686,9 @@ the button, which stays enabled.
   within a panel in `lettering` order (the reading order), each a button with the who, the text and
   the span. It is also the page's text for a screen reader: the image's `alt` is "Comic page {n} of
   {N}. Its lettering is listed beside the page."
-- **A withheld panel** is already the withheld card in the page image (comic.md §4 step 6); the
-  reader adds nothing but the ", frame withheld" in its link's label.
+- **A withheld panel** is already the withheld card in the page image (comic.md §4 step 6), and a
+  panel whose renderer failed its failed card (T067); the reader adds nothing but the ", frame not
+  shown" in its link's label.
 - **Images:** a plain `<img>` (signed, expiring URLs, as `FrameMedia`). If a page image fails to
   load, the client fetches `…/comic` once and swaps in the fresh URLs; a second failure shows
   "This page couldn't be loaded. Reload to try again." in the sheet.
@@ -727,8 +737,8 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 | `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T047 |
 | `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T047 |
 | `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row (no rows exist until T021 writes them) | T047 (creates and reads `frames`) |
-| `GET /projects/{id}/storyboard.pdf` | — | 200 PDF, built on demand (storyboard.md §6 `layout_document`, `render_pdf`) and stored by content hash · 409 unless the job is `DONE` and every shot is settled | T027 |
-| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` → `rendering`, under a new `frame_attempt` job) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state · 409 `{"error": "not_ready"}` without a plan or that shot · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
+| `GET /projects/{id}/storyboard/pdf` | — | 200 `{"pdf_url": str}`, a signed URL (an hour) to the PDF, built on demand and stored by its document key (storyboard.md §3.4, §6 `export_pdf`) · 404 `not_found` · 409 `{"error": "not_ready"}` unless the upload's job is `done`, every plan shot has a `frames` row and none is `rendering` or `auditing` · 503 `storage_unavailable` · 503 `{"error": "styles_unavailable"}` when the styles didn't load · 401/503 as every route | T027 |
+| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` or `failed` → `rendering`, under a new `frame_attempt` job; `failed` since T066) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state (the code keeps its T021 name) · 409 `{"error": "not_ready"}` without a plan or that shot · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
 | `POST /projects/{id}/comic` | — | 202 `{job: Job}` (kind `comic`, `RUNNING`) · 404 `not_found` · 409 `{"error": "not_ready"}` (no plan, or the upload's job not `done`) · 409 `{"error": "comic_running"}` · 503 `renderer_unavailable` · 503 `storage_unavailable`, each before anything is written, in comic.md §4a's order · 401/503 as every route | T064 |
 | `GET /projects/{id}/comic` | — | 200 `ComicView` (every URL signed for 3600 s) · 409 `not_ready` before the plan · 404 · 503 `storage_unavailable` when signing fails | T064 |
 
@@ -855,7 +865,8 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
   (1) `current_caller` (401/503 as every route).
   (2) The project by owner and its `frames` row for `(scene_index, number)`, locked: missing or
   someone else's → 404 `not_found`.
-  (3) The row not `withheld` → 409 `not_withheld`; the project without a plan, or the plan without
+  (3) The row neither `withheld` nor `failed` (T066) → 409 `not_withheld` (the code keeps its T021
+  name); the project without a plan, or the plan without
   that shot → 409 `not_ready` (a data bug, never sent on to the task).
   (4) Anything the attempt needs missing → 503, nothing written: `app.state.renderer_factory` or
   `app.state.model` None → `renderer_unavailable`; `app.state.store` None → `storage_unavailable`.
@@ -865,7 +876,8 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
   instance would mix projects), in the **default style** (projects store no style yet; T026 may add
   a column and pass it). It is None until T026 sets it in the lifespan.
   (5) A `frame_attempt` job `RUNNING` at stage `rendering`, progress 60; the row → `rendering`,
-  attempt n + 1, that job, `withheld_check` null; commit; 202 with the row's `FrameView`.
+  attempt n + 1, that job, `withheld_check` and `failure` null; commit; 202 with the row's
+  `FrameView`.
   (6) An asyncio task in `app.state.tasks` (as the upload's job, §4.1), with its own sessions from
   `app.state.sessions`: build the renderer, a `FrameWriter(sessions, project_id, job_id)` and
   `frame_hooks(writer, renderer, shot)` (verify.md §6), then `render_until_accepted(...,
@@ -959,6 +971,8 @@ interface ProjectSummary {
   job: Job;                                                                    // the latest storyboard job (never a frame_attempt)
 }
 
+interface StoryboardPdfView { pdf_url: string }                               // T027: a signed URL to the PDF, valid an hour
+
 interface SpanRef { page: number; line_start: number; line_end: number }        // script.md Span
 interface QuoteView { text: string; span: SpanRef }
 interface EntityView {
@@ -1005,6 +1019,8 @@ interface AuditView {                    // one frame_audits row (verify.md §6)
     people: { position: "left" | "centre" | "right"; appearance: string }[];
     setting: string; light: string; shot_size: string;
     objects: { name: string; category: string; held: boolean }[]; has_text: boolean;
+    text: string[];                     // T071: the writing the describer read, verbatim; [] before T071
+    signature: boolean;                 // T072: a signature or artist's mark seen; false before T072
   } | null;
   judgement: {
     people: { person: number; character: string | null; support: string | null }[];
@@ -1069,7 +1085,7 @@ rows, so their builders are T047's (`FrameView`, with `audits` `[]`) and T021's 
 **Web routes** (Next.js App Router): `/sign-in`, `/projects`, `/projects/[id]/script`,
 `/projects/[id]/storyboard` (`?shot=` opens the sheet), `/projects/[id]/comic` (T024, §4.5; `?page=`;
 until T024 the tab is disabled, with the tooltip "Comic pages aren't built yet"). `/` has no page: the proxy redirects it (§4.0). Route handlers proxy the API server-side (deploy.md §4): `POST /api/projects`, `GET /api/projects` (the list, polled by `/projects`, §4.1a),
-`GET /api/projects/[id]/status` (T041: the job, for the script page's poll and T042's), `GET /api/projects/[id]/frames`, `GET /api/projects/[id]/storyboard.pdf`,
+`GET /api/projects/[id]/status` (T041: the job, for the script page's poll and T042's), `GET /api/projects/[id]/frames`, `GET /api/projects/[id]/storyboard/pdf`,
 `POST /api/projects/[id]/frames/[scene]/[number]/attempts`, `GET` and `POST /api/projects/[id]/comic` (T024).
 
 **Component tree** (`apps/web/components/`, each built on shadcn/ui primitives restyled with the
@@ -1121,12 +1137,16 @@ shared (components/shared/): Verdict, SpanRef, Quote (Courier), Meter (T040); Jo
 | Comic (T024) | §4.5, verbatim: the notes, "Make the comic" ("Starting…"), "Make the comic again", "Making the comic · {p}%", "Download PDF", "From the script", "Lettering on this page", the traced line's facts, the page alt text |
 | Upload, the demo's limits (T069, limits.md §6) | `llm_budget_spent` "The demo has used this month's model budget. Your existing storyboards still open; new uploads start again next month." · `upload_limit` "This demo makes {per_day} storyboards a day per account. Try again tomorrow." · `too_many_pages` "This demo takes scripts of up to {max_pages} pages." |
 | Try another render / Make the comic, the budget (T069) | 429 `llm_budget_spent` "The demo has used this month's model budget." |
-| Export tooltip | "Available when every frame has settled" (T027) · staged until then: "The PDF export isn't built yet" |
+| Export tooltip | "Available when every frame has settled" (T027) |
+| Export, while asking | "Making the PDF…" (T027) |
+| Export failed | "The PDF couldn't be made. Try again in a minute." (T027) |
 | Storyboard cards, states, eyebrows | §4.3, verbatim: "Not rendered yet", "Rendering attempt {n} of {max}", "Auditing attempt {n} of {max}", "Render failed", "The renderer failed on this frame.", "Lined script", "speaker on screen", "speaker off screen", "Storyboard" (the failed page's eyebrow) |
 
 Check names in words: `unscripted_person` "unscripted person", `unscripted_object` "unscripted
 object", `text_in_frame` "text in frame", `setting` "wrong setting", `missing_character` "missing
-character", `light` "light", `framing` "framing", `audit_error` "the audit couldn't run".
+character", `light` "light", `framing` "framing", `signature` "artist's signature" (T077),
+`no_character` "no character in frame" (T080),
+`audit_error` "the audit couldn't run".
 
 ## 7. Structure
 
@@ -1158,7 +1178,7 @@ character", `light` "light", `framing` "framing", `audit_error` "the audit could
 | `components/storyboard/{FrameSheet,SourceBlock,InFrame}*` | new | §4.4 steps 1–4 | T045 |
 | `components/storyboard/AuditLog.tsx` (AttemptItem, CheckList inside), the "Try another render" action (an edit to T042's `FrameCard.tsx`), `apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts` | new | §4.4 step 5; §4.3 retry | T061 (the API side: T021) |
 | `components/storyboard/ExportButton.tsx` | new | §4.3 export, staged (always disabled until T027) | T042 |
-| `apps/web/app/api/projects/[id]/storyboard.pdf/route.ts`, `ExportButton.tsx`'s enable rule | new | §4.3 export | T027 |
+| `apps/web/app/api/projects/[id]/storyboard/pdf/route.ts`, `ExportButton.tsx` and `canExport` (`board.ts`) | new / changed | §4.3 export | T027 |
 | `apps/web/app/projects/[id]/comic/`, `components/comic/*` (ComicPage, ComicNote, ComicSheet, TracedCard, LetteringList, `comic.ts` for the words and the rect percentages), `apps/web/app/api/projects/[id]/comic/route.ts` (GET, POST), `AppBar.tsx` (the Comic tab enabled), `lib/api/types.ts` (§6 comic types) | new | §4.5 | T024 |
 
 ## 8. Decisions & alternatives

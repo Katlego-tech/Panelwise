@@ -157,6 +157,8 @@ class DescriptionView(_View):
     shot_size: str
     objects: list[DescribedObject]
     has_text: bool
+    text: list[str] = []  # T071; a row logged before it has none
+    signature: bool = False  # T072; likewise
 
 
 class JudgedPerson(_View):
@@ -210,6 +212,12 @@ class FrameView(_View):
         if self.failure is not None and self.state != "failed":
             raise ValueError("failure is sent only for failed frames")
         return self
+
+
+class StoryboardPdfView(_View):
+    """GET /projects/{id}/storyboard/pdf (T027): a signed URL to the PDF, valid an hour."""
+
+    pdf_url: str
 
 
 # --- the comic (web.md §6 comic types; comic.md §4a; T064) ------------------------------------

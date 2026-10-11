@@ -39,6 +39,7 @@ GRID_COLS, GRID_ROWS = 12, 8
 FONT_SIZES = (32, 28)  # nominal, then the one smaller size; never lower
 SPEAKER_COST = 2.0
 SPEAKER_HEIGHT = Fraction(9, 20)  # a speaker's point is at 45% of the panel height
+SEARCH_LIMIT = 10_000  # candidate placements tried per panel before it fails (comic.md §4 step 7)
 
 type Kind = BubbleKind | CaptionKind
 type Cell = tuple[int, int]  # (row, col)
@@ -130,7 +131,9 @@ def _texts(shot: Shot, scene: Scene, first: bool) -> list[_Text]:
 
 
 def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Placed]:
-    """comic.md §4 step 7: the cheapest admissible grid corner for each box, in order."""
+    """comic.md §4 step 7: the panel's boxes as a set. Depth-first in reading order, each box
+    trying its candidates in preference order (32 px by cost, then 28 px); the first complete
+    placement wins, so a panel one box at a time could letter is lettered exactly as before."""
     x, y, w, h = panel.rect
     key = (panel.scene_index, panel.shot_number)
     edges = None
@@ -144,7 +147,6 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         for col in range(GRID_COLS)
     ]
     limit = math.floor(w * WRAP_SHARE)
-    placed: list[_Placed] = []
     for text in texts:
         missing = _missing_glyphs(text.text)
         if missing:
@@ -153,37 +155,64 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
                 f"{text.text!r} can't be lettered as written",
                 shot=key,
             )
-        after = placed[-1].cell if placed else None
+
+    @cache
+    def candidates(index: int, size: int) -> list[_Placed]:
+        """Every in-panel spot for a box at a size, cheapest first (ties to the earlier cell);
+        order and overlap depend on the boxes before it, so the search checks those."""
+        text = texts[index]
         third = _third(text.speaker, positions, w)
-        choice: _Placed | None = None
+        bw, bh = box_size(text.text, limit, font_at(layout.FONT_PATH, size))
+        costed: list[tuple[float, _Placed]] = []
+        for cell, cx, cy in corners:
+            if text.kind is CaptionKind.SCENE and cell != (0, 0):
+                continue  # the heading caption sits at the top-left
+            if cx + bw > ix + iw or cy + bh > iy + ih:
+                continue
+            cost = _detail(edges, (cx - x, cy - y, bw, bh))
+            if third is not None and cx - x < third[1] and cx - x + bw > third[0]:
+                cost += SPEAKER_COST
+            costed.append((cost, _Placed(text, (cx, cy, bw, bh), cell, size)))
+        costed.sort(key=lambda pair: pair[0])  # stable: row-major among equal costs
+        return [placed for _, placed in costed]
+
+    placed: list[_Placed] = []
+    tries = 0
+    stuck = 0  # the furthest box the search reached: the one that found no room
+
+    def search(index: int) -> bool:
+        nonlocal tries, stuck
+        if index == len(texts):
+            return True
+        stuck = max(stuck, index)
+        after = placed[-1].cell if placed else None
         for size in FONT_SIZES:
-            bw, bh = box_size(text.text, limit, font_at(layout.FONT_PATH, size))
-            best: tuple[float, _Placed] | None = None
-            for cell, cx, cy in corners:
-                if after is not None and cell <= after:
+            for option in candidates(index, size):
+                if after is not None and option.cell <= after:
                     continue  # reading order is hard
-                if text.kind is CaptionKind.SCENE and cell != (0, 0):
-                    continue  # the heading caption sits at the top-left
-                rect = (cx, cy, bw, bh)
-                if cx + bw > ix + iw or cy + bh > iy + ih:
+                if any(_overlap(option.rect, other.rect) for other in placed):
                     continue
-                if any(_overlap(rect, other.rect) for other in placed):
-                    continue
-                cost = _detail(edges, (cx - x, cy - y, bw, bh))
-                if third is not None and cx - x < third[1] and cx - x + bw > third[0]:
-                    cost += SPEAKER_COST
-                if best is None or cost < best[0]:
-                    best = (cost, _Placed(text, rect, cell, size))
-            if best is not None:
-                choice = best[1]
-                break
-        if choice is None:
+                tries += 1
+                if tries > SEARCH_LIMIT:
+                    return False
+                placed.append(option)
+                if search(index + 1):
+                    return True
+                placed.pop()
+        return False
+
+    if not search(0):
+        if tries > SEARCH_LIMIT:
             raise ComicError(
-                f"{panel_name(key)}: no room to letter {text.text!r} even at {FONT_SIZES[-1]} px; "
-                "the panel is too small for its lines, and no line is ever cut",
+                f"{panel_name(key)}: no placement for its lines within {SEARCH_LIMIT:,} tries "
+                f"(stopped at {texts[stuck].text!r}), and no line is ever cut",
                 shot=key,
             )
-        placed.append(choice)
+        raise ComicError(
+            f"{panel_name(key)}: no room to letter {texts[stuck].text!r} even at "
+            f"{FONT_SIZES[-1]} px; the panel is too small for its lines, and no line is ever cut",
+            shot=key,
+        )
     return placed
 
 
