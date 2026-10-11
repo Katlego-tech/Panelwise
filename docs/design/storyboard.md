@@ -174,7 +174,7 @@ truncates drops the tail.
 | `SETTING` | this scene's heading | `inside` / `outside` / `at` (from `scene.int_ext`: `INT`, `EXT`, `INT_EXT`) + `scene.location`, **redacted, then** lower-cased | this scene's heading span |
 | `TIME` | `shot.time_of_day` (resolved, shots.md) | lower-cased; omitted when `None` | the heading span of the scene that **supplied** the clock (`time_source`, below) |
 | `COUNT` | code, from `visible_characters(shot, screenplay, extraction)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
-| `AGE` (T074, T079) | `introduced_age(character, screenplay)` for each `visible_characters` member, in their order; one part per character whose introduction gives an age | `(10)` → "a 10-year-old", `(70s)` → "a person in their 70s"; **T079:** with the sex the introduction's pronouns give (`introduced_sex`, below; **T082:** `character_sex`, which adds a sex title and the extraction's grounded `sex_word`, all agreeing): "a 10-year-old girl" / "boy" under 18, "a 30-year-old woman" / "man" from 18, "a woman in her 70s" / "a man in his 70s" (the first number in the parenthesis after the character's name where an `Action` line introduces it: `LERATO (10), braids…`, `NANDI (60s, oilskin coat)`); omitted when the script gives none | that `Action` element's span |
+| `AGE` (T074, T079) | `introduced_age(character, screenplay)` for each `visible_characters` member, in their order; one part per character whose introduction gives an age | `(10)` → "a 10-year-old", `(70s)` → "a person in their 70s"; **T079:** with the sex the introduction's pronouns give (`introduced_sex`, below; **T082:** `character_sex`, which adds a sex title and the extraction's grounded `sex_word`, all agreeing; and when the script gives a sex but no age, a `SEX` part in its place: "a woman" or "a man", the adult words, since nothing says a child; cited with the evidence's span: `sex_quote`'s, the introduction's, or None for a title, the name being redacted): "a 10-year-old girl" / "boy" under 18, "a 30-year-old woman" / "man" from 18, "a woman in her 70s" / "a man in his 70s" (the first number in the parenthesis after the character's name where an `Action` line introduces it: `LERATO (10), braids…`, `NANDI (60s, oilskin coat)`); omitted when the script gives none | that `Action` element's span |
 | `LOOK` (T079) | `introduced_look(character, screenplay)` for each `visible_characters` member, right after its `AGE` | the introduction's own description, verbatim, redacted: the parenthesis's items after the age (`NANDI (60s, oilskin coat)` → "oilskin coat") and the comma phrase right after the parenthesis (`LERATO (10), braids tied back, grips…` → "braids tied back"; `MOKGOSI (70s), reading glasses pushed up on his forehead, solders…` → that phrase), joined by ", "; a phrase over 8 words, or one with no comma closing it before the sentence ends, is left out (it is an action, not a look: `AMAHLE (8), who is wearing pyjamas … crying.`); omitted when nothing is left, and when the shot covers that introducing line (its `ACTION` part already says it, word for word). **Not a fixed part:** looks give way to the budget (Word budget, below) | that `Action` element's span |
 | `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`), and is accepted only when `visible_characters` has exactly two members (else `ValueError`), so it can never contradict `COUNT` | the phrase; T026's renderer passes `None`, T025 passes it | `None` |
 | `ACTION` | a covered `Action` element's text | verbatim, whitespace collapsed, redacted | the element's span |
@@ -214,7 +214,10 @@ heading span, the heading span of `time_source`'s scene (only for `TIME`), the s
 element that introduces a visible character (only for `AGE`, T074: its text is "a <n>-year-old" or "a person
 in their <n>s", and `<n>` stands in that element in a parenthesis right after that character's name: an
 age is who the character is, not another moment's event, as a borrowed clock is when; T079: with the
-sex word `introduced_sex` reads there, the code's fixed vocabulary keyed by the script's own pronoun;
+sex word `introduced_sex` reads there, the code's fixed vocabulary keyed by the script's own pronoun
+(**T082:** or keyed by a word of the character's name (a title), or of `Entity.sex_quote`, a located Action
+quote: the invariant test checks that the sex word of every `AGE` and `SEX` part is keyed by a word in one of
+those three);
 and `LOOK`, whose text is exactly what `introduced_look` reads there, a verbatim piece of that
 element: a look is who the character is too, while the rest of that line, its action, stays out),
 or the span of an element
@@ -730,16 +733,18 @@ def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] |
 #   None when no introduction gives one. Never a word the script doesn't have but the age's own number
 #   T079: the phrase carries the sex `introduced_sex` reads: "a 10-year-old girl", "a man in his 70s"
 def introduced_sex(character: str, screenplay: Screenplay) -> Literal["female", "male"] | None: ...   # T079, pure
-def title_sex(character: str) -> Literal["female", "male"] | None: ...   # T082, pure: the name's first word,
-#   when it is a title that gives a sex (female: MRS, MS, MISS, MADAM, MADAME, LADY, MAMA, GOGO, OUMA,
-#   AUNTIE, AUNT, TANNIE, SISTER, QUEEN, PRINCESS; male: MR, SIR, LORD, BABA, OUPA, UNCLE, OOM, BROTHER,
-#   KING, PRINCE), a trailing full stop ignored: `MAMA THEMBI` → female, `MR. DUBE` → male, `OFFICER MOLOI`
-#   → None (no sex in OFFICER, DR, NURSE)
-def character_sex(character: str, screenplay: Screenplay, extraction: Extraction) -> Literal["female", "male"] | None: ...
-#   T082, pure: the sex every source that gives one agrees on: introduced_sex (T079), title_sex, and the
-#   grounded Entity.sex (grounding.md §3, sex_word); None when none gives one, or two disagree. Each source
-#   is a word of the script keyed by the code's fixed vocabulary, so the prompt's "girl" traces to "She",
-#   "MAMA" or "her" in the script. `AGE` (§3.1) and the report (learning.md) use it instead of introduced_sex
+def title_sex(character: str) -> Sex | None: ...   # T082, pure: the name's first word, upper case, a trailing
+#   full stop ignored, looked up in app/characters/sex.py's SEX_TITLES (female: MRS, MS, MISS, MADAM, MADAME,
+#   LADY, MAMA, GOGO, OUMA, AUNTIE, AUNT, TANNIE, SISTER, QUEEN, PRINCESS; male: MR, SIR, LORD, BABA, OUPA,
+#   UNCLE, OOM, BROTHER, KING, PRINCE): `MAMA THEMBI` → female, `MR. DUBE` → male, `OFFICER MOLOI` → None
+#   (OFFICER, DR, NURSE give no sex). A title other than these fails closed (None)
+def character_sex(character: str, screenplay: Screenplay, extraction: Extraction) -> tuple[Sex, str] | None: ...
+#   T082, pure: the sex every source that gives one agrees on, with its evidence: introduced_sex (T079; the
+#   introducing Action element's text), title_sex (the name), the grounded Entity.sex (Entity.sex_quote's text);
+#   None when none gives one, or two disagree. With several agreeing, the evidence is the first of sex_quote, the
+#   introduction, the name; cut to 160 characters at a word. Each source is a word of the script keyed by the
+#   code's fixed vocabulary, so the prompt's "girl" traces to "She", "MAMA" or "her" in the script. `AGE` and
+#   `SEX` (§3.1), verify's render_spec and the report (learning.md) use it
 #   in that same introducing element: "she"/"he" in the introducing sentence (from the name to the sentence's
 #   end or the next `NAME (` introduction) and "her"/"his" inside its `introduced_look`, whole words, any case;
 #   one sex only, else None ("watches her" after MAMA THEMBI is Siphokazi, an object: not counted; a later
@@ -991,8 +996,12 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   2026-10-10's 3 of 22 accepted on the same seeds.
 - **T082:** `title_sex`: `MAMA THEMBI` → female, `MR. DUBE` → male, `OFFICER MOLOI` → None,
   `SIPHO` → None. `character_sex`: one source → its sex; two agreeing → that sex; two disagreeing →
-  None; none → None; SIPHOKAZI with the grounded `sex_word` "She" → female. `AGE` reads "a
-  17-year-old girl" for her, "a woman in her 60s" for Mama Thembi. Live, Token Factory only (ask
+  None; none → None; SIPHOKAZI with the grounded `sex_word` "She" → female with "Siphokazi nods. She
+  cannot stop the smile." as evidence; a woman whose introduction says "her" and whose grounded word is
+  "fisherman" → None. `AGE` reads "a 17-year-old girl" for Siphokazi, "a woman in her 60s" for Mama
+  Thembi; a sexed character with no age gets `SEX` "a woman" / "a man", never with an age; the invariant
+  test (§9) accepts a sex word keyed by `sex_quote` from another element, or by the name, and fails one
+  keyed by nothing. Live, Token Factory only (ask
   first): the extraction on all three samples, the sex of every person character against a
   labelled table (eval/), **lost-property held out** (T082 was found on sipho-and-siphokazi and
   designed on its three introductions); never a wrong sex, the misses counted.
