@@ -157,8 +157,8 @@ at most 5, each once.
   ` looking `, ` smiling `, trailing spaces stripped (`an old man with white hair, standing` →
   `an old man`; `a teenage boy` → `a teenage boy`). Examples: the reasons (group 4), which are
   `no shot character, no support`, `its support is about a character`, or `<NAME> is already
-  another person`. The cut is at the first occurrence after position 0; a key left empty becomes
-  `other`.
+  another person`. The cut is at the first occurrence after position 0; a key with no letter left in it
+  (`,` from `, in a coat`) becomes `other`.
 - **Text** (`text_in_frame`): `^text (.*) isn't the script's$`; the key is group 1 read back with
   `ast.literal_eval` (it was written with `repr`, so either quote may wrap it), or group 1 as is
   when that fails. Examples: the `shot` labels it appeared in (`6.4`), in plan order, each once.
