@@ -410,6 +410,6 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Files:   services/api/app/verify/{model,audit}.py; apps/web/components/storyboard/cards.ts; tests under services/api/tests/verify/ and apps/web
       Contract:verify.md §6 verbatim: `Check.SIGNATURE`, soft; `TEXT_IN_FRAME` no longer reads `signature`
       Verify:  bash scripts/gate.sh (tests first: verify.md §9's T077 list); free, with Tumo's go-ahead: T072's and T077's audits on Katlego's 27 labelled frames
-      Done:    a frame whose only fault is a signature is WARN, shown with "artist's signature", and no labelled-bad frame passes that T072 withheld
+      Done:    a frame whose only fault is a signature is WARN, shown with "artist's signature"; on the 27 labelled frames the only labelled-bad frames newly passing are ones labelled for a signature (Tumo's decision, 2026-10-11)
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
