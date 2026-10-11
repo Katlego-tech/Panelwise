@@ -15,6 +15,7 @@ vocabulary. Not ported: the free-text frame description and its fallback to the 
 characters of action, the movement words, and the `classic` prompt's negations.
 """
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
@@ -43,6 +44,7 @@ class PartKind(StrEnum):
     SETTING = "setting"
     TIME = "time"
     COUNT = "count"
+    AGE = "age"  # T074: a visible character's age, from the script's introduction
     PLACEMENT = "placement"
     ACTION = "action"
 
@@ -131,6 +133,24 @@ def visible_characters(
     return tuple(c for c in shot.characters if c in shown and c not in beings)
 
 
+def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] | None:
+    """The age the script gives where an Action line introduces `character` (T074): `LERATO (10)`
+    -> "a 10-year-old", `MOKGOSI (70s)` -> "a person in their 70s", with that element's span. Only
+    the parenthesis's own number is used: no word the script doesn't have but the age."""
+    # A number, an optional `s`, an optional years word, then , ; or ): `(5 months)` is no age.
+    pattern = re.compile(
+        rf"(?<![A-Za-z0-9]){re.escape(character)}\s*\(\s*(\d{{1,3}})(s?)"
+        rf"\s*(?:years?[- ]old|yrs?|yo|y/o)?\s*[,;)]"
+    )
+    for scene in screenplay.scenes:
+        for element in scene.elements:
+            if isinstance(element, Action) and (m := pattern.search(element.text)):
+                number, decade = m.group(1), m.group(2)
+                age = f"a person in their {number}s" if decade else f"a {number}-year-old"
+                return age, element.span
+    return None
+
+
 def _own_labels(character: str, screenplay: Screenplay, extraction: Extraction) -> dict[str, str]:
     """One character's labels; a planner name the extraction lacks still redacts as a name."""
     return redaction_labels(extraction, screenplay, only=character) or {
@@ -190,6 +210,9 @@ def build_frame_prompt(
         )
     if visible:
         parts.append(PromptPart(PartKind.COUNT, _COUNTS.get(len(visible), _GROUP), None))
+        for character in visible:  # T074: each one's age, as the script gives it
+            if (age := introduced_age(character, screenplay)) is not None:
+                parts.append(PromptPart(PartKind.AGE, age[0], age[1]))
     if placement is not None:
         if placement not in PLACEMENT_PHRASES:
             raise ValueError(f"{where}: unknown placement {placement!r}")
