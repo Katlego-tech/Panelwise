@@ -109,19 +109,21 @@ _COPY_WORDS = frozenset(
 )
 
 
-def part_of_prop(name: str, shot: Shot, extraction: Extraction) -> str | None:
-    """The shot prop whose part `name` is (T078): its head noun (the prop name's last word) comes
-    before the name's own last word, with no copy word. `kite string` is part of `RED KITE`;
-    `kite`, `blue kite` and `second kite` are the prop or a copy, judged as before."""
+def part_of_prop(
+    name: str, category: ObjectCategory, shot: Shot, extraction: Extraction
+) -> str | None:
+    """The shot prop whose part `name` is (T078): the prop's head noun (its name's last word) is
+    the name's second-to-last word, with no copy word, and never an animal, vehicle, weapon or
+    food. `kite string` is part of `RED KITE`; `kite`, `blue kite`, `second kite` and
+    `map of the town` are judged as before."""
     words = normalize_for_grounding(name).lower().split()
-    if not words or _COPY_WORDS & set(words):
+    if len(words) < 2 or _COPY_WORDS & set(words) or category in _NEVER_DRESSING:
         return None
     for prop in shot.props:
         quoted = any(
             e.kind is EntityKind.PROP and e.name == prop and e.quotes for e in extraction.entities
         )
-        head = normalize_for_grounding(prop).lower().split()[-1:]
-        if quoted and head and head[0] in words[:-1]:
+        if quoted and normalize_for_grounding(prop).lower().split()[-1:] == words[-2:-1]:
             return prop
     return None
 
@@ -182,8 +184,8 @@ def run_checks(
         what = f"object {call.object} ({obj.name}, {obj.category})"
         if obj.category in _NEVER_UNSCRIPTED and not obj.held:
             continue
-        if call.kind is not ObjectKind.SCRIPTED_PROP and part_of_prop(obj.name, shot, extraction):
-            continue  # T078: a scripted prop, its support the prop's quote, which `supports` holds
+        if part_of_prop(obj.name, obj.category, shot, extraction):
+            continue  # T078: whatever the judge said; its support is the prop's quote
         match call.kind:
             case ObjectKind.UNSCRIPTED:
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: unscripted")
