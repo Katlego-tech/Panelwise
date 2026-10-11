@@ -156,22 +156,30 @@ classDiagram
     split on anything but letters ("fishing-boats" gives "fishing" and "boats"). Not the
     heading, not dialogue: a boat that is only talked about is not on screen.
   - **The candidates:** the object's name in lower case, split on spaces only (so `off-road`
-    stays one word, and doesn't match "road"), each word stripped of `.,;:!?'"()`. The **last
-    word**, the thing's own noun; and the **second-to-last word**, the thing a part belongs to,
-    only when the last word is a part word (`mast`, `sail`, `hull`, `deck`, `cabin`, `bow`,
+    stays one word, and doesn't match "road"), each word stripped of `.,;:!?'"()`. The
+    candidate is the **last word**, the thing's own noun; but when the name has two words or more
+    and its last word is a part word, the candidate is **only the second-to-last word**, the thing
+    the part belongs to (a `car door` is named by a car, never by the scene's doors). Part words (`mast`, `sail`, `hull`, `deck`, `cabin`, `bow`,
     `stern`, `oar`, `wheel`, `door`, `window`, `windscreen`, `bonnet`, `boot`, `bumper`, `tyre`,
     `tire`, `engine`, `roof`, `seat`, `mirror`, `light`, `tail`, `wing`, `fin`, `head`, `leg`,
     `paw`, `hoof`, `horn`, `mane`, `ear`, `collar`, `lead`, `handle`, `blade`, `barrel`,
     `trigger`, `hilt`, `sheath`, `crust`, `rind`, `peel`, `skin`, `bone`, `slice`, in singular
-    or plural): `boat masts` is a part of a boat, `police car` is not a police officer. A
+    or plural): `boat masts` is a part of a boat; `police car` is not a police officer; a
+    single `wheel` is its own noun. A
     candidate has at least 3 letters and is no function word (`of`, `the`, `and`, `with`, `in`,
     `on`, `a`, `an`, `for`, `from`, `to`, `at`, `by`, `into`, `onto`, `over`, `under`, `its`,
     `his`, `her`, `their`). A copy word in the **name** (T078's list) means no match.
   - **Singular and plural:** a candidate matches when the scene has any of its forms: the word;
-    it plus `s` or `es`; a `-y` word with `-ies`; and, when the word is a plural, its singular
-    (`-ies` → `-y`, `-es` dropped, `-s` dropped but not from `-ss`). So `horse` meets "horses",
-    `boats` meets "boat", `pony` meets "ponies", `box` meets "boxes", and `bus` stays `bus`.
-    Irregular plurals (`wolves`, `geese`) don't match: accepted residue, they stay judged.
+    it plus `s`; it plus `es` only after `s`, `x`, `z`, `ch` or `sh` (`boxes`, `buses`); a `-y`
+    word with `-ies`; and, for a plural, its singular: `-ies` → `-y`; `-es` dropped only when what
+    is left ends in `s`, `x`, `z`, `ch` or `sh`; any other `-s` dropped, but not from `-ss`. So
+    `horse` meets "horses", `boats` meets "boat", `pony` meets "ponies", `box` meets "boxes", and
+    no form is a stray word: `bees` never meets "be", `car` never meets "cares" (the code review:
+    both would have excused an unscripted thing). Irregular plurals (`wolves`, `geese`) don't
+    match: accepted residue, they stay judged.
+  - **Accepted residue:** a food named after an animal (`hot dog` in a scene with a dog) reads as
+    the dog, as `coat hanger` does for T078, and a verb spelled like the noun ("Gulls wheel"
+    names a `wheel`); no rule on words tells them apart, and both need the word in the scene.
   - Measured on every stored audit: the same idea over **all** categories excused "small pills"
     (on "small"), "power lines" (the script's *washing* lines) and "tripod stand" (a verb), each
     an unscripted thing; the four categories (with the last and the second-to-last word, before the part-word
@@ -190,8 +198,10 @@ classDiagram
   or food the scene doesn't name; a `scripted_prop` without a verified support, whatever its
   category (the judge claimed a quote it can't show); a named prop called `unscripted` or
   dressing (T072); and legible text (`TEXT_IN_FRAME` still reads a sign's words). Measured free
-  on the 2026-10-11 storyboards' stored audits: sipho-and-siphokazi 7 → 12 of 30 shots with an
-  accepted attempt, the-red-kite 16 → 19 of 21.
+  on the 2026-10-11 storyboards' stored audits (`recheck`, with the scene-named rule too):
+  sipho-and-siphokazi 7 → 13 of 30 shots with an accepted attempt, the-red-kite 16 → 19 of 21.
+  **Looked at:** 3 of the 10 attempts it newly accepts draw Siphokazi with the wrong sex (L009):
+  the object checks were catching them by accident, so T083 goes live after T082.
 - **The order in `run_checks` (T083)**, for each judged object: costume and structure that nobody
   holds pass (T071, `_NEVER_UNSCRIPTED`); then a part of a shot prop passes (T078,
   `part_of_prop`); then a thing the scene names passes (T083, `named_in_scene`), held or not and
@@ -636,7 +646,9 @@ it against the script."*
   forty-year-old wooden fishing-boats" → a match; `fish` (food) against "a fish-head in its mouth"
   → "fish"; `horse` against "horses", `pony` against "ponies", `box of fish` → a match;
   `off-road vehicle` against "the road" → None (the hyphenated word stays whole); `police car`
-  against "a police officer" → None (`car` is no part word); `second boat` → None (copy word);
+  against "a police officer" → None (`car` is no part word); `car door` against a scene with a
+  door and no car → None (the part's whole is the candidate); `bees` against "will be" → None;
+  `car` against "she cares" → None; `buses` against "a bus" → a match; `second boat` → None (copy word);
   `small boats` (other) → None (not one of the four categories); `cart of` → None; a word only in
   the heading or in dialogue → None. `run_checks`: a set-dressing `boats` of a scene
   that names them passes; one the scene doesn't name still fails `UNSCRIPTED_OBJECT` "never set
@@ -648,7 +660,7 @@ it against the script."*
   verdict per attempt, a row with no description and one in an old schema skipped and counted,
   `accepted_shots`, no such project and no plan raising ValueError. The web names
   `background_object` "unscripted background". Free: `recheck --target storyboard` on the 2026-10-11
-  runs gives sipho-and-siphokazi at least 12 of 30 and the-red-kite at least 19 of 21 shots with an
+  runs gives sipho-and-siphokazi at least 12 of 30 (13 measured) and the-red-kite at least 19 of 21 shots with an
   accepted attempt, and the frames newly accepted are looked at for anything a hard check should have
   caught. **Held out:** the same on every other stored project (the-red-kite's earlier runs), the
   numbers in the PR beside the two that showed the problem.
