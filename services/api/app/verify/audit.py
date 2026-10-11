@@ -45,6 +45,8 @@ _SEVERITY = {
     Check.MISSING_CHARACTER: Severity.SOFT,
     Check.LIGHT: Severity.SOFT,
     Check.FRAMING: Severity.SOFT,
+    # An artist's mark is no character, prop, line or event: shown, never withheld (T077).
+    Check.SIGNATURE: Severity.SOFT,
 }
 # Things a location never "naturally holds": each is a story choice the script must make.
 # A sign may be dressing (T071): its words are what could be unscripted, and TEXT_IN_FRAME
@@ -205,8 +207,8 @@ def run_checks(
     # Only legible words the script never wrote (T071): the shot's own text or the scene's place.
     # The heading's time of day isn't a haystack, so a painted "NIGHT" fails.
     words = [normalize_for_grounding(shot.source), normalize_for_grounding(scene.location)]
-    if description.signature:  # T072: writing nobody scripted, readable or not
-        failures[Check.TEXT_IN_FRAME].append("a signature or artist's mark")
+    if description.signature:  # T077: soft; any words read in it are still `text`, below
+        failures[Check.SIGNATURE].append("a signature or artist's mark")
     failures[Check.TEXT_IN_FRAME] += [
         f"text {t!r} isn't the script's"
         for t in description.text
