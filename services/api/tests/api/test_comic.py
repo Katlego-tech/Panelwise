@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.comic.job import COMIC_RESTARTED
 from app.core.config import Settings
 from app.frames.check import SketchRenderer
+from app.frames.model import FrameAuditRow
 from app.jobs import JobKind, JobRow, JobState
 from app.jobs.model import RESTARTED
 from app.main import create_app
@@ -23,7 +24,7 @@ from app.projects.model import ProjectRow
 from app.script import Dialogue
 from app.shots import Shot
 from app.verify import loop
-from app.verify.model import Audit, RenderedFrame, Verdict
+from app.verify.model import Audit, Check, RenderedFrame, Verdict
 from tests.api.test_read import ME, SOMEONE, auth, project
 from tests.fakes import FakeVerifier, MemoryStore
 from tests.frames.test_t021 import audit
@@ -183,3 +184,38 @@ async def test_a_comic_cut_off_by_a_restart_says_make_it_again_and_never_stands_
     assert comic(client, pid)[1]["job"]["error"] == COMIC_RESTARTED
     (summary,) = client.get("/api/v1/projects", headers=auth()).json()
     assert summary["job"]["state"] == "done"  # the upload's job, not the comic's
+
+
+async def test_the_route_passes_render_max_attempts_to_the_comic_job(
+    migrated: str,
+    store: MemoryStore,
+    sessions: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """T071: with RENDER_MAX_ATTEMPTS=1 a failing panel is audited once, not three times."""
+
+    async def failing(
+        model: Any, frame: RenderedFrame, shot: Shot, screenplay: Any, extraction: Any
+    ) -> Audit:
+        failed = audit(frame.attempt, Verdict.FAIL, Check.UNSCRIPTED_PERSON)
+        return replace(failed, shot=frame.shot, seed=frame.seed)
+
+    monkeypatch.setattr(loop, "audit_frame", failing)
+    pid, _ = await project(sessions, store, run=True)
+
+    def factory(screenplay: Any, extraction: Any) -> SketchRenderer:
+        return SketchRenderer(store)
+
+    app = create_app(
+        Settings(database_url=migrated, nebius_api_key="k", render_max_attempts=1),
+        verifier=FakeVerifier(),
+        store=store,
+        renderer_factory=factory,
+    )
+    with TestClient(app) as c:
+        shots = comic(c, pid)[1]["shots"]
+        assert c.post(f"/api/v1/projects/{pid}/comic", headers=auth()).status_code == 202
+        assert settle(c, pid)["job"]["state"] == "done"
+    async with sessions() as s:
+        rows = list(await s.scalars(select(FrameAuditRow).where(FrameAuditRow.project_id == pid)))
+    assert len(rows) == shots and {r.attempt for r in rows} == {1}
