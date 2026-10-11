@@ -457,12 +457,19 @@ not the default. Why (the research, 2026-10-09, sources in §8):
 
 "Runs on Nebius" is still met by every Nemotron call on Token Factory (deploy.md §1).
 
-- **One call per attempt.** `POST https://fal.run/{FAL_MODEL}` (default `fal-ai/flux/schnell`), the
+- **The model (Tumo, 2026-10-11): FLUX.2 [klein] 4B, `fal-ai/flux-2/klein/4b`.** On the-red-kite with
+  3 attempts a frame and T074–T078's audit it accepted 15 of 22 frames, where schnell at 1 attempt
+  accepted 3 of 21: klein drew the ages right, cluttered less, and its stray writing was mostly
+  its signature (T077's soft check). `FAL_MODEL` still selects any fal model; schnell remains one
+  setting away.
+- **One call per attempt.** `POST https://fal.run/{FAL_MODEL}` (default `fal-ai/flux-2/klein/4b`), the
   synchronous endpoint, with `Authorization: Key {FAL_KEY}`. The body is the canonical request:
   `{"prompt": <text>, "image_size": {"width": dw, "height": dh}, "seed": <seed>,
   "num_inference_steps": 4, "num_images": 1, "output_format": "png"}` (fal's OpenAPI schema for
   `fal-ai/flux/schnell`, read 2026-10-09). The answer's `images[0].url` is fetched (`GET`, same
-  client) for the PNG; `images[0].width/height` must equal `dw × dh`, else `RendererError`.
+  client) for the PNG; `images[0].width/height` must each be the asked side or up to 31 px more,
+  else `RendererError`: klein draws in multiples of 32 (1280 × 720 comes back 1280 × 736), and
+  `fit` crops that excess, as it crops the multiple-of-16 rounding below.
 - **Draw size, priced to one megapixel.** fal bills each started megapixel, so a frame is drawn at
   `fal_draw_size(width, height)`: scaled down (never up) so that `dw × dh ≤ 1,000,000`, each side
   rounded **down** to a multiple of 16. 1280 × 720 draws as is (921,600 px), and a 1748 × 986 comic
@@ -821,7 +828,7 @@ def to_json(storyboard: Storyboard, plan: ShotPlan, frame_urls: Mapping[tuple[in
 | Variable | Where | What |
 |---|---|---|
 | `FAL_KEY` | API, **secret** | fal.ai's API key (§3.5). Unset: no renderer, "Try another render" and "Make the comic" answer 503, the storyboard job ends at planning |
-| `FAL_MODEL` | API | the fal model id, default `fal-ai/flux/schnell` |
+| `FAL_MODEL` | API | the fal model id, default `fal-ai/flux-2/klein/4b` (2026-10-11; `fal-ai/flux/schnell` before) |
 | `FAL_TIMEOUT_S` | API | per-call deadline, default 60 |
 | `FAL_CONCURRENCY` | API | frames drawn at once, default 2 (fal.ai's limit for a new account); at least 1, or the API refuses to start |
 | `COMFYUI_URL` | API, optional | ComfyUI's base URL on a Nebius GPU, for the optional backend (T003; already in `.env.example`) |
@@ -860,6 +867,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
+| The model on fal (Tumo, 2026-10-11) | FLUX.2 [klein] 4B: 15 of 22 the-red-kite frames accepted at 3 attempts with the T071–T078 audit | FLUX.1 [schnell] (the 2026-10-09 choice): 3 of 21 at 1 attempt on the same script, adults for children, clutter and painted gibberish; klein on Cloudflare Workers AI (#97/#98): the same model, but fal was already built, gated and live-tested, and `FAL_MODEL` makes the model one setting |
 | The renderer (2026-10-09, §3.5) | FLUX.1 [schnell] on fal.ai: seed, any size, PNG, $0.003 per ≤ 1 MP frame, always on | ComfyUI on a Nebius L40S as the default (≈ $2,500 to stay up to 15 Dec, or cold starts for judges; credit coverage unconfirmed: kept optional, T003); Cloudflare Workers AI FLUX.1 [schnell] (no seed and no size in its schema: breaks seeded attempts and comic panels); Nebius Token Factory (no image model, 404 on 2026-10-08). Sources: nebius.com/prices, the Cloudflare model schema, fal.ai's model page and OpenAPI |
 | A character's age in the prompt (T074) | an `AGE` part from the script's own introduction (`LERATO (10)` → "a 10-year-old") | only "a person" (before T074): on 2026-10-10 the-red-kite drew Lerato (10) and Mokgosi (70s) as young adults again and again, and T072's audit then withheld those frames; the age in every name's label: "a person in their 70s's workshop"; a gender word: the script's parenthesis doesn't give one |
 | A character's sex and look in the prompt (T079) | the sex word from the introduction's pronouns; the look verbatim from the introduction | the age alone (T074): on 2026-10-11 klein drew Lerato as a boy in 9 of 11 accepted frames, short hair, no braids; a sex word from any pronoun near the name: `watches her` after Mama Thembi is someone else; the whole introducing line: its action (`grips a RED KITE`) is that moment's event |
