@@ -399,5 +399,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:storyboard.md §6 verbatim: `PartKind.AGE`; `introduced_age(character, screenplay) -> tuple[str, Span] | None`
       Verify:  bash scripts/gate.sh (tests first: storyboard.md §9's T074 items); live, with Tumo's go-ahead: one upload of the-red-kite at RENDER_MAX_ATTEMPTS=1
       Done:    a shot with Lerato asks for "a 10-year-old" and one with Mokgosi for "a person in their 70s", each traced to its introduction's span, and the clean style asks for a plain background
+- [ ] T079 [US1] **The prompt gives each visible character's sex and look from their introduction; an off-screen line has its listeners on screen.** Found on 2026-10-11 (klein, 3 attempts): Lerato, `LERATO (10), braids tied back … as tall as she is`, was drawn as a short-haired boy in 9 of 11 accepted frames, and shot 1.3 (only `MOKGOSI (O.S.)`'s line) asked for no one and drew an empty roof. Lane `storyboard` (Claude for Tumo). Stacked on T074 (#118/#119).
+      Design:  docs/design/storyboard.md §3.1 (Order, the parts table: AGE, LOOK; visible_characters' listeners; the invariant; Word budget), §6 (`PartKind.LOOK`, `introduced_sex`, `introduced_look`), §8 (two rows), §9 (T079)
+      Files:   services/api/app/storyboard/{prompt,prompts}.py; services/api/tests/storyboard/
+      Contract:storyboard.md §6 verbatim: `PartKind.LOOK`; `introduced_sex(character, screenplay) -> Literal["female", "male"] | None`; `introduced_look(character, screenplay) -> tuple[str, Span] | None`
+      Verify:  bash scripts/gate.sh (tests first: storyboard.md §9's T079 list); live, with Tumo's go-ahead: one upload of the-red-kite
+      Done:    a shot with Lerato asks for "a 10-year-old girl, braids tied back", a shot of only an off-screen line asks for its listeners, and every new part cites the introducing line
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
