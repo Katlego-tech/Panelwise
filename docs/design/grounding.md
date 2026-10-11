@@ -139,8 +139,10 @@ classDiagram
        this character, the earliest whole-word occurrence of any of its name tokens or kept other
        names in the quote ("She nods. SIPHO…" gives Sipho nothing); a noun may come before it
        ("a … fisherman … This is SIPHO");
-       (e) **every** `SEX_WORDS` word in it keys to the same sex ("She hands him the cup" gives
-       nothing). The first such quote, in proposal order, is `sex_quote`.
+       (e) **every** sex-bearing word in it keys to the same sex: the `SEX_WORDS` and, though
+       they never give a sex, the object and possessive pronouns `her`, `hers`, `him`, `his`
+       (`CONFLICT_WORDS`): "She hands him the cup" gives nothing, a safe miss rather than a
+       guess. The first such quote, in proposal order, is `sex_quote`.
     3. Across chunks, every kept proposal agrees; two that disagree keep `None`. The species test
        runs first: a character with a species gets `sex` `None`. Always `None` for props,
        locations and `Source.CUE` backfills.
@@ -283,6 +285,7 @@ class ProposedEntity(BaseModel): name: str; kind: Literal["character", "prop"]; 
 # app/characters/sex.py (T082), pure, imports nothing from app.grounding or app.storyboard:
 class Sex(StrEnum): FEMALE = "female"; MALE = "male"
 SEX_WORDS: dict[str, Sex]     # §3: the pronouns and nouns, lower case
+CONFLICT_WORDS: dict[str, Sex]  # §3 rule (e): SEX_WORDS plus her, hers, him, his
 SEX_TITLES: dict[str, Sex]    # storyboard.md §6 title_sex's words, upper case
 class ChunkEntities(BaseModel): entities: list[ProposedEntity]
 
