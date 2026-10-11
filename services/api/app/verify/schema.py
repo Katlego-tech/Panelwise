@@ -27,6 +27,14 @@ class FrameDescription(BaseModel):
     shot_size: ShotSize
     objects: list[SeenObject]
     has_text: bool = Field(description="Whether any text, letters or numbers appear in the image")
+    text: list[str] = Field(
+        description=(
+            "Each piece of writing you can read, word for word; none for marks you can't read"
+        )
+    )
+    signature: bool = Field(
+        description="Whether a signature, initials or an artist's mark appears, readable or not"
+    )
 
 
 class PersonCall(BaseModel):

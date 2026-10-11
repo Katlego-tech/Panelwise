@@ -53,14 +53,15 @@ export function FrameSheet({
   return (
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay data-sheet-scrim className="fixed inset-0 bg-[rgb(26_34_44/0.35)]" />
+        {/* z-50: above a card's `relative z-10` Try another render, which painted through the sheet */}
+        <Dialog.Overlay data-sheet-scrim className="fixed inset-0 z-50 bg-[rgb(26_34_44/0.35)]" />
         <Dialog.Content
           aria-describedby={undefined}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             onCloseFocus();
           }}
-          className="fixed inset-y-0 right-0 w-[min(520px,100vw)] overflow-auto bg-paper shadow-[-18px_0_40px_-20px_rgb(26_34_44/0.5)] focus:outline-none"
+          className="fixed inset-y-0 right-0 z-50 w-[min(520px,100vw)] overflow-auto bg-paper shadow-[-18px_0_40px_-20px_rgb(26_34_44/0.5)] focus:outline-none"
         >
           <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-rule px-5 py-4">
             <Dialog.Title className="m-0 font-display text-[28px] leading-none font-extrabold">
