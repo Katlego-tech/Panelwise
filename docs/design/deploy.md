@@ -189,6 +189,29 @@ has Docker; `ci.yml` needs no service of its own):
   `docker port`. One `trap … EXIT` stops the container on every exit path, including the early
   `exit 1`s.
 
+**The image (T068, 2026-10-10).** The API is deployed from its Dockerfile, built by the host from
+`main` (Railway, or Render in T063). A Dockerfile that no longer builds, or an image missing a module
+or a file the app needs, would otherwise be found only there, after the merge. So the gate builds it
+too:
+- For each **Python** project directory with a `Dockerfile` (today `services/api`; the web's
+  Dockerfile serves compose only, and Vercel builds the web itself), `docker build` with that
+  directory as the context, as compose builds it, tagged `panelwise-gate/<dir name>:check`; then
+  one `docker run --rm --entrypoint .venv/bin/python` of the image (the entrypoint set, so a future
+  `ENTRYPOINT` such as a migrate-then-serve script never runs here) with a probe that imports
+  `app.main` and asserts the files the app reads at run time are in the image: the comic font
+  (`app.comic.layout.FONT_PATH`), `alembic.ini` and `migrations/env.py`. Both count as one check; the
+  image is removed afterwards.
+- **Not yet probed: the public styles** (`PUBLIC_STYLES`, storyboard.md §3.2). Today's image doesn't
+  ship them (compose mounts `./styles`; the hosted API would run with no renderer), so probing them
+  would fail `main`. The renderer PR that ships them in the image (#98 moves them into
+  `services/api`; #91's line otherwise) adds `load_styles(PUBLIC_STYLES, None)` to the probe.
+- Docker is required: without it the check **fails** ("Docker is needed to build the API's image"),
+  never a skip, as for the test Postgres.
+- It runs after the per-project checks, once per Dockerfile, on **every** run of the gate, including
+  CI's `--changed-files` runs and docs-only pushes (the change list feeds only the sweeps), and not
+  for `--list` or `--install-deps`. Docker's layer cache keeps a re-run to seconds; a cold build (CI)
+  is a minute or two.
+
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
