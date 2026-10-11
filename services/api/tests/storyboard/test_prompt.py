@@ -101,7 +101,8 @@ def test_dialogue_only_shot_has_no_speech_no_parenthetical_and_no_action(
     shot = shot_of(lighthouse, 0, [2, 3], characters=["NANDI", "THABO"], time_of_day="NIGHT")
     prompt = build_frame_prompt(shot, lighthouse, cast, STYLE, max_words=100)
 
-    assert kinds(prompt.parts) == [K.STYLE, K.FRAMING, K.SETTING, K.TIME, K.COUNT, K.AGE]
+    # T079: NANDI's look from her introduction, which this shot doesn't cover.
+    assert kinds(prompt.parts) == [K.STYLE, K.FRAMING, K.SETTING, K.TIME, K.COUNT, K.AGE, K.LOOK]
     text = prompt.text().lower()
     for absent in ("came back", "without turning", "boat", "cliff", "nandi", "thabo"):
         assert absent not in text

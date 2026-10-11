@@ -26,6 +26,7 @@ from app.storyboard import (
     Style,
     build_frame_prompt,
     introduced_age,
+    introduced_look,
     load_styles,
     visible_characters,
 )
@@ -144,6 +145,18 @@ def check(
                 e.text for s in screenplay.scenes for e in s.elements if e.span == part.span
             )
             assert re.search(rf"{re.escape(name)}\s*\(\s*{number.group()}", line), where
+            continue
+        elif part.kind is K.LOOK:
+            # T079: the line that introduces one of the shot's visible characters; each of the
+            # look's comma items is a verbatim, redacted piece of that line.
+            visible = visible_characters(shot, screenplay, extraction)
+            spans = {look[1] for c in visible if (look := introduced_look(c, screenplay))}
+            assert part.span in spans, f"{where}: {part} introduces no one shown"
+            line = next(
+                e.text for s in screenplay.scenes for e in s.elements if e.span == part.span
+            )
+            for item in text.split(", "):
+                assert norm(item) in norm(redact_all(line, names)), f"{where}: {part}"
             continue
         elif part.kind is K.ACTION:
             element = covered.get(part.span)

@@ -12,6 +12,8 @@ from app.storyboard.prompt import (
     build_frame_prompt,
     heading_span,
     introduced_age,
+    introduced_look,
+    introduced_sex,
     time_source,
     visible_characters,
 )
@@ -42,6 +44,8 @@ __all__ = [
     "build_frame_prompt",
     "heading_span",
     "introduced_age",
+    "introduced_look",
+    "introduced_sex",
     "load_styles",
     "time_source",
     "visible_characters",
