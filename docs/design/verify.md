@@ -199,8 +199,8 @@ classDiagram
   category (the judge claimed a quote it can't show); a named prop called `unscripted` or
   dressing (T072); and legible text (`TEXT_IN_FRAME` still reads a sign's words). Measured free
   on the 2026-10-11 storyboards' stored audits (`recheck`, with the scene-named rule too):
-  sipho-and-siphokazi 7 → 13 of 30 shots with an accepted attempt, the-red-kite 16 → 19 of 21.
-  **Looked at:** 3 of the 10 attempts it newly accepts draw Siphokazi with the wrong sex (L009):
+  sipho-and-siphokazi 7 → 12 of 30 shots with an accepted attempt, the-red-kite 16 → 19 of 21.
+  **Looked at:** 2 of the 9 attempts it newly accepts draw Siphokazi with the wrong sex (L009):
   the object checks were catching them by accident, so T083 goes live after T082.
 - **The order in `run_checks` (T083)**, for each judged object: costume and structure that nobody
   holds pass (T071, `_NEVER_UNSCRIPTED`); then a part of a shot prop passes (T078,
@@ -660,7 +660,7 @@ it against the script."*
   verdict per attempt, a row with no description and one in an old schema skipped and counted,
   `accepted_shots`, no such project and no plan raising ValueError. The web names
   `background_object` "unscripted background". Free: `recheck --target storyboard` on the 2026-10-11
-  runs gives sipho-and-siphokazi at least 12 of 30 (13 measured) and the-red-kite at least 19 of 21 shots with an
+  runs gives sipho-and-siphokazi at least 12 of 30 (12 measured) and the-red-kite at least 19 of 21 shots with an
   accepted attempt, and the frames newly accepted are looked at for anything a hard check should have
   caught. **Held out:** the same on every other stored project (the-red-kite's earlier runs), the
   numbers in the PR beside the two that showed the problem.
