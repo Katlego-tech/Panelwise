@@ -69,6 +69,7 @@ class Check(StrEnum):
     MISSING_CHARACTER = auto()
     LIGHT = auto()
     FRAMING = auto()
+    NO_CHARACTER = auto()  # T080: hard
 
 
 class Severity(StrEnum):

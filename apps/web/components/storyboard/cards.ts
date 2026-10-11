@@ -33,6 +33,7 @@ const CHECKS: Record<string, string> = {
   missing_character: "missing character",
   light: "light",
   framing: "framing",
+  no_character: "no character in frame",
   audit_error: "the audit couldn't run",
 };
 

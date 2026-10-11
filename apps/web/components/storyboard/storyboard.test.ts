@@ -133,6 +133,7 @@ describe("card text (web.md §4.3)", () => {
   it("check names in words (web.md §6, Copy)", () => {
     expect(checkWords("audit_error")).toBe("the audit couldn't run");
     expect(checkWords("setting")).toBe("wrong setting");
+    expect(checkWords("no_character")).toBe("no character in frame"); // T080
   });
 });
 

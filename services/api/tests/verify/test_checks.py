@@ -32,7 +32,13 @@ def test_severities_follow_the_table(screenplay: Screenplay, extraction: Extract
     checks, _, _ = run_checks(
         kitchen_shot(), screenplay.scenes[0], described(), judged(), extraction
     )
-    hard = {Check.UNSCRIPTED_PERSON, Check.UNSCRIPTED_OBJECT, Check.TEXT_IN_FRAME, Check.SETTING}
+    hard = {
+        Check.UNSCRIPTED_PERSON,
+        Check.UNSCRIPTED_OBJECT,
+        Check.TEXT_IN_FRAME,
+        Check.SETTING,
+        Check.NO_CHARACTER,  # T080
+    }
     for c in checks:
         assert c.severity is (Severity.HARD if c.check in hard else Severity.SOFT), c.check
 
