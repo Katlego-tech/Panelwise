@@ -162,7 +162,7 @@ only to **remove** words, by redaction). A prompt is an ordered tuple of **parts
 where it came from; `text()` joins them with `", "` (comma phrases, the way CLIP reads captions:
 FrameFlow's finding).
 
-**Order**, fixed: `STYLE`, `FRAMING`, `SETTING`, `TIME`, `COUNT`, `PLACEMENT`, then one `ACTION`
+**Order**, fixed: `STYLE`, `FRAMING`, `SETTING`, `TIME`, `COUNT`, `AGE` (T074), `PLACEMENT`, then one `ACTION`
 part per covered `Action` element, **in element order**. The scene-level parts lead because a text encoder that
 truncates drops the tail.
 
@@ -173,6 +173,7 @@ truncates drops the tail.
 | `SETTING` | this scene's heading | `inside` / `outside` / `at` (from `scene.int_ext`: `INT`, `EXT`, `INT_EXT`) + `scene.location`, **redacted, then** lower-cased | this scene's heading span |
 | `TIME` | `shot.time_of_day` (resolved, shots.md) | lower-cased; omitted when `None` | the heading span of the scene that **supplied** the clock (`time_source`, below) |
 | `COUNT` | code, from `visible_characters(shot, screenplay, extraction)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
+| `AGE` (T074) | `introduced_age(character, screenplay)` for each `visible_characters` member, in their order; one part per character whose introduction gives an age | `(10)` → "a 10-year-old", `(70s)` → "a person in their 70s" (the first number in the parenthesis after the character's name where an `Action` line introduces it: `LERATO (10), braids…`, `NANDI (60s, oilskin coat)`); omitted when the script gives none | that `Action` element's span |
 | `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`), and is accepted only when `visible_characters` has exactly two members (else `ValueError`), so it can never contradict `COUNT` | the phrase; T026's renderer passes `None`, T025 passes it | `None` |
 | `ACTION` | a covered `Action` element's text | verbatim, whitespace collapsed, redacted | the element's span |
 
@@ -202,12 +203,16 @@ truncates drops the tail.
   audited on its own.
 
 **The invariant** (tested, §9): for every part whose `span` is not `None`, that span is this scene's
-heading span, the heading span of `time_source`'s scene (only for `TIME`), or the span of an element
+heading span, the heading span of `time_source`'s scene (only for `TIME`), the span of the `Action`
+element that introduces a visible character (only for `AGE`, T074: its text is "a <n>-year-old" or "a person
+in their <n>s", and `<n>` stands in that element in a parenthesis right after that character's name: an
+age is who the character is, not another moment's event, as a borrowed clock is when), or the span of an element
 the shot covers; and the part's text (after the `SETTING` part's leading preposition) is, under `normalize_for_grounding`, a substring of `redact(text,
 redaction_labels(extraction, screenplay))` applied to that heading or element text (`redact_all`
 before T052). Every part whose `span` is `None` is from the fixed tables
 above or the style. So a prompt says nothing that isn't in this shot's lines or its heading, except
-the style's medium words and the code's fixed framing, preposition, count and placement vocabulary,
+the style's medium words, the code's fixed framing, preposition, count and placement vocabulary, and
+an age's number in its fixed phrase,
 none of which names a person, prop or event.
 
 - **Parentheticals never enter a prompt.** `Dialogue.parenthetical` ("beat", "without turning") is
@@ -298,7 +303,7 @@ none of which names a person, prop or event.
 - **Word budget.** `max_words` (the workflow's, §6) counts **whitespace-separated words** of
   `text()`, a deliberately conservative proxy for the encoder's token limit (the default 55 for
   CLIP's 77 tokens; T003 sets it for the real encoder). The **fixed parts** (`STYLE`, `FRAMING`,
-  `SETTING`, `TIME`, `COUNT`, `PLACEMENT`) are never dropped; if they alone exceed `max_words`,
+  `SETTING`, `TIME`, `COUNT`, `AGE`, `PLACEMENT`) are never dropped; if they alone exceed `max_words`,
   `build_frame_prompt` raises `PromptError` naming the shot (a style or location too long for the
   encoder is a configuration error, surfaced as the renderer's failure, never a silently truncated
   prompt). Otherwise, over budget, whole `ACTION` parts are dropped from the **tail** backwards,
@@ -317,7 +322,7 @@ is the key (`[a-z0-9-]+`):
 label = "Clean sketch"
 description = "Pencil storyboard at full size. Keeps a wide shot as one panel inside the location."
 medium = "storyboard sketch, pencil drawing"
-finish = "grayscale, monochrome, loose linework"
+finish = "grayscale, monochrome, loose linework, plain background"   # T074: "plain background"
 # emphasis = 1.3     # optional: ComfyUI weight on `medium` (FrameFlow's `ink` and `pencil` used 1.3)
 negative = ""         # optional: negative prompt (subtractive only)
 grayscale = true      # the pixel pass after rendering (FrameFlow's image_postprocess)
@@ -535,7 +540,14 @@ def redaction_labels(extraction: Extraction, screenplay: Screenplay, only: str |
 def redact(text: str, labels: Mapping[str, str]) -> str: ...                    # T052: redact_all's matching (runs, possessives, titles), each run → the label of its token that comes first in `labels` (rank order); a possessive `it` is `its`
 
 # app/storyboard/prompt.py — pure
-class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; PLACEMENT = "placement"; ACTION = "action"
+class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; AGE = "age"; PLACEMENT = "placement"; ACTION = "action"
+def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] | None: ...   # T074, pure
+#   the first Action element, in scene and element order, where `CHARACTER (` follows the name in capitals
+#   and the parenthesis opens with a number, an optional `s`, an optional years word (`years old`, `year-old`,
+#   `yrs`, `yo`) and then `,` `;` or `)`: ("a <n>-year-old" | "a person in their <n>s", that element's span);
+#   `(5 months)`, `(6 weeks)`, `(30s-40s)`, `(early 30s)` give None: a miss draws no age, a wrong one would
+#   state one the script contradicts (the T074 review)
+#   None when no introduction gives one. Never a word the script doesn't have but the age's own number
 @dataclass(frozen=True) class PromptPart: kind: PartKind; text: str; span: Span | None
 @dataclass(frozen=True)
 class FramePrompt:
@@ -677,6 +689,8 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
+| A character's age in the prompt (T074) | an `AGE` part from the script's own introduction (`LERATO (10)` → "a 10-year-old") | only "a person" (before T074): on 2026-10-10 the-red-kite drew Lerato (10) and Mokgosi (70s) as young adults again and again, and T072's audit then withheld those frames; the age in every name's label: "a person in their 70s's workshop"; a gender word: the script's parenthesis doesn't give one |
+| A plain background (T074) | `plain background` in the clean style's `finish` | the scene as it comes: schnell fills a workshop with jugs, books, pots and frames, and the judge withholds the frame for them (13 of 19 withheld frames failed on such objects on 2026-10-10); a per-shot phrase: the style is how every frame is drawn |
 | What a frame prompt is made of | tagged parts from the shot's grounded fields, each script part carrying its span (§3.1) | FrameFlow's `storyboard_description` (free text: shots.md dropped it) or its fallback to the scene's first 400 characters of action (a cut mid-sentence, and other shots' events); a model writing the prompt: invention with extra steps |
 | Dialogue in the prompt | never; speakers enter as the `COUNT` and, with T025, as references | the speech text: not visible, and the surest way to get letters in the art (hard `TEXT_IN_FRAME`) |
 | Camera movement in the prompt | never; printed under the frame | FrameFlow's movement words: a still can't pan, and "handheld" reads as blur |
@@ -713,6 +727,15 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   `PLACEMENT_PHRASES` or the style; `text()` contains no name token of any character; no
   `Dialogue.text` appears; `rationale` never appears (a shot built with a sentinel rationale); no
   prompt exceeds `max_words`. The sample includes a `CONTINUOUS` scene after a night scene.
+- **T074:** `introduced_age`: `LERATO (10), braids…` → "a 10-year-old", `MOKGOSI (70s)` → "a person in
+  their 70s", `NANDI (60s, oilskin coat)` → "a person in their 60s", a character never introduced
+  with a number → `None`, `(5 months)` and `(30s-40s)` → `None`, a name inside another word never
+  matches, the span is the introducing
+  element's; `build_frame_prompt` puts one `AGE` part per visible character with an age right after
+  `COUNT`, none for an animal or an off-screen speaker, and counts them in the fixed words;
+  `cites_this_shot` accepts two characters introduced in one line (each age with that one span). Live, with
+  Tumo's go-ahead (about $0.06): one upload of the-red-kite at `RENDER_MAX_ATTEMPTS=1`, against
+  2026-10-10's 3 of 22 accepted on the same seeds.
 - **`build_frame_prompt`** cases: the fixed part order, `ACTION` parts in element order;
   `INT`/`EXT`/`INT_EXT` prepositions; a `None` time omitted; a borrowed time citing the earlier
   heading; counts 0 to 5 from `visible_characters` (a planner character not in the covered text, a
