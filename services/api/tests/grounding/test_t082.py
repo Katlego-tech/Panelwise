@@ -37,6 +37,20 @@ ROWS = [
     None,
     (ACTION, "KAYA, a man in a coat, waits."),
     None,
+    (ACTION, "LINDA (40s) dresses herself."),
+    None,
+    (ACTION, "BEN (50s) shaves himself."),
+    None,
+    (ACTION, "PETER hugs his mother."),
+    None,
+    (ACTION, "MR. KHUMALO (60s) waits."),
+    None,
+    (ACTION, "Mr. hums. He sits."),
+    None,
+    (ACTION, "A ginger cat, TIGER, sleeps. She purrs."),
+    None,
+    (ACTION, "KOOS (70s), the night cleaner, pushes a broom. She waves."),
+    None,
     (CUE, "ANNA"),
     (DIALOGUE, "I am a woman of my word."),
     None,
@@ -125,6 +139,55 @@ def test_a_word_outside_the_vocabulary_or_the_quote_gives_none() -> None:
 def test_a_backfilled_speaker_gets_no_sex() -> None:
     # ANNA proposed by no one: the cue backfill, with only her speech.
     assert grounded()["ANNA"].sex is None
+
+
+def test_reflexive_pronouns_give_a_sex() -> None:
+    found = grounded(
+        proposal("LINDA", ["LINDA (40s) dresses herself."], "herself"),
+        proposal("BEN", ["BEN (50s) shaves himself."], "himself"),
+    )
+    assert found["LINDA"].sex is Sex.FEMALE and found["BEN"].sex is Sex.MALE
+
+
+def test_relational_nouns_are_not_in_the_vocabulary() -> None:
+    found = grounded(proposal("PETER", ["PETER hugs his mother."], "mother"))
+    assert found["PETER"].sex is None
+
+
+def test_a_title_alone_names_no_one() -> None:
+    quotes = ["MR. KHUMALO (60s) waits.", "Mr. hums. He sits."]
+    assert grounded(proposal("MR. KHUMALO", quotes, "He"))["MR. KHUMALO"].sex is None
+
+
+def test_an_animal_gets_no_sex() -> None:
+    cat = ProposedEntity.model_validate(
+        {
+            "kind": "character",
+            "name": "TIGER",
+            "quotes": ["A ginger cat, TIGER, sleeps. She purrs."],
+            "species": "cat",
+            "sex_word": "She",
+        }
+    )
+    tiger = grounded(cat)["TIGER"]
+    assert tiger.species == "cat" and tiger.sex is None
+
+
+def test_a_cue_backfill_gets_no_sex_whatever_it_is_given() -> None:
+    from app.grounding.filter import _with_sex  # pyright: ignore[reportPrivateUsage]
+
+    anna = grounded()["ANNA"]
+    assert anna.source.value == "cue"
+    actions = {q.span for q in anna.quotes}  # even were its quote an action line
+    assert _with_sex(anna, ["woman"], [anna], actions).sex is None
+
+
+def test_the_recorded_residual_risk_a_passer_by_pronoun() -> None:
+    # grounding.md §3: "KOOS ... pushes a broom. She waves." passes if the model copies "She";
+    # the model is asked for the word about Koos, and storyboard's character_sex drops a sex
+    # another source contradicts. Pinned so a change to this rule is a deliberate one.
+    quote = "KOOS (70s), the night cleaner, pushes a broom. She waves."
+    assert grounded(proposal("KOOS", [quote], "She"))["KOOS"].sex is Sex.FEMALE
 
 
 def _extraction(*proposals: ProposedEntity) -> Extraction:

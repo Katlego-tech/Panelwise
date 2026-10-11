@@ -19,7 +19,9 @@ from app.storyboard.prompts import cites_this_shot
 from app.storyboard.styles import PUBLIC_STYLES
 from app.verify import FrameDescription
 from app.verify.prompts import render_spec
+from tests.script.conftest import ACTION, CUE, heading, layout
 from tests.storyboard.conftest import shot_of
+from tests.storyboard.test_invariant import check, keyed
 from tools.build_samples import SAMPLES
 
 SIPHOKAZI_SHE = "Siphokazi nods. She cannot stop the smile."
@@ -105,6 +107,130 @@ def test_sources_that_disagree_give_no_sex() -> None:
         entities=tuple(contradicted if e is thembi else e for e in extraction.entities),
     )
     assert character_sex("MAMA THEMBI", screenplay, other) is None
+
+
+ROWS = [
+    (CUE - 4, "SEX PARTS"),
+    None,
+    (ACTION, "FADE IN:"),
+    None,
+    heading("1", "INT. HALL - DAY"),
+    None,
+    (ACTION, "MAMA NOSIPHO sweeps the step."),
+    None,
+    (ACTION, "NOMSA hums by the door. She waits."),
+    None,
+    (ACTION, "LINDA (40s), her coat wet, waits."),
+    None,
+    (ACTION, "LINDA, a tall man, nods."),
+    None,
+]
+
+
+@cache
+def hall() -> tuple[Screenplay, Extraction]:
+    from app.script import parse_text
+
+    screenplay = parse_text(layout(ROWS), [])
+    proposals = [
+        ProposedEntity.model_validate(p)
+        for p in (
+            {
+                "kind": "character",
+                "name": "MAMA NOSIPHO",
+                "quotes": ["MAMA NOSIPHO sweeps the step."],
+            },
+            {
+                "kind": "character",
+                "name": "NOMSA",
+                "quotes": ["NOMSA hums by the door. She waits."],
+                "sex_word": "She",
+            },
+            {
+                "kind": "character",
+                "name": "LINDA",
+                "quotes": ["LINDA (40s), her coat wet, waits.", "LINDA, a tall man, nods."],
+                "sex_word": "man",
+            },
+        )
+    ]
+    entities, report = ground(proposals, screenplay)
+    return screenplay, Extraction(entities, report, ("m",), Usage(0, 0, 0))
+
+
+def _prompt(text: str, character: str):
+    screenplay, extraction = hall()
+    scene_index, i = _element(screenplay, text)
+    shot = shot_of(screenplay, scene_index, [i], characters=[character])
+    style = load_styles(PUBLIC_STYLES, None).get(None)
+    return shot, style, build_frame_prompt(shot, screenplay, extraction, style, max_words=10_000)
+
+
+def test_an_ageless_titled_character_gets_a_sex_part_and_no_age() -> None:
+    screenplay, extraction = hall()
+    shot, style, prompt = _prompt("MAMA NOSIPHO sweeps", "MAMA NOSIPHO")
+    kinds = [p.kind for p in prompt.parts]
+    assert PartKind.SEX in kinds and PartKind.AGE not in kinds
+    sex = next(p for p in prompt.parts if p.kind is PartKind.SEX)
+    nosipho = next(e for e in extraction.entities if e.name == "MAMA NOSIPHO")
+    assert (sex.text, sex.span) == ("a female person", nosipho.quotes[0].span)
+    assert cites_this_shot(prompt, shot, screenplay, extraction)
+    check(prompt, shot, screenplay, extraction, style, 10_000)
+
+
+def test_a_grounded_sex_part_cites_its_quote() -> None:
+    screenplay, extraction = hall()
+    shot, style, prompt = _prompt("NOMSA hums", "NOMSA")
+    nomsa = next(e for e in extraction.entities if e.name == "NOMSA")
+    assert nomsa.sex_quote is not None
+    sex = next(p for p in prompt.parts if p.kind is PartKind.SEX)
+    assert sex.span == nomsa.sex_quote.span
+    check(prompt, shot, screenplay, extraction, style, 10_000)
+
+
+def test_a_sex_part_with_another_span_or_text_is_refused() -> None:
+    from dataclasses import replace
+
+    import pytest
+
+    screenplay, extraction = hall()
+    shot, style, prompt = _prompt("MAMA NOSIPHO sweeps", "MAMA NOSIPHO")
+    other_span = next(e for e in extraction.entities if e.name == "LINDA").quotes[0].span
+    for bad in (
+        replace(
+            prompt,
+            parts=tuple(
+                replace(p, span=other_span) if p.kind is PartKind.SEX else p for p in prompt.parts
+            ),
+        ),
+        replace(
+            prompt,
+            parts=tuple(
+                replace(p, text="a male person") if p.kind is PartKind.SEX else p
+                for p in prompt.parts
+            ),
+        ),
+    ):
+        assert not cites_this_shot(bad, shot, screenplay, extraction)
+        with pytest.raises(AssertionError):
+            check(bad, shot, screenplay, extraction, style, 10_000)
+
+
+def test_keyed_refuses_a_sex_word_nothing_in_the_script_gives() -> None:
+    _, extraction = sipho()
+    assert not keyed("a female person", "OFFICER MOLOI", None, extraction)
+    assert keyed("a female person", "MAMA THEMBI", None, extraction)
+
+
+def test_the_introduction_against_a_grounded_word_gives_no_sex_and_a_sexless_age() -> None:
+    screenplay, extraction = hall()
+    linda = next(e for e in extraction.entities if e.name == "LINDA")
+    assert linda.sex is Sex.MALE  # "a tall man": grounded, but the introduction says "her"
+    assert character_sex("LINDA", screenplay, extraction) is None
+    from app.storyboard import introduced_age
+
+    assert introduced_age("LINDA", screenplay, extraction) is not None
+    assert introduced_age("LINDA", screenplay, extraction)[0] == "a person in their 40s"  # type: ignore[index]
 
 
 def _described() -> FrameDescription:
