@@ -540,10 +540,10 @@ def test_an_empty_text_entry_is_no_text_read(
     assert verdict is Verdict.PASS
 
 
-# --- T072: a signature always fails ------------------------------------------------------------
+# --- T077: a signature warns (T072 failed it) ----------------------------------------------------
 
 
-def test_a_signature_fails_the_frame_readable_or_not(
+def test_a_signature_alone_warns_and_withholds_nothing(
     screenplay: Screenplay, extraction: Extraction
 ) -> None:
     checks, verdict, _ = run_checks(
@@ -553,10 +553,25 @@ def test_a_signature_fails_the_frame_readable_or_not(
         judged(),
         extraction,
     )
-    assert failing(checks) == {Check.TEXT_IN_FRAME}
+    assert failing(checks) == {Check.SIGNATURE}
+    assert verdict is Verdict.WARN
+    result = next(c for c in checks if c.check is Check.SIGNATURE)
+    assert result.severity is Severity.SOFT
+    assert "a signature" in result.detail
+
+
+def test_a_signature_with_an_unscripted_word_still_fails_on_the_word(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    checks, verdict, _ = run_checks(
+        kitchen_shot(),
+        screenplay.scenes[0],
+        described(signature=True, text=["@hutley"]),
+        judged(),
+        extraction,
+    )
+    assert failing(checks) == {Check.SIGNATURE, Check.TEXT_IN_FRAME}
     assert verdict is Verdict.FAIL
-    detail = next(c.detail for c in checks if c.check is Check.TEXT_IN_FRAME)
-    assert "a signature" in detail
 
 
 def test_no_signature_and_no_text_passes(screenplay: Screenplay, extraction: Extraction) -> None:

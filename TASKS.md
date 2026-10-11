@@ -417,5 +417,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:verify.md §6 verbatim: `Check.NO_CHARACTER`, hard; `run_checks(..., *, on_screen: tuple[str, ...] = ())`
       Verify:  bash scripts/gate.sh (tests first: verify.md §9's T080 list); free: the 27 labelled frames and the 2026-10-11 klein run's stored drawings
       Done:    a frame with none of the drawn people fails NO_CHARACTER, a shot heard only off screen never does, and the judge's prompt refuses a contradicted sex or look
+- [ ] T077 [US2] **A signature warns; it no longer withholds a frame.** Found on 2026-10-11 re-judging stored drawings: with the signature as a hard fail the-red-kite accepted 2 of 22 klein frames, without it 6 (schnell: 3 → 4 of 21). A mark in a corner is no character, prop, line or event. Lane `verify` (Claude for Tumo). Stacked on T072 (#116/#117).
+      Design:  docs/design/verify.md §3 (Ages and signatures, the checks table), §6 (`Check.SIGNATURE`), §8 (the signature row), §9 (T077); web.md §6 Copy (`signature`)
+      Files:   services/api/app/verify/{model,audit}.py; apps/web/components/storyboard/cards.ts; tests under services/api/tests/verify/ and apps/web
+      Contract:verify.md §6 verbatim: `Check.SIGNATURE`, soft; `TEXT_IN_FRAME` no longer reads `signature`
+      Verify:  bash scripts/gate.sh (tests first: verify.md §9's T077 list); free, with Tumo's go-ahead: T072's and T077's audits on Katlego's 27 labelled frames
+      Done:    a frame whose only fault is a signature is WARN, shown with "artist's signature"; on the 27 labelled frames the only labelled-bad frames newly passing are ones labelled for a signature (Tumo's decision, 2026-10-11)
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

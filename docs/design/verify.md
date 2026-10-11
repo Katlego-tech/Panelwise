@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -112,7 +112,9 @@ classDiagram
   (`a child`, `a teenager`, `an adult`, `an old man`, `an old woman`). `signature` is true when
   the image carries a signature, initials or an artist's mark, readable or not: the live run's
   frames had one in a corner again and again (eval.md §6a.2: 15 of 27), and it is writing
-  no script asked for.
+  no script asked for. **T077:** it is the soft `SIGNATURE` check, not a hard fail: an
+  artist's mark is no character, prop, line or event, so it can't break the non-negotiable,
+  and failing on it withheld frames that were otherwise right (below, §8).
 - **What the judge is told (T072).** A described person whose apparent age plainly contradicts
   a character's quoted age (an adult for `LERATO (10)`, a young man for `MOKGOSI (70s)`) is not
   that character: `character` null, so with no support they are `UNSCRIPTED_PERSON`. **T080:** the
@@ -168,12 +170,13 @@ classDiagram
 |---|---|---|---|
 | `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted); or (T072) the `support` of a person called with no character names a shot character |
 | `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks. **T072:** `set_dressing` also fails for an object whose name is, or is a word of, a prop the extraction names (§3) |
-| `TEXT_IN_FRAME` | code | **hard** | `signature` is true (T072: a signature or artist's mark, readable or not), or a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" fails). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing |
+| `TEXT_IN_FRAME` | code | **hard** | a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" fails). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
 | `NO_CHARACTER` (T080) | code | **hard** | the prompt put at least one of the shot's people on screen (`on_screen`, from storyboard.md §3.1's `visible_characters`) and no described person is matched to any of them: a frame of the setting alone, or of strangers, for a shot about its characters (on 2026-10-11 shot 1.3 was an empty roof, shown with a warning). A shot whose people are only heard off screen, or that names no one, has an empty `on_screen` and never fails it |
 | `MISSING_CHARACTER` | code | soft | a shot character **who is a person** matched to no described person (an animal character, `species` set, is described as an object: T052) |
 | `LIGHT` | code | soft | `light` is `day` and the shot's time is night-family (`NIGHT`, `MIDNIGHT`, `EVENING`), or `light` is `night` and the time is day-family (`DAY`, `MORNING`, `AFTERNOON`). Transitional times (`DAWN`, `DUSK`, `SUNRISE`, `SUNSET`, `MAGIC HOUR`), a `None` time, `dawn_or_dusk` and `unclear` always pass |
 | `FRAMING` | code | soft | `shot_size` is two or more steps from the shot's framing on wide → medium → close → extreme_close (`over_shoulder`, `pov` count as medium; `insert` as close); `unclear` passes |
+| `SIGNATURE` (T077) | code | soft | `signature` is true: a signature, initials or an artist's mark, readable or not. Words the describer reads in it are still `text`, so a legible signature that isn't the script's (`@hutley`) still fails `TEXT_IN_FRAME` |
 
 **Verdict:** `FAIL` if any hard check fails; `WARN` if only soft checks fail; `PASS` otherwise. Hard
 checks are the ones that would put something unscripted on screen; soft checks are quality
@@ -266,7 +269,7 @@ class Light(StrEnum): DAY = "day"; NIGHT = "night"; DAWN_OR_DUSK = "dawn_or_dusk
 class ShotSize(StrEnum): WIDE = "wide"; MEDIUM = "medium"; CLOSE = "close"; EXTREME_CLOSE = "extreme_close"; UNCLEAR = "unclear"
 class ObjectKind(StrEnum): SCRIPTED_PROP = "scripted_prop"; SET_DRESSING = "set_dressing"; UNSCRIPTED = "unscripted"
 class ObjectCategory(StrEnum): FURNITURE = "furniture"; ARCHITECTURE = "architecture"; NATURE = "nature"; CLOTHING = "clothing"; ANIMAL = "animal"; VEHICLE = "vehicle"; WEAPON = "weapon"; SCREEN_OR_SIGN = "screen_or_sign"; FOOD = "food"; OTHER = "other"
-class Check(StrEnum): UNSCRIPTED_PERSON; UNSCRIPTED_OBJECT; TEXT_IN_FRAME; SETTING; MISSING_CHARACTER; LIGHT; FRAMING; NO_CHARACTER   # value = the name in lower case; NO_CHARACTER: T080, hard
+class Check(StrEnum): UNSCRIPTED_PERSON; UNSCRIPTED_OBJECT; TEXT_IN_FRAME; SETTING; MISSING_CHARACTER; LIGHT; FRAMING; SIGNATURE; NO_CHARACTER   # value = the name in lower case; SIGNATURE: T077, soft; NO_CHARACTER: T080, hard
 class Severity(StrEnum): HARD = "hard"; SOFT = "soft"
 class Verdict(StrEnum): PASS = "pass"; WARN = "warn"; FAIL = "fail"; ERROR = "error"
 class FrameState(StrEnum): RENDERING; AUDITING; PASSED; WARNED; WITHHELD; FAILED   # value = the name in lower case
@@ -472,7 +475,7 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | A wrong sex or look (T080) | the judge refuses the match, as for a wrong age | a code check on the describer's words ("a boy"): the describer's phrases vary, and matching them to "she" or "braids" is guessing |
 | No one in frame (T080) | the hard `NO_CHARACTER`, against the people the prompt drew | `MISSING_CHARACTER` made hard: a shot of two where one is drawn would be withheld for a framing choice; against `shot.characters`: a planner character no covered line puts on screen was never drawn, so every attempt would fail |
 | A child drawn as an adult (T072) | the judge refuses the match when the apparent age plainly contradicts the character's quoted age, so the person is unscripted | a new `AGE` check in code: the describer's age is a phrase, and matching it to `(10)`, `(70s)` or "old" in code is guessing; leaving it to portraits (T025): T025 waits on the renderer, and 14 of 27 labelled frames (eval.md §6a.2) drew the wrong age |
-| A signature (T072) | always fails `TEXT_IN_FRAME`, readable or not | T071's rule alone: an unreadable signature passed (the live run's shot 5.3); asking the describer to read it: it is writing whether or not it can be read |
+| A signature (T072, T077; Tumo, 2026-10-11) | the soft `SIGNATURE` check (T077): logged and shown, the frame `WARN`; words read in it are still `text`. On eval.md §6a's 27 labelled frames this passes 2 that Katlego labelled bad for their signature (one also had a second kite the describer missed): by this decision a signature is no grounding failure, so those labels count the signature as a note | a hard fail (T072): on 2026-10-11, re-judging the same stored drawings, it withheld 4 more of the-red-kite's 22 klein frames (6 accepted with T077, 2 without) and 1 of its 21 schnell frames, each otherwise right, and a mark in a corner is no character, prop, line or event; T071's rule alone (no flag): the flag stays, so a reviewer sees the mark; cropping the border to remove it: halved signatures in a 2026-10-10 experiment, and is renderer post-processing, after the renderer decision |
 | A part of a prop (T078) | code: the prop's head noun right before the part's own word, a prop of this shot, no copy word, never an animal, vehicle, weapon or food; the judge's call doesn't matter | the judge alone (it called a kite string unscripted 3 times in 27 labelled frames); a shared word (my first draft matched `coil of wire` to `SPOOL OF BLUE STRING` through `of`, and `second kite` to `RED KITE`); a judge prompt saying everyday things are set dressing (2026-10-11: no labelled good frame gained, and a grown man for Lerato passed). Measured on the saved judgements of three runs over the 27 labelled frames: 0, 1 and 2 good frames gained, no labelled-bad frame passing |
 | Drawing marks (T078) | the describer leaves them out | a code list of mark words: the describer's names vary; the judge: it called "pencil shading" unscripted |
 | Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
@@ -523,6 +526,11 @@ it against the script."*
   heading's words fails against the prop `RED KITE`, a `bucket` doesn't. Live, with Tumo's go-ahead (Token
   Factory only): T071's and T072's audits on eval.md §6a's 27 labelled frames (Katlego's, in the
   dev bucket), scored against his labels, the numbers in the PR; then one upload of the-red-kite.
+- **T077:** `run_checks`: `signature` true with `text` empty fails `SIGNATURE` (soft) and no hard
+  check, so the verdict is `WARN`; with an unread word in `text` it also fails `TEXT_IN_FRAME`
+  (`FAIL`); `signature` false fails neither. The web names `signature` "artist's signature".
+  Free (Token Factory only): T072's and T077's audits on eval.md §6a's 27 labelled frames; the
+  only labelled-bad frames newly passing are ones labelled for a signature, the numbers in the PR.
 - **T078:** `part_of_prop`: `kite string` and `kite tail` → `RED KITE` when the shot has it; `kite`,
   `blue kite`, `second kite`, `another kite string`, `map of the town`, `kite tail string` → None;
   `kite string` → None when the shot hasn't the prop or the extraction has no quote of it;
