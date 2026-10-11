@@ -37,6 +37,7 @@ classDiagram
         +list~SeenObject~ objects
         +bool has_text
         +list~str~ text
+        +bool signature
     }
     class SeenObject {
         +str name
@@ -105,6 +106,24 @@ classDiagram
   sky, windows, doors, roofs, chimneys, stairs) as objects. Under `text` it writes, word for
   word, each piece of writing it can actually **read**; a scribble, an unreadable signature or a
   mark that isn't letters is left out of `text` (it may still set `has_text`).
+- **Ages and signatures (T072).** Each person's `appearance` starts with how old they look
+  (`a child`, `a teenager`, `an adult`, `an old man`, `an old woman`). `signature` is true when
+  the image carries a signature, initials or an artist's mark, readable or not: the live run's
+  frames had one in a corner again and again (eval.md §6a.2: 15 of 27), and it is writing
+  no script asked for.
+- **What the judge is told (T072).** A described person whose apparent age plainly contradicts
+  a character's quoted age (an adult for `LERATO (10)`, a young man for `MOKGOSI (70s)`) is not
+  that character: `character` null, so with no support they are `UNSCRIPTED_PERSON`; and **code**
+  refuses as support for such a person any quote that names a shot character (`LERATO (10),
+  braids…` is about Lerato, so it can't put a stranger there). An ordinary
+  thing the heading's place would hold (a workshop's clock, boxes and tools; a roof's bucket,
+  pipes and vents; the sky, clouds and puddles outdoors) is `set_dressing`, its support the
+  heading's words for the place, which code still checks. Weather that happens (lightning, rain,
+  snow, a storm) is an event: `scripted_prop` only with a verbatim quote, else `unscripted`.
+  **Code** refuses `set_dressing` for an object whose name is, or is a word of, a prop the
+  extraction names anywhere in the script (a `kite` against `RED KITE`): a thing the script
+  names is a story choice, so it needs a `scripted_prop` quote, and a second kite stays
+  unscripted.
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
@@ -127,9 +146,9 @@ classDiagram
 
 | Check | Decided by | Severity | Fails when |
 |---|---|---|---|
-| `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted) |
-| `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks |
-| `TEXT_IN_FRAME` | code | **hard** | a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" fails). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing |
+| `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted); or (T072) the `support` of a person called with no character names a shot character |
+| `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks. **T072:** `set_dressing` also fails for an object whose name is, or is a word of, a prop the extraction names (§3) |
+| `TEXT_IN_FRAME` | code | **hard** | `signature` is true (T072: a signature or artist's mark, readable or not), or a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" fails). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
 | `MISSING_CHARACTER` | code | soft | a shot character **who is a person** matched to no described person (an animal character, `species` set, is described as an object: T052) |
 | `LIGHT` | code | soft | `light` is `day` and the shot's time is night-family (`NIGHT`, `MIDNIGHT`, `EVENING`), or `light` is `night` and the time is day-family (`DAY`, `MORNING`, `AFTERNOON`). Transitional times (`DAWN`, `DUSK`, `SUNRISE`, `SUNSET`, `MAGIC HOUR`), a `None` time, `dawn_or_dusk` and `unclear` always pass |
@@ -237,10 +256,12 @@ class FrameState(StrEnum): RENDERING; AUDITING; PASSED; WARNED; WITHHELD; FAILED
 # app/verify/schema.py — the two model calls (strict json_schema)
 class SeenPerson(BaseModel): position: Position; appearance: str
 class SeenObject(BaseModel): name: str; category: ObjectCategory; held: bool
-class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[SeenObject]; has_text: bool; text: list[str]
+class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[SeenObject]; has_text: bool; text: list[str]; signature: bool
 #   text (T071): each piece of writing the describer can read, verbatim, in reading order; [] for none.
 #   The describer must always return it (strict schema). A row written before T071 has no `text`:
 #   AuditView's description reads it as [] (its old has_text verdict stands in the log)
+#   signature (T072): a signature, initials or an artist's mark anywhere, readable or not; required
+#   from the describer; a row written before T072 reads as false in AuditView
 class PersonCall(BaseModel): person: int; character: str | None; support: str | None   # person: 0-based index into description.people
 class ObjectCall(BaseModel): object: int; kind: ObjectKind; support: str | None        # object: 0-based index into description.objects
 class Judgement(BaseModel): people: list[PersonCall]; objects: list[ObjectCall]
@@ -420,10 +441,15 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | Text in the frame (T071; Tumo, 2026-10-10) | fail only legible words that aren't the script's own (the shot's `source` or the scene's location) | any writing-like mark fails (before T071): 237 of 249 failed audits on 2026-10-10 had text, a sign naming the very office the scene is in among them, so almost nothing could pass; ignoring only unreadable marks: the office's own sign would still fail; counting the time of day as script words: a painted "NIGHT" would pass |
 | Costume and the place's structure (T071) | never an unscripted object when not held, and the describer stops listing them | trusting the judge on each jacket and chimney: on 2026-10-10 it called a chest pocket, a hat and jackets unscripted; a held one is still checked (a held object is a story choice) |
 | Attempts per frame (T071) | the setting `RENDER_MAX_ATTEMPTS`, 1 to 3, default 3 | a constant 3: when failures are systematic, two of every three drawings buy another FAIL; more than 3: the same spend, faster |
+| A child drawn as an adult (T072) | the judge refuses the match when the apparent age plainly contradicts the character's quoted age, so the person is unscripted | a new `AGE` check in code: the describer's age is a phrase, and matching it to `(10)`, `(70s)` or "old" in code is guessing; leaving it to portraits (T025): T025 waits on the renderer, and 14 of 27 labelled frames (eval.md §6a.2) drew the wrong age |
+| A signature (T072) | always fails `TEXT_IN_FRAME`, readable or not | T071's rule alone: an unreadable signature passed (the live run's shot 5.3); asking the describer to read it: it is writing whether or not it can be read |
+| Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
 | Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
 
 **Accepted residual risk:** the audit can only judge what the describer reports. A person or object
-the describer misses passes unseen. T049 measures exactly this (recall on frames with a deliberately
+the describer misses passes unseen. And since T072 the judge, not code, decides what a place
+would hold: an object the script never names, called `set_dressing` with the heading's words,
+passes (weather called dressing included). Code only stops a named prop and an unsupported one. T049 measures exactly this (recall on frames with a deliberately
 injected extra person or object); if it's poor, the describer prompt or model changes, or option B.
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none. Wording for the
@@ -455,6 +481,16 @@ it against the script."*
   written, a missing asset reported and skipped, `limit` honoured; `summary` counts before and after.
   Live, with Tumo's go-ahead (Token Factory only): `python -m app.verify.reaudit` on the
   2026-10-10 lost-property project, then one live upload of the-red-kite at `RENDER_MAX_ATTEMPTS=1`.
+- **T072:** `run_checks`: `signature` true fails `TEXT_IN_FRAME` with `text` empty, and the detail
+  says "a signature"; `signature` false and `text` empty passes. The describer prompt asks for each
+  person's apparent age first and for `signature`; its schema requires `signature`; a stored
+  description without it validates as `false` in `AuditView`. The judge prompt names the age rule,
+  set dressing's ordinary things and weather as an event. `run_checks`: a no-character person
+  supported by a quote naming a shot character (`LERATO (10), braids…`) is `UNSCRIPTED_PERSON`,
+  one supported by `a crowd gathers` still passes; a `kite` called `set_dressing` with the
+  heading's words fails against the prop `RED KITE`, a `bucket` doesn't. Live, with Tumo's go-ahead (Token
+  Factory only): T071's and T072's audits on eval.md §6a's 27 labelled frames (Katlego's, in the
+  dev bucket), scored against his labels, the numbers in the PR; then one upload of the-red-kite.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 
