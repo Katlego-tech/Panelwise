@@ -393,6 +393,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  osv-scanner over both lockfiles: no issues; pnpm lint, test, build pass
       Done:    the gate's vulnerability scan passes with no new exemption
+- [ ] T076 [US2] **The frame sheet sits above the board.** Found by Tumo on 2026-10-11: with a withheld frame's sheet open, the other withheld cards' "Try another render" (`relative z-10`, above the card's stretched link) painted over the sheet's text, because the sheet's scrim and panel had no z-index. Lane `web` (Claude for Tumo).
+      Design:  docs/design/web.md §4.4 (the sheet opens over the board); no change
+      Files:   apps/web/components/storyboard/FrameSheet.tsx; FrameSheet.test.tsx
+      Contract:none
+      Verify:  bash scripts/gate.sh; open a withheld frame's sheet on a board with other withheld cards
+      Done:    no card control shows through the open sheet or its scrim
 - [ ] T075 [US1] **The model client rides out a minute-long network drop.** Found on 2026-10-10: Token Factory dropped connections on and off from 21:28 to 21:38; each `ConnectError` took about 20 s, three ended a call in 45 s, and 3 of sipho-and-siphokazi's 31 audits were withheld as `audit_error`. Lane `llm` (Claude for Tumo). On `main`; not on the renderer.
       Design:  docs/design/llm.md §4 (sequence, failure paths), §6 (`connect_timeout_s`, `max_attempts` 5, Settings), §7, §8 (three rows), §9 (T075)
       Files:   services/api/app/llm/client.py; services/api/app/core/config.py; .env.example; services/api/tests/llm/test_client.py
