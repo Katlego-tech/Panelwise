@@ -305,7 +305,8 @@ def run_checks(shot: Shot, scene: Scene, description: FrameDescription, judgemen
                extraction: Extraction, *, on_screen: tuple[str, ...] = ()
                ) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]: ...   # pure
 #   T080: `on_screen`, the people the prompt drew; audit_frame passes `visible_characters(shot, screenplay,
-#   extraction)` (storyboard.md §3.1, imported where it is called: app.storyboard imports app.verify)
+#   extraction)` (storyboard.md §3.1), imported where it is called: T026's renderer modules in app.storyboard
+#   import app.verify, so a module-level import would be a cycle once they land
 async def audit_frame(model: NebiusChatModel, frame: RenderedFrame, shot: Shot, screenplay: Screenplay,
                       extraction: Extraction) -> Audit: ...
 
@@ -532,7 +533,7 @@ it against the script."*
   Tumo's go-ahead (Token Factory only): the 27 labelled frames scored with and without T078,
   with no labelled-bad frame newly passing, the numbers in the PR.
 - **T080:** `run_checks`: with `on_screen=("NANDI",)` and the one person called no character,
-  `NO_CHARACTER` fails (hard, `FAIL`); called `NANDI`, it passes; with no people described, it fails;
+  `NO_CHARACTER` fails (hard, `FAIL`); called `NANDI`, it passes; only `THABO` matched, it fails; with no people described, it fails;
   with `on_screen=()` it never fails. `audit_frame` passes `visible_characters`. The judge prompt
   names sex and look beside age. The web names `no_character` "no character in frame". Free (Token
   Factory only): the 27 labelled frames and the 2026-10-11 klein run's stored drawings, the
