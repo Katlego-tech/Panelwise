@@ -58,6 +58,27 @@ _Last updated: 2026-10-09 — by Tumo (via Claude)_
 | T064 + T024 | The comic: the job that makes, stores and serves a project's comic (T064), then the web reader (T024). Design first, its own PR; then T064's code; then T024's | `docs/design/{comic,verify,web}.md`, `docs/design/web/comic*.png`, TASKS.md | ✅ design merged (PR #85) · ✅ T064 merged (PR #86) · ✅ the local comic check run on the T062 copy (2026-10-09: 5 pages, 21 panels, 3 withheld, ~66 audit calls) · ✅ T024 merged (PR #87) · 🟡 Tumo's look at the reader in the browser beside comic.png / comic-phone.png |
 | T079 | The prompt gives each visible character's sex and look from their introduction; an off-screen line has its listeners on screen | `docs/design/storyboard.md`; `services/api/app/storyboard/{prompt,prompts}.py` | 🔵 draft PRs: design `docs/prompt-looks`, code `feat/prompt-looks`; gated, independently reviewed, fixes in |
 | T074 | The prompt gives each visible character's age from the script; the clean style asks for a plain background | `docs/design/storyboard.md` §3.1, §3.2, §6, §8, §9; `services/api/app/storyboard/prompt.py`, `styles/clean.toml` | 🔵 draft PRs: design `docs/prompt-ages`, code `feat/prompt-ages`; gated, independently reviewed, fixes in |
+| T071 | The audit fails what the script didn't write, not every mark; `RENDER_MAX_ATTEMPTS`; a re-audit of stored drawings | `docs/design/{verify,web}.md`; `services/api/app/verify/**`, `app/comic/job.py`, `app/frames/views.py` | 🔵 draft PRs: design `docs/audit-wording`, code `feat/audit-wording`; gated, independently reviewed, fixes in |
+| T080 | The judge refuses a wrong sex or look; a frame with none of the people the prompt drew fails | `docs/design/{verify,web}.md`; `services/api/app/verify/{model,audit,prompts}.py`, `apps/web/components/storyboard/cards.ts` | 🔵 draft PRs: design `docs/audit-presence`, code `feat/audit-presence`; gated, independently reviewed, fixes in |
+| T078 | A part of a shot's prop is that prop (a kite string of the RED KITE); the describer leaves out the drawing's own marks | `docs/design/verify.md`; `services/api/app/verify/{prompts,audit}.py` | 🔵 draft PRs: design `docs/audit-parts`, code `feat/audit-parts`; gated, independently reviewed, fixes in |
+| T077 | A signature warns; it no longer withholds a frame (re-judged: klein 2 → 6 of 22 accepted) | `docs/design/{verify,web}.md`; `services/api/app/verify/{model,audit}.py`, `apps/web/components/storyboard/cards.ts` | 🔵 draft PRs: design `docs/audit-signature`, code `feat/audit-signature`; Tumo's decision 2026-10-11; gated, independently reviewed |
+| T072 | The judge: a wrong age is not the character; ordinary things are set dressing, weather an event; a signature fails | `docs/design/{verify,web}.md`; `services/api/app/verify/**` | 🔵 draft PRs: design `docs/audit-judge`, code `feat/audit-judge`; gated, independently reviewed, fixes in |
+
+**📝 Katlego: why Tumo took the audit wording fix (T071) from the `verify` lane (2026-10-10).**
+Tumo's live test (lost-property, fal schnell, the storyboard then the comic) drew 257 frames and
+accepted 3. 237 of the 249 FAILs had text, mostly words our own prompt asks for ("lost property
+office", "night"), and 172 failed only on text or objects such as a jacket, a pocket or the
+office's own sign. Your wording fix (eval.md §6a.6) is the cure, but it was never pushed and it
+waits on T049, which sits on #98 (Workers AI). We could not test anything further without it, so
+we wrote it as T071 on `main`, using nothing from #97/#98, and measure it on the stored frames
+with a re-audit instead of new drawings. The text rule (only legible words that aren't the
+script's own fail) was Tumo's call. Please review the PRs; if your local version differs, tell
+us what it does better and we fold it in. T049's numbers will still say how well it works.
+**T072 follows from the-red-kite's run after T071**, and your labels back it: 14 of your 27 frames
+drew the wrong age and 15 had a signature or scribble, the two things T072 makes the audit catch.
+We score T071 and T072 against your labels (your frames are in the dev bucket; the script stays
+local, nothing of #107 is copied). A suggestion: `collect` and `run` don't need Workers AI, only
+`inject` does, so T049 could land on `main` without waiting for the renderer decision.
 
 Claimed files: `apps/web/**`, `services/api/app/frames/**`, `services/api/app/verify/loop.py`, `services/api/app/comic/**`, `services/api/migrations/versions/0005_*`, `services/api/app/jobs/model.py`. Everything else is open.
 

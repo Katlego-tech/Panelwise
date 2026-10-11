@@ -11,6 +11,7 @@ from app.storyboard.prompt import (
     PromptPart,
     build_frame_prompt,
     heading_span,
+    introduced_age,
     time_source,
     visible_characters,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "StyleRegistry",
     "build_frame_prompt",
     "heading_span",
+    "introduced_age",
     "load_styles",
     "time_source",
     "visible_characters",
