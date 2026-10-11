@@ -10,6 +10,10 @@ the repo. Each step ends with a check; don't start the next until it passes.
 | 2 | Railway | the API (`services/api`) | the GitHub repo, step 1's connection string, the Nebius key |
 | 3 | Vercel | the web app (`apps/web`) | the GitHub repo, step 2's domain |
 
+**Since 2026-10-11 (Tumo):** the API goes on **Render** (a paid plan), not Railway. Step 2 below
+is still the Railway text: Render's steps come with T063 (#80/#81) once they're brought up to
+`main`. The web can go first, before any API: see **Web first** in step 3.
+
 ## 1. Supabase — the database
 
 1. supabase.com → New project. Pick the region closest to Railway's (e.g. Frankfurt with Railway's
@@ -78,6 +82,30 @@ this check never replaces the running one.
 **Check:** `curl https://<vercel-domain>/api/health` →
 `{"web":"ok","api":{"status":"ok","checks":{"postgres":"ok"}}}` with HTTP 200. A 502 means Vercel
 can't reach `API_URL`.
+
+### Web first, before the API (2026-10-11)
+
+The web deploys and signs in with no API anywhere: sign-in is Supabase's, and every page that needs
+the API shows its "unavailable" state instead of failing (`apps/web/lib/api/server.ts`).
+Checked on 2026-10-11 with `VERCEL=1 pnpm run build` in `apps/web`: it builds, 13 routes plus the
+proxy.
+
+1. Do step 3 with **`API_URL` left unset**. Set `ENABLE_EXPERIMENTAL_COREPACK=1` and the two
+   `NEXT_PUBLIC_SUPABASE_*` values (the publishable key, never the secret one).
+   `NEXT_PUBLIC_*` values are built into the pages, so set them **before** the first deploy, or
+   redeploy after setting them.
+2. Project Settings → Node.js version: **24.x** (`apps/web/package.json` asks for `>=24.18 <25`).
+3. **Check, without the API:**
+   - `https://<vercel-domain>/` sends you to `/sign-in`.
+   - You can sign in with your own Supabase user. Sign-up is off (web.md §10), so the dashboard
+     creates users.
+   - `/projects` opens and says "Your screenplays can't be loaded right now. Reload the page to
+     try again." (the list's no-API state).
+   - `curl -i https://<vercel-domain>/api/health` answers **502**, because no API answers yet.
+     That is the expected answer here, not a broken deploy.
+4. **When the API is up on Render:** set `API_URL` to its URL (no trailing slash) and **redeploy**,
+   since Vercel reads a changed variable only in a new deploy. Then run step 3's check: it now
+   answers 200.
 
 ## When it's done
 
