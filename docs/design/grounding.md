@@ -132,9 +132,13 @@ classDiagram
        (b) it **names this character**: a name token (`name_tokens` of the entity's name) or a
        kept other name as whole words under `normalise`, so a title alone ("Mr.") names no one;
        (c) it **names no other character**: no name token of another `CHARACTER` entity
-       (`Source.CUE` ones and animals included) that isn't also a token of this one (so THABO
-       and THABO MOLEFE, kept as aliases, don't reject each other); (d) a pronoun comes **after**
-       the first mention of this character in it ("She nods. SIPHO…" gives Sipho nothing);
+       (`Source.CUE` ones and animals included), except when the two are aliases, one's token
+       set containing the other's (THABO ⊂ THABO MOLEFE). Any other shared token counts as naming
+       the other: "DUBE nods. She…" with THABO DUBE and LERATO DUBE names both, so neither gets a
+       sex; (d) a pronoun (`she`, `he`, `herself`, `himself`) comes **after** the first mention of
+       this character, the earliest whole-word occurrence of any of its name tokens or kept other
+       names in the quote ("She nods. SIPHO…" gives Sipho nothing); a noun may come before it
+       ("a … fisherman … This is SIPHO");
        (e) **every** `SEX_WORDS` word in it keys to the same sex ("She hands him the cup" gives
        nothing). The first such quote, in proposal order, is `sex_quote`.
     3. Across chunks, every kept proposal agrees; two that disagree keep `None`. The species test
@@ -337,7 +341,9 @@ the parser, so a faithful quote is always locatable.
   (50s)." → `male`; "her" in "MAMA THEMBI (60s), the shop's owner, watches her" (two characters) → None;
   "uncle" in dialogue → None; a word not in `SEX_WORDS` ("teacher", "her", "mother", "miss") → None; "SIPHO
   hands her the box" → None; "She hands him the cup" → None (two sexes); "She nods. SIPHO…" → None (the
-  pronoun comes first); THABO and THABO MOLEFE in one quote → kept (aliases); "Mr." alone names no one;
+  pronoun comes first); "a … fisherman … This is SIPHO" → male (a noun may come first); THABO and
+  THABO MOLEFE in one quote → kept (aliases); "DUBE nods. She…" with THABO DUBE and LERATO DUBE → None
+  for both (a shared token, not aliases); "Mr." alone names no one;
   two chunks proposing "she" and "he" → None; a prop, an animal, a `CUE` backfill → None. The codec: an
   extraction stored without `sex`, `sex_quote`, `species` or `other_names` loads with their defaults; a
   female entity round-trips. KOOS (`KOOS (70s), the night cleaner, pushes a broom. She waves.`):
