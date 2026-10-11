@@ -163,7 +163,7 @@ only to **remove** words, by redaction). A prompt is an ordered tuple of **parts
 where it came from; `text()` joins them with `", "` (comma phrases, the way CLIP reads captions:
 FrameFlow's finding).
 
-**Order**, fixed: `STYLE`, `FRAMING`, `SETTING`, `TIME`, `COUNT`, `PLACEMENT`, then one `ACTION`
+**Order**, fixed: `STYLE`, `FRAMING`, `SETTING`, `TIME`, `COUNT`, then for each visible character in turn its `AGE` (T074) and `LOOK` (T079), `PLACEMENT`, then one `ACTION`
 part per covered `Action` element, **in element order**. The scene-level parts lead because a text encoder that
 truncates drops the tail.
 
@@ -174,6 +174,8 @@ truncates drops the tail.
 | `SETTING` | this scene's heading | `inside` / `outside` / `at` (from `scene.int_ext`: `INT`, `EXT`, `INT_EXT`) + `scene.location`, **redacted, then** lower-cased | this scene's heading span |
 | `TIME` | `shot.time_of_day` (resolved, shots.md) | lower-cased; omitted when `None` | the heading span of the scene that **supplied** the clock (`time_source`, below) |
 | `COUNT` | code, from `visible_characters(shot, screenplay, extraction)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
+| `AGE` (T074, T079) | `introduced_age(character, screenplay)` for each `visible_characters` member, in their order; one part per character whose introduction gives an age | `(10)` → "a 10-year-old", `(70s)` → "a person in their 70s"; **T079:** with the sex the introduction's pronouns give (`introduced_sex`, below): "a 10-year-old girl" / "boy" under 18, "a 30-year-old woman" / "man" from 18, "a woman in her 70s" / "a man in his 70s" (the first number in the parenthesis after the character's name where an `Action` line introduces it: `LERATO (10), braids…`, `NANDI (60s, oilskin coat)`); omitted when the script gives none | that `Action` element's span |
+| `LOOK` (T079) | `introduced_look(character, screenplay)` for each `visible_characters` member, right after its `AGE` | the introduction's own description, verbatim, redacted: the parenthesis's items after the age (`NANDI (60s, oilskin coat)` → "oilskin coat") and the comma phrase right after the parenthesis (`LERATO (10), braids tied back, grips…` → "braids tied back"; `MOKGOSI (70s), reading glasses pushed up on his forehead, solders…` → that phrase), joined by ", "; a phrase over 8 words, or one with no comma closing it before the sentence ends, is left out (it is an action, not a look: `AMAHLE (8), who is wearing pyjamas … crying.`); omitted when nothing is left, and when the shot covers that introducing line (its `ACTION` part already says it, word for word). **Not a fixed part:** looks give way to the budget (Word budget, below) | that `Action` element's span |
 | `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`), and is accepted only when `visible_characters` has exactly two members (else `ValueError`), so it can never contradict `COUNT` | the phrase; T026's renderer passes `None`, T025 passes it | `None` |
 | `ACTION` | a covered `Action` element's text | verbatim, whitespace collapsed, redacted | the element's span |
 
@@ -190,7 +192,12 @@ truncates drops the tail.
   them with `match_speaker` and its extension, upper-cased, contains none of `V.O.`, `O.S.`, `O.C.`,
   `OFF` (comic.md's list), or if one of their name tokens (below, `other_names` included) appears in
   a covered `Action` text. A planner-listed character the covered text never shows is not counted,
-  and neither is an off-screen or voice-over speaker. **People only (T052):** the signature becomes
+  and neither is an off-screen or voice-over speaker. **Listeners (T079):** when the covered
+  elements put no one on screen but one of them is a line spoken off screen, by anyone (a
+  `RADIO ANNOUNCER (V.O.)` the planner doesn't list too: the T079 review), the planner's other
+  characters (not that speaker, no animal) are on screen: someone hears the line. On 2026-10-11
+  the-red-kite's shot 1.3 was only `MOKGOSI (O.S.)`'s line, so the prompt asked for no one and
+  klein drew an empty roof, where the planner had Lerato. **People only (T052):** the signature becomes
   `visible_characters(shot, screenplay, extraction)` (the screenplay for pairing, below), it skips every *animal* (below), and it detects an
   action-line mention with that one character's labels (its name and paired other names). `COUNT`
   and `PLACEMENT`'s "exactly two" both use it, so a cat is never a figure; the action line that
@@ -203,12 +210,20 @@ truncates drops the tail.
   audited on its own.
 
 **The invariant** (tested, §9): for every part whose `span` is not `None`, that span is this scene's
-heading span, the heading span of `time_source`'s scene (only for `TIME`), or the span of an element
+heading span, the heading span of `time_source`'s scene (only for `TIME`), the span of the `Action`
+element that introduces a visible character (only for `AGE`, T074: its text is "a <n>-year-old" or "a person
+in their <n>s", and `<n>` stands in that element in a parenthesis right after that character's name: an
+age is who the character is, not another moment's event, as a borrowed clock is when; T079: with the
+sex word `introduced_sex` reads there, the code's fixed vocabulary keyed by the script's own pronoun;
+and `LOOK`, whose text is exactly what `introduced_look` reads there, a verbatim piece of that
+element: a look is who the character is too, while the rest of that line, its action, stays out),
+or the span of an element
 the shot covers; and the part's text (after the `SETTING` part's leading preposition) is, under `normalize_for_grounding`, a substring of `redact(text,
 redaction_labels(extraction, screenplay))` applied to that heading or element text (`redact_all`
 before T052). Every part whose `span` is `None` is from the fixed tables
 above or the style. So a prompt says nothing that isn't in this shot's lines or its heading, except
-the style's medium words and the code's fixed framing, preposition, count and placement vocabulary,
+the style's medium words, the code's fixed framing, preposition, count and placement vocabulary, and
+an age's number in its fixed phrase,
 none of which names a person, prop or event.
 
 - **Parentheticals never enter a prompt.** `Dialogue.parenthetical` ("beat", "without turning") is
@@ -299,7 +314,10 @@ none of which names a person, prop or event.
 - **Word budget.** `max_words` (the workflow's, §6) counts **whitespace-separated words** of
   `text()`, a deliberately conservative proxy for the encoder's token limit (the default 55 for
   CLIP's 77 tokens; T003 sets it for the real encoder). The **fixed parts** (`STYLE`, `FRAMING`,
-  `SETTING`, `TIME`, `COUNT`, `PLACEMENT`) are never dropped; if they alone exceed `max_words`,
+  `SETTING`, `TIME`, `COUNT`, `AGE`, `PLACEMENT`) are never dropped; **`LOOK` parts (T079)** are kept
+  only while the fixed parts and the kept looks leave at least 12 words (`_ACTION_FLOOR`) for the
+  `ACTION` parts, dropped from the last character back, so a look never fails a render (at 55 words
+  a two-character the-red-kite shot's fixed words with looks reached 64); if they alone exceed `max_words`,
   `build_frame_prompt` raises `PromptError` naming the shot (a style or location too long for the
   encoder is a configuration error, surfaced as the renderer's failure, never a silently truncated
   prompt). Otherwise, over budget, whole `ACTION` parts are dropped from the **tail** backwards,
@@ -318,7 +336,7 @@ is the key (`[a-z0-9-]+`):
 label = "Clean sketch"
 description = "Pencil storyboard at full size. Keeps a wide shot as one panel inside the location."
 medium = "storyboard sketch, pencil drawing"
-finish = "grayscale, monochrome, loose linework"
+finish = "grayscale, monochrome, loose linework, plain background"   # T074: "plain background"
 # emphasis = 1.3     # optional: ComfyUI weight on `medium` (FrameFlow's `ink` and `pencil` used 1.3)
 negative = ""         # optional: negative prompt (subtractive only)
 grayscale = true      # the pixel pass after rendering (FrameFlow's image_postprocess)
@@ -480,12 +498,19 @@ not the default. Why (the research, 2026-10-09, sources in §8):
 
 "Runs on Nebius" is still met by every Nemotron call on Token Factory (deploy.md §1).
 
-- **One call per attempt.** `POST https://fal.run/{FAL_MODEL}` (default `fal-ai/flux/schnell`), the
+- **The model (Tumo, 2026-10-11): FLUX.2 [klein] 4B, `fal-ai/flux-2/klein/4b`.** On the-red-kite with
+  3 attempts a frame and T074–T078's audit it accepted 15 of 22 frames, where schnell at 1 attempt
+  accepted 3 of 21: klein drew the ages right, cluttered less, and its stray writing was mostly
+  its signature (T077's soft check). `FAL_MODEL` still selects any fal model; schnell remains one
+  setting away.
+- **One call per attempt.** `POST https://fal.run/{FAL_MODEL}` (default `fal-ai/flux-2/klein/4b`), the
   synchronous endpoint, with `Authorization: Key {FAL_KEY}`. The body is the canonical request:
   `{"prompt": <text>, "image_size": {"width": dw, "height": dh}, "seed": <seed>,
   "num_inference_steps": 4, "num_images": 1, "output_format": "png"}` (fal's OpenAPI schema for
   `fal-ai/flux/schnell`, read 2026-10-09). The answer's `images[0].url` is fetched (`GET`, same
-  client) for the PNG; `images[0].width/height` must equal `dw × dh`, else `RendererError`.
+  client) for the PNG; `images[0].width/height` must each be the asked side or up to 31 px more,
+  else `RendererError`: klein draws in multiples of 32 (1280 × 720 comes back 1280 × 736), and
+  `fit` crops that excess, as it crops the multiple-of-16 rounding below.
 - **Draw size, priced to one megapixel.** fal bills each started megapixel, so a frame is drawn at
   `fal_draw_size(width, height)`: scaled down (never up) so that `dw × dh ≤ 1,000,000`, each side
   rounded **down** to a multiple of 16. 1280 × 720 draws as is (921,600 px), and a 1748 × 986 comic
@@ -641,8 +666,12 @@ sequenceDiagram
   `check_workflow` before any shot is rendered.
 - **An audit error or the last attempt failing** → `WITHHELD` (verify.md): the block shows the card;
   the job succeeds. A withheld frame is information, not a failure.
-- **Storage `put` or `exists` fails** → `StorageError` → the job fails. A frame that can't be stored
-  can't be logged with its asset, and verify.md logs every attempt.
+- **Storage answers 429 or a 5xx (Cloudflare's 520–524 included), or the connection drops** →
+  `SupabaseStore` makes the same call again (T070): 3 attempts in all, 1 s then 2 s apart, each
+  retry logged as a warning with the operation and the status, never the key or the path. A `put` is safe to
+  repeat: an upload that landed before its answer was lost comes back 409, which is success.
+- **Storage still failing after the third attempt, or any other 4xx** → `StorageError` → the job
+  fails. A frame that can't be stored can't be logged with its asset, and verify.md logs every attempt.
 - **An unknown style key** → `StyleError` before anything renders.
 
 ## 5. State
@@ -683,7 +712,28 @@ def redaction_labels(extraction: Extraction, screenplay: Screenplay, only: str |
 def redact(text: str, labels: Mapping[str, str]) -> str: ...                    # T052: redact_all's matching (runs, possessives, titles), each run → the label of its token that comes first in `labels` (rank order); a possessive `it` is `its`
 
 # app/storyboard/prompt.py — pure
-class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; PLACEMENT = "placement"; ACTION = "action"
+class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; AGE = "age"; LOOK = "look"; PLACEMENT = "placement"; ACTION = "action"   # LOOK: T079
+def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] | None: ...   # T074, pure
+#   the first Action element, in scene and element order, where `CHARACTER (` follows the name in capitals
+#   and the parenthesis opens with a number, an optional `s`, an optional years word (`years old`, `year-old`,
+#   `yrs`, `yo`) and then `,` `;` or `)`: ("a <n>-year-old" | "a person in their <n>s", that element's span);
+#   `(5 months)`, `(6 weeks)`, `(30s-40s)`, `(early 30s)` give None: a miss draws no age, a wrong one would
+#   state one the script contradicts (the T074 review)
+#   None when no introduction gives one. Never a word the script doesn't have but the age's own number
+#   T079: the phrase carries the sex `introduced_sex` reads: "a 10-year-old girl", "a man in his 70s"
+def introduced_sex(character: str, screenplay: Screenplay) -> Literal["female", "male"] | None: ...   # T079, pure
+#   in that same introducing element: "she"/"he" in the introducing sentence (from the name to the sentence's
+#   end or the next `NAME (` introduction) and "her"/"his" inside its `introduced_look`, whole words, any case;
+#   one sex only, else None ("watches her" after MAMA THEMBI is Siphokazi, an object: not counted; a later
+#   sentence's "She waves" may be anyone). T079 review: the stretch also ends at another character's name
+#   (any dialogue cue or `NAME (` introduction, titles aside): `watches SIPHO as he counts` is Sipho's "he";
+#   a prop in capitals (RED KITE) is no name
+def introduced_look(character: str, screenplay: Screenplay) -> tuple[str, Span] | None: ...   # T079, pure
+#   §3.1's LOOK: the parenthesis's items after the age and the comma phrase right after it, each at most 8
+#   words, verbatim (whitespace collapsed), joined by ", "; the introducing element's span; None if empty.
+#   T079 review: an item with a parenthesis or a number, starting with and/who/then/as/while/but, or naming
+#   another character ("Grace's daughter") is no look; nor is anything when the parenthesis doesn't close
+#   before the sentence ends
 @dataclass(frozen=True) class PromptPart: kind: PartKind; text: str; span: Span | None
 @dataclass(frozen=True)
 class FramePrompt:
@@ -760,7 +810,14 @@ class AssetStore(Protocol):
     #   SupabaseStore uploads without upsert and treats Supabase's 409 "already exists" as success
     async def signed_url(self, path: str, expires_in_s: int) -> str: ...
 class SupabaseStore:                                    # Supabase Storage REST (/storage/v1/object/...), secret key, httpx2
-    def __init__(self, *, url: str, secret_key: str, bucket: str, client: httpx2.AsyncClient) -> None: ...
+    def __init__(self, *, url: str, secret_key: str, bucket: str, client: httpx2.AsyncClient,
+                 max_attempts: int = 3,
+                 sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None: ...
+    #   T070: every operation (exists, get, put, signed_url) is tried up to max_attempts times on
+    #   429, 500, 502, 503, 504, 520-524 or an httpx2.TransportError, sleeping 1 s, then 2 s (the
+    #   LLM client's policy, app/llm/client.py); any other status is answered at once, as today.
+    #   Out of attempts: StorageError("<op>: storage answered <status> after <n> attempts") or
+    #   StorageError("<op>: storage unreachable after <n> attempts"); a TransportError never escapes
 
 # app/storyboard/model.py
 type Rect = tuple[int, int, int, int]
@@ -821,7 +878,7 @@ The shape is kept here for a later export:
 | Variable | Where | What |
 |---|---|---|
 | `FAL_KEY` | API, **secret** | fal.ai's API key (§3.5). Unset: no renderer, "Try another render" and "Make the comic" answer 503, the storyboard job ends at planning |
-| `FAL_MODEL` | API | the fal model id, default `fal-ai/flux/schnell` |
+| `FAL_MODEL` | API | the fal model id, default `fal-ai/flux-2/klein/4b` (2026-10-11; `fal-ai/flux/schnell` before) |
 | `FAL_TIMEOUT_S` | API | per-call deadline, default 60 |
 | `FAL_CONCURRENCY` | API | frames drawn at once, default 2 (fal.ai's limit for a new account); at least 1, or the API refuses to start |
 | `COMFYUI_URL` | API, optional | ComfyUI's base URL on a Nebius GPU, for the optional backend (T003; already in `.env.example`) |
@@ -845,7 +902,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | `services/api/app/storyboard/document.py` | new | §3.4, §6: `frames_from_rows`, the layout, the PDF, the document key, `export_pdf` (no JSON, no `run`: §6) | T027 |
 | `services/api/app/api/v1/projects.py`, `schemas.py`, `app/main.py` | changed | `GET /projects/{id}/storyboard/pdf` (web.md §6); `app.state.styles` loaded at startup (§3.4 Style) | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
-| `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames | T053 |
+| `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames; T070 retries a transient failure | T053, T070 |
 | `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, `COMFYUI_MAX_WORDS`), T026 (`COMFYUI_URL`, `COMFYUI_TIMEOUT_S`, `SUPABASE_STORAGE_BUCKET`) |
 | `styles/*.toml`, `styles/README.md` | new / changed | the styles the team keeps public (§10); the file format | T008 |
 | `services/api/app/storyboard/fal.py` | new | §3.5: `FalRenderer`, `fal_draw_size`, `fal_request`, `fal_factory` | T026 |
@@ -861,7 +918,12 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
+| The model on fal (Tumo, 2026-10-11) | FLUX.2 [klein] 4B: 15 of 22 the-red-kite frames accepted at 3 attempts with the T071–T078 audit | FLUX.1 [schnell] (the 2026-10-09 choice): 3 of 21 at 1 attempt on the same script, adults for children, clutter and painted gibberish; klein on Cloudflare Workers AI (#97/#98): the same model, but fal was already built, gated and live-tested, and `FAL_MODEL` makes the model one setting |
 | The renderer (2026-10-09, §3.5) | FLUX.1 [schnell] on fal.ai: seed, any size, PNG, $0.003 per ≤ 1 MP frame, always on | ComfyUI on a Nebius L40S as the default (≈ $2,500 to stay up to 15 Dec, or cold starts for judges; credit coverage unconfirmed: kept optional, T003); Cloudflare Workers AI FLUX.1 [schnell] (no seed and no size in its schema: breaks seeded attempts and comic panels); Nebius Token Factory (no image model, 404 on 2026-10-08). Sources: nebius.com/prices, the Cloudflare model schema, fal.ai's model page and OpenAPI |
+| A character's age in the prompt (T074) | an `AGE` part from the script's own introduction (`LERATO (10)` → "a 10-year-old") | only "a person" (before T074): on 2026-10-10 the-red-kite drew Lerato (10) and Mokgosi (70s) as young adults again and again, and T072's audit then withheld those frames; the age in every name's label: "a person in their 70s's workshop"; a gender word: the script's parenthesis doesn't give one |
+| A character's sex and look in the prompt (T079) | the sex word from the introduction's pronouns; the look verbatim from the introduction | the age alone (T074): on 2026-10-11 klein drew Lerato as a boy in 9 of 11 accepted frames, short hair, no braids; a sex word from any pronoun near the name: `watches her` after Mama Thembi is someone else; the whole introducing line: its action (`grips a RED KITE`) is that moment's event |
+| A line heard off screen (T079) | its listeners are the planner's other characters | no one (before T079): the prompt asked for nothing and the frame was an empty roof |
+| A plain background (T074) | `plain background` in the clean style's `finish` | the scene as it comes: schnell fills a workshop with jugs, books, pots and frames, and the judge withholds the frame for them (13 of 19 withheld frames failed on such objects on 2026-10-10); a per-shot phrase: the style is how every frame is drawn |
 | What a frame prompt is made of | tagged parts from the shot's grounded fields, each script part carrying its span (§3.1) | FrameFlow's `storyboard_description` (free text: shots.md dropped it) or its fallback to the scene's first 400 characters of action (a cut mid-sentence, and other shots' events); a model writing the prompt: invention with extra steps |
 | Dialogue in the prompt | never; speakers enter as the `COUNT` and, with T025, as references | the speech text: not visible, and the surest way to get letters in the art (hard `TEXT_IN_FRAME`) |
 | Camera movement in the prompt | never; printed under the frame | FrameFlow's movement words: a still can't pan, and "handheld" reads as blur |
@@ -883,6 +945,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | PDF | Pillow page images, one PDF with `save_all` (comic.md's choice) | FrameFlow's hand-written PDF writer (base-14 fonts, so it folded em dashes and curly quotes: not verbatim); reportlab: a second PDF library. **Cost:** the PDF's text isn't selectable |
 | What prints under a frame | the shot's verbatim `source`, never truncated, plus its span | FrameFlow's frame description cut at four lines: a storyboard block must show exactly the lines it cites |
 | One PDF per | screenplay, scenes starting new pages | FrameFlow's one PDF per scene: a crew hands around one document |
+| A transient Storage error (T070) | `SupabaseStore` retries it: 3 attempts, 1 s then 2 s, on 429, 5xx (520–524 included) or a dropped connection, the LLM client's policy | no retry: one Cloudflare 520 on a `put` lost a frame already drawn and paid for (live run, 2026-10-10); a retry in each caller (the upload, the frames, the comic, T027's PDF): one policy written four times; retrying a 4xx: it answers the same way every time |
 | Local development Storage (deploy.md §10) | a dev bucket in the same Supabase project, through the same `SupabaseStore`; tests use an in-memory fake `AssetStore` | a local filesystem adapter: a second code path to keep honest, plus an API route to serve its files to the browser |
 | Signed URLs | the bucket is private; the API hands out signed URLs | a public bucket: frames of unreleased scripts readable by anyone with the path (RLS: deploy.md §6, T009) |
 | Renderer failure | the job fails, naming the shot | a placeholder frame: AGENTS.md §2a, and a board that looks complete but isn't |
@@ -898,6 +961,26 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   `PLACEMENT_PHRASES` or the style; `text()` contains no name token of any character; no
   `Dialogue.text` appears; `rationale` never appears (a shot built with a sentinel rationale); no
   prompt exceeds `max_words`. The sample includes a `CONTINUOUS` scene after a night scene.
+- **T074:** `introduced_age`: `LERATO (10), braids…` → "a 10-year-old", `MOKGOSI (70s)` → "a person in
+  their 70s", `NANDI (60s, oilskin coat)` → "a person in their 60s", a character never introduced
+  with a number → `None`, `(5 months)` and `(30s-40s)` → `None`, a name inside another word never
+  matches, the span is the introducing
+  element's; `build_frame_prompt` puts one `AGE` part per visible character with an age right after
+  `COUNT`, none for an animal or an off-screen speaker, and counts them in the fixed words;
+  `cites_this_shot` accepts two characters introduced in one line (each age with that one span). Live, with
+  Tumo's go-ahead (about $0.06): one upload of the-red-kite at `RENDER_MAX_ATTEMPTS=1`, against
+  2026-10-10's 3 of 22 accepted on the same seeds.
+- **T079:** `introduced_sex`: `LERATO (10), braids tied back, grips … as tall as she is` → female;
+  `MOKGOSI (70s), reading glasses pushed up on his forehead` → male; `MAMA THEMBI (60s), the shop's
+  owner, watches her …` → None; `KOOS (70s), the night cleaner, pushes a broom. She waves.` → None. `introduced_look`: "braids tied back",
+  "reading glasses pushed up on his forehead", `(60s, oilskin coat)` → "oilskin coat", `AMAHLE (8),
+  who is wearing pyjamas … crying.` → None, a 9-word phrase → None. `introduced_age`: "a 10-year-old
+  girl", "a man in his 70s", "a person in their 60s" when no sex. `build_frame_prompt`: each visible
+  character's `AGE` then `LOOK`; no `LOOK` when the shot covers the introduction; looks dropped from
+  the last character back to keep 12 action words, never a `PromptError`; a shot of only an `O.S.` line gets the
+  planner's other characters as listeners, and `COUNT` counts them; a shot with an on-screen
+  character gets no listener. `cites_this_shot` accepts `LOOK` with exactly `introduced_look`'s text
+  and refuses any other text on that span. Live, with Tumo's go-ahead: one upload of the-red-kite.
 - **`build_frame_prompt`** cases: the fixed part order, `ACTION` parts in element order;
   `INT`/`EXT`/`INT_EXT` prepositions; a `None` time omitted; a borrowed time citing the earlier
   heading; counts 0 to 5 from `visible_characters` (a planner character not in the covered text, a
@@ -951,6 +1034,11 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   `RenderedFrame.prompt` is the weighted, escaped text actually sent; parentheses in script parts escaped; `record` returns the asset.
 - **`SupabaseStore`** with `MockTransport`: the Storage REST paths, the secret key header, a 409 on `put`
   treated as success, errors raised as `StorageError`, no key in any error message.
+  T070, with a recording `sleep`: a 520 then a 200 on `put` succeeds on the second attempt after
+  sleeping 1 s; a 520 then a 409 is success; three 503s raise `StorageError` naming 503 and 3
+  attempts, having slept 1 s and 2 s; a `ConnectError` then a 200 on `get` returns the bytes; three
+  `ConnectError`s raise `StorageError` ("unreachable"), never the httpx2 error; a 400 or a 403 is
+  tried once; `exists` and `signed_url` retry the same way; no warning names the key or the path.
 - **`build_storyboard`** with a fake renderer and a mocked audit: one frame per shot in plan order;
   every attempt logged with its asset; `PASSED`, `WARNED` (soft checks noted) and `WITHHELD` (hard
   checks noted, `asset` `None`) frames; a `FAILED` frame raising `StoryboardError` naming the shot

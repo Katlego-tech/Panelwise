@@ -157,6 +157,8 @@ class DescriptionView(_View):
     shot_size: str
     objects: list[DescribedObject]
     has_text: bool
+    text: list[str] = []  # T071; a row logged before it has none
+    signature: bool = False  # T072; likewise
 
 
 class JudgedPerson(_View):

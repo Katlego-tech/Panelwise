@@ -199,6 +199,12 @@ the comic's **withheld card** instead, and its lettering is still placed:
   (a `FAILED` renderer, or not settled) → `ComicError`, since the frame job has failed. A
   `WITHHELD` outcome whose last audit is neither `ERROR` nor has a failed hard check → `ComicError`
   (a card never reads "failed audit ()").
+- **A panel whose renderer failed** (T067, 2026-10-10) shows the same card box with `Frame not
+  drawn: the renderer failed` as its first line (the second line, the span, as above), and its
+  lettering is placed as on a withheld card. `failed_panel(shot)` builds that `PanelFrame`
+  (`WithheldCard(checks="", span, failed=True)`); `panel_frame` itself never sees a `FAILED`
+  outcome, since verify's loop raises instead of returning one. The storyboard's failed card says
+  the same (storyboard.md §3.4).
 - An accepted frame must decode to exactly `rect.w × rect.h`; any other size → `ComicError` naming
   the shot (never scaled or cropped). It is pasted at `rect` and gets a 4 px black border drawn
   inside the rect; the card keeps its own grey border instead.
@@ -218,9 +224,19 @@ cost wins; ties go to the earlier cell in row-major order. The `SCENE` caption, 
 placed first, at the panel's top-left (cell `(0, 0)`, subject to the same hard constraints). The
 thirds split the panel's width at `⌊w/3⌋` and `⌊2w/3⌋`; a `VOICE_OVER` caption uses its cue as the
 speaker, like a bubble. **Font size:** each box is tried at 32 px; only when no candidate is
-admissible is it tried again at 28 px (the one smaller size, never lower). If a box has no
-admissible candidate at 28 px either, `ComicError` names the shot. (The budget in step 5 makes this
-rare, not impossible.)
+admissible is it tried again at 28 px (the one smaller size, never lower).
+
+**The boxes are placed as a set** (PR #92). A box's *preference order* is its admissible candidates
+at 32 px by cost (ties to the earlier cell), then its candidates at 28 px the same way. The panel's
+boxes are placed in reading order by a depth-first search: each box takes its first candidate that
+is admissible after the boxes already placed; when a later box has none, the search goes back to the
+box before it and tries its next candidate. The first complete placement is the panel's. So a panel
+the one-box-at-a-time rule could letter is lettered exactly as before (the first path the search
+tries *is* that rule), and only a panel where the cheapest spot for one box leaves none for the next
+changes: on a detailed frame whose quietest area is low in the panel, the first bubble used to take a
+late cell and corner the second. The search tries at most **10,000** candidate placements per panel
+(`SEARCH_LIMIT`). If it runs out of candidates, or reaches the limit, `ComicError` names the shot and
+the text that found no room. (The budget in step 5 makes this rare, not impossible.)
 
 **Drawing.** A bubble is a white rounded rectangle filling its box (corner radius `min(48, h/2,
 w/2)`) with a 3 px black outline: an ellipse inscribed in a box with 16 px padding would cut the
@@ -265,12 +281,12 @@ sequenceDiagram
     A-->>W: 202 {job}
     A->>J: asyncio task (tracked in app.state.tasks)
     J->>J: layout_geometry(plan, screenplay)
-    loop each panel, in plan order
+    loop each panel, started in plan order, `concurrency` at once (T073)
         J->>D: the shot's comic audits: an accepted one at this size is reused (no render)
         J->>V: otherwise shot, width × height = rect, first_attempt after the last logged
         V->>D: frame_audits row per attempt (target comic)
         V-->>J: FrameOutcome
-        J->>D: progress = round(90 × panels done / panels)
+        J->>D: progress = round(90 × panels settled / panels)
     end
     J->>J: panel_frame → place_lettering → render_pages → to_pdf → to_json
     J->>S: comics/<sha256>.png per page, comics/<sha256>.pdf
@@ -293,7 +309,7 @@ sequenceDiagram
      the panel is rendered.
   2. **Render.** `render_until_accepted(model, renderer, shot, screenplay, extraction, width=w,
      height=h, first_attempt=1 + the greatest comic attempt logged for key (0 if none),
-     max_renders=3, log=log, on_state=on_state)`. Continuing the attempt numbers keeps every row
+     max_renders=<the job's max_renders: Settings.render_max_attempts, verify.md §4, T071>, log=log, on_state=on_state)`. Continuing the attempt numbers keeps every row
      (the unique key `(project_id, target, scene_index, shot_number, attempt)` never collides) and
      gives a re-run new seeds (`seed_for(shot, attempt)`). The hooks are comic's own, never
      `frame_hooks` (whose `on_state` writes a `frames` row): `log(audit)` →
@@ -309,7 +325,17 @@ sequenceDiagram
      the same way. `paths[key] = renderer.record(key, outcome.frame.attempt).asset` (or the reused
      row's `frame_asset`) for an accepted panel only; a withheld panel has no entry, so `to_json`
      marks it `withheld` (§6).
-  5. **Progress** `round(90 × k / n)` after the k-th of n panels, in its own short transaction.
+  5. **Progress** `round(90 × k / n)` once k of the n panels have settled, in its own short
+     transaction, written under one lock so it only rises.
+- **Concurrency (T073).** Panels start in plan order, at most `concurrency` at once: the
+  renderer's own limit, which the route passes (`FAL_CONCURRENCY` for fal.ai, storyboard.md
+  §3.5; whichever renderer wins brings its own), default 1 (one at a time, as before T073). Steps
+  1–4 are per panel and unchanged; `frames` and `paths` are keyed by shot, so the order panels
+  settle in changes nothing on the page. The renderer-looks-down count below is shared. The
+  first panel that fails the job (any message below) **cancels the panels still in flight**,
+  waits for them, and the job fails with that panel's message; the attempts a cancelled panel
+  already logged stay, as after a restart. Why: on 2026-10-10 the-red-kite's comic took 24 min
+  for 15 panels one at a time, its storyboard 3 min 39 s for 22 frames two at a time.
 - Then `place_lettering(book, screenplay, plan, frames)`, `render_pages`, `to_pdf`,
   `to_json(lettered, paths)`. These and `layout_geometry` are CPU-bound Pillow work: each runs in
   `asyncio.to_thread`, so the API keeps answering polls while a comic is made.
@@ -327,8 +353,16 @@ sequenceDiagram
   lettering, pages, PDF and storage; 100 with the row. The stage stays `rendering` (jobs' stage CHECK
   allows it; the web words it "Making the comic").
 - **Failure** → job `FAILED`, `error` one of (verbatim; the web shows it as written):
-  - `COMIC_RENDER_FAILED` "A panel couldn't be drawn, so the comic stopped.": the panel's last
-    recorded state was `FAILED` (the renderer raised), or an accepted PNG of the wrong size (step 3);
+  - `COMIC_RENDERER_DOWN` "No panel could be drawn, so the comic stopped. Try again in a few
+    minutes." (T067): the renderer looks down, which is **no panel drawn in this job yet** (none has
+    reached `AUDITING`; a reused panel doesn't count, since it proves nothing about the renderer)
+    **and `min(3, panels to render)` panels whose renderer raised**. Any other panel whose renderer
+    raised (its last recorded state `FAILED`) is **not** a job failure: it gets the failed card
+    (§4 step 6), no layout path, and the comic goes on; progress counts it as done. (Before T067
+    one such panel stopped the comic; in the first live storyboard runs a single passing renderer
+    error stopped the whole job three times.)
+  - `COMIC_RENDER_FAILED` "A panel couldn't be drawn, so the comic stopped.": an accepted PNG of the
+    wrong size (step 3): the renderer ignored the size, a fault in it, not a passing error;
   - `COMIC_LAYOUT_FAILED` "Shot {shot_id}'s lettering didn't fit its panel, so the comic stopped."
     for a `ComicError` with `shot` set (`shot_id` as web.md's), else `COMIC_LAYOUT_FAILED_ANY` "The
     lettering didn't fit the panels, so the comic stopped.". `ComicError` can come from
@@ -374,7 +408,8 @@ class CaptionKind(StrEnum): SCENE = "scene"; VOICE_OVER = "voice_over"
 @dataclass(frozen=True) class Page: number: int; width: int; height: int; panels: tuple[Panel, ...]
 @dataclass(frozen=True) class LayoutReport: panels: int; bubbles: int; captions: int; relayouts: int
 @dataclass(frozen=True) class ComicBook: pages: tuple[Page, ...]; report: LayoutReport
-@dataclass(frozen=True) class WithheldCard: checks: str; span: Span   # the card's two variable parts (§4 step 6); lands with T023
+@dataclass(frozen=True) class WithheldCard: checks: str; span: Span; failed: bool = False   # the card's variable parts (§4 step 6); lands with T023; failed: the renderer's card (T067)
+def failed_panel(shot: Shot) -> PanelFrame: ...   # app/comic/render.py (T067): no PNG, no positions, WithheldCard("", shot.span, failed=True)
 @dataclass(frozen=True) class PanelFrame: png: bytes; positions: Mapping[str, Position]; withheld: bool; card: WithheldCard | None = None   # Position from verify.md; lands with T023, its first consumer. card is set exactly when withheld (else ComicError); a withheld png is never drawn
 class ComicError(RuntimeError):   # T064: `shot`, set by every raise in layout.py, bubbles.py and render.py that names a shot
     def __init__(self, message: str, *, shot: tuple[int, int] | None = None) -> None: ...
@@ -452,9 +487,13 @@ the old constraints and drops `target` and the table, so it succeeds with comics
 class ComicRow(Base): ...   # the table above
 
 # app/comic/job.py
-COMIC_RENDER_FAILED: str; COMIC_LAYOUT_FAILED: str; COMIC_LAYOUT_FAILED_ANY: str; COMIC_UNEXPECTED: str; COMIC_RESTARTED: str   # §4a, verbatim; COMIC_LAYOUT_FAILED takes .format(shot_id=...)
+COMIC_RENDERER_DOWN: str; COMIC_RENDER_FAILED: str; COMIC_LAYOUT_FAILED: str; COMIC_LAYOUT_FAILED_ANY: str; COMIC_UNEXPECTED: str; COMIC_RESTARTED: str   # §4a, verbatim; COMIC_LAYOUT_FAILED takes .format(shot_id=...)
 async def run_comic_job(job_id: uuid.UUID, *, sessions: async_sessionmaker[AsyncSession], store: AssetStore,
-                        model: NebiusChatModel, factory: RendererFactory) -> None: ...
+                        model: NebiusChatModel, factory: RendererFactory, max_renders: int = MAX_RENDERS,
+                        concurrency: int = 1) -> None: ...
+#   max_renders (T071): each rendered panel's attempts; the route passes Settings.render_max_attempts
+#   concurrency (T073): panels in flight at once, ≥ 1 (ValueError otherwise); the route passes the
+#   renderer's limit
 #   §4a end to end for the job's project, per panel exactly as §4a's steps 1–5; never raises: every
 #   failure is the job FAILED with one of §4a's messages (the cause logged). RendererFactory is
 #   app/frames/attempt.py's; the factory is called once per job. Hooks: comic's own (§4a step 2),
@@ -500,6 +539,7 @@ Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, mult
 
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
+| Panels at once (T073) | the renderer's own limit, the route passing it (default 1) | one at a time (before T073): 24 min for 15 panels on 2026-10-10; more than the renderer's limit: fal.ai answers 429 past 2 requests (the first live run died on it); asyncio.gather: one failure wouldn't stop the rest |
 | Lettered text | `Dialogue.text` verbatim, with its span | a model rewriting speech for comic rhythm: invention, and the span would no longer point at what's shown |
 | Action lines | not lettered | narration captions from action: the art already shows it |
 | Sound effects | none | lettering "SLAM!" from "DOORS SLAM.": a styling decision the script didn't make (open question) |
@@ -507,6 +547,7 @@ Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, mult
 | Order of work | geometry and lettering budget from text first, frames second | placing bubbles on images and growing panels afterwards: every growth would mean a re-render |
 | Too much text | the panel grows; the job fails before text is cut | shrinking below 28 px (illegible) or truncating (drops script) |
 | Reading order | a hard constraint | a cost term: the cheapest spot could still break reading order |
+| A panel's boxes | placed as a set: depth-first in each box's preference order, at most 10,000 tries | one box at a time, cheapest first, never revisited: on a detailed frame the first bubble could take a late cell and leave the next none, and the comic stopped (PR #92, real FLUX frames). The lowest total cost over all boxes: a different layout for panels that letter fine today, for no gain the reader sees |
 | Bubble position | image detail + speaker position | a vision model placing bubbles: another call per panel, not deterministic |
 | Speaker position | from the audit's `positions` | face detection: another model for a tail direction |
 | Page flow | a scene starts a new tier, not a new page | a page per scene: short scenes waste pages |
@@ -527,7 +568,10 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   lettering-weight rounding (`⌈c/60⌉`); the budget raising weights and, past 3 passes, a solo tier,
   then `ComicError`.
 - **Placement:** boxes inside their panel, never overlapping, strictly in reading order; font ≥ 28
-  px; `O.S.` tails on the edge; `V.O.` as captions; no admissible spot → `ComicError`.
+  px; `O.S.` tails on the edge; `V.O.` as captions; no admissible spot → `ComicError`. A frame
+  that is busy everywhere but its bottom-right corner (PR #92's repro) letters a two-bubble panel:
+  the search moves the first bubble so the second fits. A panel that fits one box at a time letters
+  exactly as before.
 - **Frames:** each panel's render request is exactly its `rect` size; a withheld frame yields the
   card (its two lines, the failed hard checks in enum order, `audit error` for an ERROR audit, no
   source text) plus its lettering, placed in grid order, `OFF_PANEL` tails to the right edge and no `SPEECH` tail.
@@ -540,13 +584,19 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   is a `frame_audits` row with `target` `comic` and no `frames` row is written, and the storyboard's
   audits read is unchanged by them; pages and PDF land at their content hashes and the `comics` row
   holds those paths and a layout whose `frame_url`s are paths (none for a withheld panel); progress
-  only rises and ends at 100 with the job `DONE`; a renderer error → `COMIC_RENDER_FAILED`, a
+  only rises and ends at 100 with the job `DONE`; a renderer error on one panel after another was
+  drawn → that panel's failed card and the job `DONE` (T067); `min(3, panels)` renderer errors with
+  none drawn → `COMIC_RENDERER_DOWN` and no further panel tried; a
   `ComicError` → `COMIC_LAYOUT_FAILED` naming its shot (or `COMIC_LAYOUT_FAILED_ANY` without one), every shot-naming `ComicError` raise carrying `shot`, anything else → `COMIC_UNEXPECTED`, each leaving a previous
   comic untouched; **two jobs in a row** both settle cleanly: the second reuses every panel the first
   accepted at its size (no render, no audit call for it) and numbers a re-rendered panel's attempts
   after the first job's (new seeds, no unique-key error); an accepted PNG of the wrong size fails the
   job at that panel with `COMIC_RENDER_FAILED`; the renderer raising is told from an audit error by
-  the recorded `FAILED` state; no `frames` row is written; the migration's downgrade succeeds with
+  the recorded `FAILED` state; no `frames` row is written; **T073:** with `concurrency` 2, two
+  panels are in the renderer at once and never three, the comic's pages and layout equal the
+  one-at-a-time job's, progress only rises and ends at 100; a panel drawn at the wrong size while
+  another is in flight fails the job `COMIC_RENDER_FAILED` and cancels the other (no panel
+  starts after it); `concurrency` 0 is refused; the migration's downgrade succeeds with
   comic jobs and comic audit rows present, and `tests/db`'s table and CHECK assertions include
   `comics`, `'comic'` and `target`; `POST` answers each §4a check in order with nothing written, and two concurrent
   POSTs make one job; `GET` signs every page and the PDF, orders lettering as §6 says, builds `cue`

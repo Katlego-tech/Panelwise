@@ -11,9 +11,9 @@ import hashlib
 import io
 import logging
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from PIL import Image
 from sqlalchemy import func, select, update
@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.comic.bubbles import place_lettering
 from app.comic.layout import layout_geometry
 from app.comic.model import ComicBook, ComicError, PanelFrame
-from app.comic.render import panel_frame, render_pages, to_json, to_pdf
+from app.comic.render import failed_panel, panel_frame, render_pages, to_json, to_pdf
 from app.comic.rows import ComicRow
 from app.frames.attempt import RendererFactory
 from app.frames.model import AuditTarget, FrameAuditRow
@@ -36,19 +36,21 @@ from app.projects.pipeline import Stage
 from app.script import Screenplay
 from app.shots import Shot
 from app.storage import AssetStore
-from app.verify.loop import render_until_accepted
+from app.verify.loop import MAX_RENDERS, render_until_accepted
 from app.verify.model import Audit, FrameState, Position, RecordingRenderer
 
 log = logging.getLogger(__name__)
 
 # comic.md §4a, verbatim: what a failed comic job says (the web shows it as written).
-COMIC_RENDER_FAILED = "A panel couldn't be drawn, so the comic stopped."
+# T067: the renderer looks down (§4a Failure).
+COMIC_RENDERER_DOWN = "No panel could be drawn, so the comic stopped. Try again in a few minutes."
+COMIC_RENDER_FAILED = "A panel couldn't be drawn, so the comic stopped."  # a wrong-size PNG
+DOWN_AFTER = 3  # renderer failures with no panel drawn that mean it is down
 COMIC_LAYOUT_FAILED = "Shot {shot_id}'s lettering didn't fit its panel, so the comic stopped."
 COMIC_LAYOUT_FAILED_ANY = "The lettering didn't fit the panels, so the comic stopped."
 COMIC_UNEXPECTED = "Something went wrong on our side while making the comic. Make it again."
 COMIC_RESTARTED = "The server restarted while the comic was being made. Make it again."
 
-MAX_RENDERS = 3  # per panel per job, as the storyboard (verify.md §4)
 PANELS_SHARE = 90  # progress after the last panel; 100 comes with the stored comic
 
 type Key = tuple[int, int]
@@ -63,6 +65,10 @@ class ComicRefused(RuntimeError):
     def __init__(self, code: RefusalCode) -> None:
         super().__init__(code)
         self.code: RefusalCode = code
+
+
+class _RendererDown(RuntimeError):
+    """No panel drawn in this job and min(3, panels to render) renderer failures (§4a, T067)."""
 
 
 class _RenderFailed(RuntimeError):
@@ -225,6 +231,20 @@ async def _put(store: AssetStore, folder: str, data: bytes, ext: str, kind: str)
     return path
 
 
+async def _all_or_cancel(work: list[Coroutine[Any, Any, None]]) -> None:
+    """Run every panel; the first one to raise cancels the rest, which are awaited, and its error
+    is raised as itself (T073), so run_comic_job's handlers see one exception, never a group."""
+    tasks = [asyncio.create_task(w) for w in work]
+    try:
+        for done in asyncio.as_completed(tasks):
+            await done
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
+
+
 async def run_comic_job(
     job_id: uuid.UUID,
     *,
@@ -232,9 +252,14 @@ async def run_comic_job(
     store: AssetStore,
     model: NebiusChatModel,
     factory: RendererFactory,
+    max_renders: int = MAX_RENDERS,
+    concurrency: int = 1,
 ) -> None:
     """comic.md §4a end to end for the job's project. Never raises: every failure is the job
-    FAILED with one of §4a's messages, the cause logged."""
+    FAILED with one of §4a's messages, the cause logged. `concurrency` panels are in the
+    renderer at once (T073); a refused value is the one ValueError, before anything runs."""
+    if concurrency < 1:
+        raise ValueError(f"concurrency is at least 1, not {concurrency}")
     screenplay: Screenplay | None = None
     try:
         async with sessions() as session:
@@ -254,43 +279,90 @@ async def run_comic_job(
         writer = FrameWriter(sessions, project.id, job_id, target=AuditTarget.COMIC)
         frames: dict[Key, PanelFrame] = {}
         paths: dict[Key, str] = {}
+        reuse = {
+            (p.scene_index, p.shot_number): await _reused(
+                store, priors.get((p.scene_index, p.shot_number)), (p.rect[2], p.rect[3])
+            )
+            for p in panels
+        }
+        to_render = sum(found is None for found in reuse.values())
+        failed = settled = 0  # this job's panels whose renderer raised / that are done
+        drawn: set[Key] = set()  # panels that reached their audit: the renderer works (T067)
+        gate = asyncio.Semaphore(concurrency)
+        stop = asyncio.Event()  # set by a panel failing the job, before it frees its slot
+        progress_lock = asyncio.Lock()
 
-        for k, panel in enumerate(panels, 1):
+        async def settle() -> None:
+            nonlocal settled
+            async with progress_lock:  # one write at a time, so progress only rises (§4a step 5)
+                settled += 1
+                await _progress(sessions, job_id, round(PANELS_SHARE * settled / len(panels)))
+
+        async def one(panel: Any) -> None:
+            nonlocal failed
             key = (panel.scene_index, panel.shot_number)
             shot = shots[key]
             size = (panel.rect[2], panel.rect[3])
-            reused = await _reused(store, priors.get(key), size)
+            reused = reuse[key]
             if reused is not None:
                 frames[key], paths[key] = reused
-            else:
-                prior = priors.get(key)
-                states: list[FrameState] = []
-                log_audit, on_state = _hooks(writer, renderer, key, states)
+                await settle()
+                return
+            prior = priors.get(key)
+            states: list[FrameState] = []
+            log_audit, record_state = _hooks(writer, renderer, key, states)
+
+            async def on_state(state: FrameState, attempt: int) -> None:
+                await record_state(state, attempt)
+                if state is FrameState.AUDITING:  # counted at once, not when the panel ends
+                    drawn.add(key)
+
+            async with gate:
+                if stop.is_set():  # a panel already failed the job: start nothing new
+                    return
                 try:
-                    outcome = await render_until_accepted(
-                        model,
-                        renderer,
-                        shot,
-                        screenplay,
-                        extraction,
-                        width=size[0],
-                        height=size[1],
-                        max_renders=MAX_RENDERS,
-                        first_attempt=1 + (prior.last_attempt if prior else 0),
-                        log=log_audit,
-                        on_state=on_state,
-                    )
-                except Exception as error:
-                    if states and states[-1] is FrameState.FAILED:
-                        raise _RenderFailed(f"the renderer raised on {key}") from error
+                    try:
+                        outcome = await render_until_accepted(
+                            model,
+                            renderer,
+                            shot,
+                            screenplay,
+                            extraction,
+                            width=size[0],
+                            height=size[1],
+                            max_renders=max_renders,
+                            first_attempt=1 + (prior.last_attempt if prior else 0),
+                            log=log_audit,
+                            on_state=on_state,
+                        )
+                    except Exception as error:
+                        if not states or states[-1] is not FrameState.FAILED:
+                            raise
+                        # §4a Failure (T067): this panel gets the failed card and the comic goes
+                        # on, unless the renderer looks down.
+                        log.warning(
+                            "comic job %s: panel %s couldn't be drawn: %s", job_id, key, error
+                        )
+                        failed += 1
+                        if not drawn and failed >= min(DOWN_AFTER, to_render):
+                            raise _RendererDown(f"{failed} panel(s) failed, none drawn") from error
+                        frames[key] = failed_panel(shot)
+                        await settle()
+                        return
+                    # Still holding the slot: a panel that fails the job does so before another
+                    # starts.
+                    frames[key] = panel_frame(outcome, shot)  # ComicError if not accepted/withheld
+                    if outcome.frame is not None and not frames[key].withheld:
+                        size_drawn = _size(outcome.frame.png)
+                        if size_drawn != size:  # §4a step 3: the renderer ignored the size
+                            raise _RenderFailed(f"{key} was drawn at {size_drawn}, not {size}")
+                        paths[key] = renderer.record(key, outcome.frame.attempt).asset
+                except BaseException:
+                    stop.set()  # whatever failed the job, before the slot is freed
                     raise
-                frames[key] = panel_frame(outcome, shot)  # ComicError if not accepted/withheld
-                if outcome.frame is not None and not frames[key].withheld:
-                    drawn = _size(outcome.frame.png)
-                    if drawn != size:  # §4a step 3: the renderer ignored the size; fail now
-                        raise _RenderFailed(f"{key} was drawn at {drawn}, not {size}")
-                    paths[key] = renderer.record(key, outcome.frame.attempt).asset
-            await _progress(sessions, job_id, round(PANELS_SHARE * k / len(panels)))
+            await settle()
+
+        await _all_or_cancel([one(panel) for panel in panels])
 
         lettered = await asyncio.to_thread(place_lettering, book, screenplay, plan, frames)
         pages = await asyncio.to_thread(render_pages, lettered, frames)
@@ -310,6 +382,9 @@ async def run_comic_job(
             await session.execute(
                 update(JobRow).where(JobRow.id == job_id).values(state=JobState.DONE, progress=100)
             )
+    except _RendererDown:
+        log.exception("comic job %s: the renderer looks down", job_id)
+        await _fail(sessions, job_id, COMIC_RENDERER_DOWN)
     except _RenderFailed:
         log.exception("comic job %s: a panel couldn't be drawn", job_id)
         await _fail(sessions, job_id, COMIC_RENDER_FAILED)

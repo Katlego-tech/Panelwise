@@ -7,7 +7,7 @@ from io import BytesIO
 from itertools import pairwise
 
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 from app.comic import (
     Bubble,
@@ -22,11 +22,14 @@ from app.comic import (
     PanelFrame,
     Rect,
     WithheldCard,
+    bubbles,
     layout,
     layout_geometry,
     place_lettering,
     scene_caption,
 )
+from app.comic.bubbles import frame_image
+from app.comic.layout import PADDING, WRAP_SHARE, box_size, font_at
 from app.script import Dialogue, Scene, Screenplay, Span, parse_pdf, parse_text
 from app.shots import Framing, Shot, ShotPlan
 from app.verify import Position
@@ -36,6 +39,11 @@ from tests.script.conftest import two_page_text
 from tools.build_samples import SAMPLES
 
 INSET = 16
+# The old rule's oracle (T065) costs boxes exactly as the module does.
+detail = bubbles._detail  # pyright: ignore[reportPrivateUsage]
+overlaps = bubbles._overlap  # pyright: ignore[reportPrivateUsage]
+texts_of = bubbles._texts  # pyright: ignore[reportPrivateUsage]
+third_of = bubbles._third  # pyright: ignore[reportPrivateUsage]
 
 
 def sample() -> tuple[Screenplay, ShotPlan, ComicBook]:
@@ -398,6 +406,157 @@ def test_reading_order_is_hard_even_when_an_earlier_spot_is_cheaper() -> None:
     assert first.text == "You came back to the lighthouse." and then.text == "No."
     assert cell(placed, first.rect) == (4, 0)
     assert cell(placed, then.rect) > (4, 0)  # not the cheap top-left patch
+
+
+def quiet_bottom_right(r: Rect) -> bytes:
+    """PR #92's frame: vertical lines every 6 px everywhere but the bottom-right ninth."""
+    _, _, w, h = r
+    image = Image.new("RGB", (w, h), "white")
+    draw = ImageDraw.Draw(image)
+    for x in range(0, w, 6):
+        draw.line([(x, 0), (x, h)], fill="black")
+    draw.rectangle((w * 2 // 3, h * 2 // 3, w, h), fill="white")
+    return png(image)
+
+
+def two_lines(rect: Rect = (120, 120, 729, 850)) -> tuple[Screenplay, ShotPlan, ComicBook]:
+    s = scene(
+        0,
+        say("All of it. But listen to me."),
+        say("Hold the light steady, and whatever you hear, do not look down."),
+    )
+    screenplay = Screenplay("", 1, (s,), (1,))
+    plan = plan_of(shot(0, 1, Framing.WIDE), shot(0, 2, Framing.MEDIUM, 0, 1))
+    wide = Panel(0, 1, (120, 2000, 729, 850), (), ())
+    book = ComicBook(
+        (Page(1, 1988, 3075, (wide, Panel(0, 2, rect, (), ()))),), LayoutReport(2, 0, 0, 0)
+    )
+    return screenplay, plan, book
+
+
+def test_a_panel_quiet_only_low_down_moves_its_first_bubble_so_the_next_fits() -> None:
+    # PR #92: the first bubble's cheapest spot is the quiet corner, late in the panel; placed one
+    # at a time, the second line then had no cell after it and the comic stopped.
+    screenplay, plan, book = two_lines()
+    placed = second(place_lettering(book, screenplay, plan, frames(book, quiet_bottom_right)))
+    first, then = placed.bubbles
+    assert first.text == "All of it. But listen to me."
+    assert then.text == "Hold the light steady, and whatever you hear, do not look down."
+    assert cell(placed, first.rect) < cell(placed, then.rect)
+    assert not overlap(first.rect, then.rect)
+
+
+def test_the_search_stops_at_its_limit_and_names_the_shot(monkeypatch: pytest.MonkeyPatch) -> None:
+    screenplay, plan, book = two_lines()
+    monkeypatch.setattr(bubbles, "SEARCH_LIMIT", 1)
+    stopped = "scene 0, shot 2: no placement for its lines within 1 tries .*'Hold the light"
+    with pytest.raises(ComicError, match=stopped):
+        place_lettering(book, screenplay, plan, frames(book, quiet_bottom_right))
+
+
+def one_at_a_time(
+    panel: Panel, screenplay: Screenplay, plan: ShotPlan, frame: PanelFrame, first: bool
+) -> list[tuple[Rect, int]] | None:
+    """The rule before T065, as an oracle: each box the cheapest admissible cell after the last,
+    never revisited; None where it found no room."""
+    x, y, w, h = panel.rect
+    (shot_,) = [
+        s for s in plan.shots if (s.scene_index, s.number) == (panel.scene_index, panel.shot_number)
+    ]
+    scene_ = screenplay.scenes[panel.scene_index]
+    image = frame_image(frame.png, (w, h), (panel.scene_index, panel.shot_number))
+    edges = image.convert("L").filter(ImageFilter.FIND_EDGES)
+    ix, iy, iw, ih = x + PADDING, y + PADDING, w - 2 * PADDING, h - 2 * PADDING
+    corners = [((r, c), ix + c * iw // 12, iy + r * ih // 8) for r in range(8) for c in range(12)]
+    placed: list[tuple[Rect, tuple[int, int], int]] = []
+    for text in texts_of(shot_, scene_, first):
+        after = placed[-1][1] if placed else None
+        third = third_of(text.speaker, frame.positions, w)
+        choice = None
+        for size in (32, 28):
+            bw, bh = box_size(
+                text.text, math.floor(w * WRAP_SHARE), font_at(layout.FONT_PATH, size)
+            )
+            best = None
+            for at, cx, cy in corners:
+                if after is not None and at <= after:
+                    continue
+                if text.kind is CaptionKind.SCENE and at != (0, 0):
+                    continue
+                if cx + bw > ix + iw or cy + bh > iy + ih:
+                    continue
+                if any(overlaps((cx, cy, bw, bh), other) for other, _, _ in placed):
+                    continue
+                cost = detail(edges, (cx - x, cy - y, bw, bh))
+                if third is not None and cx - x < third[1] and cx - x + bw > third[0]:
+                    cost += 2.0
+                if best is None or cost < best[0]:
+                    best = (cost, ((cx, cy, bw, bh), at, size))
+            if best is not None:
+                choice = best[1]
+                break
+        if choice is None:
+            return None
+        placed.append(choice)
+    return [(rect, size) for rect, _, size in placed]
+
+
+def test_every_panel_the_old_rule_letters_is_lettered_exactly_as_before() -> None:
+    rng = random.Random(65)
+    lines = [
+        "You came back.",
+        "The boat didn't. I walked the last mile along the cliff.",
+        "No.",
+        "Hold the light steady, and whatever you hear, do not look down at the water.",
+    ]
+    compared = 0
+    for _ in range(10):
+        scenes = [
+            scene(
+                i,
+                *(say(rng.choice(lines), rng.choice([None, "O.S.", "V.O."])) for _ in range(4)),
+                location=f"DECK {i}",
+            )
+            for i in range(rng.randint(1, 2))
+        ]
+        shots = [
+            shot(
+                i,
+                n,
+                rng.choice(list(Framing)),
+                *range(2 * (n - 1), 2 * (n - 1) + rng.randint(0, 2)),
+            )
+            for i in range(len(scenes))
+            for n in (1, 2)
+        ]
+        screenplay, plan = Screenplay("", 1, tuple(scenes), (1,)), plan_of(*shots)
+        book = layout_geometry(plan, screenplay)
+        given = frames(book, rng.choice([solid, busy_left, busy_top, quiet_bottom_right]))
+        firsts = {s.scene_index: s.number for s in reversed(plan.shots)}
+        try:
+            placed = {
+                (p.scene_index, p.shot_number): p
+                for p in panels(place_lettering(book, screenplay, plan, given))
+            }
+        except ComicError as error:
+            placed, failed = {}, error.shot
+        else:
+            failed = None
+        for panel in panels(book):
+            key = (panel.scene_index, panel.shot_number)
+            old = one_at_a_time(panel, screenplay, plan, given[key], firsts[key[0]] == key[1])
+            if key == failed:
+                assert old is None  # the search gives up only where the old rule did too
+            if old is None or key not in placed:
+                continue
+            got = placed[key]
+            order = [c for c in got.captions if c.kind is CaptionKind.SCENE] + sorted(
+                [*got.bubbles, *(c for c in got.captions if c.kind is not CaptionKind.SCENE)],
+                key=lambda t: t.element if t.element is not None else -1,
+            )
+            assert [(t.rect, t.font_px) for t in order] == old
+            compared += 1
+    assert compared >= 20
 
 
 # ------------------------------------------------------------------------ frames

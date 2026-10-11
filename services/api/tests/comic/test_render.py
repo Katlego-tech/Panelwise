@@ -20,7 +20,7 @@ from app.comic import (
     to_pdf,
     withheld_checks,
 )
-from app.comic.render import card_lines
+from app.comic.render import card_lines, failed_panel
 from app.llm import Usage
 from app.script import Span
 from app.shots import Framing
@@ -134,6 +134,17 @@ def test_the_cards_two_lines() -> None:
         "Frame withheld: failed audit (unscripted person, text in frame)",
         "Script p.3 l.41\u201344",  # an en dash
     )
+    # T067: a panel whose renderer failed, said as the storyboard's failed card says it.
+    assert card_lines(WithheldCard("", Span(3, 41, 44), failed=True)) == (
+        "Frame not drawn: the renderer failed",
+        "Script p.3 l.41\u201344",
+    )
+
+
+def test_a_failed_panel_is_a_card_with_no_pixels_and_no_positions() -> None:
+    frame = failed_panel(SHOT)
+    assert (frame.png, dict(frame.positions), frame.withheld) == (b"", {}, True)
+    assert frame.card == WithheldCard("", SHOT.span, failed=True)
 
 
 # ------------------------------------------------------------------------ pages
