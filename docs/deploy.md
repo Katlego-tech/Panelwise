@@ -32,33 +32,34 @@ kill %1
 ## 2. Render — the API
 
 The service is defined in `render.yaml` at the repository root (a Render Blueprint: a Docker web
-service on the **free** instance, Frankfurt; design: [deploy.md §6](design/deploy.md)). Change settings there, in a
+service on plan **`0.5c-512mb`** (0.5 CPU, 512 MB, about $7 a month; Render called it Starter before
+26 Aug 2026), Frankfurt; design: [deploy.md §6](design/deploy.md)). Change settings there, in a
 PR, not in the dashboard: a dashboard edit to a field the Blueprint sets may be overwritten the next time it syncs.
 
 1. render.com → sign in with GitHub → give Render access to `Katlego-tech/Panelwise`.
 2. **New → Blueprint** → pick the repo, branch `main`, Blueprint path `render.yaml`. Render lists
-   one service, `panelwise-api`, and asks for the four secrets (`sync: false`):
+   one service, `panelwise-api`, and asks for the five secrets (`sync: false`):
 
    | Variable | Value |
    |---|---|
    | `DATABASE_URL` | step 1's session-pooler string, as copied. `postgresql://…` is fine (the API adds `+asyncpg`), and so is `?sslmode=require` (the API turns it into asyncpg's `?ssl=require`) |
    | `NEBIUS_API_KEY` | your Token Factory key |
    | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | step 1 (the token check and uploads from T053, frames from T026) |
+   | `FAL_KEY` | your fal.ai key (the renderer, T026). Without it the API starts with no renderer: uploads stop at planning |
 
    Everything else has a default in `app/core/config.py` (`NEBIUS_MODEL_*`, `LLM_*`,
-   `SUPABASE_STORAGE_BUCKET=panelwise`). `PORT` is set by Render (10000), and the container listens
+   `SUPABASE_STORAGE_BUCKET=panelwise`, `FAL_MODEL`, `RENDER_MAX_ATTEMPTS=3`). `PORT` is set by Render (10000), and the container listens
    on it. Never set `PANELWISE_PRIVATE_STYLES` here.
 3. **Apply.** Render builds `services/api/Dockerfile` and starts
    it; the image's start command runs `alembic upgrade head`, then uvicorn. Render switches traffic
    once `/api/v1/health` answers 200. A failed migration exits the container, so the deploy never
    turns healthy and Render cancels it. The service's URL is `https://panelwise-api.onrender.com` (or with
    a suffix if the name is taken; it's on the service's page).
-4. **Keep it awake.** A free instance sleeps after 15 idle minutes and takes about a minute to wake.
-   On GitHub: the repo's Settings → Secrets and variables → Actions → **Variables** → New repository
-   variable `API_HEALTH_URL` = `https://<render-domain>/api/v1/health`. The `keep-alive` workflow
-   (`.github/workflows/keepalive.yml`) then pings it every 10 minutes, which also keeps the free
-   Supabase project from pausing. Keep no other free service in this Render workspace: this one
-   uses ~744 of its 750 free hours a month.
+4. **The uptime alert.** On GitHub: the repo's Settings → Secrets and variables → Actions →
+   **Variables** → New repository variable `API_HEALTH_URL` = `https://<render-domain>/api/v1/health`.
+   The `keep-alive` workflow (`.github/workflows/keepalive.yml`) then calls it every 10 minutes: a
+   failed run emails you that the demo is down, and its Postgres check keeps a free Supabase project
+   from pausing for inactivity. (The paid instance itself never sleeps.)
 
 From then on, a push to `main` that touches `services/api/**` deploys after its GitHub checks pass
 (`autoDeployTrigger: checksPass`). A deploy that fails its migration or isn't healthy within
@@ -73,8 +74,8 @@ From then on, a push to `main` that touches `services/api/**` deploys after its 
 ## 3. Vercel — the web app
 
 1. vercel.com → Add New → Project → import `Katlego-tech/Panelwise`.
-2. **Root directory** `apps/web`. The framework (Next.js), install and build commands come from
-   `apps/web/vercel.json`.
+2. **Root directory** `apps/web`. The framework (Next.js), install and build commands, and the
+   functions' region (`fra1`, Frankfurt, beside the API) come from `apps/web/vercel.json`.
 3. Environment variables:
 
    | Variable | Value |
@@ -85,7 +86,7 @@ From then on, a push to `main` that touches `services/api/**` deploys after its 
 
 **Check:** `curl https://<vercel-domain>/api/health` →
 `{"web":"ok","api":{"status":"ok","checks":{"postgres":"ok"}}}` with HTTP 200. A 502 means Vercel
-can't reach `API_URL`.
+can't reach `API_URL`. The project's Settings → Functions shows the region `fra1`.
 
 ## When it's done
 

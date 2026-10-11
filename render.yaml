@@ -4,7 +4,7 @@ services:
   - type: web
     name: panelwise-api
     runtime: docker
-    plan: free
+    plan: 0.5c-512mb
     region: frankfurt
     rootDir: services/api
     dockerfilePath: ./Dockerfile
@@ -25,4 +25,6 @@ services:
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: FAL_KEY
         sync: false

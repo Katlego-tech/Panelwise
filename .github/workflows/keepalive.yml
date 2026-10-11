@@ -1,4 +1,4 @@
-# Keeps the API on Render's free tier awake, and with it the Supabase project
+# Our uptime alert, and keeps a free Supabase project from pausing for inactivity
 # (docs/design/deploy.md §6). Pings nothing until the API_HEALTH_URL variable is set.
 name: keep-alive
 on:
