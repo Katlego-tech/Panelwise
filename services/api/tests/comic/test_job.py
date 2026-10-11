@@ -586,3 +586,27 @@ async def test_a_panel_still_in_its_audit_counts_as_drawn_so_the_renderer_isn_t_
 
     job = await make_comic(sessions, store, row.id, FailsButTheFirst(store), concurrency=2)
     assert (job.state, job.error) == ("done", None)
+
+
+async def test_max_renders_is_each_panel_s_attempts(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    """T071: RENDER_MAX_ATTEMPTS=1 draws a failing panel once (comic.md §6 `max_renders`)."""
+    store = MemoryStore()
+    row = await planned(sessions, store)
+    plan = load_plan(row.plan)  # type: ignore[arg-type]
+    keys = [(s.scene_index, s.number) for s in plan.shots]
+    scripted.verdicts = {k: [Verdict.FAIL] * 3 for k in keys}
+    async with sessions() as s, s.begin():
+        started = await start_comic(s, row.id, ME, renderer=True, store=True)
+    renderer = Sizes(store)
+    await run_comic_job(
+        started.id,
+        sessions=sessions,
+        store=store,
+        model=make(Models()),
+        factory=lambda screenplay, extraction: renderer,
+        max_renders=1,
+    )
+    assert [k for k, *_ in renderer.asked] == keys
+    assert all(attempt == 1 for _, attempt, _, _ in renderer.asked)

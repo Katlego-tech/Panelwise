@@ -36,7 +36,7 @@ from app.projects.pipeline import Stage
 from app.script import Screenplay
 from app.shots import Shot
 from app.storage import AssetStore
-from app.verify.loop import render_until_accepted
+from app.verify.loop import MAX_RENDERS, render_until_accepted
 from app.verify.model import Audit, FrameState, Position, RecordingRenderer
 
 log = logging.getLogger(__name__)
@@ -51,7 +51,6 @@ COMIC_LAYOUT_FAILED_ANY = "The lettering didn't fit the panels, so the comic sto
 COMIC_UNEXPECTED = "Something went wrong on our side while making the comic. Make it again."
 COMIC_RESTARTED = "The server restarted while the comic was being made. Make it again."
 
-MAX_RENDERS = 3  # per panel per job, as the storyboard (verify.md §4)
 PANELS_SHARE = 90  # progress after the last panel; 100 comes with the stored comic
 
 type Key = tuple[int, int]
@@ -253,6 +252,7 @@ async def run_comic_job(
     store: AssetStore,
     model: NebiusChatModel,
     factory: RendererFactory,
+    max_renders: int = MAX_RENDERS,
     concurrency: int = 1,
 ) -> None:
     """comic.md §4a end to end for the job's project. Never raises: every failure is the job
@@ -330,7 +330,7 @@ async def run_comic_job(
                             extraction,
                             width=size[0],
                             height=size[1],
-                            max_renders=MAX_RENDERS,
+                            max_renders=max_renders,
                             first_attempt=1 + (prior.last_attempt if prior else 0),
                             log=log_audit,
                             on_state=on_state,
