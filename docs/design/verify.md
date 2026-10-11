@@ -148,30 +148,58 @@ classDiagram
   no rule on words tells them apart, and it needs that very prop in the shot.
 - **Things the scene names (T083).** An animal, vehicle, weapon or food is never set dressing: the
   script must put it there. On 2026-10-11 the judge called the boats of sipho-and-siphokazi's
-  harbour (shot 1.1: "a single row of forty-year-old wooden fishing-boats") set dressing, so they
-  failed 31 times. **Code** (`named_in_scene`) now asks the script directly: such an object is
-  scripted when its own noun (the last word of its name) or, for a part, its whole's noun (the
-  second-to-last word) is a word of **this scene's action text** (every `Action` element of the
-  scene, the shot's own text included), singular or plural, whatever the judge called it.
-  - Rules: the name is split on spaces only, so a hyphenated word stays whole (`off-road
-    vehicle` does not match "road"); the scene's text is split on anything but letters, so
-    "fishing-boats" gives "fishing" and "boats". A candidate has at least 3 letters and is no
-    function word (`of`, `the`, `and`, `with`, `in`, `on`, `a`, `an`, `for`, `from`, `to`, `at`,
-    `by`, `into`, `onto`, `over`, `under`, `its`, `his`, `her`, `their`). Singular: `-ies` →
-    `-y`; `-ses`, `-xes`, `-ches`, `-shes`, `-zes` lose `-es`; any other `-s` but `-ss` is
-    dropped when 4 letters or more. A copy word (T078's list) means no match.
-  - Only those four categories: measured on every stored audit, the same rule over all
-    categories excused "small pills" (on "small"), "power lines" (the script's *washing* lines)
-    and "tripod stand" (a verb), each an unscripted thing.
+  harbour (shot 1.1: "a single row of forty-year-old wooden fishing-boats") set dressing, and
+  `vehicle · never set dressing` failed 31 times. **Code** (`named_in_scene`) now asks the
+  script directly. Only for those four categories, an object is scripted when one of its
+  candidate words is a word of **this scene's action text**:
+  - **The scene's action text:** the text of every `Action` element of the scene, lower case,
+    split on anything but letters ("fishing-boats" gives "fishing" and "boats"). Not the
+    heading, not dialogue: a boat that is only talked about is not on screen.
+  - **The candidates:** the object's name in lower case, split on spaces only (so `off-road`
+    stays one word, and doesn't match "road"), each word stripped of `.,;:!?'"()`. The **last
+    word**, the thing's own noun; and the **second-to-last word**, the thing a part belongs to,
+    only when the last word is a part word (`mast`, `sail`, `hull`, `deck`, `cabin`, `bow`,
+    `stern`, `oar`, `wheel`, `door`, `window`, `windscreen`, `bonnet`, `boot`, `bumper`, `tyre`,
+    `tire`, `engine`, `roof`, `seat`, `mirror`, `light`, `tail`, `wing`, `fin`, `head`, `leg`,
+    `paw`, `hoof`, `horn`, `mane`, `ear`, `collar`, `lead`, `handle`, `blade`, `barrel`,
+    `trigger`, `hilt`, `sheath`, `crust`, `rind`, `peel`, `skin`, `bone`, `slice`, in singular
+    or plural): `boat masts` is a part of a boat, `police car` is not a police officer. A
+    candidate has at least 3 letters and is no function word (`of`, `the`, `and`, `with`, `in`,
+    `on`, `a`, `an`, `for`, `from`, `to`, `at`, `by`, `into`, `onto`, `over`, `under`, `its`,
+    `his`, `her`, `their`). A copy word in the **name** (T078's list) means no match.
+  - **Singular and plural:** a candidate matches when the scene has any of its forms: the word;
+    it plus `s` or `es`; a `-y` word with `-ies`; and, when the word is a plural, its singular
+    (`-ies` → `-y`, `-es` dropped, `-s` dropped but not from `-ss`). So `horse` meets "horses",
+    `boats` meets "boat", `pony` meets "ponies", `box` meets "boxes", and `bus` stays `bus`.
+    Irregular plurals (`wolves`, `geese`) don't match: accepted residue, they stay judged.
+  - Measured on every stored audit: the same idea over **all** categories excused "small pills"
+    (on "small"), "power lines" (the script's *washing* lines) and "tripod stand" (a verb), each
+    an unscripted thing; the four categories with the own noun only excused 11 of the 2026-10-11
+    sipho-and-siphokazi objects shot by shot, and 32 scene by scene, all of them the script's
+    boats, fish, the bakkie's wheel and its truck.
 - **Background objects warn (T083; Tumo, 2026-10-11).** An everyday thing the script never
-  mentions and nobody holds (category `other`, `nature`, `furniture` or `screen_or_sign`: a pen on
-  a counter, grass, the moon) withheld a frame as an invented person does. Now it is the soft
-  `BACKGROUND_OBJECT` check: logged, named on the card, the frame `WARN`. It takes the object
-  failures `unscripted` and `not in the heading` for those categories when the object isn't held.
-  Everything else stays hard: a held object, an animal, vehicle, weapon or food, a prop without
-  support, a named prop called dressing (T072), any person, and legible text (`TEXT_IN_FRAME`
-  still reads a sign's words). Measured free on the 2026-10-11 runs' stored audits:
-  sipho-and-siphokazi 7 → 12 of 30 shots with an accepted attempt, the-red-kite 16 → 19 of 21.
+  mentions and nobody holds (a pen on a counter, grass, the moon) withheld a frame as an invented
+  person does. Now it is the soft `BACKGROUND_OBJECT` check: logged, named on the card (web.md
+  §4.3 shows a warned frame's soft checks with their details), the frame `WARN`, and shown, on
+  the storyboard and in the comic alike (the same audit). Exactly: an object of category `other`,
+  `nature`, `furniture` or `screen_or_sign`, **not held**, whose name is **not** a word of a prop
+  the extraction names (`_named_prop`), called `unscripted`, or called `set_dressing` with a
+  `support` not found in the heading. Its detail is `object N (name, category): not in the
+  script`. **Everything else stays hard:** any person; a held object; an animal, vehicle, weapon
+  or food the scene doesn't name; a `scripted_prop` without a verified support, whatever its
+  category (the judge claimed a quote it can't show); a named prop called `unscripted` or
+  dressing (T072); and legible text (`TEXT_IN_FRAME` still reads a sign's words). Measured free
+  on the 2026-10-11 storyboards' stored audits: sipho-and-siphokazi 7 → 12 of 30 shots with an
+  accepted attempt, the-red-kite 16 → 19 of 21.
+- **The order in `run_checks` (T083)**, for each judged object: costume and structure that nobody
+  holds pass (T071, `_NEVER_UNSCRIPTED`); then a part of a shot prop passes (T078,
+  `part_of_prop`); then a thing the scene names passes (T083, `named_in_scene`), held or not and
+  whatever the judge called it (a held sword the scene names is the script's sword); then the
+  judge's call: `unscripted` → `BACKGROUND_OBJECT` when the rule above holds, else
+  `UNSCRIPTED_OBJECT` "unscripted"; `scripted_prop` without support → `UNSCRIPTED_OBJECT`;
+  `set_dressing` held → hard; named prop → hard; one of the four categories → hard "never set
+  dressing"; support not in the heading → `BACKGROUND_OBJECT` when the rule holds, else hard
+  "not in the heading".
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
@@ -195,14 +223,14 @@ classDiagram
 | Check | Decided by | Severity | Fails when |
 |---|---|---|---|
 | `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted); or (T072) the `support` of a person called with no character names a shot character |
-| `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks. **T072:** `set_dressing` also fails for an object whose name is, or is a word of, a prop the extraction names (§3) |
+| `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks. **T072:** `set_dressing` also fails for an object whose name is, or is a word of, a prop the extraction names (§3). **T083:** never for an animal, vehicle, weapon or food the scene's action text names (`named_in_scene`); and an everyday unheld object called `unscripted`, or dressing not in the heading, is the soft `BACKGROUND_OBJECT` instead (§3, the order in `run_checks`) |
 | `TEXT_IN_FRAME` | code | **hard** | a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" fails). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
 | `NO_CHARACTER` (T080) | code | **hard** | the prompt put at least one of the shot's people on screen (`on_screen`, from storyboard.md §3.1's `visible_characters`) and no described person is matched to any of them: a frame of the setting alone, or of strangers, for a shot about its characters (on 2026-10-11 shot 1.3 was an empty roof, shown with a warning). A shot whose people are only heard off screen, or that names no one, has an empty `on_screen` and never fails it |
 | `MISSING_CHARACTER` | code | soft | a shot character **who is a person** matched to no described person (an animal character, `species` set, is described as an object: T052) |
 | `LIGHT` | code | soft | `light` is `day` and the shot's time is night-family (`NIGHT`, `MIDNIGHT`, `EVENING`), or `light` is `night` and the time is day-family (`DAY`, `MORNING`, `AFTERNOON`). Transitional times (`DAWN`, `DUSK`, `SUNRISE`, `SUNSET`, `MAGIC HOUR`), a `None` time, `dawn_or_dusk` and `unclear` always pass |
 | `FRAMING` | code | soft | `shot_size` is two or more steps from the shot's framing on wide → medium → close → extreme_close (`over_shoulder`, `pov` count as medium; `insert` as close); `unclear` passes |
-| `BACKGROUND_OBJECT` (T083) | judge + code | soft | an object of category `other`, `nature`, `furniture` or `screen_or_sign`, not `held`, called `unscripted`, or `set_dressing` whose `support` isn't in the heading (§3, Background objects warn): the place's everyday things the script didn't mention. Its detail is `object N (name, category): not in the script` |
+| `BACKGROUND_OBJECT` (T083) | judge + code | soft | an object of category `other`, `nature`, `furniture` or `screen_or_sign`, not `held`, not a named prop, called `unscripted`, or `set_dressing` whose `support` isn't in the heading (§3, Background objects warn): the place's everyday things the script didn't mention. Its detail is `object N (name, category): not in the script` |
 | `SIGNATURE` (T077) | code | soft | `signature` is true: a signature, initials or an artist's mark, readable or not. Words the describer reads in it are still `text`, so a legible signature that isn't the script's (`@hutley`) still fails `TEXT_IN_FRAME` |
 
 **Verdict:** `FAIL` if any hard check fails; `WARN` if only soft checks fail; `PASS` otherwise. Hard
@@ -338,13 +366,24 @@ def part_of_prop(name: str, category: ObjectCategory, shot: Shot, extraction: Ex
 def named_in_scene(name: str, category: ObjectCategory, scene: Scene) -> str | None: ...   # T083, pure:
 #   the scene word that names the object (§3, Things the scene names), or None; only for animal, vehicle,
 #   weapon and food. run_checks skips an object it names, as it does a part_of_prop
-# python -m app.verify.recheck <project-id> [--target storyboard|comic]   (T083)
-#   today's run_checks on every stored audit's description and judgement, with on_screen as audit_frame
-#   builds it: no model call, no Storage, no write. Prints per attempt `6.4 a1 storyboard: fail → warn`
-#   and a summary as reaudit's (attempts by verdict before and after; shots with an accepted attempt
-#   before and after). An audit with no description or judgement (an ERROR, or one stored before the
-#   current schema) is counted as skipped, never re-judged. A code-only audit change is measured with
-#   it for free; a prompt change to the describer or the judge still needs reaudit
+# services/api/app/verify/recheck.py (T083): measures a code-only audit change for free
+async def recheck(sessions: async_sessionmaker[AsyncSession], project_id: UUID, *,
+                  target: AuditTarget | None = None) -> tuple[list[Reaudit], int]: ...
+#   every stored audit of the project (one target, or both), in reaudit's order, re-checked: today's
+#   run_checks on its stored description and judgement, on_screen = visible_characters(shot, screenplay,
+#   extraction) for every row of either target, exactly as audit_frame builds it (imported inside the
+#   function, as audit_frame does: the storyboard import cycle). `before` is the stored verdict, `after`
+#   today's. Skipped, and counted in the returned int: a row whose description or judgement is NULL (an
+#   ERROR) or doesn't validate as FrameDescription / Judgement (stored before today's schema). A row whose
+#   lists make run_checks return ERROR is not skipped: its `after` is `error`. Reads the project and its
+#   frame_audits only: no model, no Storage, no write. Raises ValueError for no project or no plan,
+#   as reaudit does
+def accepted_shots(rows: Sequence[Reaudit]) -> tuple[int, int]: ...   # pure: shots with any attempt
+#   `pass` or `warn`, before and after
+# python -m app.verify.recheck <project-id> [--target storyboard|comic]   (default: both, as reaudit)
+#   prints reaudit.line per row, then reaudit.summary, then "shots with an accepted attempt: <b> → <a>"
+#   and "skipped: <n>". Exit 0; 2 with "no such project" / "no shot plan yet" (the ValueError); 1 on a
+#   database error (SQLAlchemyError or OSError), as report.py
 def run_checks(shot: Shot, scene: Scene, description: FrameDescription, judgement: Judgement,
                extraction: Extraction, *, on_screen: tuple[str, ...] = ()
                ) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]: ...   # pure
@@ -494,6 +533,8 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | `services/api/app/frames/check.py` | new | `SketchRenderer`, `run_check`, `python -m app.frames.check` | T062 |
 | `services/api/app/verify/{prompts,schema,audit,loop}.py`, `app/core/config.py`, `app/comic/job.py`, `app/frames/views.py`, `app/api/v1/{schemas,projects}.py` | changed | T071: `text` and the new `TEXT_IN_FRAME`, costume and structure exempt, signs may be dressing, `RENDER_MAX_ATTEMPTS` | T071 |
 | `services/api/app/verify/reaudit.py` | new | `reaudit`, `summary`, `python -m app.verify.reaudit` | T071 |
+| `services/api/app/verify/{model,audit}.py` | changed | `Check.BACKGROUND_OBJECT`, `named_in_scene`, the order in `run_checks` | T083 |
+| `services/api/app/verify/recheck.py` | new | `recheck`, `accepted_shots`, `python -m app.verify.recheck` | T083 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
@@ -592,18 +633,22 @@ it against the script."*
   numbers in the PR.
 - **T083:** `named_in_scene`: `boat masts` and `boats` (vehicle) against "a single row of
   forty-year-old wooden fishing-boats" → a match; `fish` (food) against "a fish-head in its mouth"
-  → "fish"; `off-road vehicle` against "the road" → None (the hyphenated word stays whole);
-  `second boat` → None (copy word); `small pills` (other) → None (not one of the four categories);
-  `pair of shoes`-like names don't match on `of`. `run_checks`: a set-dressing `boats` of a scene
+  → "fish"; `horse` against "horses", `pony` against "ponies", `box of fish` → a match;
+  `off-road vehicle` against "the road" → None (the hyphenated word stays whole); `police car`
+  against "a police officer" → None (`car` is no part word); `second boat` → None (copy word);
+  `small boats` (other) → None (not one of the four categories); `cart of` → None; a word only in
+  the heading or in dialogue → None. `run_checks`: a set-dressing `boats` of a scene
   that names them passes; one the scene doesn't name still fails `UNSCRIPTED_OBJECT` "never set
   dressing"; an unheld `pen` (other) called `unscripted` fails `BACKGROUND_OBJECT` (soft, `WARN`)
-  and not `UNSCRIPTED_OBJECT`; a held `pen` still fails `UNSCRIPTED_OBJECT`; a `moon` (nature)
+  and not `UNSCRIPTED_OBJECT`; a held `pen`, an unheld `pen` called `scripted_prop` with no
+  support, and a named prop called `unscripted` still fail `UNSCRIPTED_OBJECT`; a `moon` (nature)
   called `set_dressing` with a support not in the heading fails `BACKGROUND_OBJECT`; a `dog`
-  (animal) called `unscripted` still fails `UNSCRIPTED_OBJECT`. `recheck` on hand-built rows:
-  today's verdict per attempt, an ERROR row skipped, the summary. The web names
-  `background_object` "unscripted background". Free: `recheck` on the 2026-10-11 runs gives
-  sipho-and-siphokazi at least 12 of 30 and the-red-kite at least 19 of 21 shots with an accepted
-  attempt, and the frames newly accepted are looked at for anything a hard check should have
+  (animal) called `unscripted` still fails `UNSCRIPTED_OBJECT`. `recheck` on database rows: today's
+  verdict per attempt, a row with no description and one in an old schema skipped and counted,
+  `accepted_shots`, no such project and no plan raising ValueError. The web names
+  `background_object` "unscripted background". Free: `recheck --target storyboard` on the 2026-10-11
+  runs gives sipho-and-siphokazi at least 12 of 30 and the-red-kite at least 19 of 21 shots with an
+  accepted attempt, and the frames newly accepted are looked at for anything a hard check should have
   caught. **Held out:** the same on every other stored project (the-red-kite's earlier runs), the
   numbers in the PR beside the two that showed the problem.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
