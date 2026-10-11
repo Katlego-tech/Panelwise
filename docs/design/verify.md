@@ -445,7 +445,7 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | Costume and the place's structure (T071) | never an unscripted object when not held, and the describer stops listing them | trusting the judge on each jacket and chimney: on 2026-10-10 it called a chest pocket, a hat and jackets unscripted; a held one is still checked (a held object is a story choice) |
 | Attempts per frame (T071) | the setting `RENDER_MAX_ATTEMPTS`, 1 to 3, default 3 | a constant 3: when failures are systematic, two of every three drawings buy another FAIL; more than 3: the same spend, faster |
 | A child drawn as an adult (T072) | the judge refuses the match when the apparent age plainly contradicts the character's quoted age, so the person is unscripted | a new `AGE` check in code: the describer's age is a phrase, and matching it to `(10)`, `(70s)` or "old" in code is guessing; leaving it to portraits (T025): T025 waits on the renderer, and 14 of 27 labelled frames (eval.md §6a.2) drew the wrong age |
-| A signature (T072, T077) | the soft `SIGNATURE` check (T077): logged and shown, the frame `WARN`; words read in it are still `text` | a hard fail (T072): on 2026-10-11, re-judging the same stored drawings, it withheld 4 more of the-red-kite's 22 klein frames (6 accepted with T077, 2 without) and 1 of its 21 schnell frames, each otherwise right, and a mark in a corner is no character, prop, line or event; T071's rule alone (no flag): the flag stays, so a reviewer sees the mark; cropping the border to remove it: halved signatures in a 2026-10-10 experiment, and is renderer post-processing, after the renderer decision |
+| A signature (T072, T077; Tumo, 2026-10-11) | the soft `SIGNATURE` check (T077): logged and shown, the frame `WARN`; words read in it are still `text`. On eval.md §6a's 27 labelled frames this passes 2 that Katlego labelled bad for their signature (one also had a second kite the describer missed): by this decision a signature is no grounding failure, so those labels count the signature as a note | a hard fail (T072): on 2026-10-11, re-judging the same stored drawings, it withheld 4 more of the-red-kite's 22 klein frames (6 accepted with T077, 2 without) and 1 of its 21 schnell frames, each otherwise right, and a mark in a corner is no character, prop, line or event; T071's rule alone (no flag): the flag stays, so a reviewer sees the mark; cropping the border to remove it: halved signatures in a 2026-10-10 experiment, and is renderer post-processing, after the renderer decision |
 | Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
 | Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
 
@@ -497,8 +497,8 @@ it against the script."*
 - **T077:** `run_checks`: `signature` true with `text` empty fails `SIGNATURE` (soft) and no hard
   check, so the verdict is `WARN`; with an unread word in `text` it also fails `TEXT_IN_FRAME`
   (`FAIL`); `signature` false fails neither. The web names `signature` "artist's signature".
-  Free, with Tumo's go-ahead (Token Factory only): T072's and T077's audits on eval.md §6a's 27
-  labelled frames, with no labelled-bad frame newly passing, the numbers in the PR.
+  Free (Token Factory only): T072's and T077's audits on eval.md §6a's 27 labelled frames; the
+  only labelled-bad frames newly passing are ones labelled for a signature, the numbers in the PR.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 
