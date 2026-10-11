@@ -293,7 +293,7 @@ sequenceDiagram
      the panel is rendered.
   2. **Render.** `render_until_accepted(model, renderer, shot, screenplay, extraction, width=w,
      height=h, first_attempt=1 + the greatest comic attempt logged for key (0 if none),
-     max_renders=3, log=log, on_state=on_state)`. Continuing the attempt numbers keeps every row
+     max_renders=<the job's max_renders: Settings.render_max_attempts, verify.md §4, T071>, log=log, on_state=on_state)`. Continuing the attempt numbers keeps every row
      (the unique key `(project_id, target, scene_index, shot_number, attempt)` never collides) and
      gives a re-run new seeds (`seed_for(shot, attempt)`). The hooks are comic's own, never
      `frame_hooks` (whose `on_state` writes a `frames` row): `log(audit)` →
@@ -454,7 +454,8 @@ class ComicRow(Base): ...   # the table above
 # app/comic/job.py
 COMIC_RENDER_FAILED: str; COMIC_LAYOUT_FAILED: str; COMIC_LAYOUT_FAILED_ANY: str; COMIC_UNEXPECTED: str; COMIC_RESTARTED: str   # §4a, verbatim; COMIC_LAYOUT_FAILED takes .format(shot_id=...)
 async def run_comic_job(job_id: uuid.UUID, *, sessions: async_sessionmaker[AsyncSession], store: AssetStore,
-                        model: NebiusChatModel, factory: RendererFactory) -> None: ...
+                        model: NebiusChatModel, factory: RendererFactory, max_renders: int = MAX_RENDERS) -> None: ...
+#   max_renders (T071): each rendered panel's attempts; the route passes Settings.render_max_attempts
 #   §4a end to end for the job's project, per panel exactly as §4a's steps 1–5; never raises: every
 #   failure is the job FAILED with one of §4a's messages (the cause logged). RendererFactory is
 #   app/frames/attempt.py's; the factory is called once per job. Hooks: comic's own (§4a step 2),

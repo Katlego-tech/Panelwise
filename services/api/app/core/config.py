@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     nebius_model_vision: str = "deepseek-ai/DeepSeek-V4.1-Flash"
     llm_request_timeout_s: float = 120.0
     llm_max_attempts: int = 3
+    # A full render loop's attempts per frame (verify.md §4, T071): 1 while the pass rate is
+    # unknown, so a systematic FAIL isn't paid for three times.
+    render_max_attempts: int = Field(default=3, ge=1, le=3)
 
     # Frames (docs/design/storyboard.md §6). The prompt's word budget, a conservative proxy for the
     # text encoder's token limit: 55 words for CLIP's 77 tokens until T003 picks the model.
