@@ -109,12 +109,13 @@ a 2026-10-10 and a 2026-10-11 project). "The audits" below means that project's 
 rows for that target.
 
 **Shots.** Every shot in `load_plan(project.plan).shots` gets one `ShotLine`, in plan order
-(`scene_index`, then `number`). `shot` is `f"{scene.number or scene.index + 1}.{shot.number}"`
-for its scene in `load_screenplay(project.screenplay)`, as the web and `reaudit` print it. `source`
+(`scene_index`, then `number`). `shot` is `f"{scene.number}.{shot.number}"`
+for its scene in `load_screenplay(project.screenplay)` (`Scene.number` is a string), as `reaudit` prints it. `source`
 is `shot.source`. A shot's audits are those with its `scene_index` and `shot_number`; its **last
 audit** is the one with the highest `attempt`.
 
-- `state`, storyboard: the shot's `FrameRow.state`; `not drawn` when it has no `frames` row.
+- `state`, storyboard: the shot's `FrameRow.state`, as stored (so `rendering` and `auditing` show as
+  such); `not drawn` when it has no `frames` row.
 - `state`, comic: from its last audit, `pass` → `passed`, `warn` → `warned`, `fail` or `error` →
   `withheld`; `not drawn` when it has no audit. (A panel reused from an earlier comic job keeps
   that job's audits, which are still this project's comic audits.)
@@ -124,7 +125,8 @@ audit** is the one with the highest `attempt`.
 
 **Counts.** `shots`: plan shots. `passed`, `warned`, `withheld`, `failed`, `not_drawn`: shots by
 `state` (storyboard `rendering` or `auditing` count as `not_drawn`; the report is meant for a
-finished run and says so when any shot is still in them). `drawings`: the number of audits (one
+finished run and says so when any shot is still in them). Always: shots = passed + warned + withheld
++ failed + not_drawn. `drawings`: the number of audits (one
 row per drawing, each audited once: 38 for the-red-kite and 82 for sipho-and-siphokazi on
 2026-10-11). `first_attempt_accepted`: shots whose attempt-1 audit is `pass` or `warn`.
 `prompt_tokens`, `completion_tokens`: sums over the audits. An audit with verdict `error` has no
@@ -154,10 +156,11 @@ at most 5, each once.
   ` looking `, ` smiling `, trailing spaces stripped (`an old man with white hair, standing` →
   `an old man`; `a teenage boy` → `a teenage boy`). Examples: the reasons (group 4), which are
   `no shot character, no support`, `its support is about a character`, or `<NAME> is already
-  another person`.
+  another person`. The cut is at the first occurrence after position 0; a key left empty becomes
+  `other`.
 - **Text** (`text_in_frame`): `^text (.*) isn't the script's$`; the key is group 1 read back with
   `ast.literal_eval` (it was written with `repr`, so either quote may wrap it), or group 1 as is
-  when that fails. Examples: the shots it appeared in.
+  when that fails. Examples: the `shot` labels it appeared in (`6.4`), in plan order, each once.
 
 The other checks (`setting`, `missing_character`, `light`, `framing`, `signature`,
 `no_character`) have no cause table: `## Checks` counts them, and their details show per shot.
@@ -188,7 +191,8 @@ sequenceDiagram
     Dev->>Dev: save as eval/runs/<date>-<slug>.md, read it, add or update docs/learning-log.md entries
 ```
 
-**Failure paths:** a malformed id or one with no project exits 2 with `no such project`; a
+**Failure paths:** a malformed id is refused by `argparse` (exit 2, its usage message); a
+well-formed id with no project exits 2 with `no such project`; a
 project whose `plan`, `screenplay` or `extraction` is still empty exits 2 with `no shot plan yet`;
 a database error exits 1 with its type. Nothing is ever written, so a failed report leaves nothing
 behind.
@@ -210,7 +214,8 @@ def object_causes(audits: Sequence[FrameAuditRow]) -> list[Cause]: ...   # pure;
 def person_causes(audits: Sequence[FrameAuditRow]) -> list[Cause]: ...    # pure
 def text_causes(audits: Sequence[FrameAuditRow]) -> list[Cause]: ...      # pure
 # python -m app.verify.report <project-id> [--target storyboard|comic]   (default storyboard)
-#   reads Settings() for the database and comfyui_max_words, load_styles(PUBLIC_STYLES, private) as
+#   reads Settings() for the database and comfyui_max_words only (never Storage: unlike reaudit it
+#   needs no Supabase keys), load_styles(PUBLIC_STYLES, private) as
 #   create_app does; prints the markdown; exit codes as §4
 ```
 
@@ -271,7 +276,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   never read.
 - `build_report` on hand-built rows: a shot with three failed attempts then withheld, one passed
   at attempt 2, one warned at attempt 1, one failed to render (no audits), one with no `frames` row
-  (`not drawn`); `Counts` (drawings = audits, `first_attempt_accepted` = 1), `final` vs
+  (`not drawn`); `Counts` (drawings = audits, `first_attempt_accepted` = 1, the sum of states equal to `shots`), `final` vs
   `attempts`; an `error` audit counted as a drawing and in no check; the comic target ignoring
   `frames` and deriving state from the last audit; a prompt that fails to build shows its error;
   `started`/`finished` from the audits.
