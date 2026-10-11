@@ -174,7 +174,7 @@ truncates drops the tail.
 | `SETTING` | this scene's heading | `inside` / `outside` / `at` (from `scene.int_ext`: `INT`, `EXT`, `INT_EXT`) + `scene.location`, **redacted, then** lower-cased | this scene's heading span |
 | `TIME` | `shot.time_of_day` (resolved, shots.md) | lower-cased; omitted when `None` | the heading span of the scene that **supplied** the clock (`time_source`, below) |
 | `COUNT` | code, from `visible_characters(shot, screenplay, extraction)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
-| `AGE` (T074, T079) | `introduced_age(character, screenplay)` for each `visible_characters` member, in their order; one part per character whose introduction gives an age | `(10)` → "a 10-year-old", `(70s)` → "a person in their 70s"; **T079:** with the sex the introduction's pronouns give (`introduced_sex`, below): "a 10-year-old girl" / "boy" under 18, "a 30-year-old woman" / "man" from 18, "a woman in her 70s" / "a man in his 70s" (the first number in the parenthesis after the character's name where an `Action` line introduces it: `LERATO (10), braids…`, `NANDI (60s, oilskin coat)`); omitted when the script gives none | that `Action` element's span |
+| `AGE` (T074, T079) | `introduced_age(character, screenplay)` for each `visible_characters` member, in their order; one part per character whose introduction gives an age | `(10)` → "a 10-year-old", `(70s)` → "a person in their 70s"; **T079:** with the sex the introduction's pronouns give (`introduced_sex`, below; **T082:** `character_sex`, which adds a sex title and the extraction's grounded `sex_word`, all agreeing): "a 10-year-old girl" / "boy" under 18, "a 30-year-old woman" / "man" from 18, "a woman in her 70s" / "a man in his 70s" (the first number in the parenthesis after the character's name where an `Action` line introduces it: `LERATO (10), braids…`, `NANDI (60s, oilskin coat)`); omitted when the script gives none | that `Action` element's span |
 | `LOOK` (T079) | `introduced_look(character, screenplay)` for each `visible_characters` member, right after its `AGE` | the introduction's own description, verbatim, redacted: the parenthesis's items after the age (`NANDI (60s, oilskin coat)` → "oilskin coat") and the comma phrase right after the parenthesis (`LERATO (10), braids tied back, grips…` → "braids tied back"; `MOKGOSI (70s), reading glasses pushed up on his forehead, solders…` → that phrase), joined by ", "; a phrase over 8 words, or one with no comma closing it before the sentence ends, is left out (it is an action, not a look: `AMAHLE (8), who is wearing pyjamas … crying.`); omitted when nothing is left, and when the shot covers that introducing line (its `ACTION` part already says it, word for word). **Not a fixed part:** looks give way to the budget (Word budget, below) | that `Action` element's span |
 | `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`), and is accepted only when `visible_characters` has exactly two members (else `ValueError`), so it can never contradict `COUNT` | the phrase; T026's renderer passes `None`, T025 passes it | `None` |
 | `ACTION` | a covered `Action` element's text | verbatim, whitespace collapsed, redacted | the element's span |
@@ -730,6 +730,16 @@ def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] |
 #   None when no introduction gives one. Never a word the script doesn't have but the age's own number
 #   T079: the phrase carries the sex `introduced_sex` reads: "a 10-year-old girl", "a man in his 70s"
 def introduced_sex(character: str, screenplay: Screenplay) -> Literal["female", "male"] | None: ...   # T079, pure
+def title_sex(character: str) -> Literal["female", "male"] | None: ...   # T082, pure: the name's first word,
+#   when it is a title that gives a sex (female: MRS, MS, MISS, MADAM, MADAME, LADY, MAMA, GOGO, OUMA,
+#   AUNTIE, AUNT, TANNIE, SISTER, QUEEN, PRINCESS; male: MR, SIR, LORD, BABA, OUPA, UNCLE, OOM, BROTHER,
+#   KING, PRINCE), a trailing full stop ignored: `MAMA THEMBI` → female, `MR. DUBE` → male, `OFFICER MOLOI`
+#   → None (no sex in OFFICER, DR, NURSE)
+def character_sex(character: str, screenplay: Screenplay, extraction: Extraction) -> Literal["female", "male"] | None: ...
+#   T082, pure: the sex every source that gives one agrees on: introduced_sex (T079), title_sex, and the
+#   grounded Entity.sex (grounding.md §3, sex_word); None when none gives one, or two disagree. Each source
+#   is a word of the script keyed by the code's fixed vocabulary, so the prompt's "girl" traces to "She",
+#   "MAMA" or "her" in the script. `AGE` (§3.1) and the report (learning.md) use it instead of introduced_sex
 #   in that same introducing element: "she"/"he" in the introducing sentence (from the name to the sentence's
 #   end or the next `NAME (` introduction) and "her"/"his" inside its `introduced_look`, whole words, any case;
 #   one sex only, else None ("watches her" after MAMA THEMBI is Siphokazi, an object: not counted; a later
@@ -929,6 +939,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | The model on fal (Tumo, 2026-10-11) | FLUX.2 [klein] 4B: 15 of 22 the-red-kite frames accepted at 3 attempts with the T071–T078 audit | FLUX.1 [schnell] (the 2026-10-09 choice): 3 of 21 at 1 attempt on the same script, adults for children, clutter and painted gibberish; klein on Cloudflare Workers AI (#97/#98): the same model, but fal was already built, gated and live-tested, and `FAL_MODEL` makes the model one setting |
 | The renderer (2026-10-09, §3.5) | FLUX.1 [schnell] on fal.ai: seed, any size, PNG, $0.003 per ≤ 1 MP frame, always on | ComfyUI on a Nebius L40S as the default (≈ $2,500 to stay up to 15 Dec, or cold starts for judges; credit coverage unconfirmed: kept optional, T003); Cloudflare Workers AI FLUX.1 [schnell] (no seed and no size in its schema: breaks seeded attempts and comic panels); Nebius Token Factory (no image model, 404 on 2026-10-08). Sources: nebius.com/prices, the Cloudflare model schema, fal.ai's model page and OpenAPI |
 | A character's age in the prompt (T074) | an `AGE` part from the script's own introduction (`LERATO (10)` → "a 10-year-old") | only "a person" (before T074): on 2026-10-10 the-red-kite drew Lerato (10) and Mokgosi (70s) as young adults again and again, and T072's audit then withheld those frames; the age in every name's label: "a person in their 70s's workshop"; a gender word: the script's parenthesis doesn't give one |
+| A character's sex beyond the introduction (T082; Tumo, 2026-10-11) | `character_sex`: the introduction's pronouns, a sex title, and the extraction's grounded `sex_word`, all agreeing | the introduction alone (T079): on 2026-10-11 sipho-and-siphokazi's Sipho, Siphokazi and Mama Thembi got no sex, were drawn as old men and boys, and 8.3 was accepted wrong (L002); the first source only: a disagreement means one of them misread the script, so none is drawn |
 | A character's sex and look in the prompt (T079) | the sex word from the introduction's pronouns; the look verbatim from the introduction | the age alone (T074): on 2026-10-11 klein drew Lerato as a boy in 9 of 11 accepted frames, short hair, no braids; a sex word from any pronoun near the name: `watches her` after Mama Thembi is someone else; the whole introducing line: its action (`grips a RED KITE`) is that moment's event |
 | A line heard off screen (T079) | its listeners are the planner's other characters | no one (before T079): the prompt asked for nothing and the frame was an empty roof |
 | A plain background (T074) | `plain background` in the clean style's `finish` | the scene as it comes: schnell fills a workshop with jugs, books, pots and frames, and the judge withholds the frame for them (13 of 19 withheld frames failed on such objects on 2026-10-10); a per-shot phrase: the style is how every frame is drawn |
@@ -978,6 +989,13 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   `cites_this_shot` accepts two characters introduced in one line (each age with that one span). Live, with
   Tumo's go-ahead (about $0.06): one upload of the-red-kite at `RENDER_MAX_ATTEMPTS=1`, against
   2026-10-10's 3 of 22 accepted on the same seeds.
+- **T082:** `title_sex`: `MAMA THEMBI` → female, `MR. DUBE` → male, `OFFICER MOLOI` → None,
+  `SIPHO` → None. `character_sex`: one source → its sex; two agreeing → that sex; two disagreeing →
+  None; none → None; SIPHOKAZI with the grounded `sex_word` "She" → female. `AGE` reads "a
+  17-year-old girl" for her, "a woman in her 60s" for Mama Thembi. Live, Token Factory only (ask
+  first): the extraction on all three samples, the sex of every person character against a
+  labelled table (eval/), **lost-property held out** (T082 was found on sipho-and-siphokazi and
+  designed on its three introductions); never a wrong sex, the misses counted.
 - **T079:** `introduced_sex`: `LERATO (10), braids tied back, grips … as tall as she is` → female;
   `MOKGOSI (70s), reading glasses pushed up on his forehead` → male; `MAMA THEMBI (60s), the shop's
   owner, watches her …` → None; `KOOS (70s), the night cleaner, pushes a broom. She waves.` → None. `introduced_look`: "braids tied back",

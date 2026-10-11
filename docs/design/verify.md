@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -146,6 +146,12 @@ classDiagram
   quote, already in the shot's supports. **Accepted residue:** a compound where the prop's noun
   only modifies (`coat hanger` with the `oilskin coat` in the shot, `kite shop`) reads as a part;
   no rule on words tells them apart, and it needs that very prop in the shot.
+- **Each person's sex in the spec (T082).** `render_spec` gives, under each person character with
+  a sex (storyboard.md's `character_sex`), the line `sex (from the script): <female|male>, "<the
+  quote that shows it>"`: the evidence quote is `Entity.sex_quote` when that source gave it, else
+  the introducing `Action` element's text, or the name (`MAMA THEMBI`) for a title. The judge
+  already refuses a wrong sex (T080); before T082 it saw only the extracted quotes, so it matched a
+  boy to Siphokazi (L002, L009).
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
