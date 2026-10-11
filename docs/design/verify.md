@@ -36,6 +36,7 @@ classDiagram
         +ShotSize shot_size
         +list~SeenObject~ objects
         +bool has_text
+        +list~str~ text
     }
     class SeenObject {
         +str name
@@ -99,6 +100,11 @@ classDiagram
   light, the shot size, the notable objects (each with a category from a fixed list and whether
   someone holds it), and whether any text or letters appear. It is never told
   what it *should* see, so it can't simply agree.
+- **What the describer leaves out and writes down (T071).** It doesn't list what a person wears
+  (that goes in the person's `appearance`) or the place's own structure (walls, floor, ceiling,
+  sky, windows, doors, roofs, chimneys, stairs) as objects. Under `text` it writes, word for
+  word, each piece of writing it can actually **read**; a scribble, an unreadable signature or a
+  mark that isn't letters is left out of `text` (it may still set `has_text`).
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
@@ -122,8 +128,8 @@ classDiagram
 | Check | Decided by | Severity | Fails when |
 |---|---|---|---|
 | `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted) |
-| `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon`, `screen_or_sign` or `food`, or its `support` isn't found in the heading |
-| `TEXT_IN_FRAME` | code | **hard** | `has_text` (letters in the art could be words the script never said) |
+| `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks |
+| `TEXT_IN_FRAME` | code | **hard** | a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" fails). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
 | `MISSING_CHARACTER` | code | soft | a shot character **who is a person** matched to no described person (an animal character, `species` set, is described as an object: T052) |
 | `LIGHT` | code | soft | `light` is `day` and the shot's time is night-family (`NIGHT`, `MIDNIGHT`, `EVENING`), or `light` is `night` and the time is day-family (`DAY`, `MORNING`, `AFTERNOON`). Transitional times (`DAWN`, `DUSK`, `SUNRISE`, `SUNSET`, `MAGIC HOUR`), a `None` time, `dawn_or_dusk` and `unclear` always pass |
@@ -161,6 +167,13 @@ sequenceDiagram
 - **Seeds** are deterministic: `seed(shot, attempt)`, so an attempt can be reproduced.
 - **`max_renders` = 3** (the first render plus two re-renders, `k = 2`). With a pass rate `p = 0.6`
   that's `E[N] ≈ 1.56` renders per frame; the real `p` comes from T049's measurement.
+  **T071:** it is the setting `RENDER_MAX_ATTEMPTS` (`Settings.render_max_attempts`, 1 to 3,
+  default 3). Every full loop passes it: the storyboard's rendering stage (T026's
+  `build_storyboard`) and the comic job (T064); "Try another render" still passes 1. The
+  live run of 2026-10-10 is why: 257 drawings, 3 accepted, 2 of them on a second attempt, because
+  the failures were systematic (the same sign, the same jacket), so a re-render bought another
+  FAIL. A dev run sets 1 until the pass rate is known; the frame sheet's "attempt n of N" reads
+  the same setting.
 - **A withheld frame is never shown.** The storyboard shows its shot as a text card:
   the verbatim `source`, the span, and "Frame withheld: failed audit (unscripted person)". The user
   can ask for more attempts later; each is audited the same way. The comic has its own withheld
@@ -224,7 +237,10 @@ class FrameState(StrEnum): RENDERING; AUDITING; PASSED; WARNED; WITHHELD; FAILED
 # app/verify/schema.py — the two model calls (strict json_schema)
 class SeenPerson(BaseModel): position: Position; appearance: str
 class SeenObject(BaseModel): name: str; category: ObjectCategory; held: bool
-class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[SeenObject]; has_text: bool
+class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[SeenObject]; has_text: bool; text: list[str]
+#   text (T071): each piece of writing the describer can read, verbatim, in reading order; [] for none.
+#   The describer must always return it (strict schema). A row written before T071 has no `text`:
+#   AuditView's description reads it as [] (its old has_text verdict stands in the log)
 class PersonCall(BaseModel): person: int; character: str | None; support: str | None   # person: 0-based index into description.people
 class ObjectCall(BaseModel): object: int; kind: ObjectKind; support: str | None        # object: 0-based index into description.objects
 class Judgement(BaseModel): people: list[PersonCall]; objects: list[ObjectCall]
@@ -247,7 +263,7 @@ async def audit_frame(model: NebiusChatModel, frame: RenderedFrame, shot: Shot, 
 
 # app/verify/loop.py (T021)
 async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot: Shot, screenplay: Screenplay,
-                                extraction: Extraction, *, width: int, height: int, max_renders: int = 3,
+                                extraction: Extraction, *, width: int, height: int, max_renders: int = MAX_RENDERS,
                                 first_attempt: int = 1,
                                 log: Callable[[Audit], Awaitable[None]],
                                 on_state: Callable[[FrameState, int], Awaitable[None]] | None = None) -> FrameOutcome: ...
@@ -260,6 +276,12 @@ async def render_until_accepted(model: NebiusChatModel, renderer: Renderer, shot
 #   Order, a contract: each attempt's `log(audit)` is awaited before the next on_state, so the terminal
 #   state's writer can read the audit that decided it. An audit ERROR withholds at once (no retry).
 #   A renderer exception is re-raised after on_state(FAILED, attempt): the caller fails its job.
+MAX_RENDERS = 3   # the default; callers pass Settings().render_max_attempts (T071)
+
+# app/core/config.py (T071)
+render_max_attempts: int = Field(default=3, ge=1, le=3)   # RENDER_MAX_ATTEMPTS: a full loop's attempts per frame
+#   app/comic/job.py drops its own MAX_RENDERS for it; app/frames/views.frame_view takes it as
+#   `max_renders: int` (the projects router passes the setting) and shows max(max_renders, attempt)
 
 # The renderer the frame writers need: a Renderer that remembers where it stored each attempt (T021).
 class SupportsAsset(Protocol):
@@ -349,6 +371,25 @@ async def run_check(sessions, store: AssetStore, model: NebiusChatModel, project
   the store and model from settings, calls `run_check`, and prints each shot's states and verdicts
   and the copy's id. Most sketches end `withheld` after three attempts: the path a wrong frame takes.
 
+**The re-audit** (T071, `app/verify/reaudit.py`): today's audit run again on drawings already made,
+so a change to the audit is measured without drawing anything.
+
+```python
+@dataclass(frozen=True) class Reaudit: shot: tuple[int, int]; attempt: int; target: str; before: Verdict; after: Verdict; failed: tuple[Check, ...]
+async def reaudit(sessions, store: AssetStore, model: NebiusChatModel, project_id: uuid.UUID,
+                  *, target: AuditTarget | None = None, limit: int | None = None) -> list[Reaudit]: ...
+def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after counts of pass/warn/fail/error, and each hard check's count after
+```
+
+- **It writes nothing**: no row, no Storage object. It reads the project's plan and its
+  `frame_audits` rows (one `target`, or both; in `(target, scene_index, shot_number, attempt)` order;
+  the first `limit`), reads each row's `frame_asset` from Storage, and calls `audit_frame` with that
+  PNG (its width and height from the image, the row's seed) against the row's shot.
+- **The only spend** is the audit's two Token Factory calls per row; nothing is drawn.
+  `python -m app.verify.reaudit <project-id> [--target storyboard|comic] [--limit N]` prints one
+  line per row (`6.4 a1 comic: fail → pass`) and `summary`. A row whose asset is gone is reported
+  and skipped, never a crash.
+
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
@@ -358,6 +399,8 @@ async def run_check(sessions, store: AssetStore, model: NebiusChatModel, project
 | `services/api/app/verify/loop.py` | new | render → audit → retry → state | T021 |
 | `services/api/app/frames/{model,writer}.py` + migrations `0003` (`frames.failure`), `0004` (`frame_audits`) | new | `FrameAuditRow`, `FrameWriter`, `frame_hooks` | T021 |
 | `services/api/app/frames/check.py` | new | `SketchRenderer`, `run_check`, `python -m app.frames.check` | T062 |
+| `services/api/app/verify/{prompts,schema,audit,loop}.py`, `app/core/config.py`, `app/comic/job.py`, `app/frames/views.py`, `app/api/v1/{schemas,projects}.py` | changed | T071: `text` and the new `TEXT_IN_FRAME`, costume and structure exempt, signs may be dressing, `RENDER_MAX_ATTEMPTS` | T071 |
+| `services/api/app/verify/reaudit.py` | new | `reaudit`, `summary`, `python -m app.verify.reaudit` | T071 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
@@ -374,6 +417,10 @@ async def run_check(sessions, store: AssetStore, model: NebiusChatModel, project
 | Audit error | withhold | pass unaudited: the one outcome this module exists to prevent |
 | Re-render feedback | a new seed | feeding the failed checks into the prompt: SDXL-Turbo at cfg 1 ignores negative prompts (FrameFlow's own config note); revisit with the T003 model |
 | Hard vs soft | hard = would show something unscripted; soft = quality | failing on every soft miss: burns renders on lighting a storyboard can live with |
+| Text in the frame (T071; Tumo, 2026-10-10) | fail only legible words that aren't the script's own (the shot's `source` or the scene's location) | any writing-like mark fails (before T071): 237 of 249 failed audits on 2026-10-10 had text, a sign naming the very office the scene is in among them, so almost nothing could pass; ignoring only unreadable marks: the office's own sign would still fail; counting the time of day as script words: a painted "NIGHT" would pass |
+| Costume and the place's structure (T071) | never an unscripted object when not held, and the describer stops listing them | trusting the judge on each jacket and chimney: on 2026-10-10 it called a chest pocket, a hat and jackets unscripted; a held one is still checked (a held object is a story choice) |
+| Attempts per frame (T071) | the setting `RENDER_MAX_ATTEMPTS`, 1 to 3, default 3 | a constant 3: when failures are systematic, two of every three drawings buy another FAIL; more than 3: the same spend, faster |
+| Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
 
 **Accepted residual risk:** the audit can only judge what the describer reports. A person or object
 the describer misses passes unseen. T049 measures exactly this (recall on frames with a deliberately
@@ -395,6 +442,19 @@ it against the script."*
   details; the judge call carries the spec and the description; `VISION` then `REASONING` tiers.
 - `render_until_accepted` with a fake renderer: pass first time; fail then pass; three fails →
   `WITHHELD`; an audit error → `WITHHELD`; every attempt logged; deterministic seeds.
+- **T071:** `run_checks`: a `text` of the scene's location ("LOST PROPERTY" in `INT. LOST PROPERTY OFFICE - NIGHT`)
+  or a phrase of the shot's `source` passes; a garbled sign ("PARK LEAZING STATION"), a readable
+  signature and the heading's time ("NIGHT") fail, each named in the detail; `has_text` true with
+  an empty `text` passes; a `clothing` or `architecture` object called `unscripted` or set dressing
+  without support passes when not held and fails when held; a `screen_or_sign` called set dressing
+  with the heading's words passes. The describer prompt names worn clothes, the place's structure
+  and `text`; the describer's schema requires `text`; a stored description without it (a row from
+  before T071) validates as `[]` in `AuditView`. `RENDER_MAX_ATTEMPTS` 0 and 4 are refused; the comic job runs
+  the setting's attempts (`run_comic_job(max_renders=...)`, comic.md §6); `frame_view` shows `max(max_renders, attempt)`. `reaudit` on a real
+  Postgres with an in-memory store and a scripted model: every row of one target in order, none
+  written, a missing asset reported and skipped, `limit` honoured; `summary` counts before and after.
+  Live, with Tumo's go-ahead (Token Factory only): `python -m app.verify.reaudit` on the
+  2026-10-10 lost-property project, then one live upload of the-red-kite at `RENDER_MAX_ATTEMPTS=1`.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 

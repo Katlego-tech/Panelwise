@@ -56,6 +56,18 @@ _Last updated: 2026-10-09 — by Tumo (via Claude)_
 | T061 | Web: the audit log in the frame sheet, "Try another render", the failed-frame wordings | PR #78, `apps/web/components/storyboard/*` | ✅ merged 2026-10-08 |
 | T062 | The architecture check: the real audit loop on drawn sketches in a throwaway copy of a project, no image model | branch `feat/verify-t062`, `services/api/app/frames/check.py` | ✅ code merged (PR #82 design, #83 code) · ✅ live run 2026-10-09: copy `865c0f44…` "the-red-kite (architecture check)", shots 0.1 and 0.2 passed at attempt 1, 0.3 withheld (`audit_error`: attempt 1 FAIL on an unscripted "square outline", attempt 2 an empty vision response); the original untouched · ✅ the copy's frame sheets seen by Tumo in the browser (2026-10-09) |
 | T064 + T024 | The comic: the job that makes, stores and serves a project's comic (T064), then the web reader (T024). Design first, its own PR; then T064's code; then T024's | `docs/design/{comic,verify,web}.md`, `docs/design/web/comic*.png`, TASKS.md | ✅ design merged (PR #85) · ✅ T064 merged (PR #86) · ✅ the local comic check run on the T062 copy (2026-10-09: 5 pages, 21 panels, 3 withheld, ~66 audit calls) · ✅ T024 merged (PR #87) · 🟡 Tumo's look at the reader in the browser beside comic.png / comic-phone.png |
+| T071 | The audit fails what the script didn't write, not every mark; `RENDER_MAX_ATTEMPTS`; a re-audit of stored drawings | `docs/design/{verify,web}.md`; `services/api/app/verify/**`, `app/comic/job.py`, `app/frames/views.py` | 🔵 draft PRs: design `docs/audit-wording`, code `feat/audit-wording`; gated, independently reviewed, fixes in |
+
+**📝 Katlego: why Tumo took the audit wording fix (T071) from the `verify` lane (2026-10-10).**
+Tumo's live test (lost-property, fal schnell, the storyboard then the comic) drew 257 frames and
+accepted 3. 237 of the 249 FAILs had text, mostly words our own prompt asks for ("lost property
+office", "night"), and 172 failed only on text or objects such as a jacket, a pocket or the
+office's own sign. Your wording fix (eval.md §6a.6) is the cure, but it was never pushed and it
+waits on T049, which sits on #98 (Workers AI). We could not test anything further without it, so
+we wrote it as T071 on `main`, using nothing from #97/#98, and measure it on the stored frames
+with a re-audit instead of new drawings. The text rule (only legible words that aren't the
+script's own fail) was Tumo's call. Please review the PRs; if your local version differs, tell
+us what it does better and we fold it in. T049's numbers will still say how well it works.
 
 Claimed files: `apps/web/**`, `services/api/app/frames/**`, `services/api/app/verify/loop.py`, `services/api/app/comic/**`, `services/api/migrations/versions/0005_*`, `services/api/app/jobs/model.py`. Everything else is open.
 
