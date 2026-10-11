@@ -675,7 +675,7 @@ image_check() {
     tail -n 25 "$err" | sed 's/^/     /'
     fail=1
   else
-    say "   built $tag; app.main imports, the font, alembic.ini and migrations are in it"
+    say "   built $tag; app.main imports; the font, alembic.ini, migrations and the public styles are in it"
   fi
   docker image rm -f "$tag" >/dev/null 2>&1 || true
   rm -f "$err"
