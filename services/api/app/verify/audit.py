@@ -314,8 +314,8 @@ async def audit_frame(
         checks: tuple[CheckResult, ...] = ()
         verdict, positions = Verdict.ERROR, {}
     else:
-        # T080: against the people the prompt drew; imported here, since app.storyboard
-        # imports app.verify.
+        # T080: against the people the prompt drew. Imported here: T026's renderer modules in
+        # app.storyboard import app.verify, so a module-level import would be a cycle there.
         from app.storyboard.prompt import visible_characters
 
         on_screen = visible_characters(shot, screenplay, extraction)

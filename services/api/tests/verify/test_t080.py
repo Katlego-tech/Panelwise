@@ -84,3 +84,21 @@ def test_the_judge_refuses_a_contradicted_sex_or_look() -> None:
     prompt = JUDGE_PROMPT.lower()
     assert "sex" in prompt and "look" in prompt
     assert "she" in prompt and "braids" in prompt
+
+
+def test_a_matched_character_the_prompt_didn_t_draw_doesn_t_count(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    """T080 review: NANDI drawn, only THABO matched: the frame isn't of the people it asked for."""
+    shot = kitchen_shot(characters=("NANDI", "THABO"))
+    thabo = [{"person": 0, "character": "THABO", "support": None}]
+    checks, verdict, _ = run_checks(
+        shot,
+        screenplay.scenes[0],
+        described(people=[{"position": "left", "appearance": "a man"}]),
+        judged(people=thabo),
+        extraction,
+        on_screen=("NANDI",),
+    )
+    assert Check.NO_CHARACTER in {c.check for c in checks if not c.ok}
+    assert verdict is Verdict.FAIL
