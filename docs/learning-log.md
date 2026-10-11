@@ -16,6 +16,22 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L009 · Object failures were catching wrong people by accident · open
+
+- **Seen:** 2026-10-11, measuring T083 with `recheck` on the stored audits of
+  [sipho-and-siphokazi](../eval/runs/2026-10-11-sipho-and-siphokazi.md). Of the attempts T083
+  turns from fail to accepted, sipho 4B.1 attempt 3 shows Siphokazi as a boy: its scripted
+  wheelhouse (compass, radio, the taped photograph, the wheel) used to fail as objects, and that
+  alone kept the wrong person off the board.
+- **Cause:** with no sex in the prompt or the spec (L002), the judge can't refuse a girl drawn as
+  a boy; a strict object check withheld such frames for an unrelated reason.
+- **Action:** T083 waits for T082 before it goes live (merge order T082, then T083), so a wrong
+  sex is refused for its own reason. Lesson: when a strict check is relaxed, look at every frame
+  it lets through, not only the count.
+- **Measured:** T083 on the stored audits (`recheck --target storyboard`): sipho-and-siphokazi 7 →
+  13 of 30 shots with an accepted attempt, the-red-kite 16 → 19 of 21; of the 10 flipped attempts
+  looked at, 9 correct and 1 wrong (4B.1, the wrong sex).
+
 ### L008 · The word budget drops what the characters do · open
 
 - **Seen:** 2026-10-11, sipho-and-siphokazi,
@@ -89,9 +105,12 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Cause:** `verify/audit.py` `part_of_prop` (T078) counts a part only of an extracted prop of
   the shot, and never of a vehicle, animal, weapon or food. The judge called the masts set
   dressing, which a vehicle never is.
-- **Action:** T083 (planned): a part of something this shot's own text names counts as that
-  thing, with no copy word.
-- **Measured:** not yet. Free re-audit of the 82 stored drawings first.
+- **Action:** T083: an animal, vehicle, weapon or food the scene's action text names is scripted
+  (its own noun, or a part's whole: `boat masts`); everyday unheld background objects warn
+  (Tumo's call). The rule over all categories was measured first and rejected: it excused
+  "small pills", "power lines" (the script's washing lines) and "tripod stand".
+- **Measured:** `recheck` on the stored audits: sipho-and-siphokazi 7 → 13 of 30 shots, the-red-kite
+  16 → 19 of 21. Not yet on a script T083 wasn't designed from (held out): see L009 first.
 
 ### L002 · No sex from the script: wrong people drawn, and one accepted · open
 

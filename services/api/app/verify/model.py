@@ -71,6 +71,7 @@ class Check(StrEnum):
     FRAMING = auto()
     SIGNATURE = auto()  # T077: soft
     NO_CHARACTER = auto()  # T080: hard
+    BACKGROUND_OBJECT = auto()  # T083: soft
 
 
 class Severity(StrEnum):

@@ -165,8 +165,10 @@ def _tally(pairs: Sequence[tuple[str, str]]) -> list[Cause]:
 
 
 def object_causes(audits: Sequence[FrameAuditRow]) -> list[Cause]:
+    """Hard `unscripted_object` and, since T083, soft `background_object` failures."""
     pairs: list[tuple[str, str]] = []
-    for _, piece in _pieces(audits, Check.UNSCRIPTED_OBJECT):
+    pieces = [*_pieces(audits, Check.UNSCRIPTED_OBJECT), *_pieces(audits, Check.BACKGROUND_OBJECT)]
+    for _, piece in pieces:
         if m := _OBJECT.match(piece):
             pairs.append((f"{m.group(3)} · {m.group(4)}", m.group(2)))
         else:

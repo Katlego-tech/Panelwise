@@ -139,8 +139,8 @@ def test_object_causes_key_by_category_and_reason(
     causes = {c.key: c for c in object_causes(rows)}
     assert causes["vehicle · never set dressing"].count == 1
     assert causes["vehicle · never set dressing"].examples == ("boat masts",)
-    # a name holding "; " is still one object, not two pieces
-    assert causes["other · unscripted"].examples == ("rope; coiled",)
+    # a name holding "; " is still one object, not two pieces; unheld, it is background (T083)
+    assert causes["other · not in the script"].examples == ("rope; coiled",)
     assert "other" not in causes
 
 
