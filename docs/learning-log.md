@@ -20,9 +20,10 @@ it before changing the prompt or the audit; add to it after every live run.
 
 - **Seen:** 2026-10-11, measuring T083 with `recheck` on the stored audits of
   [sipho-and-siphokazi](../eval/runs/2026-10-11-sipho-and-siphokazi.md). Of the attempts T083
-  turns from fail to accepted, sipho 4B.1 attempt 3 shows Siphokazi as a boy: its scripted
-  wheelhouse (compass, radio, the taped photograph, the wheel) used to fail as objects, and that
-  alone kept the wrong person off the board.
+  turns from fail to accepted, three show Siphokazi wrong: 4B.1 attempt 3 and 8.2 attempt 1 as a
+  boy, 5.1 attempt 3 as a grown man hauling the rope she grabs in the script. Their scripted things
+  (4B.1's compass, radio, taped photograph and wheel) or everyday background used to fail as
+  objects, and that alone kept the wrong person off the board.
 - **Cause:** with no sex in the prompt or the spec (L002), the judge can't refuse a girl drawn as
   a boy; a strict object check withheld such frames for an unrelated reason.
 - **Action:** T083 waits for T082 before it goes live (merge order T082, then T083), so a wrong
@@ -30,7 +31,8 @@ it before changing the prompt or the audit; add to it after every live run.
   it lets through, not only the count.
 - **Measured:** T083 on the stored audits (`recheck --target storyboard`): sipho-and-siphokazi 7 →
   13 of 30 shots with an accepted attempt, the-red-kite 16 → 19 of 21; of the 10 flipped attempts
-  looked at, 9 correct and 1 wrong (4B.1, the wrong sex).
+  looked at as drawings, 7 correct (the-red-kite 2.1, 2.2, 3.1, 4.4; sipho 4A.1, 7.1, 9.2) and 3
+  wrong, all the wrong sex (sipho 4B.1, 5.1, 8.2).
 
 ### L008 · The word budget drops what the characters do · open
 
@@ -110,7 +112,8 @@ it before changing the prompt or the audit; add to it after every live run.
   (Tumo's call). The rule over all categories was measured first and rejected: it excused
   "small pills", "power lines" (the script's washing lines) and "tripod stand".
 - **Measured:** `recheck` on the stored audits: sipho-and-siphokazi 7 → 13 of 30 shots, the-red-kite
-  16 → 19 of 21. Not yet on a script T083 wasn't designed from (held out): see L009 first.
+  16 → 19 of 21. 3 of the 10 newly accepted attempts are wrong-sex frames (L009), so T083 goes
+  live after T082. Not yet on a script T083 wasn't designed from (held out).
 
 ### L002 · No sex from the script: wrong people drawn, and one accepted · open
 
