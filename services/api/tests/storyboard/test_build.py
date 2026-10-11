@@ -2,6 +2,7 @@
 job with the fal.ai renderer over a scripted fal.ai, a scripted audit, an in-memory store and a
 real Postgres; and frame_of, pure."""
 
+import asyncio
 import logging
 import uuid
 from dataclasses import replace
@@ -20,7 +21,6 @@ from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.job import run_job
 from app.projects.model import ProjectRow
 from app.projects.pipeline import UNEXPECTED
-from app.projects.views import shot_id
 from app.shots import Shot
 from app.storyboard.build import build_storyboard, frame_of
 from app.storyboard.fal import FalRenderer
@@ -54,6 +54,7 @@ class Script:
         self.verdicts: dict[Key, list[Verdict]] = {}
         self.calls: list[Key] = []
         self.broken = False
+        self.delay = 0.0  # seconds each audit takes
 
 
 @pytest.fixture
@@ -66,6 +67,7 @@ def scripted(monkeypatch: pytest.MonkeyPatch) -> Script:
         if script.broken:
             raise RuntimeError("the database went away mid-audit")
         script.calls.append(frame.shot)
+        await asyncio.sleep(script.delay)
         queue = script.verdicts.get(frame.shot, [])
         verdict = queue.pop(0) if queue else Verdict.PASS
         failed = (Check.UNSCRIPTED_PERSON,) if verdict is Verdict.FAIL else ()
@@ -133,25 +135,39 @@ async def test_the_upload_renders_every_shot_and_ends_done_at_100(
 
 
 @pytest.mark.db
-async def test_a_renderer_failure_fails_the_job_naming_the_shot_as_the_web_does(
+async def test_a_failed_frame_leaves_the_storyboard_going(
     sessions: async_sessionmaker[AsyncSession], scripted: Script
 ) -> None:
+    # T066: one renderer error fails its own frame; the others are drawn and the job is done.
     store, fal = MemoryStore(), Fal()
-    fal.statuses = [401]  # fal.ai refuses the key on the first drawing
+    fal.statuses = [401]  # fal.ai refuses the first drawing only
     pid, job = await upload_and_run(sessions, fal, store)
     async with sessions() as s:
         row = await s.get(ProjectRow, pid)
-    assert row is not None and row.plan is not None and row.screenplay is not None
-    plan, screenplay = load_plan(row.plan), load_screenplay(row.screenplay)
-    named = shot_id(screenplay, plan.shots[0])
-    assert (job.state, job.stage) == ("failed", "rendering")
-    assert job.error == RENDER_STAGE_FAILED.format(shot_id=named)
+    assert row is not None and row.plan is not None
+    plan = load_plan(row.plan)
+    assert (job.state, job.stage, job.progress, job.error) == ("done", "rendering", 100, None)
     frames = await rows(sessions, pid)
-    # The first shot failed; the one already in flight (2 at once, FAL_CONCURRENCY's default:
-    # storyboard.md §3.5) was finished and kept, as §4 says: its drawing and audit are paid for.
-    # No third shot started.
-    assert (frames[0].state, frames[0].failure) == ("failed", "render")
-    assert [f.state for f in frames[1:]] == ["passed"]
+    assert len(frames) == len(plan.shots)
+    failed = [(f.state, f.failure) for f in frames if f.state == "failed"]
+    assert failed == [("failed", "render")]
+    assert sum(f.state == "passed" for f in frames) == len(plan.shots) - 1
+
+
+@pytest.mark.db
+async def test_a_renderer_that_fails_every_frame_stops_after_three(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    store, fal = MemoryStore(), Fal()
+    fal.statuses = [401] * 50  # a refused key: every drawing fails
+    pid, job = await upload_and_run(sessions, fal, store)
+    assert (job.state, job.stage, job.error) == ("failed", "rendering", RENDER_STAGE_FAILED)
+    frames = await rows(sessions, pid)
+    # min(3, shots) failed with nothing drawn: no new shot started after the third; the ones in
+    # flight (2 at once) were awaited, so at most one more row exists.
+    assert all(f.state == "failed" for f in frames)
+    assert 3 <= len(frames) <= 4
+    assert scripted.calls == []  # no drawing, so no audit
 
 
 @pytest.mark.db
@@ -174,7 +190,7 @@ async def test_after_a_renderer_failure_no_new_shot_starts(
         client=client,
         key="k",
     )
-    fal.statuses = [401]
+    fal.statuses = [401] * 3  # the first three drawings fail: the renderer looks down
     caplog.set_level(logging.WARNING, logger="app.storyboard.build")
     with pytest.raises(StoryboardError) as failed:
         await build_storyboard(
@@ -182,11 +198,96 @@ async def test_after_a_renderer_failure_no_new_shot_starts(
             writer=FrameWriter(sessions, pid, jid), concurrency=1,
         )  # fmt: skip
     assert failed.value.shot == (plan.shots[0].scene_index, plan.shots[0].number)
-    assert len(fal.posts) == 1 and scripted.calls == []  # one shot at a time: nothing else started
-    assert [f.state for f in await rows(sessions, pid)] == ["failed"]
-    # Never silent (storyboard.md §3.5): the renderer's own message is logged with the shot.
-    (line,) = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    assert "answered 401 for fal-ai/flux/schnell" in line and str(failed.value.shot) in line
+    # One shot at a time: three failed, then nothing else started.
+    assert len(fal.posts) == 3 and scripted.calls == []
+    assert [f.state for f in await rows(sessions, pid)] == ["failed"] * 3
+    # Never silent (storyboard.md §3.5): the renderer's own message is logged with each shot.
+    lines = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(lines) == 3 and all("answered 401 for fal-ai/flux/schnell" in x for x in lines)
+    assert str(failed.value.shot) in lines[0]
+
+
+@pytest.mark.db
+async def test_once_a_frame_is_drawn_failures_are_taken_one_frame_at_a_time(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    store, fal = MemoryStore(), Fal()
+    pid, jid = await project(sessions, store, run=True)
+    async with sessions() as s:
+        row = await s.get(ProjectRow, pid)
+    assert row is not None and row.plan and row.screenplay and row.extraction
+    plan = load_plan(row.plan)
+    screenplay, extraction = load_screenplay(row.screenplay), load_extraction(row.extraction)
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fal))
+    renderer = FalRenderer(
+        style=STYLE, store=store, screenplay=screenplay, extraction=extraction,
+        client=client, key="k",
+    )  # fmt: skip
+    fal.statuses = [200, *[401] * len(plan.shots)]  # one drawn, then every other refused
+    board = await build_storyboard(
+        make(Models()), renderer, plan, screenplay, extraction,
+        writer=FrameWriter(sessions, pid, jid), concurrency=1,
+    )  # fmt: skip
+    states = [f.state for f in board.frames]
+    # Not "down": a frame was drawn first, so every other shot was still tried, each failing alone.
+    assert states == [FrameState.PASSED] + [FrameState.FAILED] * (len(plan.shots) - 1)
+    failed = [f for f in board.frames if f.state is FrameState.FAILED]
+    assert all(f.failure == "render" and f.asset is None for f in failed)
+
+
+@pytest.mark.db
+async def test_a_frame_still_in_its_audit_counts_as_drawn(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    # Review of T066: the first shot draws and sits in a slow audit while the next three fail.
+    # A drawing exists, so the renderer isn't down: the storyboard goes on and the job is done.
+    store, fal = MemoryStore(), Fal()
+    pid, jid = await project(sessions, store, run=True)
+    async with sessions() as s:
+        row = await s.get(ProjectRow, pid)
+    assert row is not None and row.plan and row.screenplay and row.extraction
+    plan = load_plan(row.plan)
+    first = plan.shots[0]
+    plan = replace(plan, shots=tuple(replace(first, number=n) for n in range(1, 6)))
+    screenplay, extraction = load_screenplay(row.screenplay), load_extraction(row.extraction)
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fal))
+    renderer = FalRenderer(
+        style=STYLE, store=store, screenplay=screenplay, extraction=extraction,
+        client=client, key="k",
+    )  # fmt: skip
+    fal.statuses = [200, 401, 401, 401, 401]
+    scripted.delay = 0.5
+    board = await build_storyboard(
+        make(Models()), renderer, plan, screenplay, extraction,
+        writer=FrameWriter(sessions, pid, jid), concurrency=2,
+    )  # fmt: skip
+    states = [f.state for f in board.frames]
+    assert states == [FrameState.PASSED] + [FrameState.FAILED] * 4
+
+
+@pytest.mark.db
+async def test_a_one_shot_plan_whose_frame_fails_stops(
+    sessions: async_sessionmaker[AsyncSession], scripted: Script
+) -> None:
+    store, fal = MemoryStore(), Fal()
+    pid, jid = await project(sessions, store, run=True)
+    async with sessions() as s:
+        row = await s.get(ProjectRow, pid)
+    assert row is not None and row.plan and row.screenplay and row.extraction
+    plan = load_plan(row.plan)
+    plan = replace(plan, shots=plan.shots[:1])
+    screenplay, extraction = load_screenplay(row.screenplay), load_extraction(row.extraction)
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fal))
+    renderer = FalRenderer(
+        style=STYLE, store=store, screenplay=screenplay, extraction=extraction,
+        client=client, key="k",
+    )  # fmt: skip
+    fal.statuses = [401]
+    with pytest.raises(StoryboardError):
+        await build_storyboard(
+            make(Models()), renderer, plan, screenplay, extraction,
+            writer=FrameWriter(sessions, pid, jid), concurrency=1,
+        )  # fmt: skip
 
 
 @pytest.mark.db

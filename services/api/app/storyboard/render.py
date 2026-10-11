@@ -8,10 +8,11 @@ from app.storyboard.prompt import FramePrompt
 from app.storyboard.styles import Style
 from app.verify.model import RecordingRenderer
 
-# storyboard.md §3.5, verbatim: the upload's job, failed at stage rendering by a StoryboardError.
+# storyboard.md §6, verbatim: the upload's job, failed at stage rendering when the renderer looks
+# down (§4 Failure paths; T066). One frame failing on its own is not a job failure.
 RENDER_STAGE_FAILED = (
-    "Shot {shot_id} couldn't be drawn, so the storyboard stopped. The frames already drawn are "
-    "kept: upload the script again to finish it."
+    "No frame could be drawn, so the storyboard stopped. Try again in a few minutes by uploading "
+    "the script again."
 )
 
 

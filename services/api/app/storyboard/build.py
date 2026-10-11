@@ -1,9 +1,12 @@
 """The storyboard (storyboard.md §3.3, §4, §6 `build.py`; T026): every shot through verify's loop,
 at most `concurrency` at once, each attempt and state written by T021's writer as it happens.
 
-A shot whose renderer fails stops the storyboard: no new shot starts, the shots in flight are
-awaited (their drawings and audits are paid for, and their rows are kept), then StoryboardError
-names the first failed shot in plan order. A withheld frame is information, not a failure.
+A shot whose renderer fails ends FAILED, logged, and the storyboard goes on (T066). Only a renderer
+that looks down stops it -- no frame drawn yet (none has reached its audit) and min(3, shots)
+frames failed: then no new shot
+starts, the shots in flight are awaited (their drawings and audits are paid for, and their rows are
+kept), and StoryboardError names the first failed shot in plan order. A withheld frame is
+information, not a failure.
 """
 
 import asyncio
@@ -21,6 +24,8 @@ from app.verify.loop import render_until_accepted
 from app.verify.model import Check, FrameOutcome, FrameState, Severity, Verdict
 
 log = logging.getLogger(__name__)
+
+DOWN_AFTER = 3  # failures with no frame drawn that mean the renderer is down (storyboard.md §4)
 
 _CHECK_ORDER = {check: i for i, check in enumerate(Check)}
 
@@ -50,6 +55,21 @@ def frame_of(outcome: FrameOutcome, record: RenderRecord | None) -> StoryboardFr
     )
 
 
+def _failed(shot: tuple[int, int], states: list[FrameState]) -> StoryboardFrame:
+    """A frame whose renderer raised (§4): FAILED, no drawing, no audit at that attempt."""
+    return StoryboardFrame(
+        shot=shot,
+        state=FrameState.FAILED,
+        asset=None,
+        prompt=None,
+        seed=None,
+        attempts=states.count(FrameState.RENDERING),
+        verdict=Verdict.ERROR,
+        noted_checks=(),
+        failure="render",
+    )
+
+
 async def build_storyboard(
     model: NebiusChatModel,
     renderer: RenderRecorder,
@@ -68,18 +88,22 @@ async def build_storyboard(
     failed: list[tuple[int, int]] = []  # shots whose renderer raised
     errors: list[BaseException] = []  # anything else (an audit or database error)
     settled = 0
+    drawn: set[tuple[int, int]] = set()  # shots that reached their audit: a drawing exists
     total = len(plan.shots)
+    down = False
 
-    async def one(shot: Shot) -> FrameOutcome | None:
-        nonlocal settled
+    async def one(shot: Shot) -> FrameOutcome | StoryboardFrame | None:
+        nonlocal settled, down
         key = (shot.scene_index, shot.number)
         async with gate:
-            if failed or errors:  # something failed: start nothing new
+            if down or errors:  # the renderer looks down, or something else broke: start nothing
                 return None
             log_audit, write_state = frame_hooks(writer, renderer, key)
             states: list[FrameState] = []
 
             async def on_state(state: FrameState, attempt: int) -> None:
+                if state is FrameState.AUDITING:  # drawn, though not yet judged (§4)
+                    drawn.add(key)
                 await write_state(state, attempt)
                 # Recorded once written: the loop enters FAILED only when the renderer raised, so a
                 # write that fails first is never mistaken for the renderer's failure.
@@ -99,33 +123,40 @@ async def build_storyboard(
                     on_state=on_state,
                 )
             except Exception as error:
-                if states and states[-1] is FrameState.FAILED:
-                    # Never silent (§3.5): the renderer's own message, never the key or prompt.
-                    log.warning("shot %s couldn't be drawn: %s", key, error)
-                    failed.append(key)  # the loop has already written the frame FAILED
-                else:
+                if not states or states[-1] is not FrameState.FAILED:
                     errors.append(error)
-                return None
+                    return None
+                # Never silent (§3.5): the renderer's own message, never the key or prompt.
+                log.warning("shot %s couldn't be drawn: %s", key, error)
+                failed.append(key)  # the loop has already written the frame FAILED
+                if not drawn and len(failed) >= min(DOWN_AFTER, total):
+                    down = True
+                result: FrameOutcome | StoryboardFrame = _failed(key, states)
+            else:
+                result = outcome
         settled += 1
         if progress is not None:
             try:
                 await progress(settled, total)
             except Exception:  # progress is shown, not load-bearing: never fail a shot over it
                 log.warning("storyboard progress %d/%d not written", settled, total, exc_info=True)
-        return outcome
+        return result
 
     outcomes = await asyncio.gather(*(one(shot) for shot in plan.shots))
     if errors:
         raise errors[0]
-    if failed:
+    if down:
         order = {(s.scene_index, s.number): i for i, s in enumerate(plan.shots)}
         first = min(failed, key=order.__getitem__)
-        raise StoryboardError(f"the renderer failed on shot {first}", shot=first)
+        raise StoryboardError(f"the renderer looks down: {len(failed)} frame(s) failed", shot=first)
 
     frames: list[StoryboardFrame] = []
     renders = cached = 0
     for outcome in outcomes:
-        if outcome is None:  # unreachable without a failure; kept for the type
+        if outcome is None:  # unreachable unless stopped; kept for the type
+            continue
+        if isinstance(outcome, StoryboardFrame):  # a frame whose renderer failed
+            frames.append(outcome)
             continue
         records = [renderer.record(outcome.shot, a.attempt) for a in outcome.audits]
         renders += sum(not r.cached for r in records)
