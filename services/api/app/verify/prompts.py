@@ -6,7 +6,7 @@ grounded spec and the description, never the image, and may only call and quote.
 
 from app.characters.labels import animals
 from app.grounding import EntityKind, Extraction
-from app.script import Scene
+from app.script import Scene, Screenplay
 from app.shots import Shot
 from app.verify.schema import FrameDescription
 
@@ -43,7 +43,9 @@ JUDGE_PROMPT = (
     "adult, an old man drawn young), or whose apparent sex or look plainly contradicts what its "
     "quotes say (a boy for a character they call 'she', short hair for one they give braids), "
     "is not that character: set `character` to null; a look the quotes don't mention is no "
-    "contradiction. For a "
+    "contradiction. A character's 'sex (from the script)' line, when there is one, is the "
+    "script's own word for their sex: a person drawn as the other sex is not that character. "
+    "For a "
     "person who is "
     "no character, set `support` to a verbatim quote from the shot text or from a quote below "
     "that puts such a person there (for example 'a crowd gathers'), or null if nothing does.\n"
@@ -82,8 +84,27 @@ def _animals(extraction: Extraction, pets: tuple[str, ...], beings: dict[str, st
     ]
 
 
+def _sexed(
+    lines: list[str], names: tuple[str, ...], screenplay: Screenplay, extraction: Extraction
+) -> list[str]:
+    """Each person's line, then their sex and its evidence when the script gives one (T082)."""
+    # Imported here, as audit_frame does: app.storyboard's renderer modules import app.verify.
+    from app.storyboard.prompt import character_sex
+
+    out: list[str] = []
+    for line, name in zip(lines, names, strict=True):
+        out.append(line)
+        if (found := character_sex(name, screenplay, extraction)) is not None:
+            out.append(f'  sex (from the script): {found[0].value}, "{found[1]}"')
+    return out
+
+
 def render_spec(
-    shot: Shot, scene: Scene, extraction: Extraction, description: FrameDescription
+    shot: Shot,
+    scene: Scene,
+    screenplay: Screenplay,
+    extraction: Extraction,
+    description: FrameDescription,
 ) -> str:
     # Animals are described as objects, so the judge sees them apart from the people (T052).
     beings = animals(extraction)
@@ -97,7 +118,13 @@ def render_spec(
         shot.source,
         "",
         "Characters in this shot:",
-        *_quoted(extraction, EntityKind.CHARACTER, people),
+        *(
+            _sexed(
+                _quoted(extraction, EntityKind.CHARACTER, people), people, screenplay, extraction
+            )
+            if people
+            else _quoted(extraction, EntityKind.CHARACTER, people)
+        ),
         "Animals in this shot:",
         *_animals(extraction, pets, beings),
         "Props in this shot:",

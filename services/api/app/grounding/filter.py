@@ -14,9 +14,10 @@ governance_service (faithfulness, recall), and changed where they failed:
 
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from app.characters.redact import NAME_STOP_WORDS, name_tokens
+from app.characters.sex import CONFLICT_WORDS, PRONOUNS, SEX_WORDS, Sex
 from app.grounding.model import Dropped, Entity, EntityKind, GroundingReport, Quote, Source
 from app.grounding.schema import ProposedEntity
 from app.grounding.text import (
@@ -48,6 +49,8 @@ def ground(
         if p.species is not None:
             group.species.append(p.species)
         group.other_names.extend(p.other_names)
+        if p.sex_word is not None:
+            group.sex_words.append(p.sex_word)
 
     # What a species may not be: a word for a person, or a word of a different character's name.
     actions = {e.span for sc in screenplay.scenes for e in sc.elements if isinstance(e, Action)}
@@ -86,6 +89,13 @@ def ground(
             )
 
     characters, recall_found, cues_total = _characters(kept, screenplay)
+    # T082: a person's sex from a copied word; needs the whole cast, so after _characters.
+    sex_words = {
+        normalise(g.name): g.sex_words for g in groups.values() if g.kind is EntityKind.CHARACTER
+    }
+    characters = [
+        _with_sex(c, sex_words.get(normalise(c.name), []), characters, actions) for c in characters
+    ]
     props = [
         Entity(
             EntityKind.PROP,
@@ -147,6 +157,7 @@ class _Group:
     quotes: list[str] = field(default_factory=list[str])
     species: list[str] = field(default_factory=list[str])
     other_names: list[str] = field(default_factory=list[str])
+    sex_words: list[str] = field(default_factory=list[str])
 
 
 @dataclass(frozen=True)
@@ -190,6 +201,56 @@ def _species(
         if any(words in d for d in descriptions):
             return species
     return None
+
+
+def _tokens(entity: Entity) -> frozenset[str]:
+    return name_tokens([entity.name]) | name_tokens(entity.other_names)
+
+
+def _quote_sex(word: str, quote: Quote, entity: Entity, cast: Sequence[Entity]) -> Sex | None:
+    """The sex `word` gives in `quote` when every rule of grounding.md §3 (sex_word, 2a-e) holds:
+    the word is a whole word of it; it names this character and no other (aliases, one's tokens
+    containing the other's, excepted); a pronoun comes after this character's first mention;
+    and every sex word in it agrees."""
+    words = normalise(quote.text).split()
+    own = _tokens(entity)
+    mentions = [i for i, w in enumerate(words) if w in own]
+    if not mentions:
+        return None
+    for other in cast:
+        if other is entity or other.kind is not EntityKind.CHARACTER:
+            continue
+        theirs = _tokens(other)
+        if theirs and not (theirs <= own or own <= theirs) and theirs & set(words):
+            return None
+    lower = word.strip().rstrip(".").lower()
+    sex = SEX_WORDS.get(lower)
+    found = [i for i, w in enumerate(words) if w.lower() == lower]
+    if sex is None or not found:
+        return None
+    if lower in PRONOUNS and not any(i > mentions[0] for i in found):
+        return None
+    if {CONFLICT_WORDS[w.lower()] for w in words if w.lower() in CONFLICT_WORDS} != {sex}:
+        return None
+    return sex
+
+
+def _with_sex(
+    entity: Entity, proposed: Sequence[str], cast: Sequence[Entity], actions: set[Span]
+) -> Entity:
+    """The entity with the sex its copied words ground, all agreeing (grounding.md §3, T082);
+    unchanged for an animal, a CUE backfill or no proposal."""
+    if entity.species is not None or entity.source is not Source.MODEL or not proposed:
+        return entity
+    kept: list[tuple[Sex, Quote]] = []
+    for word in proposed:
+        for quote in entity.quotes:
+            if quote.span in actions and (sex := _quote_sex(word, quote, entity, cast)):
+                kept.append((sex, quote))
+                break
+    if not kept or len({sex for sex, _ in kept}) != 1:
+        return entity
+    return replace(entity, sex=kept[0][0], sex_quote=kept[0][1])
 
 
 def _other_names(group: _Group, script: str) -> tuple[str, ...]:

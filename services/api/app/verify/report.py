@@ -29,9 +29,9 @@ from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.model import ProjectRow
 from app.storyboard.prompt import (
     build_frame_prompt,
+    character_sex,
     introduced_age,
     introduced_look,
-    introduced_sex,
 )
 from app.storyboard.styles import PUBLIC_STYLES, StyleRegistry, load_styles
 from app.verify.model import Check, Severity, Verdict
@@ -324,8 +324,10 @@ def build_report(
     characters = tuple(
         CharacterLine(
             name=e.name,
-            age=age[0] if (age := introduced_age(e.name, screenplay)) else None,
-            sex=introduced_sex(e.name, screenplay),
+            age=age[0] if (age := introduced_age(e.name, screenplay, extraction)) else None,
+            sex=found[0].value
+            if (found := character_sex(e.name, screenplay, extraction))
+            else None,
             look=look[0] if (look := introduced_look(e.name, screenplay)) else None,
         )
         for e in extraction.entities
