@@ -32,6 +32,9 @@ HARBOUR = Scene(
             "Two horses graze by the slipway. Ponies too, and a police officer.", Span(2, 84, 84)
         ),
         Action("Boxes of bait are stacked high.", Span(2, 86, 86)),
+        Action(
+            "It will be a long night. Nobody cares. A bus passes. A door bangs.", Span(2, 87, 87)
+        ),
         Dialogue("SIPHO", None, None, "My yacht is in Durban.", Span(2, 88, 89)),
     ),
     span=Span(2, 74, 82),
@@ -62,6 +65,13 @@ HARBOUR = Scene(
         ("harbour boat", ObjectCategory.VEHICLE, "boats"),
         ("yacht", ObjectCategory.VEHICLE, None),  # only talked about, in dialogue
         ("quayside", ObjectCategory.VEHICLE, None),  # only in the heading
+        ("bees", ObjectCategory.ANIMAL, None),  # never "be" (the code review)
+        ("car", ObjectCategory.VEHICLE, None),  # never "cares"
+        ("car door", ObjectCategory.VEHICLE, None),  # a part is named by its whole, not the door
+        ("buses", ObjectCategory.VEHICLE, "bus"),
+        ("horses", ObjectCategory.ANIMAL, "horses"),
+        ("boxes", ObjectCategory.FOOD, "boxes"),
+        ("wheel", ObjectCategory.VEHICLE, "wheel"),  # residue: the verb in "Gulls wheel"
     ],
 )
 def test_named_in_scene(name: str, category: ObjectCategory, word: str | None) -> None:

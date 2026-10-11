@@ -220,17 +220,23 @@ def part_of_prop(
     return None
 
 
+_SIBILANT = ("s", "x", "z", "ch", "sh")
+
+
 def _forms(word: str) -> set[str]:
     """The word, its plural and, for a plural, its singular (T083): horse/horses, pony/ponies,
-    box/boxes, boats/boat. Irregular plurals (wolves) are not forms."""
-    forms = {word, word + "s", word + "es"}
+    box/boxes, boats/boat. `es` only after a sibilant, so no form is a stray word: `bees` is
+    never "be", `car` never "cares". Irregular plurals (wolves) are not forms."""
+    forms = {word, word + "s"}
+    if word.endswith(_SIBILANT):
+        forms.add(word + "es")
     if word.endswith("y"):
         forms.add(word[:-1] + "ies")
     if word.endswith("ies"):
         forms.add(word[:-3] + "y")
-    if word.endswith("es"):
+    elif word.endswith("es") and word[:-2].endswith(_SIBILANT):
         forms.add(word[:-2])
-    if word.endswith("s") and not word.endswith("ss"):
+    elif word.endswith("s") and not word.endswith("ss"):
         forms.add(word[:-1])
     return forms
 
@@ -238,7 +244,8 @@ def _forms(word: str) -> set[str]:
 def named_in_scene(name: str, category: ObjectCategory, scene: Scene) -> str | None:
     """The word of the scene's action text that names this animal, vehicle, weapon or food
     (T083): its own noun (the name's last word) or, when that is a part word, its whole's
-    (`boat masts` against "fishing-boats"). The name splits on spaces, so `off-road` stays one
+    (`boat masts` against "fishing-boats"), and then only its whole's. The name splits on
+    spaces, so `off-road` stays one
     word; the scene's text on anything but letters. None for any other category, with a copy
     word, or for a word only in the heading or in dialogue."""
     if category not in _NEVER_DRESSING:
@@ -246,9 +253,9 @@ def named_in_scene(name: str, category: ObjectCategory, scene: Scene) -> str | N
     words = [w.strip(".,;:!?'\"()") for w in name.lower().split()]
     if not words or _COPY_WORDS & set(words):
         return None
-    candidates = [words[-1]]
-    if len(words) >= 2 and _forms(words[-1]) & _PART_WORDS:
-        candidates.append(words[-2])
+    # A part is named by its whole only: a `car door` by a car, never by the scene's doors.
+    part = len(words) >= 2 and bool(_forms(words[-1]) & _PART_WORDS)
+    candidates = [words[-2]] if part else [words[-1]]
     text = " ".join(e.text for e in scene.elements if isinstance(e, Action)).lower()
     scene_words = set(re.findall(r"[a-z]+", text))
     for candidate in candidates:
