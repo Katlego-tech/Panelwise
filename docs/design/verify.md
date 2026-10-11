@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T078 (a prop's parts; no drawing marks) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -103,7 +103,9 @@ classDiagram
   what it *should* see, so it can't simply agree.
 - **What the describer leaves out and writes down (T071).** It doesn't list what a person wears
   (that goes in the person's `appearance`) or the place's own structure (walls, floor, ceiling,
-  sky, windows, doors, roofs, chimneys, stairs) as objects. Under `text` it writes, word for
+  sky, windows, doors, roofs, chimneys, stairs) as objects, nor (T078) marks of the drawing
+  itself: shading, hatching, outlines, sketch lines, shadows, the frame's border (it listed
+  "pencil shading" as an object, which failed a good frame). Under `text` it writes, word for
   word, each piece of writing it can actually **read**; a scribble, an unreadable signature or a
   mark that isn't letters is left out of `text` (it may still set `has_text`).
 - **Ages and signatures (T072).** Each person's `appearance` starts with how old they look
@@ -124,6 +126,16 @@ classDiagram
   extraction names anywhere in the script (a `kite` against `RED KITE`): a thing the script
   names is a story choice, so it needs a `scripted_prop` quote, and a second kite stays
   unscripted.
+- **A part of a prop (T078).** The judge calls a `kite string` unscripted when the shot has the
+  `RED KITE` (3 of eval.md §6a's 7 good frames failed so). **Code** (`part_of_prop`) treats an
+  object not called `scripted_prop` as a part of a prop of **this shot** when its name, in lower
+  case, holds that prop's head noun (the last word of the prop's name) **before its own last
+  word**, and no copy word (`second`, `another`, `other`, `extra`, `spare`, `two`, `three`,
+  `more`, `duplicate`): `kite string` and `kite tail` are parts of `RED KITE`; `kite`,
+  `blue kite` and `second kite` end in the head noun, so they are the prop or a copy of it and
+  are judged as before; `spool of wire` holds no `string`, so it isn't part of
+  `SPOOL OF BLUE STRING`. A part is checked as `scripted_prop` with that prop's first quote as
+  its `support`, so it passes, held or not.
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
@@ -277,6 +289,9 @@ async def describe_frame(model: NebiusChatModel, png: bytes) -> tuple[FrameDescr
 #   the blind describer on its own (Tier.VISION, no shot details); audit_frame calls it, and so do
 #   portraits (characters.md), which need only people and has_text
 def seed_for(shot: Shot, attempt: int) -> int: ...          # int.from_bytes(sha256(f"{scene_index}:{number}:{attempt}").digest()[:4], "big")  (unsigned)
+def part_of_prop(name: str, shot: Shot, extraction: Extraction) -> str | None: ...   # T078, pure:
+#   the shot prop whose part `name` is (§3, A part of a prop), or None; the first such prop in
+#   `shot.props` order that the extraction quotes
 def run_checks(shot: Shot, scene: Scene, description: FrameDescription, judgement: Judgement,
                extraction: Extraction) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]: ...   # pure
 async def audit_frame(model: NebiusChatModel, frame: RenderedFrame, shot: Shot, screenplay: Screenplay,
@@ -443,6 +458,8 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | Attempts per frame (T071) | the setting `RENDER_MAX_ATTEMPTS`, 1 to 3, default 3 | a constant 3: when failures are systematic, two of every three drawings buy another FAIL; more than 3: the same spend, faster |
 | A child drawn as an adult (T072) | the judge refuses the match when the apparent age plainly contradicts the character's quoted age, so the person is unscripted | a new `AGE` check in code: the describer's age is a phrase, and matching it to `(10)`, `(70s)` or "old" in code is guessing; leaving it to portraits (T025): T025 waits on the renderer, and 14 of 27 labelled frames (eval.md §6a.2) drew the wrong age |
 | A signature (T072) | always fails `TEXT_IN_FRAME`, readable or not | T071's rule alone: an unreadable signature passed (the live run's shot 5.3); asking the describer to read it: it is writing whether or not it can be read |
+| A part of a prop (T078) | code: the prop's head noun followed by the part's own word, a prop of this shot, no copy word | the judge alone (it called a kite string unscripted 3 times in 27 labelled frames); a shared word (my first draft matched `coil of wire` to `SPOOL OF BLUE STRING` through `of`, and `second kite` to `RED KITE`); a judge prompt saying everyday things are set dressing (2026-10-11: no labelled good frame gained, and a grown man for Lerato passed). Measured on the saved judgements of three runs over the 27 labelled frames: 0, 1 and 2 good frames gained, no labelled-bad frame passing |
+| Drawing marks (T078) | the describer leaves them out | a code list of mark words: the describer's names vary; the judge: it called "pencil shading" unscripted |
 | Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
 | Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
 
@@ -491,6 +508,13 @@ it against the script."*
   heading's words fails against the prop `RED KITE`, a `bucket` doesn't. Live, with Tumo's go-ahead (Token
   Factory only): T071's and T072's audits on eval.md §6a's 27 labelled frames (Katlego's, in the
   dev bucket), scored against his labels, the numbers in the PR; then one upload of the-red-kite.
+- **T078:** `part_of_prop`: `kite string` and `kite tail` → `RED KITE` when the shot has it; `kite`,
+  `blue kite`, `second kite`, `another kite string` → None; `kite string` → None when the shot
+  hasn't the prop; `spool of wire` → None against `SPOOL OF BLUE STRING`. `run_checks`: a
+  `kite string` called `unscripted` (held or not) passes with the prop in the shot and fails
+  without it. The describer prompt names shading, hatching, outlines and the border. Free, with
+  Tumo's go-ahead (Token Factory only): the 27 labelled frames scored with and without T078,
+  with no labelled-bad frame newly passing, the numbers in the PR.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 
