@@ -174,8 +174,9 @@ classDiagram
     Irregular plurals (`wolves`, `geese`) don't match: accepted residue, they stay judged.
   - Measured on every stored audit: the same idea over **all** categories excused "small pills"
     (on "small"), "power lines" (the script's *washing* lines) and "tripod stand" (a verb), each
-    an unscripted thing; the four categories with the own noun only excused 11 of the 2026-10-11
-    sipho-and-siphokazi objects shot by shot, and 32 scene by scene, all of them the script's
+    an unscripted thing; the four categories (with the last and the second-to-last word, before the part-word
+    limit) excused 11 of the 2026-10-11 sipho-and-siphokazi objects shot by shot, and 32 scene by
+    scene, all of them the script's
     boats, fish, the bakkie's wheel and its truck.
 - **Background objects warn (T083; Tumo, 2026-10-11).** An everyday thing the script never
   mentions and nobody holds (a pen on a counter, grass, the moon) withheld a frame as an invented
