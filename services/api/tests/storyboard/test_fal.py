@@ -47,7 +47,8 @@ class Fal:
         self.gets: list[httpx2.Request] = []
         self.statuses: list[int] = []
         self.flags: list[bool] = []
-        self.size_off = False
+        self.size_off = 0  # px the drawing's width is off from the asked width
+        self.round_up_h = 0  # px klein-style rounding adds to the height
         self.network_errors = 0
         self.omit_flags = False  # an answer with no safety result
         self.blacks: list[bool] = []  # the next drawings come back all black, unflagged
@@ -68,8 +69,12 @@ class Fal:
         body = json.loads(request.content)
         w, h = body["image_size"]["width"], body["image_size"]["height"]
         flagged = self.flags.pop(0) if self.flags else False
-        shown_w = w + 16 if self.size_off else w
-        image = {"url": f"https://cdn.fal.test/out/{w}x{h}.png", "width": shown_w, "height": h}
+        shown_w, shown_h = w + self.size_off, h + self.round_up_h
+        image = {
+            "url": f"https://cdn.fal.test/out/{w}x{h}.png",
+            "width": shown_w,
+            "height": shown_h,
+        }
         answer: dict[str, object] = {"images": [image], "seed": body["seed"]}
         if not self.omit_flags:
             answer["has_nsfw_concepts"] = [flagged]
@@ -275,13 +280,34 @@ def test_a_concurrency_below_one_is_refused_at_startup(value: int) -> None:
 async def test_an_image_of_another_size_is_refused(
     fal: Fal, lighthouse: Screenplay, cast: Extraction, slept: list[float]
 ) -> None:
-    fal.size_off = True
+    fal.size_off = 32  # past klein's rounding: the model ignored the size
     store = MemoryStore()
-    with pytest.raises(RendererError, match=r"1296 x 720 .* not the 1280 x 720"):
+    with pytest.raises(RendererError, match=r"1312 x 720 .* not the 1280 x 720"):
         await renderer(fal, store, lighthouse, cast, slept).render(
             shot_of(lighthouse, 0, [0]), 1, 5, 1280, 720
         )
     assert store.objects == {}
+
+
+async def test_a_smaller_image_is_refused(
+    fal: Fal, lighthouse: Screenplay, cast: Extraction, slept: list[float]
+) -> None:
+    fal.size_off = -16
+    with pytest.raises(RendererError, match=r"1264 x 720 .* not the 1280 x 720"):
+        await renderer(fal, MemoryStore(), lighthouse, cast, slept).render(
+            shot_of(lighthouse, 0, [0]), 1, 5, 1280, 720
+        )
+
+
+async def test_klein_s_rounding_up_is_cropped_to_the_asked_size(
+    fal: Fal, lighthouse: Screenplay, cast: Extraction, slept: list[float]
+) -> None:
+    """klein draws in multiples of 32: 720 comes back 736, and fit crops it (storyboard.md §3.5)."""
+    fal.round_up_h = 16
+    frame = await renderer(fal, MemoryStore(), lighthouse, cast, slept).render(
+        shot_of(lighthouse, 0, [0]), 1, 5, 1280, 720
+    )
+    assert (frame.width, frame.height) == (1280, 720)
 
 
 async def test_a_blacked_out_drawing_is_drawn_again_with_a_derived_seed(

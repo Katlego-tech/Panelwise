@@ -33,6 +33,7 @@ from app.storage import AssetStore
 from app.storyboard.build import build_storyboard
 from app.storyboard.model import StoryboardError
 from app.storyboard.render import RENDER_STAGE_FAILED, RenderRecorder
+from app.verify.loop import MAX_RENDERS
 
 if TYPE_CHECKING:  # attempt.py imports fail_job from here: the type only, never the module
     from app.frames.attempt import RendererFactory
@@ -94,6 +95,7 @@ async def run_job(
     model: NebiusChatModel,
     factory: RendererFactory | None = None,
     concurrency: int = 2,
+    max_renders: int = MAX_RENDERS,
 ) -> None:
     """With a renderer factory, the RENDERING stage follows planning (storyboard.md §4, §3.5):
     every frame through verify's loop, `concurrency` at once (FAL_CONCURRENCY), progress 60 to
@@ -143,6 +145,7 @@ async def run_job(
                 model=model,
                 factory=factory,
                 concurrency=concurrency,
+                max_renders=max_renders,
             )
         except StoryboardError:  # the renderer looks down (storyboard.md §4); logged per frame
             await fail_job(sessions, job_id, RENDER_STAGE_FAILED, Stage.RENDERING)
@@ -162,6 +165,7 @@ async def _render(
     model: NebiusChatModel,
     factory: RendererFactory,
     concurrency: int,
+    max_renders: int,
 ) -> None:
     """The RENDERING stage: the storyboard through T021's writer, the job's progress mapped into
     60-100 as frames settle, DONE at 100. A StoryboardError propagates to run_job."""
@@ -190,6 +194,7 @@ async def _render(
         writer=writer,
         progress=progress,
         concurrency=concurrency,
+        max_renders=max_renders,
     )
     async with sessions() as session, session.begin():
         await session.execute(

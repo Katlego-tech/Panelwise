@@ -174,7 +174,10 @@ class FalRenderer:
         if not isinstance(first, dict) or not cast(dict[str, Any], first).get("url"):
             raise RendererError(f"fal.ai answered {self.model} with no image")
         image = cast(dict[str, Any], first)
-        if (image.get("width"), image.get("height")) != draw:
+        # The asked side or up to 31 px more: klein draws in multiples of 32 (720 -> 736), and
+        # fit() crops the excess (storyboard.md §3.5).
+        got = (image.get("width"), image.get("height"))
+        if not all(isinstance(g, int) and 0 <= g - d < 32 for g, d in zip(got, draw, strict=True)):
             raise RendererError(
                 f"fal.ai drew {image.get('width')} x {image.get('height')} for {self.model}, "
                 f"not the {draw[0]} x {draw[1]} asked for"

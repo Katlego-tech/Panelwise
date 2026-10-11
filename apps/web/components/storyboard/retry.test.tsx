@@ -51,6 +51,8 @@ const audit = (over: Partial<AuditView> = {}): AuditView => ({
     shot_size: "medium",
     objects: [],
     has_text: false,
+    text: [],
+    signature: false,
   },
   judgement: {
     people: [
