@@ -80,8 +80,7 @@ history and in the Log. Main's gate: 11 checks, 1,042 API tests, 338 web tests.
   `NEXT_PUBLIC_SUPABASE_*` values (the publishable key, never the secret one). Use Node 24.x.
 - Root directory `apps/web`.
 - Expected: sign-in works, `/projects` says "Your screenplays can't be loaded right now", and
-  `/api/health` answers
-  502 until the API exists.
+  `/api/health` answers 502 until the API exists.
 - Then put the Vercel URL under 🛠️ Environment & access below. Every push to `main` redeploys it.
 
 **2. Render, later.** #80/#81 were written on 2026-10-09, before T026 and T069.
