@@ -134,6 +134,7 @@ describe("card text (web.md §4.3)", () => {
     expect(checkWords("audit_error")).toBe("the audit couldn't run");
     expect(checkWords("setting")).toBe("wrong setting");
     expect(checkWords("signature")).toBe("artist's signature"); // T077
+    expect(checkWords("no_character")).toBe("no character in frame"); // T080
   });
 });
 

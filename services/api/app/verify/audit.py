@@ -47,6 +47,8 @@ _SEVERITY = {
     Check.FRAMING: Severity.SOFT,
     # An artist's mark is no character, prop, line or event: shown, never withheld (T077).
     Check.SIGNATURE: Severity.SOFT,
+    # None of the people the prompt drew is in the frame: it isn't this shot (T080).
+    Check.NO_CHARACTER: Severity.HARD,
 }
 # Things a location never "naturally holds": each is a story choice the script must make.
 # A sign may be dressing (T071): its words are what could be unscripted, and TEXT_IN_FRAME
@@ -140,6 +142,8 @@ def run_checks(
     description: FrameDescription,
     judgement: Judgement,
     extraction: Extraction,
+    *,
+    on_screen: tuple[str, ...] = (),
 ) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]:
     if not (
         _calls_each_once([c.person for c in judgement.people], len(description.people))
@@ -222,6 +226,8 @@ def run_checks(
     failures[Check.MISSING_CHARACTER] += [
         f"{name} not seen" for name in people if name not in positions
     ]
+    if on_screen and not any(name in positions for name in on_screen):  # T080
+        failures[Check.NO_CHARACTER].append(f"none of {', '.join(on_screen)} in frame")
 
     time = (shot.time_of_day or "").upper()
     if (description.light is Light.DAY and time in _NIGHT_TIMES) or (
@@ -310,7 +316,14 @@ async def audit_frame(
         checks: tuple[CheckResult, ...] = ()
         verdict, positions = Verdict.ERROR, {}
     else:
-        checks, verdict, positions = run_checks(shot, scene, description, judgement, extraction)
+        # T080: against the people the prompt drew. Imported here: T026's renderer modules in
+        # app.storyboard import app.verify, so a module-level import would be a cycle there.
+        from app.storyboard.prompt import visible_characters
+
+        on_screen = visible_characters(shot, screenplay, extraction)
+        checks, verdict, positions = run_checks(
+            shot, scene, description, judgement, extraction, on_screen=on_screen
+        )
 
     return Audit(
         shot=frame.shot,
