@@ -22,6 +22,7 @@ export const COMIC_COPY = {
   makeAgain: "Make the comic again",
   starting: "Starting…",
   startFailed: "The comic couldn't be started. Try again.",
+  budgetSpent: "The demo has used this month's model budget.", // T069
   download: "Download PDF",
   traced: "From the script",
   traceEmpty: "Select any bubble or caption to see the script line it comes from.",

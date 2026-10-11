@@ -387,3 +387,49 @@ async def test_from_settings_passes_the_connect_timeout_and_5_attempts(
         await model.chat(HI)
     assert len(rec.requests) == 5
     assert rec.requests[0].extensions["timeout"]["connect"] == 10.0
+
+
+# --- usage (T069, limits.md §6) ---------------------------------------------------
+
+
+async def test_on_usage_is_awaited_once_per_answer_and_never_for_a_failure() -> None:
+    seen: list[tuple[int, int]] = []
+
+    async def meter(result: Any) -> None:
+        seen.append((result.usage.prompt_tokens, result.usage.completion_tokens))
+
+    rec = Recorder(ok(completion(usage={"prompt_tokens": 9, "completion_tokens": 4})), ok({}, 400))
+    model = NebiusChatModel(
+        api_key=KEY,
+        base_url="https://api.tokenfactory.nebius.com/v1",
+        models=MODELS,
+        transport=httpx2.MockTransport(rec),
+        sleep=Sleeps(),
+        on_usage=meter,
+    )
+    await model.chat(HI)
+    with pytest.raises(LLMRequestError):
+        await model.chat(HI)
+    assert seen == [(9, 4)]
+
+
+async def test_an_empty_answer_is_billed_so_it_is_counted_before_it_raises() -> None:
+    # Review of T069: a reasoning call that spends max_tokens thinking returns no content but is
+    # billed; the budget must see it.
+    seen: list[tuple[int, int]] = []
+
+    async def meter(result: Any) -> None:
+        seen.append((result.usage.prompt_tokens, result.usage.completion_tokens))
+
+    empty = completion(None, usage={"prompt_tokens": 50, "completion_tokens": 4000})
+    model = NebiusChatModel(
+        api_key=KEY,
+        base_url="https://api.tokenfactory.nebius.com/v1",
+        models=MODELS,
+        transport=httpx2.MockTransport(Recorder(ok(empty))),
+        sleep=Sleeps(),
+        on_usage=meter,
+    )
+    with pytest.raises(LLMEmptyResponse):
+        await model.chat(HI)
+    assert seen == [(50, 4000)]

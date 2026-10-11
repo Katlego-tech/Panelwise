@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from functools import partial
 from pathlib import Path
 
 import httpx2
@@ -18,6 +19,7 @@ from app.core.config import Settings
 from app.db import make_engine, make_sessions
 from app.frames.attempt import RendererFactory
 from app.jobs import fail_interrupted, fail_interrupted_frames
+from app.limits.usage import record_usage
 from app.llm import LLMConfigError, NebiusChatModel
 from app.storage import AssetStore, SupabaseStore
 from app.storyboard.fal import fal_factory
@@ -102,6 +104,8 @@ def create_app(
                 app.state.model = NebiusChatModel.from_settings(settings)
             except LLMConfigError:
                 app.state.model = None
+            else:  # every answer's tokens count toward the month (limits.md §4, T069)
+                app.state.model.on_usage = partial(record_usage, sessions)
         else:
             app.state.model = model
         # The styles load whether or not there's a renderer: a storyboard drawn earlier can still
