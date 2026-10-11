@@ -192,7 +192,8 @@ truncates drops the tail.
   `OFF` (comic.md's list), or if one of their name tokens (below, `other_names` included) appears in
   a covered `Action` text. A planner-listed character the covered text never shows is not counted,
   and neither is an off-screen or voice-over speaker. **Listeners (T079):** when the covered
-  elements put no one on screen but one of them is a line spoken off screen, the planner's other
+  elements put no one on screen but one of them is a line spoken off screen, by anyone (a
+  `RADIO ANNOUNCER (V.O.)` the planner doesn't list too: the T079 review), the planner's other
   characters (not that speaker, no animal) are on screen: someone hears the line. On 2026-10-11
   the-red-kite's shot 1.3 was only `MOKGOSI (O.S.)`'s line, so the prompt asked for no one and
   klein drew an empty roof, where the planner had Lerato. **People only (T052):** the signature becomes
@@ -565,10 +566,15 @@ def introduced_sex(character: str, screenplay: Screenplay) -> Literal["female", 
 #   in that same introducing element: "she"/"he" in the introducing sentence (from the name to the sentence's
 #   end or the next `NAME (` introduction) and "her"/"his" inside its `introduced_look`, whole words, any case;
 #   one sex only, else None ("watches her" after MAMA THEMBI is Siphokazi, an object: not counted; a later
-#   sentence's "She waves" may be anyone)
+#   sentence's "She waves" may be anyone). T079 review: the stretch also ends at another character's name
+#   (any dialogue cue or `NAME (` introduction, titles aside): `watches SIPHO as he counts` is Sipho's "he";
+#   a prop in capitals (RED KITE) is no name
 def introduced_look(character: str, screenplay: Screenplay) -> tuple[str, Span] | None: ...   # T079, pure
 #   §3.1's LOOK: the parenthesis's items after the age and the comma phrase right after it, each at most 8
-#   words, verbatim (whitespace collapsed), joined by ", "; the introducing element's span; None if empty
+#   words, verbatim (whitespace collapsed), joined by ", "; the introducing element's span; None if empty.
+#   T079 review: an item with a parenthesis or a number, starting with and/who/then/as/while/but, or naming
+#   another character ("Grace's daughter") is no look; nor is anything when the parenthesis doesn't close
+#   before the sentence ends
 @dataclass(frozen=True) class PromptPart: kind: PartKind; text: str; span: Span | None
 @dataclass(frozen=True)
 class FramePrompt:
