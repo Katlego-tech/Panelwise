@@ -25,7 +25,10 @@ from app.storyboard import (
     PartKind,
     Style,
     build_frame_prompt,
+    introduced_age,
+    introduced_look,
     load_styles,
+    visible_characters,
 )
 from tests.storyboard.conftest import SENTINEL_RATIONALE, extraction_of, shot_of
 from tools.build_samples import SAMPLES
@@ -124,6 +127,36 @@ def check(
             # A closed vocabulary, never redacted: the clock word itself, from that heading.
             assert text.upper() in ABSOLUTE_TIMES, where
             assert norm(text) in norm(heading_line(screenplay, part.span)), where
+            continue
+        elif part.kind is K.AGE:
+            # T074: the line that introduces one of the shot's visible characters, and the age's
+            # number in a parenthesis right after that character's name there.
+            visible = visible_characters(shot, screenplay, extraction)
+            # Two characters can share an age phrase and a line: keep every name for each.
+            names_for: dict[tuple[str, Span], list[str]] = {}
+            for c in visible:
+                if (age := introduced_age(c, screenplay)) is not None:
+                    names_for.setdefault(age, []).append(c)
+            assert (part.text, part.span) in names_for, f"{where}: {part} introduces no one shown"
+            name = names_for[(part.text, part.span)][0]
+            number = re.search(r"\d+", part.text)
+            assert number is not None, where
+            line = next(
+                e.text for s in screenplay.scenes for e in s.elements if e.span == part.span
+            )
+            assert re.search(rf"{re.escape(name)}\s*\(\s*{number.group()}", line), where
+            continue
+        elif part.kind is K.LOOK:
+            # T079: the line that introduces one of the shot's visible characters; each of the
+            # look's comma items is a verbatim, redacted piece of that line.
+            visible = visible_characters(shot, screenplay, extraction)
+            spans = {look[1] for c in visible if (look := introduced_look(c, screenplay))}
+            assert part.span in spans, f"{where}: {part} introduces no one shown"
+            line = next(
+                e.text for s in screenplay.scenes for e in s.elements if e.span == part.span
+            )
+            for item in text.split(", "):
+                assert norm(item) in norm(redact_all(line, names)), f"{where}: {part}"
             continue
         elif part.kind is K.ACTION:
             element = covered.get(part.span)
