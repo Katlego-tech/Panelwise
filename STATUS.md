@@ -108,6 +108,27 @@ history and in the Log. Main's gate: 11 checks, 1,042 API tests, 338 web tests.
 **Latest live result (2026-10-11):** the-red-kite on klein at 3 attempts accepted 16 of 21 frames.
 Lerato is drawn as a girl with braids. Details are in the Log.
 
+### 👋 For Tumo (from Katlego, 2026-10-11)
+
+**#80 (T063's design) is merged.** It covers your "Render, later" list, with two choices that differ
+from your note. Say if you want either changed, and it becomes a small follow-up PR:
+- **Plan `0.5c-512mb`, paid** (Starter before Render's 26 Aug rename; ~$7/month). Your 134 MB run
+  fits; T063's Verify adds the comic job at 512 MB before paying, and `1c-2g` if it doesn't fit.
+- **Migrations stay in the image's `CMD`**, not a pre-deploy command. With one instance a failed
+  migration already leaves the new deploy unhealthy and Render keeps the old one; compose starts
+  the API the same way Render does (deploy.md §8).
+- **`keepalive.yml` stays**: it is the only uptime alert (GitHub emails a failed run) and keeps a
+  free Supabase project from pausing. Drop it if Supabase goes paid or you prefer another monitor.
+- **Also in #80:** the public styles move into the API image (`services/api/styles`, a root
+  symlink), `FAL_KEY` in `render.yaml`, Vercel functions in `fra1`. `FAL_MODEL`,
+  `RENDER_MAX_ATTEMPTS` and `NEBIUS_MODEL_VISION` are left to their code defaults, which are the
+  right values. T069's cap figures stay yours in T030.
+- **Next:** #81 (the code) is rebased on #80; it lands after its review. Then T037's deploy check
+  on the Render account.
+- **Token Factory spend (~$4):** checked against our runs and your re-audits; no key in git
+  history, PRs or comments (gitleaks + a search for the key itself). Plan: one key per person and
+  one for the hosted API, so the console shows who spent what.
+
 ### The rest
 
 Remaining work waits on things the team owns — GPU access or a renderer decision, hosting accounts —
