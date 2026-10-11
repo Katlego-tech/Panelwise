@@ -1127,6 +1127,7 @@ shared (components/shared/): Verdict, SpanRef, Quote (Courier), Meter (T040); Jo
 Check names in words: `unscripted_person` "unscripted person", `unscripted_object` "unscripted
 object", `text_in_frame` "text in frame", `setting` "wrong setting", `missing_character` "missing
 character", `light` "light", `framing` "framing", `signature` "artist's signature" (T077),
+`no_character` "no character in frame" (T080),
 `audit_error` "the audit couldn't run".
 
 ## 7. Structure

@@ -411,6 +411,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:verify.md §6 verbatim: `part_of_prop(name: str, category: ObjectCategory, shot: Shot, extraction: Extraction) -> str | None`
       Verify:  bash scripts/gate.sh (tests first: verify.md §9's T078 list); free, with Tumo's go-ahead: the 27 labelled frames with and without T078
       Done:    a kite string with the RED KITE in the shot passes, a second kite still fails, and no labelled-bad frame passes that T072 withheld
+- [ ] T080 [US2] **The judge refuses a wrong sex or look; a frame with none of the people the prompt drew fails.** Found on 2026-10-11 (klein, 3 attempts): Lerato drawn as a short-haired boy was matched to her in 9 accepted frames, and shot 1.3, an empty roof, was shown with a warning. Lane `verify` (Claude for Tumo). Stacked on T078 (#123/#124).
+      Design:  docs/design/verify.md §3 (What the judge is told, the checks table), §6 (`Check.NO_CHARACTER`, `run_checks(..., on_screen)`), §8 (two rows), §9 (T080); web.md §6 Copy (`no_character`)
+      Files:   services/api/app/verify/{model,audit,prompts}.py; apps/web/components/storyboard/cards.ts; tests under services/api/tests/verify/ and apps/web
+      Contract:verify.md §6 verbatim: `Check.NO_CHARACTER`, hard; `run_checks(..., *, on_screen: tuple[str, ...] = ())`
+      Verify:  bash scripts/gate.sh (tests first: verify.md §9's T080 list); free: the 27 labelled frames and the 2026-10-11 klein run's stored drawings
+      Done:    a frame with none of the drawn people fails NO_CHARACTER, a shot heard only off screen never does, and the judge's prompt refuses a contradicted sex or look
 - [ ] T077 [US2] **A signature warns; it no longer withholds a frame.** Found on 2026-10-11 re-judging stored drawings: with the signature as a hard fail the-red-kite accepted 2 of 22 klein frames, without it 6 (schnell: 3 → 4 of 21). A mark in a corner is no character, prop, line or event. Lane `verify` (Claude for Tumo). Stacked on T072 (#116/#117).
       Design:  docs/design/verify.md §3 (Ages and signatures, the checks table), §6 (`Check.SIGNATURE`), §8 (the signature row), §9 (T077); web.md §6 Copy (`signature`)
       Files:   services/api/app/verify/{model,audit}.py; apps/web/components/storyboard/cards.ts; tests under services/api/tests/verify/ and apps/web
