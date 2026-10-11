@@ -405,6 +405,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:verify.md §6 verbatim: `FrameDescription.signature: bool`; `TEXT_IN_FRAME` fails on `signature`; the describer's age-first appearance; the judge prompt's age, set dressing and weather rules
       Verify:  bash scripts/gate.sh (tests first: verify.md §9's T072 list); live, with Tumo's go-ahead: T071's and T072's audits scored on Katlego's 27 labelled frames, then one upload of the-red-kite
       Done:    on Katlego's 27 labelled frames, T072's audit agrees with his labels more often than T071's, with no labelled-bad frame newly passing, and a frame that draws a child as an adult or carries a signature is withheld
+- [ ] T078 [US2] **A part of a shot's prop is that prop; the describer leaves out the drawing's own marks.** Found on 2026-10-11 on eval.md §6a's 27 labelled frames: the good frames failed on a `kite string` of the RED KITE (3 times) and on "pencil shading". Measured on saved judgements: 21 → 23 of 27 agree, no labelled-bad frame newly passing. Lane `verify` (Claude for Tumo). Stacked on T072 (#116/#117).
+      Design:  docs/design/verify.md §3 (What the describer leaves out, A part of a prop), §6 (`part_of_prop`), §8 (two rows), §9 (T078)
+      Files:   services/api/app/verify/{prompts,audit}.py; services/api/tests/verify/
+      Contract:verify.md §6 verbatim: `part_of_prop(name: str, category: ObjectCategory, shot: Shot, extraction: Extraction) -> str | None`
+      Verify:  bash scripts/gate.sh (tests first: verify.md §9's T078 list); free, with Tumo's go-ahead: the 27 labelled frames with and without T078
+      Done:    a kite string with the RED KITE in the shot passes, a second kite still fails, and no labelled-bad frame passes that T072 withheld
 - [ ] T077 [US2] **A signature warns; it no longer withholds a frame.** Found on 2026-10-11 re-judging stored drawings: with the signature as a hard fail the-red-kite accepted 2 of 22 klein frames, without it 6 (schnell: 3 → 4 of 21). A mark in a corner is no character, prop, line or event. Lane `verify` (Claude for Tumo). Stacked on T072 (#116/#117).
       Design:  docs/design/verify.md §3 (Ages and signatures, the checks table), §6 (`Check.SIGNATURE`), §8 (the signature row), §9 (T077); web.md §6 Copy (`signature`)
       Files:   services/api/app/verify/{model,audit}.py; apps/web/components/storyboard/cards.ts; tests under services/api/tests/verify/ and apps/web

@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -103,7 +103,9 @@ classDiagram
   what it *should* see, so it can't simply agree.
 - **What the describer leaves out and writes down (T071).** It doesn't list what a person wears
   (that goes in the person's `appearance`) or the place's own structure (walls, floor, ceiling,
-  sky, windows, doors, roofs, chimneys, stairs) as objects. Under `text` it writes, word for
+  sky, windows, doors, roofs, chimneys, stairs) as objects, nor (T078) marks of the drawing
+  itself: shading, hatching, outlines, sketch lines, shadows, the frame's border (it listed
+  "pencil shading" as an object, which failed a good frame). Under `text` it writes, word for
   word, each piece of writing it can actually **read**; a scribble, an unreadable signature or a
   mark that isn't letters is left out of `text` (it may still set `has_text`).
 - **Ages and signatures (T072).** Each person's `appearance` starts with how old they look
@@ -126,6 +128,20 @@ classDiagram
   extraction names anywhere in the script (a `kite` against `RED KITE`): a thing the script
   names is a story choice, so it needs a `scripted_prop` quote, and a second kite stays
   unscripted.
+- **A part of a prop (T078).** The judge calls a `kite string` unscripted when the shot has the
+  `RED KITE` (3 of eval.md §6a's 7 good frames failed so). **Code** (`part_of_prop`) treats an
+  object as a part of a prop of **this shot** that the extraction quotes when its name, in lower
+  case, has that prop's head noun (the last word of the prop's name) as its **second-to-last
+  word**, has no copy word (`second`, `another`, `other`, `extra`, `spare`, `two`, `three`,
+  `more`, `duplicate`), and its category is not one that is never set dressing (`animal`,
+  `vehicle`, `weapon`, `food`): `kite string` and `kite tail` are parts of `RED KITE`; `kite`,
+  `blue kite` and `second kite` end in the head noun, so they are the prop or a copy of it and
+  are judged as before; `map of the town`, `box of matches` and `kite tail string` don't have
+  the head noun next to last, so they are judged as before; `spool of wire` holds no `string`.
+  A part passes whatever the judge called it, held or not: its support is the prop's own
+  quote, already in the shot's supports. **Accepted residue:** a compound where the prop's noun
+  only modifies (`coat hanger` with the `oilskin coat` in the shot, `kite shop`) reads as a part;
+  no rule on words tells them apart, and it needs that very prop in the shot.
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
@@ -280,6 +296,9 @@ async def describe_frame(model: NebiusChatModel, png: bytes) -> tuple[FrameDescr
 #   the blind describer on its own (Tier.VISION, no shot details); audit_frame calls it, and so do
 #   portraits (characters.md), which need only people and has_text
 def seed_for(shot: Shot, attempt: int) -> int: ...          # int.from_bytes(sha256(f"{scene_index}:{number}:{attempt}").digest()[:4], "big")  (unsigned)
+def part_of_prop(name: str, category: ObjectCategory, shot: Shot, extraction: Extraction) -> str | None: ...   # T078, pure:
+#   the shot prop whose part `name` is (§3, A part of a prop), or None; the first such prop in
+#   `shot.props` order that the extraction quotes
 def run_checks(shot: Shot, scene: Scene, description: FrameDescription, judgement: Judgement,
                extraction: Extraction) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]: ...   # pure
 async def audit_frame(model: NebiusChatModel, frame: RenderedFrame, shot: Shot, screenplay: Screenplay,
@@ -446,6 +465,8 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | Attempts per frame (T071) | the setting `RENDER_MAX_ATTEMPTS`, 1 to 3, default 3 | a constant 3: when failures are systematic, two of every three drawings buy another FAIL; more than 3: the same spend, faster |
 | A child drawn as an adult (T072) | the judge refuses the match when the apparent age plainly contradicts the character's quoted age, so the person is unscripted | a new `AGE` check in code: the describer's age is a phrase, and matching it to `(10)`, `(70s)` or "old" in code is guessing; leaving it to portraits (T025): T025 waits on the renderer, and 14 of 27 labelled frames (eval.md §6a.2) drew the wrong age |
 | A signature (T072, T077; Tumo, 2026-10-11) | the soft `SIGNATURE` check (T077): logged and shown, the frame `WARN`; words read in it are still `text`. On eval.md §6a's 27 labelled frames this passes 2 that Katlego labelled bad for their signature (one also had a second kite the describer missed): by this decision a signature is no grounding failure, so those labels count the signature as a note | a hard fail (T072): on 2026-10-11, re-judging the same stored drawings, it withheld 4 more of the-red-kite's 22 klein frames (6 accepted with T077, 2 without) and 1 of its 21 schnell frames, each otherwise right, and a mark in a corner is no character, prop, line or event; T071's rule alone (no flag): the flag stays, so a reviewer sees the mark; cropping the border to remove it: halved signatures in a 2026-10-10 experiment, and is renderer post-processing, after the renderer decision |
+| A part of a prop (T078) | code: the prop's head noun right before the part's own word, a prop of this shot, no copy word, never an animal, vehicle, weapon or food; the judge's call doesn't matter | the judge alone (it called a kite string unscripted 3 times in 27 labelled frames); a shared word (my first draft matched `coil of wire` to `SPOOL OF BLUE STRING` through `of`, and `second kite` to `RED KITE`); a judge prompt saying everyday things are set dressing (2026-10-11: no labelled good frame gained, and a grown man for Lerato passed). Measured on the saved judgements of three runs over the 27 labelled frames: 0, 1 and 2 good frames gained, no labelled-bad frame passing |
+| Drawing marks (T078) | the describer leaves them out | a code list of mark words: the describer's names vary; the judge: it called "pencil shading" unscripted |
 | Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
 | Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
 
@@ -499,6 +520,15 @@ it against the script."*
   (`FAIL`); `signature` false fails neither. The web names `signature` "artist's signature".
   Free (Token Factory only): T072's and T077's audits on eval.md §6a's 27 labelled frames; the
   only labelled-bad frames newly passing are ones labelled for a signature, the numbers in the PR.
+- **T078:** `part_of_prop`: `kite string` and `kite tail` → `RED KITE` when the shot has it; `kite`,
+  `blue kite`, `second kite`, `another kite string`, `map of the town`, `kite tail string` → None;
+  `kite string` → None when the shot hasn't the prop or the extraction has no quote of it;
+  `spool of wire` → None against `SPOOL OF BLUE STRING`; a `weapon`, `animal`, `vehicle` or
+  `food` → None. `run_checks`: a held `kite string` passes with the prop in the shot whether
+  called `unscripted`, `set_dressing` or `scripted_prop` with no support, and fails without the
+  prop; a held `map knife` of category `weapon` still fails. The describer prompt names shading, hatching, outlines and the border. Free, with
+  Tumo's go-ahead (Token Factory only): the 27 labelled frames scored with and without T078,
+  with no labelled-bad frame newly passing, the numbers in the PR.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 
