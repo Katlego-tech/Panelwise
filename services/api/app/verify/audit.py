@@ -105,6 +105,31 @@ def _named_prop(name: str, props: Sequence[frozenset[str]]) -> bool:
     return bool(words) and any(words <= prop for prop in props)
 
 
+# Words that make a thing another copy of a prop rather than a part of it (T078).
+_COPY_WORDS = frozenset(
+    {"second", "another", "other", "extra", "spare", "two", "three", "more", "duplicate"}
+)
+
+
+def part_of_prop(
+    name: str, category: ObjectCategory, shot: Shot, extraction: Extraction
+) -> str | None:
+    """The shot prop whose part `name` is (T078): the prop's head noun (its name's last word) is
+    the name's second-to-last word, with no copy word, and never an animal, vehicle, weapon or
+    food. `kite string` is part of `RED KITE`; `kite`, `blue kite`, `second kite` and
+    `map of the town` are judged as before."""
+    words = normalize_for_grounding(name).lower().split()
+    if len(words) < 2 or _COPY_WORDS & set(words) or category in _NEVER_DRESSING:
+        return None
+    for prop in shot.props:
+        quoted = any(
+            e.kind is EntityKind.PROP and e.name == prop and e.quotes for e in extraction.entities
+        )
+        if quoted and normalize_for_grounding(prop).lower().split()[-1:] == words[-2:-1]:
+            return prop
+    return None
+
+
 def _calls_each_once(indexes: Sequence[int], n: int) -> bool:
     return sorted(indexes) == list(range(n))
 
@@ -161,6 +186,8 @@ def run_checks(
         what = f"object {call.object} ({obj.name}, {obj.category})"
         if obj.category in _NEVER_UNSCRIPTED and not obj.held:
             continue
+        if part_of_prop(obj.name, obj.category, shot, extraction):
+            continue  # T078: whatever the judge said; its support is the prop's quote
         match call.kind:
             case ObjectKind.UNSCRIPTED:
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: unscripted")
