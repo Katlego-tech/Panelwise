@@ -4,9 +4,16 @@ warns (docs/design/verify.md §3, §6, §9)."""
 import pytest
 
 from app.grounding import Extraction
-from app.script import Action, IntExt, Scene, Screenplay, Span
+from app.script import Action, IntExt, Scene, Screenplay, Span, parse_text
+from app.storyboard.prompt import introduced_years
 from app.verify import Check, Verdict, run_checks
-from app.verify.audit import age_contradicts, described_age, inside_vehicle, part_of_vehicle
+from app.verify.audit import (
+    age_contradicts,
+    described_age,
+    inside_vehicle,
+    part_of_vehicle,
+    shot_ages,
+)
 from app.verify.model import ObjectCategory
 from tests.verify.conftest import described, judged, kitchen_shot
 
@@ -222,3 +229,67 @@ def test_food_the_scene_names_still_passes(extraction: Extraction) -> None:
     )
     assert Check.UNSCRIPTED_OBJECT not in failed
     assert Check.BACKGROUND_OBJECT not in failed
+
+
+def test_an_age_refused_match_is_never_excused_as_a_stranger(
+    extraction: Extraction, screenplay: Screenplay
+) -> None:
+    checks, _, positions = run_checks(
+        kitchen_shot(),
+        screenplay.scenes[0],
+        described(people=[{"position": "left", "appearance": "an adult seen from behind"}]),
+        judged(people=[{"person": 0, "character": "NANDI", "support": "Rain hammers the window."}]),
+        extraction,
+        ages={"NANDI": 9},
+    )
+    failed = {c.check: c.detail for c in checks if not c.ok}
+    assert "described as adult, but NANDI is introduced at 9" in failed[Check.UNSCRIPTED_PERSON]
+    assert positions == {}
+
+
+@pytest.mark.parametrize(
+    ("line", "years"),
+    [
+        ("THEO (9), in pyjamas, sleeps.", 9),
+        ("THEO (9 years old) sleeps.", 9),
+        ("DANIEL (40s), a tall driver, climbs out.", 40),
+        ("THEO (5 months) sleeps.", None),
+    ],
+)
+def test_introduced_years(line: str, years: int | None) -> None:
+    screenplay = parse_text(f"INT. ROOM - NIGHT\n\n{line}\n", [])
+    assert introduced_years(line.split(" (")[0], screenplay) == years
+
+
+def test_shot_ages_keeps_only_characters_with_an_age(screenplay: Screenplay) -> None:
+    years = {"NANDI": 60}
+    assert shot_ages(
+        kitchen_shot(characters=("NANDI", "THABO")), screenplay, lambda c, _: years.get(c)
+    ) == {"NANDI": 60}
+
+
+@pytest.mark.parametrize(
+    ("support", "fails"), [("pours tea into two chipped mugs", False), ("a loaf of rye", True)]
+)
+def test_a_scripted_food_prop_needs_its_support(
+    support: str, fails: bool, extraction: Extraction
+) -> None:
+    scene = Scene(
+        index=0,
+        number="1",
+        heading="INT. NOMSA'S BAKERY - NIGHT",
+        int_ext=IntExt.INT,
+        location="NOMSA'S BAKERY",
+        time_of_day="NIGHT",
+        elements=(Action("Nomsa slices the bread.", Span(1, 1, 1)),),
+        span=Span(1, 1, 1),
+    )
+    checks, _, _ = run_checks(
+        kitchen_shot(),
+        scene,
+        described(objects=[{"name": "loaf", "category": "food", "held": False}]),
+        judged(objects=[{"object": 0, "kind": "scripted_prop", "support": support}]),
+        extraction,
+    )
+    failed = {c.check: c.detail for c in checks if not c.ok}
+    assert (Check.UNSCRIPTED_OBJECT in failed) is fails
