@@ -26,8 +26,10 @@ it before changing the prompt or the audit; add to it after every live run.
   sentence whose subject is a pronoun or an unintroduced name is read by klein as being about
   whoever is drawn. The audit can't see it: a salute is no object and no person.
 - **Action:** none yet. To consider, measured free on the stored prompts: drop an action sentence
-  whose subject pronoun points at a character who isn't drawn in the shot (T088's antecedent code
-  can tell whose "He" it is).
+  whose subject is a pronoun or a name not in the shot's drawn cast. That needs a new resolver:
+  T088's `_pronoun_evidence` only links a pronoun to a name opening the sentence before it, so
+  it doesn't cover 5.3 (its "He" follows a line of dialogue), and "Biscuit opens both." has no
+  pronoun at all.
 - **Measured:** not yet.
 
 ### L015 · klein draws two panels in one frame · open
@@ -163,7 +165,8 @@ it before changing the prompt or the audit; add to it after every live run.
   right for every person; only the quotes it gave were bad, so it is now a claim the script's own
   subject pronouns must support. Still missed: PRIYA, TEBOGO and KOOS (no claim, or "She" only after
   her speeches), MOLOI (a parenthetical), THEO, the sleeping commuter. Held-out script next.
-  Live, 2026-10-12, the-bread-van second run: NOMSA, DANIEL and AUNTIE BETTY right, THEO missed again, 0 wrong.
+  Live, 2026-10-12, the-bread-van second run: NOMSA, DANIEL and AUNTIE BETTY right, 0 wrong, **3 of 5** found: THEO missed again, and TAXI
+  DRIVER (labelled now: "leans on his taxi", a possessive outside a look).
 - **Before T088:** this is the held-out baseline: 3 of 9 found, 0 wrong. Also 2026-10-12, the-bread-van
   (Claude's test script, every sex stated the conventional way; [run report](../eval/runs/2026-10-12-the-bread-van.md)): Nomsa (her look) and Auntie
   Betty (the title) right, **Theo and Daniel missed** ("sleeps across his feet", "He stretches"), 0
