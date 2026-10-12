@@ -16,6 +16,62 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L016 · A pronoun's action goes to whoever the prompt draws · open
+
+- **Seen:** 2026-10-12, the-bread-van, second run ([run report](../eval/runs/2026-10-12-the-bread-van-2.md)). Accepted **5.3** draws
+  THEO saluting: the script's "He salutes and goes." is DANIEL leaving, but the shot's characters
+  are NOMSA and THEO, and the prompt keeps the sentence with its "He". Attempt 1 of **1.3** draws a
+  round biscuit stuck to THEO's cheek: "Biscuit opens both." is the dog.
+- **Cause:** the prompt replaces names with "a person" and keeps action sentences whole, so a
+  sentence whose subject is a pronoun or an unintroduced name is read by klein as being about
+  whoever is drawn. The audit can't see it: a salute is no object and no person.
+- **Action:** none yet. To consider, measured free on the stored prompts: drop an action sentence
+  whose subject is a pronoun or a name not in the shot's drawn cast. That needs a new resolver:
+  T088's `_pronoun_evidence` only links a pronoun to a name opening the sentence before it, so
+  it doesn't cover 5.3 (its "He" follows a line of dialogue), and "Biscuit opens both." has no
+  pronoun at all.
+- **Measured:** not yet.
+
+### L015 · klein draws two panels in one frame · open
+
+- **Seen:** 2026-10-12, while looking at every frame the L014 what-if would accept: the-bread-van
+  (second run) 1.3 attempt 1, sipho-and-siphokazi 6.1 attempt 1 and lost-property 11.5 attempt 1
+  are each two side-by-side panels, the shot's people split across them (11.5 with a different
+  cast in each half).
+- **Cause:** klein, on a "storyboard sketch" prompt, sometimes lays out a strip of panels. The
+  describer lists the people of both halves as one frame, so nothing checks the layout.
+- **Action:** none yet. A prompt change (fal money, ask first) or a describer question ("is this
+  one picture or several panels?") that fails a split frame.
+- **Measured:** not yet.
+
+### L014 · Painted lettering and everyday objects hold back most shots · open
+
+- **Seen:** 2026-10-12, measured free on the stored audits of five runs with today's code
+  (`recheck`), then counting the shots that would have an accepted attempt if `unscripted_object`
+  and `text_in_frame` only warned (people stay hard):
+
+  | run | today's code | objects and lettering warn |
+  |---|---|---|
+  | the-bread-van, second run | 3 of 20 | 9 |
+  | the-bread-van, first run | 2 of 19 | 5 |
+  | lost-property (held out) | 9 of 49 | 33 |
+  | sipho-and-siphokazi | 14 of 30 | 26 |
+  | the-red-kite (T079 + T080) | 19 of 21 | 20 |
+
+  On lost-property klein paints "LOST PROPERTY" as LOST POVERTY, LOST PORRY, LOST PPARERERY on
+  almost every sign, and each fails `text_in_frame`.
+- **Cause:** every word klein paints is checked against the script, and klein can't spell. Every
+  unscripted everyday object (a bag, a pen in a hand, a plate) fails the frame too.
+- **Action:** none yet. Every one of the **46** newly accepted drawings was looked at: **34
+  right**, **12 wrong**, and every wrong one is wrong in its *people*, never in an object or a
+  lettering: 7 girls drawn as boys (sipho-and-siphokazi 2.2, 2.4, 4B.1, 4B.3, 6.1 SIPHOKAZI;
+  lost-property 11.1 AMAHLE, 3.2 PRIYA), two split panels (L015: lost-property 11.5, the-bread-van
+  1.3), MR. DUBE drawn young (lost-property 12.2), THEO at a steering wheel holding Biscuit as a
+  soft toy (the-bread-van 3.1), and a rowboat for Sipho's fishing boat (sipho 5.2). So L009 again:
+  relaxing objects is safe only where people are checked. The stored extractions of the two older
+  runs have no sex (they predate T088); T088 now finds SIPHOKAZI and AMAHLE, not PRIYA (L010).
+- **Measured:** not yet live.
+
 ### L013 · The place's own things fail: bread in a bakery, a van's dashboard inside the van · fixed (T086, measured free)
 
 - **Seen:** 2026-10-12, the-bread-van (a test script Claude wrote for pronouns, not held out),
@@ -30,7 +86,7 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Action:** none yet. To consider, measured free with `recheck`: a scene whose location is itself
   a vehicle (VAN, CAR, BUS, TAXI, BOAT, TRAIN) treats that vehicle's parts as the place's structure;
   food a heading's place sells or makes stays a question for Tumo (T072 made food always scripted).
-- **Measured:** not yet.
+- **Measured:** live, 2026-10-12, the-bread-van second run ([run report](../eval/runs/2026-10-12-the-bread-van-2.md)): `food · never set dressing` 26 → 0 and `vehicle · never set dressing` 14 → 8 (left: a car in the street, seat belts, a door handle; `held, so not set dressing` 10 → 1, a baking tray). Food still fails as `not in the script` 13 times (a tray of buns, baskets of bread at the spaza shop, where the heading names no bakery).
 
 ### L012 · The judge puts a character's name on someone it can't check · partly fixed (T086; T087 next)
 
@@ -49,7 +105,7 @@ it before changing the prompt or the audit; add to it after every live run.
   introduced under 13 matched to a person described as an adult, old or a teenager fails as that
   character; one introduced as an adult matched to "a child" too; "old" for a character under 50);
   and whether clothing of the moment ("in pyjamas") should be a reason to refuse a match at all.
-- **Measured:** not yet.
+- **Measured:** live, 2026-10-12, the-bread-van second run ([run report](../eval/runs/2026-10-12-the-bread-van-2.md)): of the judge's 19 matches to THEO, **0** went to a person described as no child (17 of 24 on the first run), and DANIEL drawn "an old man" now fails on his age (T086). But the judge now leaves the drawn boy unmatched instead: "a child" fails `unscripted_person` 17 times, and AUNTIE BETTY (4.1 attempt 3) and NOMSA (5.2 attempt 3) were left unmatched as "an old woman" and "an adult woman" in attempts whose only hard failure that was. **3 of 20 accepted** (1 of 19 on the first run). T087 next.
 
 ### L011 · A stranger excused by a line of dialogue · fixed (measured free)
 
@@ -109,6 +165,8 @@ it before changing the prompt or the audit; add to it after every live run.
   right for every person; only the quotes it gave were bad, so it is now a claim the script's own
   subject pronouns must support. Still missed: PRIYA, TEBOGO and KOOS (no claim, or "She" only after
   her speeches), MOLOI (a parenthetical), THEO, the sleeping commuter. Held-out script next.
+  Live, 2026-10-12, the-bread-van second run: NOMSA, DANIEL and AUNTIE BETTY right, 0 wrong, **3 of 5** found: THEO missed again, and TAXI
+  DRIVER (labelled now: "leans on his taxi", a possessive outside a look).
 - **Before T088:** this is the held-out baseline: 3 of 9 found, 0 wrong. Also 2026-10-12, the-bread-van
   (Claude's test script, every sex stated the conventional way; [run report](../eval/runs/2026-10-12-the-bread-van.md)): Nomsa (her look) and Auntie
   Betty (the title) right, **Theo and Daniel missed** ("sleeps across his feet", "He stretches"), 0
