@@ -21,37 +21,44 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Seen:** 2026-10-12, lost-property (held out: no fix was designed on it), [run report](../eval/runs/2026-10-12-lost-property.md). Of 12
   accepted shots, three show a person the shot doesn't have, and the audit's hard
   `unscripted_person` passed each one:
-  - **7.4:** two men down the platform behind Officer Moloi. The judge matched one to TEBOGO, who
-    is not in the shot, and gave the other the support "Somebody might have." (dialogue).
-  - **10.3:** a figure crouching behind Koos, supported by "Sorry, my friend. He's already got a
-    home." (dialogue).
-  - **10.2:** a distant adult and a child under the pigeon, both supported by "A pigeon glares at
-    him." ("him" is Koos, a character).
+  - **7.4:** the prompt draws one figure, Officer Moloi. The frame has three people: an old man
+    (matched to Moloi), "an adult man seen from behind, walking away" (matched to TEBOGO, a character
+    of the shot whom the prompt didn't draw), and "a small distant adult figure", supported by
+    "Somebody might have." (dialogue).
+  - **10.3:** "an adult bent forward at the waist in the far background", supported by "Sorry, my
+    friend. He's already got a home." (dialogue).
+  - **10.2:** "an adult standing small in the distance" and "a child, tiny and partly visible",
+    both supported by "A pigeon glares at him." ("him" is Koos).
 - **Cause:** a person's support is checked to be a verbatim quote of the shot's text. That text
-  includes the shot's dialogue, and a sentence about a named character still counts for an
-  unnamed figure. A line someone says puts nobody on screen, as verify.md §3 already says for
-  things (`named_in_scene` reads only action text).
+  includes the shot's dialogue. T072 refuses a support that **names** a shot character, but "him"
+  names no one. A line someone says puts nobody on screen, as verify.md §3 already says for things
+  (`named_in_scene` reads only action text). In 7.4, matching a figure to TEBOGO is what the design
+  allows (he is in `shot.characters`, addressed in the dialogue), though the prompt drew only
+  Moloi.
 - **Action:** none yet. To consider, measured free with `recheck` first: a person's support must
-  come from the shot's action text, not its dialogue, and must not be a sentence whose only
-  person is a character of the shot. The judge's character matches should be limited to the
-  shot's own characters.
+  come from the shot's action text, not its dialogue; and a support whose only person is a pronoun
+  for a shot character doesn't count. Whether a character the prompt didn't draw may be matched is a
+  separate question.
 - **Measured:** not yet.
 
 ### L010 · T082 finds a sex for a third of the characters on a script it wasn't designed on · open
 
 - **Seen:** 2026-10-12, lost-property (held out), [run report](../eval/runs/2026-10-12-lost-property.md). Scored free on the run's own stored
   extraction against `eval/sex-labels.json`: **WRONG 0, INVENTED 0**, RIGHT 6 (Zanele, Mr. Dube,
-  Grace, and the three the script never sexes), **MISS 6** (Priya, Koos, Tebogo, Amahle, Officer
+  Grace, and Officer Van Wyk, Sam and the Announcer, whom the script never sexes; Marmalade, the
+  cat, isn't labelled), **MISS 6** (Priya, Koos, Tebogo, Amahle, Officer
   Moloi, the sleeping commuter). So 3 of the 9 characters whose sex the script states got it.
-  Two misses reached the board: **4.1** draws Priya as a young man and **6.2** draws Amahle (8)
-  as a boy, and both were accepted. The describer wrote "a teenager" and "a young boy"; with no
+  Two misses reached the board: **4.1** draws Priya as a young man (the describer: "a teenager
+  with dark hair") and **6.2** draws Amahle (8) as a boy ("child, a young boy"), and both were
+  accepted. The describer wrote "a teenager" and "a young boy"; with no
   `sex (from the script)` line, the judge matched them to the girls.
-- **Cause:** the code rules read the introduction's own she/he and a title. Here the sex comes
-  later or sideways: "She spots the hand-painted sign" (Priya, a scene after her introduction),
-  "He wears headphones" (Koos, the sentence after his), "A black case lies open at his feet"
-  (Tebogo), "Amahle tugs at her mother's scrubs", "(closing his notebook)" (Moloi, a
-  parenthetical), "snores under his newspaper". The grounded `sex_word` didn't cover them in this
-  extraction.
+- **Cause:** T082 fails closed on purpose (storyboard.md §6, grounding.md §3): "she"/"he" count
+  only in the introducing sentence, "her"/"his" only inside the introduction's own look, and
+  `sex_word` is a noun (woman, fisherman…), never a pronoun. Here the sex sits outside all three:
+  "She spots the hand-painted sign" (Priya, shot 3.3, after her introducing sentence in 3.1), "He
+  wears headphones" (Koos, the sentence after his), and only "his"/"her" outside a look for Tebogo
+  ("at his feet"), Amahle ("her mother's scrubs"), Moloi ("(closing his notebook)") and the
+  sleeping commuter ("under his newspaper"). None of them has a sex noun or a title.
 - **Action:** none yet. The six misses are the held-out test set, so no fix is tuned to them: a
   fix is designed on the samples' own patterns and scored here again, separately. The rule that
   WRONG and INVENTED stay at 0 holds.
