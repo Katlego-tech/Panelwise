@@ -95,8 +95,9 @@ classDiagram
   script". The one exception to "the model's quote": a dialogue quote the model led with its
   speech's own header (§4, *Cue headers*) is kept **without** that header, so `Quote.text` is
   always text inside `Quote.span`.
-- **Animals and other names (T051).** Two things the parser can't know and redaction needs
-  (storyboard.md §3.1). Both are copied words, grounded in code, never inferred attributes:
+- **Animals, other names and sex (T051, T082).** Three things the parser can't know and redaction
+  and the prompt need (storyboard.md §3.1). All three are copied words, grounded in code, never
+  inferred attributes:
   - **`species`**: for a `CHARACTER` that is an animal, the word the script uses for what it is
     ("A ginger cat, MARMALADE, sleeps…" → `cat`). A leading `a` / `an` / `the` is stripped first.
     It is kept only when the rest is 1–3 words with a letter; none of its words is in
@@ -118,10 +119,56 @@ classDiagram
     stop words alone, like "Mr.", are not a name). A kept other name is always redacted; whether
     it gets its entity's label is decided by storyboard.md §3.1 (*paired*). Union across chunks,
     first appearance first. `()` for locations and `CUE` backfills.
+  - **`sex_word` (T082):** for a person `CHARACTER`, the one word of the script that shows their
+    sex, copied: a pronoun about them ("Siphokazi nods. **She** cannot stop the smile.") or a
+    noun for them ("a salt-and-pepper-bearded **fisherman** … This is SIPHO (50s)."). The model
+    only copies the word; it never states a sex, so `sex_word` is a copied word like `species`,
+    not an inferred attribute. Code keeps it, as `Entity.sex` (a `Sex`: `female`, `male`) and
+    `Entity.sex_quote` (the quote), only when:
+    1. the word, lower case and with a trailing `.` stripped, is in `SEX_WORDS` (one pure module,
+       `app/characters/sex.py`, below);
+    2. one of the entity's located quotes **whose span is an `Action` element** (a description,
+       not someone's speech) passes all of: (a) the word is a whole word of it, any case;
+       (b) it **names this character**: a name token (`name_tokens` of the entity's name) or a
+       kept other name as whole words under `normalise`, so a title alone ("Mr.") names no one;
+       (c) it **names no other character**: no name token of another `CHARACTER` entity
+       (`Source.CUE` ones and animals included), except when the two are aliases, one's token
+       set containing the other's (THABO ⊂ THABO MOLEFE). Any other shared token counts as naming
+       the other: "DUBE nods. She…" with THABO DUBE and LERATO DUBE names both, so neither gets a
+       sex; (d) a pronoun (`she`, `he`, `herself`, `himself`) comes **after** the first mention of
+       this character, the earliest whole-word occurrence of any of its name tokens or kept other
+       names in the quote ("She nods. SIPHO…" gives Sipho nothing); a noun may come before it
+       ("a … fisherman … This is SIPHO");
+       (e) **every** sex-bearing word in it keys to the same sex: the `SEX_WORDS` and, though
+       they never give a sex, the object and possessive pronouns `her`, `hers`, `him`, `his`
+       (`CONFLICT_WORDS`): "She hands him the cup" gives nothing, a safe miss rather than a
+       guess. The first such quote, in proposal order, is `sex_quote`.
+    3. Across chunks, every kept proposal agrees; two that disagree keep `None`. The species test
+       runs first: a character with a species gets `sex` `None`. Always `None` for props,
+       locations and `Source.CUE` backfills.
+    - **`SEX_WORDS`** keeps only words that, in one character's own description, are about that
+      character: the subject and reflexive pronouns `she`, `herself` (female), `he`, `himself`
+      (male); and the nouns `woman`, `girl`, `lady`, `fisherwoman`, `policewoman`,
+      `businesswoman`, `waitress`, `actress` (female), `man`, `boy`, `gentleman`, `fisherman`,
+      `policeman`, `businessman`, `waiter`, `actor` (male). **Left out on purpose** (the T082
+      review): object and possessive pronouns (`her`, `him`, `his`: "SIPHO hands her the box" is
+      about someone else); relational nouns (`mother`, `wife`, `uncle`…: "Thabo hugs his mother");
+      plurals (`women`, `boys`: a group); titles (`miss` is also a verb), which `title_sex` reads
+      from the name instead (storyboard.md §6). One dict, so a language or a word is added in one
+      place; a word outside it fails closed (no sex), never guesses.
+    - **Safe by returning `None`:** a character introduced only in dialogue (no `Action` quote); a
+      "they" character (no word in the vocabulary); a woman described as "the fisherman" whose
+      introduction says "her" (storyboard.md's `character_sex`: the sources disagree, so `None`).
+    - **Residual risk:** a one-character quote whose pronoun or noun is about an unnamed other
+      person ("KOOS (70s) pushes a broom. She waves."; "SIPHO waves to a woman") keeps the wrong
+      sex if the model copies that word. The model reads the whole script and is asked for the
+      word *about this character*; `character_sex` drops a sex the introduction contradicts;
+      storyboard.md §9's labelled table measures what is left.
+    - Faithfulness and recall don't change: a `sex_word` that fails is simply not kept.
   - The filter now imports `name_tokens` / `NAME_STOP_WORDS` from `app/characters/redact.py`
     (a pure module that imports only `app.script`); `app/characters/__init__.py` must never import
     `labels.py`, which imports `app.grounding` (storyboard.md §6).
-  - Neither affects faithfulness or recall (they are about the entity, not whether it exists), and
+  - None of these affects faithfulness or recall (they are about the entity, not whether it exists), and
     a species or other name that fails its test is simply not kept.
 - **`Entity.scenes`**: 0-based scene indexes, derived from where its quotes and (for characters)
   its matched cues sit. Never taken from the model's say-so.
@@ -204,7 +251,9 @@ None. `extract` is a pure async function of its inputs plus the model calls.
 class EntityKind(StrEnum): CHARACTER = "character"; PROP = "prop"; LOCATION = "location"
 class Source(StrEnum): MODEL = "model"; CUE = "cue"; HEADING = "heading"
 @dataclass(frozen=True) class Quote: text: str; scene_index: int; span: Span
-@dataclass(frozen=True) class Entity: kind: EntityKind; name: str; quotes: tuple[Quote, ...]; scenes: tuple[int, ...]; source: Source; species: str | None = None; other_names: tuple[str, ...] = ()   # §3, T051
+@dataclass(frozen=True) class Entity: kind: EntityKind; name: str; quotes: tuple[Quote, ...]; scenes: tuple[int, ...]; source: Source; species: str | None = None; other_names: tuple[str, ...] = (); sex: Sex | None = None; sex_quote: Quote | None = None   # §3, T051; sex, sex_quote: T082
+# T082: app/projects/codec.py's _load uses a field's default when a stored record lacks it (today it raises
+# "missing"), so an extraction stored before T082 (or T051) loads with sex None
 @dataclass(frozen=True) class Dropped: name: str; kind: EntityKind; reason: str
 @dataclass(frozen=True) class GroundingReport: entities_proposed: int; entities_grounded: int; faithfulness: float; quotes_proposed: int; quotes_located: int; dropped: tuple[Dropped, ...]; cues_total: int; cues_found_by_model: int; recall: float
 @dataclass(frozen=True) class Extraction: entities: tuple[Entity, ...]; report: GroundingReport; models: tuple[str, ...]; usage: Usage
@@ -226,7 +275,18 @@ def locate(quote: str, screenplay: Screenplay) -> tuple[int, Span] | None: ...  
 
 # app/grounding/schema.py — what the model is asked for (strict json_schema via structured_chat).
 # Its own module because both extract and filter use it.
-class ProposedEntity(BaseModel): name: str; kind: Literal["character", "prop"]; quotes: list[str]; species: str | None; other_names: list[str]   # T051: both required in the schema (null / [] when none)
+class ProposedEntity(BaseModel): name: str; kind: Literal["character", "prop"]; quotes: list[str]; species: str | None; other_names: list[str]; sex_word: str | None   # T051: both required in the schema (null / [] when none); T082: sex_word required, null when none
+# The system prompt gains (T082): "For a character who is a person, give in sex_word the one word of the
+# screenplay that shows whether this character is female or male -- she, he, or a noun such as woman, girl,
+# man, boy or fisherman -- copied exactly from one of its quotes from an action paragraph that names this
+# character and no one else; otherwise sex_word is null. Never guess: copy only a word the screenplay writes
+# about them." The schema docstring ("No age, gender or role fields") says sex_word is a copied word, as
+# species is; its Field description says the same.
+# app/characters/sex.py (T082), pure, imports nothing from app.grounding or app.storyboard:
+class Sex(StrEnum): FEMALE = "female"; MALE = "male"
+SEX_WORDS: dict[str, Sex]     # §3: the pronouns and nouns, lower case
+CONFLICT_WORDS: dict[str, Sex]  # §3 rule (e): SEX_WORDS plus her, hers, him, his
+SEX_TITLES: dict[str, Sex]    # storyboard.md §6 title_sex's words, upper case
 class ChunkEntities(BaseModel): entities: list[ProposedEntity]
 
 # app/grounding/extract.py
@@ -267,6 +327,7 @@ the parser, so a faithful quote is always locatable.
 | Aliases ("THABO" vs "THABO MOLEFE" proposed separately) | kept as two entries | fuzzy merge: risks fusing two people. `match_speaker` still binds cues correctly, so scenes and recall are unaffected |
 | Animals (T051) | a `species` word, grounded in the entity's own located quote | an `ANIMAL` entity kind: every consumer of `CHARACTER` (planner, cues, audit) would need a second branch, and an animal that speaks or acts is cast like a character; a model `is_animal` flag: an inferred attribute, ungroundable |
 | Other names (T051) | `other_names`, kept when the script mentions them; the label is decided downstream by pairing (storyboard.md §3.1) | merging them as entities: "Gerald" isn't a separate thing; dropping one not inside the entity's own quote: a dropped other name is a name left in a prompt, so it is kept and redacted to the neutral `it` instead. **Cost:** a common capitalised word given as another name ("Mum", "Captain") is redacted wherever the script capitalises it |
+| A character's sex (T082; Tumo, 2026-10-11) | a copied `sex_word`, keyed by a fixed vocabulary, grounded in a located Action quote that names only this character; with storyboard.md's code rules (the introduction's pronouns, a title) | a model `sex` field: an inferred attribute, ungroundable; code rules alone: sipho-and-siphokazi's three characters have no pronoun of their own in their introduction (L002), and "Siphokazi nods. She…" needs coreference a rule can't do safely; any quote: dialogue ("my uncle") is about someone else |
 | Species test (T051) | in an Action quote of the entity, not a person word, not a name token | any located quote: a person's speech mentioning "the cat" would pass; no word list: `species: "man"` would turn a person into an object for the audit. **Residual risk:** a person the model calls an animal, with that animal word in their own description line |
 | Chunk size | 12,000 chars | FrameFlow's 20,000: smaller chunks help recall, and Lightning is cheap |
 
@@ -278,6 +339,19 @@ the parser, so a faithful quote is always locatable.
   cases that must still fail — another speaker's cue, a wrong extension or parenthetical, nothing
   after the header, a cue not on its own line, a quote stitched across speeches, a heading or an
   action line as the "header", a name that is no cue.
+- `ground` (T082): `sex_word` "She" in "Siphokazi nods. She cannot stop the smile." (one Action quote, one
+  character) → `female` with that quote; "fisherman" in "a salt-and-pepper-bearded fisherman … This is SIPHO
+  (50s)." → `male`; "her" in "MAMA THEMBI (60s), the shop's owner, watches her" (two characters) → None;
+  "uncle" in dialogue → None; a word not in `SEX_WORDS` ("teacher", "her", "mother", "miss") → None; "SIPHO
+  hands her the box" → None; "She hands him the cup" → None (two sexes); "She nods. SIPHO…" → None (the
+  pronoun comes first); "a … fisherman … This is SIPHO" → male (a noun may come first); THABO and
+  THABO MOLEFE in one quote → kept (aliases); "DUBE nods. She…" with THABO DUBE and LERATO DUBE → None
+  for both (a shared token, not aliases); "Mr." alone names no one;
+  two chunks proposing "she" and "he" → None; a prop, an animal, a `CUE` backfill → None. The codec: an
+  extraction stored without `sex`, `sex_quote`, `species` or `other_names` loads with their defaults; a
+  female entity round-trips. KOOS (`KOOS (70s), the night cleaner, pushes a broom. She waves.`):
+  `introduced_sex` stays None (T079); the grounded sex is female only if the model copies "She", the
+  recorded residual risk.
 - `ground` (T051): a species found in the entity's own located Action quote kept (a leading
   article stripped: "a cat" → `cat`), one only in a dialogue quote, in another entity's quote, a
   person word (`man`, `girl`, `figure`) or a character's name token dropped to `None`, a species on

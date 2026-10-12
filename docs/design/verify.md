@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -146,6 +146,14 @@ classDiagram
   quote, already in the shot's supports. **Accepted residue:** a compound where the prop's noun
   only modifies (`coat hanger` with the `oilskin coat` in the shot, `kite shop`) reads as a part;
   no rule on words tells them apart, and it needs that very prop in the shot.
+- **Each person's sex in the spec (T082).** `render_spec(shot, scene, screenplay, extraction,
+  description)` (it gains `screenplay`; `audit_frame` passes it) gives, under each person character
+  `character_sex` sexes, the line `sex (from the script): <female|male>, "<evidence>"` (storyboard.md
+  §6: the evidence is the quote, the introduction or the name, 160 characters at most). It imports
+  `app.storyboard.prompt` inside the function, as `audit_frame` does (the import cycle). The judge
+  prompt gains: "A character's 'sex (from the script)' line, when there is one, is the script's own
+  word for their sex: a person drawn as the other sex is not that character." Before T082 the judge
+  saw only the extracted quotes, so it matched a boy to Siphokazi (L002, L009).
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
@@ -550,6 +558,9 @@ it against the script."*
   names sex and look beside age. The web names `no_character` "no character in frame". Free (Token
   Factory only): the 27 labelled frames and the 2026-10-11 klein run's stored drawings, the
   numbers in the PR.
+- **T082:** `render_spec` shows `sex (from the script): female, "Siphokazi nods. She cannot stop the
+  smile."` for a sexed character and no such line when `character_sex` is None; the judge prompt has
+  the sentence.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 

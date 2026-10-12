@@ -167,7 +167,7 @@ The other checks (`setting`, `missing_character`, `light`, `framing`, `signature
 `no_character`) have no cause table: `## Checks` counts them, and their details show per shot.
 
 **CharacterLine**, one per extracted character (`EntityKind.CHARACTER`, extraction order):
-`introduced_age`'s text, `introduced_sex`, `introduced_look`'s text, each `None` when the script
+`introduced_age`'s text, `character_sex`'s sex (since T082; `introduced_sex` before), `introduced_look`'s text, each `None` when the script
 gives none. A `None` sex for a character the script does sex is how 2026-10-11's lesson would have
 shown at a glance.
 
