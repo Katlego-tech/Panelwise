@@ -44,6 +44,9 @@ ROWS: list[Row] = [
         "14", (ACTION, "A quiet fisherman mends a net. This is JOHN (50s). John rubs his eyes.")
     ),
     *_scene("15", (ACTION, "A brown dog, REX, sleeps. Rex licks his paws.")),
+    *_scene("16", (ACTION, "ZARA (8) waits. ZARA (8) tugs at her sleeve.")),
+    *_scene("17", (ACTION, "MIKE (40s) waits. Mike hands her coffee.")),
+    *_scene("18", (ACTION, "NALEDI (30s) sits down."), (ACTION, "She opens the letter.")),
 ]
 
 
@@ -161,3 +164,23 @@ def test_an_animal_claimant_gets_no_sex() -> None:
     rex = grounded(dog)["REX"]
     assert rex.species == "dog"
     assert rex.sex is None
+
+
+def test_the_evidence_is_the_scripts_own_sentence_verbatim() -> None:
+    # The sentence holds an introduction: its words are read without "(8)", but the quote kept
+    # is the script's text as written, located at its element.
+    e = grounded(person("ZARA", "ZARA (8) waits.", "she"))["ZARA"]
+    assert e.sex is Sex.FEMALE
+    assert e.sex_quote is not None and e.sex_quote.text == "ZARA (8) tugs at her sleeve."
+
+
+def test_a_dative_her_is_read_as_a_possessive_and_only_a_matching_claim_survives() -> None:
+    # Known gap (grounding.md §3): "hands her coffee" reads as Mike's own "her". A true claim
+    # ("he") is contradicted by it, so Mike gets no sex rather than a wrong one.
+    assert grounded(person("MIKE", "MIKE (40s) waits.", "he"))["MIKE"].sex is None
+
+
+def test_the_chain_reaches_the_last_sentence_of_the_action_before() -> None:
+    e = grounded(person("NALEDI", "NALEDI (30s) sits down.", "she"))["NALEDI"]
+    assert e.sex is Sex.FEMALE
+    assert e.sex_quote is not None and e.sex_quote.text == "She opens the letter."

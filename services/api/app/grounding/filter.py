@@ -381,9 +381,10 @@ def _pronoun_evidence(
             if not isinstance(element, Action):
                 previous = None
                 continue
-            text = _INTRODUCTION.sub(r"\1", element.text)
-            for sentence in (s for s in _SENTENCE_END.split(text) if _WORD.search(s)):
-                words = _WORD.findall(sentence)
+            # The quote is the script's own sentence; only its words are read with an
+            # introduction's description left out.
+            for sentence in (s for s in _SENTENCE_END.split(element.text) if _WORD.search(s)):
+                words = _WORD.findall(_INTRODUCTION.sub(r"\1", sentence))
                 end = _opens_with(words, name)
                 quote = Quote(sentence.strip(), scene_index, element.span)
                 if end is not None and (sex := _owned(words[end:])) is not None:
