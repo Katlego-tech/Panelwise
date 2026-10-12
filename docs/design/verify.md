@@ -227,16 +227,29 @@ classDiagram
   one on screen, as `named_in_scene` already holds for things. **Code** now asks two more things
   of a person's support, after T072's (it names no shot character):
   - **It is found in the shot's action text** (`shot_action_text`: the text of the shot's covered
-    `Action` elements, in order, normalised as `_found` does), not in its dialogue or
-    parentheticals, and no longer in an entity quote from elsewhere in the script. Detail:
-    `person N (position, appearance): its support is not an action line`.
-  - **It has no singular third-person pronoun** (`he`, `him`, `his`, `himself`, `she`, `her`,
-    `hers`, `herself`, whole words, any case): such a word points back at someone the script has
-    already introduced, a character, so it can't introduce a stranger. A support that names the
-    stranger itself ("A SLEEPING COMMUTER lies across a bench") still works; the judge may quote
-    just that part, since any verbatim piece of the action text is found. Plural `they`/`them`
-    stay allowed: a crowd is introduced as "Passengers hurry" and then "they". Detail: `person N
-    (position, appearance): its support points at someone else`.
+    `Action` elements, in order, joined by a space and normalised as `_found` does), not in its
+    dialogue or parentheticals, and no longer in an entity quote from elsewhere in the script.
+    Detail: `person N (position, appearance): its support is not an action line`. **Only this
+    shot's action, on purpose** (unlike T083's scene-wide words for things): a stranger the
+    script introduced in an earlier shot and still on screen in a shot of dialogue alone now
+    fails. Accepted: the stored runs have no such case, and a person who stays is usually a
+    character the judge can match.
+  - **It has no `he`, `him` or `she`**: the words of the support, lower case, split on anything
+    but letters (`re.findall(r"[a-z]+", support.lower())`, so "he's" gives "he"), against
+    `_PERSON_PRONOUNS`. Such a word points back at someone the script has already introduced, a
+    character, so it can't introduce a stranger. Possessives and reflexives (`his`, `her`,
+    `hers`, `himself`, `herself`) are **not** in the set: they usually belong to the sentence's
+    own subject ("A WOMAN, 40s, folds her umbrella" introduces her); with them or without, the
+    stored runs give the same result. Plural `they`/`them` stay allowed: a crowd is introduced
+    as "Passengers hurry" and then "they". Detail: `person N (position, appearance): its support
+    points at someone else`. **Accepted residue:** a stranger introduced in a sentence that also
+    points at a character ("A WOMAN hands him a cup"), quoted whole, fails; the judge isn't told to
+    quote only the stranger's part (§10).
+  - **The order, for a person matched to no character**, first failure wins: support not found
+    in the shot's text or its in-shot entities' quotes → "no shot character, no support" (as
+    before); names a shot character → "its support is about a character" (T072); not in the
+    shot's action text → "its support is not an action line"; has `he`, `him` or `she` → "its
+    support points at someone else".
   - Measured free (`recheck` with a prototype, every stored audit): lost-property 12 → 9 shots
     with an accepted attempt (7.4, 10.2, 10.3, the three of L011). **Not designed on:** the
     2026-10-11 sipho-and-siphokazi 12 → 11 (6.1, a man excused by Sipho's introduction from
@@ -268,7 +281,7 @@ classDiagram
 
 | Check | Decided by | Severity | Fails when |
 |---|---|---|---|
-| `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted); or (T072) the `support` of a person called with no character names a shot character; or (T084) that support isn't found in the shot's action text (`shot_action_text`), or has a singular third-person pronoun |
+| `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted); or (T072) the `support` of a person called with no character names a shot character; or (T084) that support isn't found in the shot's action text (`shot_action_text`), or has `he`, `him` or `she` |
 | `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks. **T072:** `set_dressing` also fails for an object whose name is, or is a word of, a prop the extraction names (§3). **T083:** never for an animal, vehicle, weapon or food the scene's action text names (`named_in_scene`); and an everyday unheld object called `unscripted`, or dressing not in the heading, is the soft `BACKGROUND_OBJECT` instead (§3, the order in `run_checks`) |
 | `TEXT_IN_FRAME` | code | **hard** | a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" fails). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
@@ -416,7 +429,7 @@ def shot_action_text(shot: Shot, scene: Scene) -> str: ...   # T084, pure:
 #   normalize_for_grounding of the text of `scene.elements[i]` for each `i` in `shot.elements` that is an
 #   `Action`, joined by " " in order; "" when the shot covers no action. A person's support must be found
 #   in it (§3, A person's support is an action line)
-# _PERSON_PRONOUNS = frozenset({"he", "him", "his", "himself", "she", "her", "hers", "herself"})  # T084
+# _PERSON_PRONOUNS = frozenset({"he", "him", "she"})  # T084: against re.findall(r"[a-z]+", support.lower())
 # services/api/app/verify/recheck.py (T083): measures a code-only audit change for free
 async def recheck(sessions: async_sessionmaker[AsyncSession], project_id: UUID, *,
                   target: AuditTarget | None = None) -> tuple[list[Reaudit], int]: ...
@@ -615,7 +628,7 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
 | Things the scene names (T083) | code: the object's noun or its whole's noun in the scene's action text, for the never-set-dressing categories only | the judge's label alone (it called the harbour's boats dressing 31 times); every category (it excused "small pills", "power lines", "tripod stand"); the shot's own text only: the boats a scene's first shot names belong to every shot of that harbour, and a later shot's own text often doesn't name them (11 objects excused against the scene's 32) |
 | Background objects (T083; Tumo, 2026-10-11) | the soft `BACKGROUND_OBJECT`: shown, named, the frame `WARN` | hard as before: on 2026-10-11 it withheld 5 of sipho-and-siphokazi's 30 shots and 3 of the-red-kite's 21 for a pen, grass or a moon alone; painted text warning too (Tumo kept it hard: legible invented words on an accepted frame) |
-| A person's support (T084) | code: found in the shot's action text, with no singular third-person pronoun | any verbatim quote of the shot or of an in-shot entity, as before (2026-10-12: three strangers accepted on lost-property, excused by dialogue or a pronoun, and an old woman for Siphokazi on sipho-and-siphokazi); a person-noun list the support must contain (a vocabulary that never ends: "commuter", "busker", "courier"); telling the judge only (it can't be measured free, and code would still trust what it cites; a judge sentence is §10's open question) |
+| A person's support (T084) | code: found in the shot's action text, with no `he`, `him` or `she` | any verbatim quote of the shot or of an in-shot entity, as before (2026-10-12: three strangers accepted on lost-property, excused by dialogue or a pronoun, and an old woman for Siphokazi on sipho-and-siphokazi); a person-noun list the support must contain (a vocabulary that never ends: "commuter", "busker", "courier"); telling the judge only (it can't be measured free, and code would still trust what it cites; a judge sentence is §10's open question) |
 | Measuring a code-only audit change (T083) | `recheck`: today's checks on stored descriptions and judgements | `reaudit`: two Token Factory calls a drawing for a change that calls no model |
 | Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
 
@@ -713,15 +726,17 @@ it against the script."*
   shot of dialogue alone. `run_checks`: an unmatched person supported by a dialogue line of the
   shot fails `UNSCRIPTED_PERSON` "its support is not an action line"; by an entity quote not in
   the shot's action text, the same; by "A pigeon glares at him." (in the action text) fails "its
-  support points at someone else", and so do `he`, `his`, `himself`, `she`, `her`, `hers`,
-  `herself` in any case; `HE` inside another word ("the", "where") doesn't count; "A SLEEPING
+  support points at someone else", and so do `He …`, `… she …` and "he's" in any case; `his`, `her`,
+  `himself` alone don't ("A WOMAN, 40s, folds her umbrella." passes); `he` inside another word ("the",
+  "where") doesn't count; a support found nowhere still fails "no shot character, no support", and a
+  dialogue line with "him" fails "its support is not an action line" (the order); "A SLEEPING
   COMMUTER lies across a bench under a newspaper." passes, and so does "Passengers hurry past. They
   ignore him"'s first sentence quoted alone; "they" alone passes; a matched character is unaffected;
   T072's "its support is about a character" still wins when the support names one. Free: `recheck`
   on lost-property `0c7cceb4` gives at most 9 shots with an accepted attempt and fails 7.4, 10.2 and
   10.3; **held out**, every other stored project, its before and after in the PR, each newly failed
-  attempt read. Then the new held-out script (Tumo, 2026-10-12, unseen until T084 and T085 are
-  built) is drawn and every accepted frame looked at.
+  attempt read. Then the new held-out script (Tumo, 2026-10-12, unseen until T084 and the L010 fix
+  are built) is drawn and every accepted frame looked at.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 
