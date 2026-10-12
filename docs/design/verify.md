@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -219,6 +219,33 @@ classDiagram
   `set_dressing` held → hard; named prop → hard; one of the four categories → hard "never set
   dressing"; support not in the heading → `BACKGROUND_OBJECT` when the rule holds, else hard
   "not in the heading".
+- **A person's support is an action line (T084).** A described person the judge matches to no
+  character is scripted only by a verbatim `support`. On 2026-10-12 lost-property (L011) showed
+  three accepted frames whose strangers were excused by what someone **says** ("Somebody might
+  have.", "Sorry, my friend. He's already got a home.") or by a sentence whose only person is a
+  pronoun for a character ("A pigeon glares at him.", "him" is Koos). A line of dialogue puts no
+  one on screen, as `named_in_scene` already holds for things. **Code** now asks two more things
+  of a person's support, after T072's (it names no shot character):
+  - **It is found in the shot's action text** (`shot_action_text`: the text of the shot's covered
+    `Action` elements, in order, normalised as `_found` does), not in its dialogue or
+    parentheticals, and no longer in an entity quote from elsewhere in the script. Detail:
+    `person N (position, appearance): its support is not an action line`.
+  - **It has no singular third-person pronoun** (`he`, `him`, `his`, `himself`, `she`, `her`,
+    `hers`, `herself`, whole words, any case): such a word points back at someone the script has
+    already introduced, a character, so it can't introduce a stranger. A support that names the
+    stranger itself ("A SLEEPING COMMUTER lies across a bench") still works; the judge may quote
+    just that part, since any verbatim piece of the action text is found. Plural `they`/`them`
+    stay allowed: a crowd is introduced as "Passengers hurry" and then "they". Detail: `person N
+    (position, appearance): its support points at someone else`.
+  - Measured free (`recheck` with a prototype, every stored audit): lost-property 12 → 9 shots
+    with an accepted attempt (7.4, 10.2, 10.3, the three of L011). **Not designed on:** the
+    2026-10-11 sipho-and-siphokazi 12 → 11 (6.1, a man excused by Sipho's introduction from
+    another shot; 9.3, an old woman excused by "He takes the tide book from her", where "her" is
+    Siphokazi, 17), the-red-kite runs 35 → 33, 16 → 15 and 10 → 9 (a "teenager" excused by "my
+    girl", a child by "Is that my good shirt you are flying?", "an adult man" by "He switches off
+    the soldering iron." for Mokgosi, 70s), every other stored project unchanged. Each newly
+    failed attempt was read: every one excuses a person with a spoken line, someone else's pronoun
+    or a quote from another shot.
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
@@ -241,7 +268,7 @@ classDiagram
 
 | Check | Decided by | Severity | Fails when |
 |---|---|---|---|
-| `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted); or (T072) the `support` of a person called with no character names a shot character |
+| `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted); or (T072) the `support` of a person called with no character names a shot character; or (T084) that support isn't found in the shot's action text (`shot_action_text`), or has a singular third-person pronoun |
 | `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks. **T072:** `set_dressing` also fails for an object whose name is, or is a word of, a prop the extraction names (§3). **T083:** never for an animal, vehicle, weapon or food the scene's action text names (`named_in_scene`); and an everyday unheld object called `unscripted`, or dressing not in the heading, is the soft `BACKGROUND_OBJECT` instead (§3, the order in `run_checks`) |
 | `TEXT_IN_FRAME` | code | **hard** | a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" fails). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
@@ -385,6 +412,11 @@ def part_of_prop(name: str, category: ObjectCategory, shot: Shot, extraction: Ex
 def named_in_scene(name: str, category: ObjectCategory, scene: Scene) -> str | None: ...   # T083, pure:
 #   the scene word that names the object (§3, Things the scene names), or None; only for animal, vehicle,
 #   weapon and food. run_checks skips an object it names, as it does a part_of_prop
+def shot_action_text(shot: Shot, scene: Scene) -> str: ...   # T084, pure:
+#   normalize_for_grounding of the text of `scene.elements[i]` for each `i` in `shot.elements` that is an
+#   `Action`, joined by " " in order; "" when the shot covers no action. A person's support must be found
+#   in it (§3, A person's support is an action line)
+# _PERSON_PRONOUNS = frozenset({"he", "him", "his", "himself", "she", "her", "hers", "herself"})  # T084
 # services/api/app/verify/recheck.py (T083): measures a code-only audit change for free
 async def recheck(sessions: async_sessionmaker[AsyncSession], project_id: UUID, *,
                   target: AuditTarget | None = None) -> tuple[list[Reaudit], int]: ...
@@ -554,6 +586,7 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | `services/api/app/verify/reaudit.py` | new | `reaudit`, `summary`, `python -m app.verify.reaudit` | T071 |
 | `services/api/app/verify/{model,audit}.py` | changed | `Check.BACKGROUND_OBJECT`, `named_in_scene`, the order in `run_checks` | T083 |
 | `services/api/app/verify/recheck.py` | new | `recheck`, `accepted_shots`, `python -m app.verify.recheck` | T083 |
+| `services/api/app/verify/audit.py` | changed | `shot_action_text`, `_PERSON_PRONOUNS`, two person-support rules in `run_checks` | T084 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
@@ -582,6 +615,7 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
 | Things the scene names (T083) | code: the object's noun or its whole's noun in the scene's action text, for the never-set-dressing categories only | the judge's label alone (it called the harbour's boats dressing 31 times); every category (it excused "small pills", "power lines", "tripod stand"); the shot's own text only: the boats a scene's first shot names belong to every shot of that harbour, and a later shot's own text often doesn't name them (11 objects excused against the scene's 32) |
 | Background objects (T083; Tumo, 2026-10-11) | the soft `BACKGROUND_OBJECT`: shown, named, the frame `WARN` | hard as before: on 2026-10-11 it withheld 5 of sipho-and-siphokazi's 30 shots and 3 of the-red-kite's 21 for a pen, grass or a moon alone; painted text warning too (Tumo kept it hard: legible invented words on an accepted frame) |
+| A person's support (T084) | code: found in the shot's action text, with no singular third-person pronoun | any verbatim quote of the shot or of an in-shot entity, as before (2026-10-12: three strangers accepted on lost-property, excused by dialogue or a pronoun, and an old woman for Siphokazi on sipho-and-siphokazi); a person-noun list the support must contain (a vocabulary that never ends: "commuter", "busker", "courier"); telling the judge only (it can't be measured free, and code would still trust what it cites; a judge sentence is §10's open question) |
 | Measuring a code-only audit change (T083) | `recheck`: today's checks on stored descriptions and judgements | `reaudit`: two Token Factory calls a drawing for a change that calls no model |
 | Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
 
@@ -675,10 +709,27 @@ it against the script."*
   accepted attempt, and the frames newly accepted are looked at for anything a hard check should have
   caught. **Held out:** the same on every other stored project (the-red-kite's earlier runs), the
   numbers in the PR beside the two that showed the problem.
+- **T084:** `shot_action_text` joins only the shot's `Action` elements, in order, and is "" for a
+  shot of dialogue alone. `run_checks`: an unmatched person supported by a dialogue line of the
+  shot fails `UNSCRIPTED_PERSON` "its support is not an action line"; by an entity quote not in
+  the shot's action text, the same; by "A pigeon glares at him." (in the action text) fails "its
+  support points at someone else", and so do `he`, `his`, `himself`, `she`, `her`, `hers`,
+  `herself` in any case; `HE` inside another word ("the", "where") doesn't count; "A SLEEPING
+  COMMUTER lies across a bench under a newspaper." passes, and so does "Passengers hurry past. They
+  ignore him"'s first sentence quoted alone; "they" alone passes; a matched character is unaffected;
+  T072's "its support is about a character" still wins when the support names one. Free: `recheck`
+  on lost-property `0c7cceb4` gives at most 9 shots with an accepted attempt and fails 7.4, 10.2 and
+  10.3; **held out**, every other stored project, its before and after in the PR, each newly failed
+  attempt read. Then the new held-out script (Tumo, 2026-10-12, unseen until T084 and T085 are
+  built) is drawn and every accepted frame looked at.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 
 ## 10. Open questions
+
+- **T084, the judge's side:** the judge isn't told that a person's support must be an action line
+  without he/she. If later runs show a scripted stranger failing because the judge quoted a line
+  of dialogue, add one judge sentence and measure it with `reaudit` (Token Factory), not `recheck`.
 
 - [x] Does the describer honour `json_schema`? **Answered 2026-09-30 (T020):** GLM-5.3-Flash turned out
   not to receive images at all (findings § U7 re-check), so the describer is now DeepSeek-V4.1-Flash,
