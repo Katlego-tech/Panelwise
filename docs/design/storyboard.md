@@ -217,7 +217,7 @@ element that introduces a visible character (only for `AGE`, T074: its text is "
 in their <n>s", and `<n>` stands in that element in a parenthesis right after that character's name: an
 age is who the character is, not another moment's event, as a borrowed clock is when; T079: with the
 sex word `introduced_sex` reads there, the code's fixed vocabulary keyed by the script's own pronoun
-(**T085:** or by `referred_sex`'s evidence, the text at its span holding a pronoun of that sex; **T082:** or keyed by a word of the character's name (a title), or of `Entity.sex_quote`, a located Action
+(**T085:** or by `referred_sex`'s evidence, the text at its span holding a pronoun of that sex, for `AGE` and `SEX` alike, a `SEX` part then citing that span; **T082:** or keyed by a word of the character's name (a title), or of `Entity.sex_quote`, a located Action
 quote: the invariant test checks that the sex word of every `AGE` and `SEX` part is keyed by a word in one of
 those three); `SEX` (T082), whose span is `Entity.sex_quote`'s (a located Action quote, which may lie outside the
 shot) or, for a title, the character's first located quote's, and whose text is the code's fixed "a female
@@ -745,32 +745,52 @@ def title_sex(character: str) -> Sex | None: ...   # T082, pure: the name's firs
 #   (OFFICER, DR, NURSE give no sex). A title other than these fails closed (None)
 def referred_sex(character: str, screenplay: Screenplay) -> tuple[Sex, str, Span] | None: ...
 #   T085, pure: the sex the script's later references give (§3.1, A character's sex from later references), with
-#   the first piece of evidence in script order: its text (the sentence, or the parenthetical) and its element's
-#   span. Every piece found must agree, else None; none found, None. Sentences: an Action element's text split
-#   after ".", "!" or "?" followed by whitespace, but never after Mr, Mrs, Ms, Dr, St, Jr or Sr ("Mr. Dube" is one
-#   sentence). Words: re.findall(r"[A-Za-z']+|[,;:]", text). Three rules:
-#   (1) owned: a sentence opening with the character's name words (normalise, so "Mr. Dube" is MR DUBE; an
-#       optional "The" first: "The sleeping commuter"), the rest of which has no word of another character's name
-#       (_other_names) and no sex noun (SEX_WORDS less PRONOUNS); after the name, the first of he, him, his, himself,
-#       she, her, hers, herself is "his", "her", "himself" or "herself", at most 4 words after the name, with no
-#       comma, semicolon, colon or conjunction (and, but, while, as, or, then, who, when, because) before it; a
-#       "her" must be followed by a word, and not one of _NOT_POSSESSED (a, an, the, to, and, or, but, in, on, at,
-#       by, for, from, with, of, into, onto, up, down, back, out, off, over, away, again, too, gently, slowly,
-#       softly, close, closer, go, be, that, this, it, as, so, if, once, twice, all): "hands her the box" is an
-#       object, not hers. "Koos taps his broom." → male; "Amahle tugs at her mother's scrubs." → female.
-#   (2) next: the sentence right after a sentence that opens as in (1) (same element, the same no-other-name and
-#       no-sex-noun test, whether or not (1) found a pronoun) opens with the word "He" or "She", capitalised:
-#       "KOOS (70s) … pushes a wide broom. He wears headphones" → male.
+#   its evidence: the first STANDALONE piece in script order, its text (the sentence, or the parenthetical) and
+#   its element's span (a parenthetical's: its Dialogue's). Each piece is standalone or corroborating. Every
+#   piece found, of either kind, must give one sex, else None; and a sex needs at least one standalone piece,
+#   else None here (character_sex may still use corroborating pieces, below). Not fitted to unseen scripts: no
+#   wrong sex on the samples is no evidence for others; the held-out script is the test.
+#   Sentences: an Action element's text split after ".", "!" or "?" followed by whitespace, never after "Mr.",
+#   "Mrs.", "Ms.", "Dr.", "St.", "Jr." or "Sr." ("Mr. Dube takes off his cap." is one sentence). Words:
+#   re.findall(r"[A-Za-z']+|\d\w*|[,;:()]", text). Name match: whole words, so SIPHO never matches
+#   "Siphokazi …".
+#   The owned pronoun after a name: walk the words after it; each word before the pronoun must be lowercase
+#   letters only (no capital, digit, comma, semicolon, colon or parenthesis) and none of: a conjunction (and,
+#   but, while, as, or, then, who, when, because), a determiner (a, an, the, this, that, these, those, some,
+#   every, each, another), a sex noun (SEX_WORDS less PRONOUNS), a word of another character's name
+#   (_other_names). Any of these first: None. The first pronoun (he, him, his, himself, she, her, hers, herself)
+#   must come after 1 to 3 such words (0 to 3 in a parenthetical), and then:
+#     "his", "himself" → male, standalone; "herself" → female, standalone;
+#     "her" right after a preposition (_PREPOSITIONS: at, on, in, under, over, into, onto, to, from, with,
+#       for, by, against, behind, beside, off, up, down, through, across, around, toward, towards, of)
+#       → female, standalone ("Amahle tugs at her mother's scrubs", "(under her breath)");
+#     "her" otherwise, followed by a word not in _NOT_POSSESSED (a, an, the, to, and, or, but, in, on, at, by,
+#       for, from, with, of, into, onto, up, down, back, out, off, over, away, again, too, gently, slowly,
+#       softly, close, closer, go, be, that, this, it, as, so, if, once, twice, all) → female, corroborating
+#       ("Zanele runs her finger" is hers; "Sipho watches her count coins" is not, and only corroborates);
+#     he, him, she, hers → nothing.
+#   Three places:
+#   (1) owned: a sentence of an Action element opening with the character's name words (normalise; an optional
+#       "The" first: "The sleeping commuter"), whose rest has no word of another character's name and no sex
+#       noun; the owned pronoun after the name. "Koos taps his broom." → male, standalone; "Sipho does not take
+#       his eyes off the water." → male, standalone; "Amahle hands the clerk his card." → nothing (a determiner).
+#   (2) next: the sentence right after a sentence that opens as in (1) (same element, same tests, whether or
+#       not (1) found a pronoun) opens with the word "He" or "She", capitalised → that sex, corroborating only:
+#       "Sipho knocks. She opens the door." is someone else's "She" (T079's "She waves may be anyone" stands).
 #   (3) parenthetical: a Dialogue whose cue is the character (match_speaker), whose parenthetical has no word of
-#       another character's name and whose words give a sex by (1)'s pronoun test from their start:
-#       "(closing his notebook)" → male; "(to her)" → None.
-#   A sex from referred_sex alone has no grounded quote: sex_part cites the evidence element's span.
+#       another character's name; the owned pronoun from its first word: "(closing his notebook)" → male,
+#       standalone; "(under her breath)" → female, standalone; "(watching her leave)" → corroborating;
+#       "(to her)" → nothing.
+#   T085 changes T082's "her/his never count" (grounding.md §3, sex.py's comment) only here, in these owned
+#   positions; `sex_word` and rule (e) are unchanged.
 def character_sex(character: str, screenplay: Screenplay, extraction: Extraction) -> tuple[Sex, str] | None: ...
 #   T082, pure: the sex every source that gives one agrees on, with its evidence: introduced_sex (T079; the
 #   introducing Action element's text), title_sex (the name), the grounded Entity.sex (Entity.sex_quote's text);
 #   None when none gives one, or two disagree. With several agreeing, the evidence is the first of sex_quote, the
 #   introduction, referred_sex's sentence (T085), the name; cut to 160 characters at a word. T085: referred_sex is
-#   a fourth source, agreeing like the others. Each source is a word of the script keyed by the
+#   a fourth source, agreeing like the others; and when the other sources give a sex, a corroborating piece of
+#   the other sex makes it None (every piece must agree), while one of the same sex changes nothing.
+#   sex_part's span (T085): sex_quote's, else referred_sex's element span, else the first located quote's. Each source is a word of the script keyed by the
 #   code's fixed vocabulary, so the prompt's "girl" traces to "She", "MAMA" or "her" in the script. `AGE` and
 #   `SEX` (§3.1), verify's render_spec and the report (learning.md) use it
 #   in that same introducing element: "she"/"he" in the introducing sentence (from the name to the sentence's
@@ -974,7 +994,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | The renderer (2026-10-09, §3.5) | FLUX.1 [schnell] on fal.ai: seed, any size, PNG, $0.003 per ≤ 1 MP frame, always on | ComfyUI on a Nebius L40S as the default (≈ $2,500 to stay up to 15 Dec, or cold starts for judges; credit coverage unconfirmed: kept optional, T003); Cloudflare Workers AI FLUX.1 [schnell] (no seed and no size in its schema: breaks seeded attempts and comic panels); Nebius Token Factory (no image model, 404 on 2026-10-08). Sources: nebius.com/prices, the Cloudflare model schema, fal.ai's model page and OpenAPI |
 | A character's age in the prompt (T074) | an `AGE` part from the script's own introduction (`LERATO (10)` → "a 10-year-old") | only "a person" (before T074): on 2026-10-10 the-red-kite drew Lerato (10) and Mokgosi (70s) as young adults again and again, and T072's audit then withheld those frames; the age in every name's label: "a person in their 70s's workshop"; a gender word: the script's parenthesis doesn't give one |
 | A character's sex beyond the introduction (T082; Tumo, 2026-10-11) | `character_sex`: the introduction's pronouns, a sex title, and the extraction's grounded `sex_word`, all agreeing | the introduction alone (T079): on 2026-10-11 sipho-and-siphokazi's Sipho, Siphokazi and Mama Thembi got no sex, were drawn as old men and boys, and 8.3 was accepted wrong (L002); the first source only: a disagreement means one of them misread the script, so none is drawn; "a woman" / "a man" for an unaged character: a baby with no age in numbers would be drawn grown. **Cost:** a first-word title that can be a given name (`KING JONES`, `PRINCE`, `MISS`) sexes that character; `character_sex` drops it when another source disagrees |
-| A character's sex from later references (T085; Tumo, 2026-10-12) | `referred_sex`: three narrow code rules on the script's own pronouns (the subject's own "his"/"her", a "He"/"She" opening the next sentence, the speaker's parenthetical), every piece agreeing, and agreeing with T082's sources | the extraction asked for a pronoun quote (a model resolving "he" to a name is the guess T082 refuses, and it costs Token Factory to measure); any "he"/"she" near the name (`Sipho watches as she counts` gives Sipho a girl's sex); "his"/"her" anywhere in a sentence about the character (`Amahle hugs the giraffe so hard his short leg sticks out` gives Amahle a boy's sex: the 4-word limit and the conjunction stop refuse it). On the stored extractions, scored against eval/sex-labels.json: WRONG 0 and INVENTED 0 on all three samples; lost-property 6 → 11 of 12 right, sipho-and-siphokazi 3 → 5 of 5 (its stored extraction predates `sex_word`), the-red-kite 3 of 3 |
+| A character's sex from later references (T085; Tumo, 2026-10-12) | `referred_sex`: the script's own pronouns in three narrow owned positions; a "his", a "her" after a preposition and a parenthetical's own pronoun decide, a bare "her" and a "He"/"She" opening the next sentence only corroborate; every piece agreeing, and agreeing with T082's sources | the extraction asked for a pronoun quote (a model resolving "he" to a name is the guess T082 refuses, and it costs Token Factory to measure); any "he"/"she" near the name (`Sipho watches as she counts`); "his"/"her" anywhere in the sentence (`Amahle hugs the giraffe so hard his short leg sticks out`); a next sentence's "She" deciding alone (the design review: `Sipho knocks. She opens the door.`); a bare "her" deciding alone (`Sipho watches her count coins`). On the stored extractions against eval/sex-labels.json: WRONG 0 and INVENTED 0 on all three samples; lost-property 6 → 11 of 12 right (found on), sipho-and-siphokazi 3 → 4 of 5 (its stored extraction predates `sex_word`; Siphokazi has only a corroborating "She"), the-red-kite 3 of 3. Fitted to these samples: the held-out script is the evidence |
 | A character's sex and look in the prompt (T079) | the sex word from the introduction's pronouns; the look verbatim from the introduction | the age alone (T074): on 2026-10-11 klein drew Lerato as a boy in 9 of 11 accepted frames, short hair, no braids; a sex word from any pronoun near the name: `watches her` after Mama Thembi is someone else; the whole introducing line: its action (`grips a RED KITE`) is that moment's event |
 | A line heard off screen (T079) | its listeners are the planner's other characters | no one (before T079): the prompt asked for nothing and the frame was an empty roof |
 | A plain background (T074) | `plain background` in the clean style's `finish` | the scene as it comes: schnell fills a workshop with jugs, books, pots and frames, and the judge withholds the frame for them (13 of 19 withheld frames failed on such objects on 2026-10-10); a per-shot phrase: the style is how every frame is drawn |
@@ -1035,26 +1055,34 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   first): the extraction on all three samples, the sex of every person character against a
   labelled table (eval/), **lost-property held out** (T082 was found on sipho-and-siphokazi and
   designed on its three introductions); never a wrong sex, the misses counted.
-- **T085:** `referred_sex`, each rule alone: (1) "Koos taps his broom." → male; "Amahle tugs at her
-  mother's scrubs." → female; "Mr. Dube takes off his cap." → male (one sentence, not two); "The
-  sleeping commuter snores under his newspaper." → male for SLEEPING COMMUTER; "Sipho hands her the box."
-  → None (an object); "Sipho watches her, gently." → None; "Koos gives Sipho his change." → None (another
-  name); "Koos watches a woman and her dog." → None (a sex noun); "Amahle hugs the giraffe so hard his short
-  leg sticks out." → None (past 4 words); "Koos laughs, and his hat falls." → None (a comma first); "Koos
-  turns to him." → None (him is no owner). (2) "KOOS (70s) pushes a broom. He wears headphones." → male;
-  "Koos watches a woman. She waves." → None; "Koos nods. Then she waves." → None (not the opening word);
-  "Koos nods. Shelves line the wall." → None ("Shelves" is no "She"). (3) MOLOI with "(closing his
-  notebook)" → male; "(to her)" → None; "(to Zanele, under her breath)" → None (another name). Agreement:
-  "Koos taps his broom." and "Koos fixes her hair." in one script → None; the evidence is the first in
-  script order, with its element's span (a parenthetical's: its Dialogue's span). `character_sex`:
-  referred_sex agreeing with a title → that sex; disagreeing with the introduction → None; alone → its
-  sentence as evidence. `sex_part` for a character sexed only by referred_sex cites that element's span.
-  The invariant (§9) accepts a sex word keyed by referred_sex's evidence (the text at its span holds a
-  pronoun of that sex). **Free**, on the stored projects' screenplays and extractions against
-  eval/sex-labels.json: WRONG 0 and INVENTED 0 on all three samples, lost-property at least 11 of 12
-  right (found on: L010 came from it), the-red-kite and sipho-and-siphokazi reported beside it. **Held
-  out:** the new script (Tumo, 2026-10-12), unseen until T085 is built: labelled by reading it after the
-  code is merged, then scored the same way and drawn once (fal, ask first), every accepted frame looked at.
+- **T085:** `referred_sex`, each rule alone. (1) standalone: "Koos taps his broom." → male; "Amahle tugs at
+  her mother's scrubs." → female; "Mr. Dube takes off his cap." → male (one sentence); "The sleeping commuter
+  snores under his newspaper." → male for SLEEPING COMMUTER; "Sipho does not take his eyes off the water." →
+  male. (1) nothing: "Sipho hands her the box." ("the" follows); "Sipho watches her, gently."; "Koos gives
+  Sipho his change." (another name); "Koos watches a woman and her dog." (a determiner first); "Amahle hugs
+  the giraffe so hard his short leg sticks out." (a determiner first); "Amahle hands the clerk his card.";
+  "Koos laughs, and his hat falls." (a comma); "Koos turns to him." (him owns nothing); "Koos helps Mama with
+  her bag." (a capital first); "Siphokazi takes his hand." gives SIPHO nothing (whole-word names). (1)
+  corroborating only: "Sipho watches her count coins." → None alone. (2) corroborating only: "KOOS (70s)
+  pushes a broom. He wears headphones." → None alone; "Sipho knocks. She opens the door." → None; with
+  "Koos taps his broom." elsewhere, (2)'s "He" agrees → male; with "Sipho takes his hat." elsewhere,
+  "Sipho knocks. She opens the door." disagrees → None. "Koos nods. Then she waves." and "Koos nods. Shelves
+  line the wall." → nothing. (3) MOLOI "(closing his notebook)" → male; "(under her breath)" → female;
+  "(watching her leave)" → None alone; "(to her)" → nothing; "(to Zanele, under her breath)" → nothing. The
+  evidence is the first standalone piece in script order with its element's span (a parenthetical's: its
+  Dialogue's). `character_sex`: referred agreeing with a title → that sex; disagreeing with the introduction
+  → None; alone → its sentence as evidence; a title's sex with a corroborating piece of the other sex →
+  None. `introduced_age` for `MOLOI (40s)` sexed only by "(closing his notebook)" reads "a man in his 40s".
+  `sex_part` for a character sexed only by referred_sex cites that element's span; with a `sex_quote` too,
+  the quote's. The invariant (§9): its `keyed` takes the screenplay and accepts a sex word keyed by
+  `referred_sex`'s evidence (the text at its span holds a pronoun of that sex), in the AGE branch and the SEX
+  branch; the SEX branch's owners accept `referred_sex`'s span. **Free**, on the stored projects'
+  screenplays and extractions against eval/sex-labels.json: WRONG 0 and INVENTED 0 on all three samples,
+  lost-property at least 11 of 12 right (found on: L010 came from it), the-red-kite and sipho-and-siphokazi
+  reported beside it. These are the samples the rules were fitted to: no wrong sex here is no evidence for
+  other scripts. **Held out:** Tumo's new script (2026-10-12), unseen until T085 is built: labelled by
+  reading it after the code is merged, then scored the same way and drawn once (fal, ask first), every
+  accepted frame looked at.
 - **T079:** `introduced_sex`: `LERATO (10), braids tied back, grips … as tall as she is` → female;
   `MOKGOSI (70s), reading glasses pushed up on his forehead` → male; `MAMA THEMBI (60s), the shop's
   owner, watches her …` → None; `KOOS (70s), the night cleaner, pushes a broom. She waves.` → None. `introduced_look`: "braids tied back",
