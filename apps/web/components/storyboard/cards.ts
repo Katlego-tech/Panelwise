@@ -35,6 +35,7 @@ const CHECKS: Record<string, string> = {
   framing: "framing",
   signature: "artist's signature",
   no_character: "no character in frame",
+  background_object: "unscripted background",
   audit_error: "the audit couldn't run",
 };
 

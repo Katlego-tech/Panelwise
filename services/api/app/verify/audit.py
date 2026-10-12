@@ -16,7 +16,7 @@ from pydantic import ValidationError
 from app.characters.labels import animals
 from app.grounding import EntityKind, Extraction, normalize_for_grounding
 from app.llm import ChatResult, LLMError, NebiusChatModel, Tier, Usage, structured_chat
-from app.script import IntExt, Scene, Screenplay, match_speaker
+from app.script import Action, IntExt, Scene, Screenplay, match_speaker
 from app.shots import Framing, Shot
 from app.verify.model import (
     Audit,
@@ -49,6 +49,8 @@ _SEVERITY = {
     Check.SIGNATURE: Severity.SOFT,
     # None of the people the prompt drew is in the frame: it isn't this shot (T080).
     Check.NO_CHARACTER: Severity.HARD,
+    # An everyday thing of the place the script didn't mention, nobody holding it (T083).
+    Check.BACKGROUND_OBJECT: Severity.SOFT,
 }
 # Things a location never "naturally holds": each is a story choice the script must make.
 # A sign may be dressing (T071): its words are what could be unscripted, and TEXT_IN_FRAME
@@ -59,6 +61,92 @@ _NEVER_DRESSING = frozenset(
         ObjectCategory.VEHICLE,
         ObjectCategory.WEAPON,
         ObjectCategory.FOOD,
+    }
+)
+# The place's everyday things: unmentioned and unheld, they warn rather than withhold (T083).
+_BACKGROUND = frozenset(
+    {
+        ObjectCategory.OTHER,
+        ObjectCategory.NATURE,
+        ObjectCategory.FURNITURE,
+        ObjectCategory.SCREEN_OR_SIGN,
+    }
+)
+# Words that never name a thing (T083): `box of fish` is named by `fish`, never by `of`.
+_FUNCTION_WORDS = frozenset(
+    {
+        "of",
+        "the",
+        "and",
+        "with",
+        "in",
+        "on",
+        "a",
+        "an",
+        "for",
+        "from",
+        "to",
+        "at",
+        "by",
+        "into",
+        "onto",
+        "over",
+        "under",
+        "its",
+        "his",
+        "her",
+        "their",
+    }
+)
+# A part of a thing (T083): `boat masts` is named by the boat the scene names.
+_PART_WORDS = frozenset(
+    {
+        "mast",
+        "sail",
+        "hull",
+        "deck",
+        "cabin",
+        "bow",
+        "stern",
+        "oar",
+        "wheel",
+        "door",
+        "window",
+        "windscreen",
+        "bonnet",
+        "boot",
+        "bumper",
+        "tyre",
+        "tire",
+        "engine",
+        "roof",
+        "seat",
+        "mirror",
+        "light",
+        "tail",
+        "wing",
+        "fin",
+        "head",
+        "leg",
+        "paw",
+        "hoof",
+        "horn",
+        "mane",
+        "ear",
+        "collar",
+        "lead",
+        "handle",
+        "blade",
+        "barrel",
+        "trigger",
+        "hilt",
+        "sheath",
+        "crust",
+        "rind",
+        "peel",
+        "skin",
+        "bone",
+        "slice",
     }
 )
 # Costume and the place's own structure: never a story choice when nobody holds it (T071).
@@ -132,6 +220,51 @@ def part_of_prop(
     return None
 
 
+_SIBILANT = ("s", "x", "z", "ch", "sh")
+
+
+def _forms(word: str) -> set[str]:
+    """The word, its plural and, for a plural, its singular (T083): horse/horses, pony/ponies,
+    box/boxes, boats/boat. `es` only after a sibilant, so no form is a stray word: `bees` is
+    never "be", `car` never "cares". Irregular plurals (wolves) are not forms."""
+    forms = {word, word + "s"}
+    if word.endswith(_SIBILANT):
+        forms.add(word + "es")
+    if word.endswith("y"):
+        forms.add(word[:-1] + "ies")
+    if word.endswith("ies"):
+        forms.add(word[:-3] + "y")
+    elif word.endswith("es") and word[:-2].endswith(_SIBILANT):
+        forms.add(word[:-2])
+    elif word.endswith("s") and not word.endswith("ss"):
+        forms.add(word[:-1])
+    return forms
+
+
+def named_in_scene(name: str, category: ObjectCategory, scene: Scene) -> str | None:
+    """The word of the scene's action text that names this animal, vehicle, weapon or food
+    (T083): its own noun (the name's last word) or, when that is a part word, its whole's
+    (`boat masts` against "fishing-boats"), and then only its whole's. The name splits on
+    spaces, so `off-road` stays one
+    word; the scene's text on anything but letters. None for any other category, with a copy
+    word, or for a word only in the heading or in dialogue."""
+    if category not in _NEVER_DRESSING:
+        return None
+    words = [w.strip(".,;:!?'\"()") for w in name.lower().split()]
+    if not words or _COPY_WORDS & set(words):
+        return None
+    # A part is named by its whole only: a `car door` by a car, never by the scene's doors.
+    part = len(words) >= 2 and bool(_forms(words[-1]) & _PART_WORDS)
+    candidates = [words[-2]] if part else [words[-1]]
+    text = " ".join(e.text for e in scene.elements if isinstance(e, Action)).lower()
+    scene_words = set(re.findall(r"[a-z]+", text))
+    for candidate in candidates:
+        if len(candidate) >= 3 and candidate not in _FUNCTION_WORDS:
+            if found := sorted(_forms(candidate) & scene_words):
+                return found[0]
+    return None
+
+
 def _calls_each_once(indexes: Sequence[int], n: int) -> bool:
     return sorted(indexes) == list(range(n))
 
@@ -192,7 +325,14 @@ def run_checks(
             continue
         if part_of_prop(obj.name, obj.category, shot, extraction):
             continue  # T078: whatever the judge said; its support is the prop's quote
+        if named_in_scene(obj.name, obj.category, scene):
+            continue  # T083: the script put it in this scene, whatever the judge said
+        background = (
+            obj.category in _BACKGROUND and not obj.held and not _named_prop(obj.name, props)
+        )
         match call.kind:
+            case ObjectKind.UNSCRIPTED if background:
+                failures[Check.BACKGROUND_OBJECT].append(f"{what}: not in the script")
             case ObjectKind.UNSCRIPTED:
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: unscripted")
             case ObjectKind.SCRIPTED_PROP if not _found(call.support, supports):
@@ -203,6 +343,8 @@ def run_checks(
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: the script names it")
             case ObjectKind.SET_DRESSING if obj.category in _NEVER_DRESSING:
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: never set dressing")
+            case ObjectKind.SET_DRESSING if not _found(call.support, heading) and background:
+                failures[Check.BACKGROUND_OBJECT].append(f"{what}: not in the script")
             case ObjectKind.SET_DRESSING if not _found(call.support, heading):
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: not in the heading")
             case _:

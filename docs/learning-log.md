@@ -16,6 +16,26 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L009 · Object failures were catching wrong people by accident · open
+
+- **Seen:** 2026-10-11, measuring T083 with `recheck` on the stored audits of
+  [sipho-and-siphokazi](../eval/runs/2026-10-11-sipho-and-siphokazi.md). Of the attempts T083
+  turns from fail to accepted, three show Siphokazi wrong: 4B.1 attempt 3 and 8.2 attempt 1 as a
+  boy, 5.1 attempt 3 as a grown man hauling the rope she grabs in the script. Their scripted things
+  (4B.1's compass, radio, taped photograph and wheel) or everyday background used to fail as
+  objects, and that alone kept the wrong person off the board.
+- **Cause:** with no sex in the prompt or the spec (L002), the judge can't refuse a girl drawn as
+  a boy; a strict object check withheld such frames for an unrelated reason.
+- **Action:** T083 waits for T082 before it goes live (merge order T082, then T083), so a wrong
+  sex is refused for its own reason. Lesson: when a strict check is relaxed, look at every frame
+  it lets through, not only the count.
+- **Measured:** T083's first version on the stored audits (`recheck --target storyboard`):
+  sipho-and-siphokazi 7 → 13 of 30 shots with an accepted attempt, the-red-kite 16 → 19 of 21; of
+  the 10 flipped attempts looked at as drawings, 7 correct (the-red-kite 2.1, 2.2, 3.1, 4.4; sipho
+  4A.1, 7.1, 9.2) and 3 wrong, all the wrong sex (sipho 4B.1, 5.1, 8.2). After the code review's
+  stricter matching (a part is named by its whole only), sipho is 7 → 12: 4B.1's "steering
+  wheel" is no longer excused, so that wrong frame stays withheld; 5.1 and 8.2 still pass.
+
 ### L008 · The word budget drops what the characters do · open
 
 - **Seen:** 2026-10-11, sipho-and-siphokazi,
@@ -92,9 +112,14 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Cause:** `verify/audit.py` `part_of_prop` (T078) counts a part only of an extracted prop of
   the shot, and never of a vehicle, animal, weapon or food. The judge called the masts set
   dressing, which a vehicle never is.
-- **Action:** T083 (planned): a part of something this shot's own text names counts as that
-  thing, with no copy word.
-- **Measured:** not yet. Free re-audit of the 82 stored drawings first.
+- **Action:** T083: an animal, vehicle, weapon or food the scene's action text names is scripted
+  (its own noun, or a part's whole: `boat masts`); everyday unheld background objects warn
+  (Tumo's call). The rule over all categories was measured first and rejected: it excused
+  "small pills", "power lines" (the script's washing lines) and "tripod stand".
+- **Measured:** `recheck` on the stored audits: sipho-and-siphokazi 7 → 12 of 30 shots, the-red-kite
+  16 → 19 of 21. 2 of the 9 newly accepted attempts are wrong-sex frames (L009), so T083 goes
+  live after T082. Held out (earlier the-red-kite runs, stored verdicts from older code): 12 → 18
+  and 15 → 16. Not yet on a script T083 wasn't designed from (held out).
 
 ### L002 · No sex from the script: wrong people drawn, and one accepted · open
 
