@@ -16,6 +16,48 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L011 · A stranger excused by a line of dialogue · open
+
+- **Seen:** 2026-10-12, lost-property (held out: no fix was designed on it), [run report](../eval/runs/2026-10-12-lost-property.md). Of 12
+  accepted shots, three show a person the shot doesn't have, and the audit's hard
+  `unscripted_person` passed each one:
+  - **7.4:** two men down the platform behind Officer Moloi. The judge matched one to TEBOGO, who
+    is not in the shot, and gave the other the support "Somebody might have." (dialogue).
+  - **10.3:** a figure crouching behind Koos, supported by "Sorry, my friend. He's already got a
+    home." (dialogue).
+  - **10.2:** a distant adult and a child under the pigeon, both supported by "A pigeon glares at
+    him." ("him" is Koos, a character).
+- **Cause:** a person's support is checked to be a verbatim quote of the shot's text. That text
+  includes the shot's dialogue, and a sentence about a named character still counts for an
+  unnamed figure. A line someone says puts nobody on screen, as verify.md §3 already says for
+  things (`named_in_scene` reads only action text).
+- **Action:** none yet. To consider, measured free with `recheck` first: a person's support must
+  come from the shot's action text, not its dialogue, and must not be a sentence whose only
+  person is a character of the shot. The judge's character matches should be limited to the
+  shot's own characters.
+- **Measured:** not yet.
+
+### L010 · T082 finds a sex for a third of the characters on a script it wasn't designed on · open
+
+- **Seen:** 2026-10-12, lost-property (held out), [run report](../eval/runs/2026-10-12-lost-property.md). Scored free on the run's own stored
+  extraction against `eval/sex-labels.json`: **WRONG 0, INVENTED 0**, RIGHT 6 (Zanele, Mr. Dube,
+  Grace, and the three the script never sexes), **MISS 6** (Priya, Koos, Tebogo, Amahle, Officer
+  Moloi, the sleeping commuter). So 3 of the 9 characters whose sex the script states got it.
+  Two misses reached the board: **4.1** draws Priya as a young man and **6.2** draws Amahle (8)
+  as a boy, and both were accepted. The describer wrote "a teenager" and "a young boy"; with no
+  `sex (from the script)` line, the judge matched them to the girls.
+- **Cause:** the code rules read the introduction's own she/he and a title. Here the sex comes
+  later or sideways: "She spots the hand-painted sign" (Priya, a scene after her introduction),
+  "He wears headphones" (Koos, the sentence after his), "A black case lies open at his feet"
+  (Tebogo), "Amahle tugs at her mother's scrubs", "(closing his notebook)" (Moloi, a
+  parenthetical), "snores under his newspaper". The grounded `sex_word` didn't cover them in this
+  extraction.
+- **Action:** none yet. The six misses are the held-out test set, so no fix is tuned to them: a
+  fix is designed on the samples' own patterns and scored here again, separately. The rule that
+  WRONG and INVENTED stay at 0 holds.
+- **Measured:** this is the held-out baseline: 3 of 9 found, 0 wrong. The Token Factory
+  measurement on the three samples (several extractions each) is still to run.
+
 ### L009 · Object failures were catching wrong people by accident · open
 
 - **Seen:** 2026-10-11, measuring T083 with `recheck` on the stored audits of
