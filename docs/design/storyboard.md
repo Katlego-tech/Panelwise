@@ -217,7 +217,7 @@ element that introduces a visible character (only for `AGE`, T074: its text is "
 in their <n>s", and `<n>` stands in that element in a parenthesis right after that character's name: an
 age is who the character is, not another moment's event, as a borrowed clock is when; T079: with the
 sex word `introduced_sex` reads there, the code's fixed vocabulary keyed by the script's own pronoun
-(**T082:** or keyed by a word of the character's name (a title), or of `Entity.sex_quote`, a located Action
+(**T088:** any `sex_quote` holding a `SEX_WORDS` word or `his`, `her`, `him` or `hers` of that sex (`CONFLICT_WORDS`): T088's evidence (grounding.md §3) may name the sex only by a possessive; **T082:** or keyed by a word of the character's name (a title), or of `Entity.sex_quote`, a located Action
 quote: the invariant test checks that the sex word of every `AGE` and `SEX` part is keyed by a word in one of
 those three); `SEX` (T082), whose span is `Entity.sex_quote`'s (a located Action quote, which may lie outside the
 shot) or, for a title, the character's first located quote's, and whose text is the code's fixed "a female

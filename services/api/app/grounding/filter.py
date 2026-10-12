@@ -93,8 +93,16 @@ def ground(
     sex_words = {
         normalise(g.name): g.sex_words for g in groups.values() if g.kind is EntityKind.CHARACTER
     }
+    names = _script_names(screenplay)
     characters = [
-        _with_sex(c, sex_words.get(normalise(c.name), []), characters, actions) for c in characters
+        _with_sex(
+            c,
+            sex_words.get(normalise(c.name), []),
+            characters,
+            actions,
+            _claimed_sex(c, sex_words.get(normalise(c.name), []), characters, screenplay, names),
+        )
+        for c in characters
     ]
     props = [
         Entity(
@@ -236,11 +244,16 @@ def _quote_sex(word: str, quote: Quote, entity: Entity, cast: Sequence[Entity]) 
 
 
 def _with_sex(
-    entity: Entity, proposed: Sequence[str], cast: Sequence[Entity], actions: set[Span]
+    entity: Entity,
+    proposed: Sequence[str],
+    cast: Sequence[Entity],
+    actions: set[Span],
+    pronoun_sexes: Sequence[tuple[Sex, Quote]] = (),
 ) -> Entity:
     """The entity with the sex its copied words ground, all agreeing (grounding.md §3, T082);
-    unchanged for an animal, a CUE backfill or no proposal."""
-    if entity.species is not None or entity.source is not Source.MODEL or not proposed:
+    T088: and its checked pronoun sentences, after them. Unchanged for an animal, a CUE backfill
+    or no proposal."""
+    if entity.species is not None or entity.source is not Source.MODEL:
         return entity
     kept: list[tuple[Sex, Quote]] = []
     for word in proposed:
@@ -248,9 +261,167 @@ def _with_sex(
             if quote.span in actions and (sex := _quote_sex(word, quote, entity, cast)):
                 kept.append((sex, quote))
                 break
+    kept.extend(pronoun_sexes)
     if not kept or len({sex for sex, _ in kept}) != 1:
         return entity
     return replace(entity, sex=kept[0][0], sex_quote=kept[0][1])
+
+
+# T088: the pronoun evidence for a claimed sex. Pronouns, and the words that stop a stretch: another
+# possible owner of the pronoun stands between the name and it.
+_PERSON_PRONOUNS = frozenset({"he", "him", "his", "himself", "she", "her", "hers", "herself"})
+_POSSESSIVES = frozenset({"his", "her", "hers", "their", "theirs", "my", "your", "our"})
+_DETERMINERS = frozenset({"a", "an", "the", "this", "that", "these", "those", "another", "some"})
+# After "her", a word that makes it an object ("hands her the box"), not a possessive.
+_NOT_POSSESSED = frozenset(
+    {
+        "a", "an", "the", "to", "and", "or", "but", "in", "on", "at", "by", "for", "from", "with",
+        "of", "into", "onto", "up", "down", "back", "out", "off", "over", "away", "again", "too",
+        "gently", "slowly", "softly", "close", "closer", "go", "be", "that", "this", "it", "as",
+        "so", "if", "once", "twice", "all",
+    }
+)  # fmt: skip
+# A sentence ends at . ! ? and whitespace, never after a title's abbreviation ("Mr. Dube").
+_SENTENCE_END = re.compile(r"(?<=[.!?])(?<!\bMr\.)(?<!\bMrs\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)\s+")
+_WORD = re.compile(r"[A-Za-z']+")
+# An introduction's own description, dropped first: "DANIEL (40s), a tall driver, climbs out."
+# reads as "DANIEL climbs out.", so its "a" is no unnamed person.
+_INTRODUCTION = re.compile(r"([A-Za-z.']+)\s*\([^)]*\)(?:\s*,[^,.;!?]*,)?")
+# A screenplay's names: an all-caps cue or `NAME (` introduction.
+_INTRODUCED_NAME = re.compile(r"(?<![A-Za-z])([A-Z][A-Z'. -]*[A-Z])\s*\(")
+
+
+def _script_names(screenplay: Screenplay) -> frozenset[str]:
+    """Every name word the script itself writes (T088): its dialogue cues and `NAME (`
+    introductions, normalised, stop words out. A name the extraction missed is still a name."""
+    names: set[str] = set()
+    for scene in screenplay.scenes:
+        for element in scene.elements:
+            if isinstance(element, Dialogue):
+                names.update(normalise(element.cue).split())
+            else:
+                names.update(
+                    w
+                    for m in _INTRODUCED_NAME.finditer(element.text)
+                    for w in normalise(m.group(1)).split()
+                )
+    return frozenset(names - NAME_STOP_WORDS)
+
+
+def _title_case(word: str) -> bool:
+    """A word written as a name is ("Lerato"): a capital, then lower case. A prop in capitals
+    (RED KITE) is not one."""
+    return word[:1].isupper() and word[1:].islower()
+
+
+def _opens_with(words: Sequence[str], name: Sequence[str]) -> int | None:
+    """Where the words after a sentence-opening name begin (an optional "The" first), or None."""
+    start = 1 if words[:1] and words[0].lower() == "the" else 0
+    return (
+        start + len(name)
+        if [normalise(w) for w in words[start : start + len(name)]] == list(name)
+        else None
+    )
+
+
+def _clear(words: Sequence[str], own: frozenset[str], others: frozenset[str]) -> bool:
+    """No other possible owner of a pronoun among `words` (T088): another name (the cast's, the
+    script's, or any Title-case word), a possessive, a determiner or a sex noun."""
+    for word in words:
+        low, key = word.lower(), normalise(word)
+        if key in own:
+            continue
+        if low.endswith("'s") or low in _POSSESSIVES or low in _DETERMINERS:
+            return False
+        if low in SEX_WORDS and low not in PRONOUNS:
+            return False
+        if word[:1].isupper() and (
+            key in others or (_title_case(word) and key not in NAME_STOP_WORDS)
+        ):
+            return False
+    return True
+
+
+def _owned(rest: Sequence[str]) -> Sex | None:
+    """The sex the first third-person pronoun after a sentence's subject gives, when it is the
+    subject's own: his, himself, herself, or a possessive her. He, she, him and an object her
+    give nothing here."""
+    for k, word in enumerate(rest):
+        low = word.lower()
+        if low not in _PERSON_PRONOUNS:
+            continue
+        if low in ("his", "himself"):
+            return Sex.MALE
+        if low == "herself":
+            return Sex.FEMALE
+        following = rest[k + 1].lower() if k + 1 < len(rest) else ""
+        if low == "her" and following and following not in _NOT_POSSESSED:
+            return Sex.FEMALE
+        return None
+    return None
+
+
+def _pronoun_evidence(
+    entity: Entity, cast: Sequence[Entity], screenplay: Screenplay, names: frozenset[str]
+) -> list[tuple[Sex, Quote]]:
+    """Every place an Action sentence's pronoun is plainly this character's (grounding.md §3,
+    T088): a sentence opening with the name whose first pronoun after it is the subject's own
+    with nothing that could own it between ("Koos taps his broom."), or a sentence opening with
+    He or She right after a sentence of the same element (or the last of the Action element just
+    before) that opens with the name and holds no other possible owner ("Siphokazi nods. She
+    cannot stop the smile."). A speech between breaks the chain: a pronoun after one is often the
+    listener's."""
+    name = normalise(entity.name).split()
+    own = _tokens(entity)
+    others = (names | {t for c in cast if c is not entity for t in _tokens(c)}) - own
+    found: list[tuple[Sex, Quote]] = []
+    for scene_index, scene in enumerate(screenplay.scenes):
+        previous: list[str] | None = None
+        for element in scene.elements:
+            if not isinstance(element, Action):
+                previous = None
+                continue
+            # The quote is the script's own sentence; only its words are read with an
+            # introduction's description left out.
+            for sentence in (s for s in _SENTENCE_END.split(element.text) if _WORD.search(s)):
+                words = _WORD.findall(_INTRODUCTION.sub(r"\1", sentence))
+                end = _opens_with(words, name)
+                quote = Quote(sentence.strip(), scene_index, element.span)
+                if end is not None and (sex := _owned(words[end:])) is not None:
+                    pronoun = next(
+                        i for i, w in enumerate(words[end:]) if w.lower() in _PERSON_PRONOUNS
+                    )
+                    if _clear(words[end : end + pronoun], own, others):
+                        found.append((sex, quote))
+                if words[:1] in (["He"], ["She"]) and previous is not None:
+                    before = _opens_with(previous, name)
+                    if before is not None and _clear(previous[before:], own, others):
+                        found.append((Sex.MALE if words[0] == "He" else Sex.FEMALE, quote))
+                previous = words
+    return found
+
+
+def _claimed_sex(
+    entity: Entity,
+    proposed: Sequence[str],
+    cast: Sequence[Entity],
+    screenplay: Screenplay,
+    names: frozenset[str],
+) -> list[tuple[Sex, Quote]]:
+    """The sex the model claims with its sex_word, kept when the script's own pronouns support it
+    and none contradicts it (grounding.md §3, T088), with the first supporting sentence as the
+    quote; else nothing. Never for an animal or a CUE backfill."""
+    # A claim may be a possessive too (his, her): only T088's evidence keeps it, never the word.
+    claims = {CONFLICT_WORDS.get(w.strip().rstrip(".").lower()) for w in proposed} - {None}
+    if len(claims) != 1 or entity.species is not None or entity.source is not Source.MODEL:
+        return []
+    claim = next(iter(claims))
+    assert claim is not None
+    evidence = _pronoun_evidence(entity, cast, screenplay, names)
+    support = [quote for sex, quote in evidence if sex is claim]
+    if not support or any(sex is not claim for sex, _ in evidence):
+        return []
+    return [(claim, support[0])]
 
 
 def _other_names(group: _Group, script: str) -> tuple[str, ...]:
