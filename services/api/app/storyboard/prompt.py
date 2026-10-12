@@ -315,6 +315,13 @@ def sex_part(
     return f"a {found[0].value} person", span
 
 
+def introduced_years(character: str, screenplay: Screenplay) -> int | None:
+    """The age in years the introduction gives (T086): `THEO (9)` -> 9, `DANIEL (40s)` -> 40;
+    None when no introduction gives one. The audit checks a matched person's age against it."""
+    found = _introduction(character, screenplay)
+    return int(found[1].group(1)) if found else None
+
+
 def introduced_age(
     character: str, screenplay: Screenplay, extraction: Extraction | None = None
 ) -> tuple[str, Span] | None:
