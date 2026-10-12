@@ -54,7 +54,7 @@ def office() -> tuple[Screenplay, Extraction, Shot]:
 
 def test_the_spec_lists_an_animal_apart_from_the_characters() -> None:
     screenplay, extraction, shot = office()
-    spec = render_spec(shot, screenplay.scenes[0], extraction, described())
+    spec = render_spec(shot, screenplay.scenes[0], screenplay, extraction, described())
     characters = spec.split("Characters in this shot:")[1].split("Animals in this shot:")[0]
     assert "ZANELE" in characters and "MARMALADE" not in characters
     animals = spec.split("Animals in this shot:")[1].split("Props in this shot:")[0]

@@ -21,6 +21,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.characters.labels import animals
 from app.core.config import Settings
 from app.db import make_engine, make_sessions
 from app.frames.model import AuditTarget, FrameAuditRow, FrameRow
@@ -29,9 +30,9 @@ from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.model import ProjectRow
 from app.storyboard.prompt import (
     build_frame_prompt,
+    character_sex,
     introduced_age,
     introduced_look,
-    introduced_sex,
 )
 from app.storyboard.styles import PUBLIC_STYLES, StyleRegistry, load_styles
 from app.verify.model import Check, Severity, Verdict
@@ -321,11 +322,16 @@ def build_report(
         key=lambda c: (c.severity is not Severity.HARD, order.index(c.check)),
     )
 
+    beings = animals(extraction)  # an animal is never a person: a pet PRINCESS gets no sex
     characters = tuple(
         CharacterLine(
             name=e.name,
-            age=age[0] if (age := introduced_age(e.name, screenplay)) else None,
-            sex=introduced_sex(e.name, screenplay),
+            age=age[0] if (age := introduced_age(e.name, screenplay, extraction)) else None,
+            sex=None
+            if e.name in beings
+            else found[0].value
+            if (found := character_sex(e.name, screenplay, extraction))
+            else None,
             look=look[0] if (look := introduced_look(e.name, screenplay)) else None,
         )
         for e in extraction.entities

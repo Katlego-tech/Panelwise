@@ -24,7 +24,8 @@ from typing import Literal
 
 from app.characters import name_tokens, redact
 from app.characters.labels import animals, redaction_labels
-from app.grounding import Extraction
+from app.characters.sex import SEX_TITLES, Sex
+from app.grounding import Entity, EntityKind, Extraction
 from app.script import (
     Action,
     Dialogue,
@@ -34,6 +35,7 @@ from app.script import (
     Span,
     absolute_time,
     match_speaker,
+    normalise,
 )
 from app.shots import Framing, Shot
 from app.storyboard.styles import Style
@@ -46,6 +48,7 @@ class PartKind(StrEnum):
     TIME = "time"
     COUNT = "count"
     AGE = "age"  # T074: a visible character's age, from the script's introduction
+    SEX = "sex"  # T082: "a female person" for a character the script sexes but gives no age
     LOOK = "look"  # T079: their description, verbatim from that introduction
     PLACEMENT = "placement"
     ACTION = "action"
@@ -246,17 +249,90 @@ def introduced_sex(character: str, screenplay: Screenplay) -> Literal["female", 
     return "female" if female else "male"
 
 
-def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] | None:
+def title_sex(character: str) -> Sex | None:
+    """The sex the name's first word gives when it is a sex title (T082): `MAMA THEMBI` female,
+    `MR. DUBE` male, `OFFICER MOLOI` None."""
+    words = normalise(character).split()
+    return SEX_TITLES.get(words[0]) if words else None
+
+
+def _entity(character: str, extraction: Extraction) -> Entity | None:
+    key = normalise(character)
+    return next(
+        (
+            e
+            for e in extraction.entities
+            if e.kind is EntityKind.CHARACTER and normalise(e.name) == key
+        ),
+        None,
+    )
+
+
+_EVIDENCE_MAX = 160
+
+
+def character_sex(
+    character: str, screenplay: Screenplay, extraction: Extraction
+) -> tuple[Sex, str] | None:
+    """The sex every source that gives one agrees on, with its evidence (T082): the grounded
+    sex_word (its quote), the introduction's pronouns (that element), a sex title (the name).
+    None when none gives one, or two disagree."""
+    entity = _entity(character, extraction)
+    sources: list[tuple[Sex, str]] = []
+    if entity is not None and entity.sex is not None and entity.sex_quote is not None:
+        sources.append((Sex(entity.sex), entity.sex_quote.text))
+    if (intro := introduced_sex(character, screenplay)) is not None:
+        found = _introduction(character, screenplay)
+        sources.append((Sex(intro), found[0].text if found else character))
+    if (title := title_sex(character)) is not None:
+        sources.append((title, character))
+    if not sources or len({sex for sex, _ in sources}) != 1:
+        return None
+    sex, evidence = sources[0]
+    if len(evidence) > _EVIDENCE_MAX:
+        evidence = evidence[:_EVIDENCE_MAX].rsplit(" ", 1)[0] + "…"
+    return sex, evidence
+
+
+def sex_part(
+    character: str, screenplay: Screenplay, extraction: Extraction
+) -> tuple[str, Span] | None:
+    """The SEX part for a character the script sexes but gives no age (T082): "a female person"
+    / "a male person", which claim no age, cited with the grounded quote's span or, for a title,
+    the character's first located quote's. None when there is an age (AGE says it) or no span."""
+    if _introduction(character, screenplay) is not None:
+        return None
+    found = character_sex(character, screenplay, extraction)
+    entity = _entity(character, extraction)
+    if found is None or entity is None:
+        return None
+    if entity.sex_quote is not None and entity.sex is not None:
+        span = entity.sex_quote.span
+    elif entity.quotes:
+        span = entity.quotes[0].span
+    else:
+        return None
+    return f"a {found[0].value} person", span
+
+
+def introduced_age(
+    character: str, screenplay: Screenplay, extraction: Extraction | None = None
+) -> tuple[str, Span] | None:
     """The age the script gives where an Action line introduces `character` (T074): `LERATO (10)`
     -> "a 10-year-old", `MOKGOSI (70s)` -> "a person in their 70s", with that element's span; T079:
-    with the sex `introduced_sex` reads, "a 10-year-old girl", "a man in his 70s". Only the
-    parenthesis's own number and the code's fixed sex words."""
+    with the sex `introduced_sex` reads, "a 10-year-old girl", "a man in his 70s"; T082: with an
+    extraction, the sex `character_sex` gives. Only the parenthesis's own number and the code's
+    fixed sex words."""
     found = _introduction(character, screenplay)
     if found is None:
         return None
     element, m = found
     number, decade = int(m.group(1)), m.group(2)
-    sex = introduced_sex(character, screenplay)
+    if extraction is not None:
+        agreed = character_sex(character, screenplay, extraction)
+        sex = agreed[0].value if agreed is not None else None
+    else:
+        sex = introduced_sex(character, screenplay)
     young = number < 18
     noun = {
         "female": "girl" if young else "woman",
@@ -331,8 +407,10 @@ def build_frame_prompt(
     if visible:
         parts.append(PromptPart(PartKind.COUNT, _COUNTS.get(len(visible), _GROUP), None))
         for character in visible:  # T074, T079: each one's age, then look, as the script gives them
-            if (age := introduced_age(character, screenplay)) is not None:
+            if (age := introduced_age(character, screenplay, extraction)) is not None:
                 parts.append(PromptPart(PartKind.AGE, age[0], age[1]))
+            elif (sex := sex_part(character, screenplay, extraction)) is not None:
+                parts.append(PromptPart(PartKind.SEX, sex[0], sex[1]))  # T082
             # Not when the shot covers that line: its ACTION part already says it, word for word.
             look = introduced_look(character, screenplay)
             if look is not None and look[1] not in covered:

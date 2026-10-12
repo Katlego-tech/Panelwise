@@ -339,7 +339,9 @@ def full(
 
 def test_the_schema_requires_species_and_other_names_for_strict_mode() -> None:
     schema = ProposedEntity.model_json_schema()
-    assert set(schema["required"]) == {"name", "kind", "quotes", "species", "other_names"}
+    assert set(schema["required"]) == {
+        "name", "kind", "quotes", "species", "other_names", "sex_word"  # T082
+    }  # fmt: skip
 
 
 def test_a_species_in_the_entitys_own_located_quote_is_kept(office: Screenplay) -> None:
