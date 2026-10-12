@@ -410,7 +410,8 @@ def _claimed_sex(
     """The sex the model claims with its sex_word, kept when the script's own pronouns support it
     and none contradicts it (grounding.md §3, T088), with the first supporting sentence as the
     quote; else nothing. Never for an animal or a CUE backfill."""
-    claims = {SEX_WORDS.get(w.strip().rstrip(".").lower()) for w in proposed} - {None}
+    # A claim may be a possessive too (his, her): only T088's evidence keeps it, never the word.
+    claims = {CONFLICT_WORDS.get(w.strip().rstrip(".").lower()) for w in proposed} - {None}
     if len(claims) != 1 or entity.species is not None or entity.source is not Source.MODEL:
         return []
     claim = next(iter(claims))

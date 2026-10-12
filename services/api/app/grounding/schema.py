@@ -46,10 +46,10 @@ class ProposedEntity(BaseModel):
         default=None,
         description=(
             "Only for a character who is a person: one word the screenplay writes about them "
-            "that shows they are female or male (she, he, or a noun such as woman, girl, man, "
-            "boy, fisherman), copied exactly from one of the quotes, from an action paragraph "
-            "that names this character and no one else. A copied word, not a guess: null when "
-            "the screenplay never writes one, and for every prop"
+            "that shows they are female or male (she, he, her, his, or a noun such as woman, "
+            "girl, man, boy, fisherman), copied exactly, best from one of the quotes, from an "
+            "action paragraph that names this character and no one else. A copied word, not a "
+            "guess: null when the screenplay never shows it, and for every prop"
         ),
     )
 
