@@ -147,10 +147,13 @@ shape; a piece that matches none counts under the key `other`, with the piece as
 is never dropped. Each table is sorted by count, then key; examples are the most frequent first,
 at most 5, each once.
 
-- **Objects** (`unscripted_object`): `^object (\d+) \((.*), ([^,]*)\): (.*)$`. Key
-  `<category> · <reason>` (`vehicle · never set dressing`); examples the object names (group 2).
-  The reasons are `run_checks`' six: `unscripted`, `prop without support`, `held, so not set
-  dressing`, `the script names it`, `never set dressing`, `not in the heading`.
+- **Objects** (`unscripted_object`, and since T083 the soft `background_object`):
+  `^object (\d+) \((.*), ([^,]*)\): (.*)$`. Key `<category> · <reason>` (`vehicle · never set
+  dressing`, `nature · not in the script`); examples the object names (group 2).
+  The reasons are `run_checks`' seven: `unscripted`, `prop without support`, `held, so not set
+  dressing`, `the script names it`, `never set dressing`, `not in the heading`, and (T083,
+  soft) `not in the script`. `object_causes` reads the pieces of both checks; `background_object`
+  also counts in `## Checks` as a soft check.
 - **People** (`unscripted_person`): `^person (\d+) \(([^,]*), (.*)\): (.*)$`, the appearance being
   group 3. Key: the appearance in lower case, leading spaces stripped, cut before the earliest of
   `,`, ` in `, ` with `, ` wearing `, ` standing `, ` sitting `, ` holding `, ` seen `,
