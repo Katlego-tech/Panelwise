@@ -1,6 +1,6 @@
-"""T088: a person's sex from a pronoun sentence the extraction picks, kept only when code finds it
-the plain reading (grounding.md §3 sex_pronoun_quote, §9). A self-written script, one scene per
-trap so no line is another's antecedent; no model."""
+"""T088: a sex the extraction claims with its sex_word, kept only when the script's own subject
+pronouns support it and none contradicts it (grounding.md §3, §9). A self-written script, one
+scene per case so no line is another's evidence; no model."""
 
 import pytest
 
@@ -26,23 +26,24 @@ ROWS: list[Row] = [
         "1",
         (ACTION, "DANIEL (40s), a tall driver, climbs out. He stretches until his back cracks."),
     ),
-    *_scene("2", (ACTION, "THEO (9) stumbles out with a bag held against his chest.")),
+    *_scene("2", (ACTION, "SIPHO (50s) waits. Sipho does not take his eyes off the water.")),
+    *_scene("3", (ACTION, "KAZI (17) nods. She cannot stop the smile.")),
+    *_scene("4", (ACTION, "AMAHLE (8) waits. Amahle tugs at her mother's scrubs.")),
+    *_scene("5", (ACTION, "ZOLA (17) nods. She smiles. Zola takes his hand.")),
     *_scene(
-        "3", (CUE, "PRIYA"), (DIALOGUE, "No. No, no, no."), (ACTION, "She spots the sign and runs.")
+        "6", (CUE, "PRIYA"), (DIALOGUE, "No. No, no, no."), (ACTION, "She spots the sign and runs.")
     ),
-    *_scene("4", (ACTION, "SIPHOKAZI (17) waits. Siphokazi takes his hand.")),
-    *_scene("5", (ACTION, "DANIEL laughs and takes the bag from him.")),
-    *_scene("6", (ACTION, "ZOLA (30s) laughs. She hands him the cup.")),
-    *_scene("7", (ACTION, "SIPHO (50s) waves to a woman. She smiles.")),
-    *_scene("8", (ACTION, "THABO (30s) pays. The cashier smiles. She bags the items.")),
-    *_scene("9", (ACTION, "PETER (30s) hugs his mother. She smiles.")),
-    *_scene("10", (ACTION, "THEO (9) sleeps. A small brown dog, BISCUIT, licks her paws.")),
-    *_scene("11", (ACTION, "THABO (30s) dances with grace. He nods.")),
-    *_scene("12", (ACTION, "MR. DUBE (60s) and MRS. DUBE (60s) wait. Dube enters. She sits.")),
-    *_scene("13", (ACTION, "THABO (30s) hugs Lerato. She smiles.")),
-    *_scene("14", (ACTION, "LINDA (40s) lifts a RED KITE. She grins.")),
-    *_scene("15", (CUE, "NOMSA"), (DIALOGUE, "Theo. Up."), (ACTION, "He hasn't moved.")),
-    *_scene("16", (ACTION, "Mr. Dube takes off his cap.")),
+    *_scene("7", (ACTION, "NOMSA (30s) and THEO (9) wait. Nomsa pulls Theo onto her lap.")),
+    *_scene("8", (ACTION, "LINDA (20s) waits. Linda scrambles in behind him.")),
+    *_scene("9", (ACTION, "PETER (30s) waits. Peter hands her the box.")),
+    *_scene("10", (ACTION, "BEN (9) waits. Ben stumbles out with a bag held against his chest.")),
+    *_scene("11", (ACTION, "OMAR (40s) pays the cashier. She smiles.")),
+    *_scene("12", (ACTION, "THABO (30s) hugs LERATO (10). She smiles.")),
+    *_scene("13", (ACTION, "MR. DUBE (60s) waits. Mr. Dube takes off his cap.")),
+    *_scene(
+        "14", (ACTION, "A quiet fisherman mends a net. This is JOHN (50s). John rubs his eyes.")
+    ),
+    *_scene("15", (ACTION, "A brown dog, REX, sleeps. Rex licks his paws.")),
 ]
 
 
@@ -50,21 +51,9 @@ def screenplay() -> Screenplay:
     return parse_text(layout(ROWS), [])
 
 
-def person(name: str, quotes: list[str], pronoun_quote: str | None = None, word: str | None = None):
+def person(name: str, quote: str, word: str | None) -> ProposedEntity:
     return ProposedEntity.model_validate(
-        {
-            "kind": "character",
-            "name": name,
-            "quotes": quotes,
-            "sex_word": word,
-            "sex_pronoun_quote": pronoun_quote,
-        }
-    )
-
-
-def animal(name: str, quote: str) -> ProposedEntity:
-    return ProposedEntity.model_validate(
-        {"kind": "character", "name": name, "quotes": [quote], "species": "dog"}
+        {"kind": "character", "name": name, "quotes": [quote], "sex_word": word}
     )
 
 
@@ -73,87 +62,102 @@ def grounded(*proposals: ProposedEntity) -> dict[str, Entity]:
     return {e.name: e for e in entities if e.kind is EntityKind.CHARACTER}
 
 
-def test_a_he_right_after_the_sentence_naming_him() -> None:
-    quote = "He stretches until his back cracks."
-    e = grounded(person("DANIEL", ["DANIEL (40s), a tall driver, climbs out."], quote))["DANIEL"]
-    assert e.sex is Sex.MALE
-    assert e.sex_quote is not None and e.sex_quote.text == quote
-
-
-def test_his_own_possessive_in_his_own_sentence() -> None:
-    quote = "THEO (9) stumbles out with a bag held against his chest."
-    assert grounded(person("THEO", [quote], quote))["THEO"].sex is Sex.MALE
-
-
-def test_a_she_opening_an_action_after_her_own_speech() -> None:
-    e = grounded(person("PRIYA", ["No. No, no, no."], "She spots the sign and runs."))["PRIYA"]
-    assert e.sex is Sex.FEMALE
+@pytest.mark.parametrize(
+    ("name", "quote", "word", "sex", "evidence"),
+    [
+        # The claim's quote doesn't hold the word (T082 can't keep it); the script's pronoun does.
+        (
+            "DANIEL",
+            "DANIEL (40s), a tall driver, climbs out.",
+            "he",
+            Sex.MALE,
+            "He stretches until his back cracks.",
+        ),
+        (
+            "SIPHO",
+            "SIPHO (50s) waits.",
+            "he",
+            Sex.MALE,
+            "Sipho does not take his eyes off the water.",
+        ),
+        ("KAZI", "KAZI (17) nods.", "she", Sex.FEMALE, "She cannot stop the smile."),
+        ("AMAHLE", "AMAHLE (8) waits.", "she", Sex.FEMALE, "Amahle tugs at her mother's scrubs."),
+        (
+            "MR. DUBE",
+            "MR. DUBE (60s) waits.",
+            "he",
+            Sex.MALE,
+            "Mr. Dube takes off his cap.",
+        ),  # one sentence
+        (
+            "JOHN",
+            "This is JOHN (50s).",
+            "fisherman",
+            Sex.MALE,
+            "John rubs his eyes.",
+        ),  # a noun claim
+    ],
+)
+def test_a_claim_the_scripts_pronouns_support_is_kept(
+    name: str, quote: str, word: str, sex: Sex, evidence: str
+) -> None:
+    e = grounded(person(name, quote, word))[name]
+    assert e.sex is sex
+    assert e.sex_quote is not None and e.sex_quote.text == evidence
 
 
 @pytest.mark.parametrize(
-    ("name", "quotes", "pronoun_quote", "others"),
+    ("name", "quote", "word"),
     [
-        # The nearest name is Siphokazi's: "his" isn't hers, and it isn't SIPHO's either.
-        ("SIPHO", ["SIPHO (50s) waves to a woman."], "Siphokazi takes his hand.", ["SIPHOKAZI"]),
-        ("THEO", ["THEO (9) sleeps."], "DANIEL laughs and takes the bag from him.", ["DANIEL"]),
-        ("ZOLA", ["ZOLA (30s) laughs."], "She hands him the cup.", []),  # two sexes
-        ("SIPHO", ["SIPHO (50s) waves to a woman."], "She smiles.", []),  # a sex noun between
-        ("THABO", ["THABO (30s) pays."], "She bags the items.", []),  # "The cashier smiles."
-        ("PETER", ["PETER (30s) hugs his mother."], "She smiles.", []),  # "his mother"
-        ("THEO", ["THEO (9) sleeps."], "A small brown dog, BISCUIT, licks her paws.", []),
-        ("THABO", ["THABO (30s) hugs Lerato."], "She smiles.", []),  # a name not extracted
+        ("ZOLA", "ZOLA (17) nods.", "she"),  # "Zola takes his hand." contradicts her "She smiles."
+        ("PRIYA", "No. No, no, no.", "she"),  # a speech between: the "She" may be the listener's
+        ("THEO", "NOMSA (30s) and THEO (9) wait.", "he"),  # "Nomsa pulls Theo onto her lap."
+        (
+            "NOMSA",
+            "NOMSA (30s) and THEO (9) wait.",
+            "she",
+        ),  # ... Theo stands between Nomsa and "her"
+        ("LINDA", "LINDA (20s) waits.", "she"),  # "behind him": an object pronoun is someone else
+        ("PETER", "PETER (30s) waits.", "he"),  # "hands her the box": an object her
+        ("BEN", "BEN (9) waits.", "he"),  # "with a bag … his chest": a determiner between
+        ("OMAR", "OMAR (40s) pays the cashier.", "she"),  # "the cashier" may own "She"
+        (
+            "THABO",
+            "THABO (30s) hugs LERATO (10).",
+            "she",
+        ),  # a name the script writes, not extracted
     ],
 )
-def test_no_sex_when_another_referent_could_be_meant(
-    name: str, quotes: list[str], pronoun_quote: str, others: list[str]
-) -> None:
-    proposals = [person(name, quotes, pronoun_quote)]
-    proposals += [
-        person(o, [f"{o} (17) waits."] if o == "SIPHOKAZI" else [f"{o} laughs"]) for o in others
-    ]
-    proposals.append(animal("BISCUIT", "A small brown dog, BISCUIT, licks her paws."))
-    assert grounded(*proposals)[name].sex is None
+def test_no_sex_without_plain_support(name: str, quote: str, word: str) -> None:
+    assert grounded(person(name, quote, word))[name].sex is None
 
 
-def test_a_common_word_is_no_name() -> None:
-    # "grace" in lower case is not GRACE: the nearest name is THABO's, so GRACE gets nothing.
-    found = grounded(
-        person("THABO", ["THABO (30s) dances with grace."]),
-        person("GRACE", ["THABO (30s) dances with grace."], "He nods."),
+def test_no_claim_no_sex() -> None:
+    daniel = person("DANIEL", "DANIEL (40s), a tall driver, climbs out.", None)
+    assert grounded(daniel)["DANIEL"].sex is None
+
+
+def test_claims_that_disagree_across_chunks_give_nothing() -> None:
+    quote = "DANIEL (40s), a tall driver, climbs out."
+    found = grounded(person("DANIEL", quote, "he"), person("DANIEL", quote, "she"))
+    assert found["DANIEL"].sex is None
+
+
+def test_a_claim_against_the_evidence_gives_nothing() -> None:
+    daniel = person("DANIEL", "DANIEL (40s), a tall driver, climbs out.", "she")
+    assert grounded(daniel)["DANIEL"].sex is None
+
+
+def test_an_animal_claimant_gets_no_sex() -> None:
+    dog = ProposedEntity.model_validate(
+        {
+            "kind": "character",
+            "name": "REX",
+            "quotes": ["A brown dog, REX, sleeps."],
+            "species": "dog",
+            "sex_word": "he",
+        }
     )
-    assert found["GRACE"].sex is None
-
-
-def test_a_shared_name_token_names_no_one() -> None:
-    quotes = ["MR. DUBE (60s) and MRS. DUBE (60s) wait."]
-    found = grounded(
-        person("MR. DUBE", quotes, "She sits."), person("MRS. DUBE", quotes, "She sits.")
-    )
-    assert found["MR. DUBE"].sex is None and found["MRS. DUBE"].sex is None
-
-
-def test_a_prop_in_capitals_is_no_name() -> None:
-    e = grounded(person("LINDA", ["LINDA (40s) lifts a RED KITE."], "She grins."))["LINDA"]
-    assert e.sex is Sex.FEMALE
-
-
-def test_a_name_spoken_in_dialogue_is_no_antecedent() -> None:
-    found = grounded(person("THEO", ["THEO (9) sleeps."], "He hasn't moved."))
-    assert found["THEO"].sex is None  # the nearest name is the cue, NOMSA's
-
-
-def test_a_title_abbreviation_does_not_end_the_sentence() -> None:
-    e = grounded(person("MR. DUBE", ["Mr. Dube takes off his cap."], "Mr. Dube takes off his cap."))
-    assert e["MR. DUBE"].sex is Sex.MALE
-
-
-def test_a_quote_not_found_or_in_dialogue_gives_nothing() -> None:
-    assert grounded(person("PRIYA", ["No. No, no, no."], "She flies away."))["PRIYA"].sex is None
-    assert grounded(person("PRIYA", ["No. No, no, no."], "No. No, no, no."))["PRIYA"].sex is None
-
-
-def test_with_a_sex_word_too_both_agree_and_the_sex_words_quote_is_kept() -> None:
-    whole = "DANIEL (40s), a tall driver, climbs out. He stretches until his back cracks."
-    e = grounded(person("DANIEL", [whole], "He stretches until his back cracks.", word="He"))
-    assert e["DANIEL"].sex is Sex.MALE
-    assert e["DANIEL"].sex_quote is not None and e["DANIEL"].sex_quote.text == whole
+    rex = grounded(dog)["REX"]
+    assert rex.species == "dog"
+    assert rex.sex is None
