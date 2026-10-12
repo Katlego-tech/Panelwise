@@ -25,5 +25,12 @@
     "SAM": {"sex": null, "evidence": "never stated (\"He signs\" is Mr. Dube)"},
     "ANNOUNCER": {"sex": null, "evidence": "never stated"},
     "SLEEPING COMMUTER": {"sex": "male", "evidence": "snores under his newspaper"}
+  },
+  "the-bread-van": {
+    "NOMSA": {"sex": "female", "evidence": "flour up to her elbows"},
+    "THEO": {"sex": "male", "evidence": "sleeps across his feet; (rubbing his eyes); Is that Nomsa's boy?"},
+    "DANIEL": {"sex": "male", "evidence": "He stretches until his back cracks"},
+    "AUNTIE BETTY": {"sex": "female", "evidence": "the title AUNTIE; She presses one loaf"},
+    "TAXI DRIVER": {"sex": "male", "evidence": "leans on his taxi across the road"}
   }
 }
