@@ -177,7 +177,8 @@ classDiagram
     script for its own evidence. When a person's `sex_word` keys (`SEX_WORDS`) to one sex across all
     its chunks and T082's rules don't keep it, code keeps it only when **at least one** Action
     sentence supports it and **none** contradicts it, the first supporting sentence becoming
-    `sex_quote` (its element's span). A sentence is evidence for this character (`_pronoun_evidence`,
+    `sex_quote` (the script's own sentence, verbatim, at its element's span: an introduction is
+    left out only when its words are read). A sentence is evidence for this character (`_pronoun_evidence`,
     in script order; an introduction's own description, `NAME (…), a phrase,`, is dropped first, so
     "DANIEL (40s), a tall driver, climbs out." reads "DANIEL climbs out."; sentences split after
     `.`, `!` or `?` and whitespace, never after `Mr.`, `Mrs.`, `Ms.`, `Dr.` or `St.`; words
@@ -208,7 +209,10 @@ classDiagram
       back it plainly with nothing against it: two signals that are wrong in different ways. The
       prototype on 2026-10-12 found no piece of evidence that wasn't right once the cue and the
       object were out. **Not checkable by code:** an unnamed person with no noun and no sentence of
-      their own ("Sipho knocks. She opens the door.") when the model also claims "she" for Sipho.
+      their own ("Sipho knocks. She opens the door.") when the model also claims "she" for Sipho;
+      and a dative "her" read as a possessive ("Mike hands her coffee"): with a true claim ("he") it
+      only contradicts, so Mike gets no sex, but a model making the same misreading would agree with
+      it. Both need the model and the script to mislead the same way; the held-out script measures.
       No wrong sex on the samples is no proof for other scripts: the held-out script measures it.
     - **The judge** sees the evidence sentence (`character_sex`), which may not name the character:
       the spec line is already under that character's name. Faithfulness and recall don't change.
@@ -420,7 +424,10 @@ the parser, so a faithful quote is always locatable.
   "she" with "Nomsa pulls Theo onto her lap."; LINDA "she" with "behind him"; PETER "he" with "hands her the
   box"; BEN "he" with "with a bag … his chest" (a determiner); OMAR "she" with "OMAR (40s) pays the cashier. She
   smiles."; THABO "she" with "THABO (30s) hugs LERATO (10). She smiles." (a name the script writes); no claim;
-  two chunks claiming he and she; a claim the evidence contradicts; an animal (REX, a dog) claiming "he". T082's
+  two chunks claiming he and she; a claim the evidence contradicts; an animal (REX, a dog) claiming "he"; MIKE
+  "he" with "Mike hands her coffee." (a dative her: contradicted, so nothing). Kept: ZARA "she" from "ZARA (8)
+  tugs at her sleeve." with that verbatim text as `sex_quote`; NALEDI "she" from "She opens the letter." in the
+  Action right after "NALEDI (30s) sits down.". T082's
   "ZOLA laughs. She hands him the cup." now has ZOLA female from "She hands him the cup." (rule (e) still
   refuses that quote for the `sex_word`). Live, Token Factory (Tumo approved 2026-10-12): three extractions of
   each of the four samples (the-red-kite, sipho-and-siphokazi, lost-property, the-bread-van; the last two found
