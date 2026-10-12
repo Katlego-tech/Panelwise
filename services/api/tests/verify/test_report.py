@@ -132,7 +132,6 @@ def _vehicle_and_rope(screenplay: Screenplay, extraction: Extraction) -> list[di
     )
 
 
-
 def _dog_and_rope(screenplay: Screenplay, extraction: Extraction) -> list[dict[str, Any]]:
     """A hard object failure: since T089 only an animal or a weapon withholds a frame."""
     return _checks(
@@ -151,6 +150,7 @@ def _dog_and_rope(screenplay: Screenplay, extraction: Extraction) -> list[dict[s
             ]
         },
     )
+
 
 def test_object_causes_key_by_category_and_reason(
     screenplay: Screenplay, extraction: Extraction

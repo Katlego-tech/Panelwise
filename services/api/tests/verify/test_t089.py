@@ -1,19 +1,31 @@
 """T089: an object, but an animal or a weapon, and painted lettering warn instead of withholding
 the frame; people stay hard (docs/design/verify.md §3 Objects and lettering warn, §6, §9)."""
 
+from typing import Any
+
 import pytest
 
 from app.grounding import Extraction
 from app.script import Screenplay
-from app.verify import Check, Verdict, run_checks
-from app.verify.audit import _SEVERITY, _filed
-from app.verify.model import ObjectCategory, Severity
+from app.verify import Check, Verdict, audit, run_checks
+from app.verify.model import CheckResult, ObjectCategory, Severity
 from tests.verify.conftest import described, judged, kitchen_shot
 
+SEVERITY = audit._SEVERITY  # pyright: ignore[reportPrivateUsage]
+filed_as = audit._filed  # pyright: ignore[reportPrivateUsage]
+Seen = dict[str, Any]
 
-def _audit(screenplay: Screenplay, extraction: Extraction, *, calls=None, matches=None, **seen):
-    calls_kw = {} if calls is None else {"objects": calls}
-    matches_kw = {} if matches is None else {"people": matches}
+
+def _audit(
+    screenplay: Screenplay,
+    extraction: Extraction,
+    *,
+    calls: list[Seen] | None = None,
+    matches: list[Seen] | None = None,
+    **seen: Any,
+) -> tuple[dict[Check, CheckResult], Verdict]:
+    calls_kw: dict[str, Any] = {} if calls is None else {"objects": calls}
+    matches_kw: dict[str, Any] = {} if matches is None else {"people": matches}
     checks, verdict, _ = run_checks(
         kitchen_shot(),
         screenplay.scenes[0],
@@ -25,7 +37,9 @@ def _audit(screenplay: Screenplay, extraction: Extraction, *, calls=None, matche
     return failed, verdict
 
 
-def _one(screenplay, extraction, obj, call):
+def _one(
+    screenplay: Screenplay, extraction: Extraction, obj: Seen, call: Seen
+) -> tuple[dict[Check, CheckResult], Verdict]:
     return _audit(screenplay, extraction, objects=[obj], calls=[{"object": 0, **call}])
 
 
@@ -42,14 +56,14 @@ def _one(screenplay, extraction, obj, call):
     ],
 )
 def test_filed(category: ObjectCategory, check: Check) -> None:
-    assert _filed(category) is check
+    assert filed_as(category) is check
 
 
 def test_severities() -> None:
-    assert _SEVERITY[Check.TEXT_IN_FRAME] is Severity.SOFT
-    assert _SEVERITY[Check.UNSCRIPTED_OBJECT] is Severity.HARD
-    assert _SEVERITY[Check.BACKGROUND_OBJECT] is Severity.SOFT
-    assert _SEVERITY[Check.UNSCRIPTED_PERSON] is Severity.HARD
+    assert SEVERITY[Check.TEXT_IN_FRAME] is Severity.SOFT
+    assert SEVERITY[Check.UNSCRIPTED_OBJECT] is Severity.HARD
+    assert SEVERITY[Check.BACKGROUND_OBJECT] is Severity.SOFT
+    assert SEVERITY[Check.UNSCRIPTED_PERSON] is Severity.HARD
 
 
 def test_an_unheld_pen_warns(screenplay: Screenplay, extraction: Extraction) -> None:
@@ -100,7 +114,7 @@ def test_an_unheld_pen_warns(screenplay: Screenplay, extraction: Extraction) -> 
     ],
 )
 def test_other_object_failures_warn_with_their_own_detail(
-    screenplay: Screenplay, extraction: Extraction, obj, call, detail: str
+    screenplay: Screenplay, extraction: Extraction, obj: Seen, call: Seen, detail: str
 ) -> None:
     failed, verdict = _one(screenplay, extraction, obj, call)
     assert Check.UNSCRIPTED_OBJECT not in failed
@@ -135,7 +149,7 @@ def test_other_object_failures_warn_with_their_own_detail(
     ],
 )
 def test_animals_and_weapons_stay_hard(
-    screenplay: Screenplay, extraction: Extraction, obj, call, detail: str
+    screenplay: Screenplay, extraction: Extraction, obj: Seen, call: Seen, detail: str
 ) -> None:
     failed, verdict = _one(screenplay, extraction, obj, call)
     assert failed[Check.UNSCRIPTED_OBJECT].detail == detail

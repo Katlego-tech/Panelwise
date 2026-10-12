@@ -543,7 +543,7 @@ def run_checks(
                 pass
 
     # Only legible words the script never wrote (T071): the shot's own text or the scene's place.
-    # The heading's time of day isn't a haystack, so a painted "NIGHT" fails.
+    # The heading's time of day isn't a haystack, so a painted "NIGHT" warns (T089: soft).
     words = [normalize_for_grounding(shot.source), normalize_for_grounding(scene.location)]
     if description.signature:  # T077: soft; any words read in it are still `text`, below
         failures[Check.SIGNATURE].append("a signature or artist's mark")
