@@ -16,6 +16,40 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L013 · The place's own things fail: bread in a bakery, a van's dashboard inside the van · open
+
+- **Seen:** 2026-10-12, the-bread-van (a test script Claude wrote for pronouns, not held out),
+  [run report](../eval/runs/2026-10-12-the-bread-van.md). In failures: `food · never set dressing` 26 (bread loaves, loaves of bread, dough in INT.
+  NOMSA'S BAKERY), `vehicle · never set dressing` 14 (rearview mirror, dashboard, headrests, car
+  seats in INT. VAN - MOVING), a held steering wheel 10 (`held, so not set dressing`).
+- **Cause:** `verify/audit.py` never lets food or a vehicle be set dressing (`_NEVER_DRESSING`), and
+  T083's `named_in_scene` reads only the scene's action text and the object's own noun. The
+  heading's place (BAKERY, VAN) is never asked, and a driver holding the van's wheel is a held object
+  like any other.
+- **Action:** none yet. To consider, measured free with `recheck`: a scene whose location is itself
+  a vehicle (VAN, CAR, BUS, TAXI, BOAT, TRAIN) treats that vehicle's parts as the place's structure;
+  food a heading's place sells or makes stays a question for Tumo (T072 made food always scripted).
+- **Measured:** not yet.
+
+### L012 · The judge puts a character's name on someone it can't check · open
+
+- **Seen:** 2026-10-12, the-bread-van, [run report](../eval/runs/2026-10-12-the-bread-van.md): **1 of 19 shots accepted.** `unscripted_person` failed 35
+  attempts, "a child" 21 times, in shots that have THEO (9). Of the judge's 24 matches to THEO, 17
+  were a person described as no child (an adult seen from behind, an adult man, an adult woman), and
+  in 13 of those a drawn child was left unmatched and failed as a stranger. Counted the same way on
+  every stored run with a child character: 0 such matches on the seven runs since T074 (the-red-kite
+  and lost-property). Two more attempts (4.2, 4.3) were `ERROR`: the judge didn't call each
+  described person once. And DANIEL (40s) was drawn and matched as "an old man" (3.2, 3.3).
+- **Cause:** klein drew Theo in a t-shirt, not his look "in pyjamas and a school jersey". The judge
+  is told (T080) that a person whose look plainly contradicts a character's is not that character,
+  so it moved the name to a person whose look it can't see, and code never checks that the matched
+  person's age fits the introduction's.
+- **Action:** none yet. To consider, measured free with `recheck`: a code age check (a character
+  introduced under 13 matched to a person described as an adult, old or a teenager fails as that
+  character; one introduced as an adult matched to "a child" too; "old" for a character under 50);
+  and whether clothing of the moment ("in pyjamas") should be a reason to refuse a match at all.
+- **Measured:** not yet.
+
 ### L011 · A stranger excused by a line of dialogue · fixed (measured free)
 
 - **Seen:** 2026-10-12, lost-property (held out: no fix was designed on it), [run report](../eval/runs/2026-10-12-lost-property.md). Of 12
@@ -68,7 +102,11 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Action:** none yet. The six misses are the held-out test set, so no fix is tuned to them: a
   fix is designed on the samples' own patterns and scored here again, separately. The rule that
   WRONG and INVENTED stay at 0 holds.
-- **Measured:** this is the held-out baseline: 3 of 9 found, 0 wrong. The Token Factory
+- **Measured:** this is the held-out baseline: 3 of 9 found, 0 wrong. Also 2026-10-12, the-bread-van
+  (Claude's test script, every sex stated the conventional way; [run report](../eval/runs/2026-10-12-the-bread-van.md)): Nomsa (her look) and Auntie
+  Betty (the title) right, **Theo and Daniel missed** ("sleeps across his feet", "He stretches"), 0
+  wrong. T085's code-only design was stopped on review: surface rules can't tell whose "his" or "her"
+  it is ("Siphokazi takes his hand", "Sipho turns to her"). The Token Factory
   measurement on the three samples (several extractions each) is still to run.
 
 ### L009 · Object failures were catching wrong people by accident · open

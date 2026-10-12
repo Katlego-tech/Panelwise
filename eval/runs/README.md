@@ -17,3 +17,4 @@ Find a project by its id, never by its title: two uploads of one script share a 
 | 2026-10-11 | the-red-kite | klein, 3 attempts, after T079 + T080 | 16 of 21 | 38 | [report](2026-10-11-the-red-kite.md) |
 | 2026-10-11 | sipho-and-siphokazi | klein, 3 attempts, after T079 + T080 | 7 of 30 | 82 | [report](2026-10-11-sipho-and-siphokazi.md) |
 | 2026-10-12 | lost-property (held out) | klein, 3 attempts, after T082 + T083 | 12 of 49 | 134 | [report](2026-10-12-lost-property.md) |
+| 2026-10-12 | the-bread-van (Claude's test script) | klein, 3 attempts, after T084 | 1 of 19 | 54 | [report](2026-10-12-the-bread-van.md) |
