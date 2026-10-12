@@ -729,6 +729,7 @@ def redact(text: str, labels: Mapping[str, str]) -> str: ...                    
 
 # app/storyboard/prompt.py — pure
 class PartKind(StrEnum): STYLE = "style"; FRAMING = "framing"; SETTING = "setting"; TIME = "time"; COUNT = "count"; AGE = "age"; SEX = "sex"; LOOK = "look"; PLACEMENT = "placement"; ACTION = "action"   # LOOK: T079
+def introduced_years(character: str, screenplay: Screenplay) -> int | None: ...   # T086, pure: `THEO (9)` → 9, `DANIEL (40s)` → 40; None without an introduction. verify's age check reads it
 def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] | None: ...   # T074, pure
 #   the first Action element, in scene and element order, where `CHARACTER (` follows the name in capitals
 #   and the parenthesis opens with a number, an optional `s`, an optional years word (`years old`, `year-old`,

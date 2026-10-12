@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -259,6 +259,45 @@ classDiagram
     the soldering iron." for Mokgosi, 70s), every other stored project unchanged. Each newly
     failed attempt was read: every one excuses a person with a spoken line, someone else's pronoun
     or a quote from another shot.
+- **A matched person's age (T086).** The judge is told (T072) that a person whose age plainly
+  contradicts a character's is not that character, but nothing checked it. On 2026-10-12 the-bread-van
+  (L012) matched THEO (9) to an adult in 17 of 24 matches, and DANIEL (40s) to "an old man". **Code**
+  now compares: `described_age` reads the describer's own words (the earliest of child, teenager, old,
+  adult: "an old man looking toward the girl" is old), and `age_contradicts(years, described)` with the
+  introduction's age in years (`introduced_years`, storyboard.md §6): under 13 not an adult or old; 13 to
+  19 not old; 20 to 49 not a child or old; 50 and over not a child or a teenager. No described age, or
+  no introduced age, is no check. A contradicted match is `UNSCRIPTED_PERSON` `person N (position,
+  appearance): described as <age>, but <NAME> is introduced at <years>`, and the character is not
+  placed (so `NO_CHARACTER` and `MISSING_CHARACTER` see them absent). `run_checks` gains `ages`, each
+  shot character's introduced years (`shot_ages`), passed by `audit_frame` and `recheck`. It only
+  tightens: it can't make the judge match the right person, only refuse a wrong match.
+- **Inside a vehicle, its parts are the place (T086).** On 2026-10-12 the-bread-van's INT. VAN - MOVING
+  failed a rearview mirror, a dashboard, headrests and car seats as vehicles never set dressing, and a
+  driver's held steering wheel as held (L013). **Code**: when the scene is not `EXT` and a word of its
+  location is a vehicle (`_VEHICLE_PLACES`: van, car, bus, minibus, kombi, taxi, cab, truck, lorry,
+  bakkie, jeep, ambulance, train, carriage, tram, coach, boat, ship, ferry, plane, aeroplane, airplane,
+  helicopter), an object whose last word is a part word (§3, T083's list) or an interior word
+  (`_INTERIOR_WORDS`: dashboard, steering, headrest, seatbelt, gearstick, gear, speedometer, windshield,
+  visor, glovebox, upholstery), or that has an interior word, is the place's own structure
+  (`part_of_vehicle`), held or not, whatever the judge called it; never with a copy word. A bare vehicle
+  (a sailboat through the window, a second van) is judged as before: the prototype that let any
+  `vehicle` object pass accepted a sailboat in a boat's cabin. In `run_checks`, right after
+  `named_in_scene`.
+- **Unheld food warns (T086; Tumo, 2026-10-12).** Bread in the bakery failed 26 times on the-bread-van
+  (`food · never set dressing`). Food nobody holds that the scene doesn't name and that is no named
+  prop is now `BACKGROUND_OBJECT` (soft, `WARN`), whatever the judge called it, `unscripted` or
+  `set_dressing`, even with the heading as support: food is never quietly the place's, it is shown with
+  a warning. Held food (someone eating what the script never gave them) and a `scripted_prop` without
+  support stay hard. Animals, vehicles and weapons stay never set dressing.
+- **Measured free** (every stored audit, main's `run_checks` against T086's): the-bread-van 1 → 2 shots
+  with an accepted attempt, sipho-and-siphokazi (2026-10-11) 11 → 15 and its older run 10 → 11, the-red-
+  kite `fbe668c8` 9 → 7 (two adults matched to LERATO, 10, now refused), every other project unchanged.
+  **Looked at, every newly accepted drawing (10):** 5 right (the-bread-van 5.1 twice, Nomsa and Theo;
+  the-red-kite 5.1 three times, Mokgosi and Lerato in braids); **5 wrong**: sipho-and-siphokazi 2.3, 3.2,
+  3.3 and 5.1 draw Siphokazi (17) as a boy, the older run's 3.3 draws Sipho (50s) young. The object
+  checks were catching them by accident (L009 again): those audits are from before T082, and Siphokazi
+  has no sex the judge could check (L010). **So T086 goes live after T088** (the extraction resolves
+  pronouns), as T083 went after T082.
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
@@ -281,7 +320,7 @@ classDiagram
 
 | Check | Decided by | Severity | Fails when |
 |---|---|---|---|
-| `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted); or (T072) the `support` of a person called with no character names a shot character; or (T084) that support isn't found in the shot's action text (`shot_action_text`), or has `he`, `him` or `she` |
+| `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted); or (T072) the `support` of a person called with no character names a shot character; or (T084) that support isn't found in the shot's action text (`shot_action_text`), or has `he`, `him` or `she`; or (T086) a matched person's described age contradicts the character's introduced age |
 | `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks. **T072:** `set_dressing` also fails for an object whose name is, or is a word of, a prop the extraction names (§3). **T083:** never for an animal, vehicle, weapon or food the scene's action text names (`named_in_scene`); and an everyday unheld object called `unscripted`, or dressing not in the heading, is the soft `BACKGROUND_OBJECT` instead (§3, the order in `run_checks`) |
 | `TEXT_IN_FRAME` | code | **hard** | a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" fails). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
@@ -430,6 +469,20 @@ def shot_action_text(shot: Shot, scene: Scene) -> str: ...   # T084, pure:
 #   `Action`, joined by " " in order; "" when the shot covers no action. A person's support must be found
 #   in it (§3, A person's support is an action line)
 # _PERSON_PRONOUNS = frozenset({"he", "him", "she"})  # T084: against re.findall(r"[a-z]+", support.lower())
+def described_age(appearance: str) -> str | None: ...   # T086, pure: "child", "teenager", "old" or "adult",
+#   the earliest match in the lower-cased appearance of: \b(child|children|kid|boy|girl|toddler|baby|infant)\b,
+#   \b(teenager|teen|teenage|adolescent)\b, \bold(er)? (man|woman|person|adult)\b|\belderly\b,
+#   \b(adult|man|woman)\b; None when none matches
+def age_contradicts(years: int, described: str | None) -> bool: ...   # T086, pure: §3, A matched person's age
+def inside_vehicle(scene: Scene) -> frozenset[str]: ...   # T086, pure: the _VEHICLE_PLACES words of a non-EXT
+#   scene's location (re.findall(r"[a-z]+", location.lower())); empty outdoors
+def part_of_vehicle(name: str, scene: Scene) -> bool: ...   # T086, pure: §3, Inside a vehicle; the name split
+#   as named_in_scene splits it, its last word's _forms against _PART_WORDS | _INTERIOR_WORDS, or any word
+#   in _INTERIOR_WORDS; False outside a vehicle or with a copy word
+def shot_ages(shot: Shot, screenplay: Screenplay, years: Callable[[str, Screenplay], int | None]) -> dict[str, int]: ...
+#   T086: {character: years} for each shot character years() gives; years is storyboard's introduced_years,
+#   passed in (app.storyboard imports app.verify)
+# run_checks(..., *, on_screen=(), ages: Mapping[str, int] | None = None)  # T086: ages from shot_ages
 # services/api/app/verify/recheck.py (T083): measures a code-only audit change for free
 async def recheck(sessions: async_sessionmaker[AsyncSession], project_id: UUID, *,
                   target: AuditTarget | None = None) -> tuple[list[Reaudit], int]: ...
@@ -600,6 +653,7 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | `services/api/app/verify/{model,audit}.py` | changed | `Check.BACKGROUND_OBJECT`, `named_in_scene`, the order in `run_checks` | T083 |
 | `services/api/app/verify/recheck.py` | new | `recheck`, `accepted_shots`, `python -m app.verify.recheck` | T083 |
 | `services/api/app/verify/audit.py` | changed | `shot_action_text`, `_PERSON_PRONOUNS`, two person-support rules in `run_checks` | T084 |
+| `services/api/app/verify/{audit,recheck}.py`, `app/storyboard/prompt.py` | changed | `described_age`, `age_contradicts`, `inside_vehicle`, `part_of_vehicle`, `shot_ages`, `run_checks(ages=)`, unheld food as `BACKGROUND_OBJECT`; `introduced_years` | T086 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
@@ -628,6 +682,9 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
 | Things the scene names (T083) | code: the object's noun or its whole's noun in the scene's action text, for the never-set-dressing categories only | the judge's label alone (it called the harbour's boats dressing 31 times); every category (it excused "small pills", "power lines", "tripod stand"); the shot's own text only: the boats a scene's first shot names belong to every shot of that harbour, and a later shot's own text often doesn't name them (11 objects excused against the scene's 32) |
 | Background objects (T083; Tumo, 2026-10-11) | the soft `BACKGROUND_OBJECT`: shown, named, the frame `WARN` | hard as before: on 2026-10-11 it withheld 5 of sipho-and-siphokazi's 30 shots and 3 of the-red-kite's 21 for a pen, grass or a moon alone; painted text warning too (Tumo kept it hard: legible invented words on an accepted frame) |
+| A matched person's age (T086) | code compares the describer's age word with the introduction's years | the judge alone (T072's sentence): on the-bread-van it matched THEO (9) to adults 17 times; a finer scale (teen for 11 or 12, adult for 50s): the describer's words are coarse, so only plain contradictions count |
+| A vehicle's parts inside it (T086) | code: part and interior words, inside a scene whose location is a vehicle | any `vehicle` object there (it passed a sailboat seen from a boat's cabin); the judge's call (it called the van's dashboard never-set-dressing) |
+| Unheld food (T086; Tumo, 2026-10-12) | soft `BACKGROUND_OBJECT` whatever the judge called it | food as plain set dressing with the heading as support (it would pass silently: a cake at a birthday the script never had); hard as before (bread in a bakery failed 26 times) |
 | A person's support (T084) | code: found in the shot's action text, with no `he`, `him` or `she` | any verbatim quote of the shot or of an in-shot entity, as before (2026-10-12: three strangers accepted on lost-property, excused by dialogue or a pronoun, and an old woman for Siphokazi on sipho-and-siphokazi); a person-noun list the support must contain (a vocabulary that never ends: "commuter", "busker", "courier"); telling the judge only (it can't be measured free, and code would still trust what it cites; a judge sentence is §10's open question) |
 | Measuring a code-only audit change (T083) | `recheck`: today's checks on stored descriptions and judgements | `reaudit`: two Token Factory calls a drawing for a change that calls no model |
 | Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
@@ -737,6 +794,22 @@ it against the script."*
   10.3; **held out**, every other stored project, its before and after in the PR, each newly failed
   attempt read. Then the new held-out script (Tumo, 2026-10-12, unseen until T084 and the L010 fix
   are built) is drawn and every accepted frame looked at.
+- **T086:** `described_age`: "a child, a boy with short dark hair" → child; "an old man with white hair, looking
+  toward the girl" → old; "a 10-year-old girl" → child; "an older woman" → old; "an elderly man" → old; "a
+  teenager with dark hair" → teenager; "an adult seen from behind" → adult; "an adult woman" → adult; "a figure
+  in a coat" → None. `age_contradicts`: (9, adult) and (9, old) → True, (9, teenager) and (9, child) → False;
+  (17, old) → True, (17, child) → False; (40, old) and (40, child) → True, (40, teenager) → False; (70, child)
+  and (70, teenager) → True, (70, adult) → False; (any, None) → False. `run_checks` with `ages={"THEO": 9}`:
+  THEO matched to "an adult seen from behind" fails `UNSCRIPTED_PERSON` "described as adult, but THEO is
+  introduced at 9" and THEO isn't placed; matched to "a child, a boy" passes; without `ages` nothing changes.
+  `inside_vehicle`: INT. VAN - MOVING → {"van"}; EXT. VAN → empty; INT. BAKERY → empty. `part_of_vehicle` in
+  INT. VAN: "steering wheel", "rearview mirror", "dashboard", "headrests", "car seats" → True; "sailboat",
+  "car", "van", "second van", "steering wheel" in INT. BAKERY → False. `run_checks` in INT. VAN: a held
+  steering wheel and an unheld dashboard called never-set-dressing both pass. Unheld "bread loaves" (food)
+  called `set_dressing` with the heading as support, or `unscripted`, fails `BACKGROUND_OBJECT` (soft, `WARN`),
+  not `UNSCRIPTED_OBJECT`; a held bun still fails `UNSCRIPTED_OBJECT`; food the scene names still passes (T083).
+  Free: the comparison on every stored audit gives the numbers in §3, every newly accepted drawing looked at
+  and listed in the PR. Live: after T088, on the held-out script.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 
