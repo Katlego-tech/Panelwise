@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -205,7 +205,9 @@ classDiagram
   script`. **Everything else stays hard:** any person; a held object; an animal, vehicle, weapon
   or (until T086, which makes unheld food warn) food the scene doesn't name; a `scripted_prop` without a verified support, whatever its
   category (the judge claimed a quote it can't show); a named prop called `unscripted` or
-  dressing (T072); and legible text (`TEXT_IN_FRAME` still reads a sign's words). Measured free
+  dressing (T072); and legible text (`TEXT_IN_FRAME` still reads a sign's words). **Since T089**
+  all of these but an animal or a weapon (and any person) warn too: §3, Objects and lettering
+  warn. Measured free
   on the 2026-10-11 storyboards' stored audits (`recheck`, with the scene-named rule too):
   sipho-and-siphokazi 7 → 12 of 30 shots with an accepted attempt, the-red-kite 16 → 19 of 21.
   **Looked at:** 2 of the 9 attempts it newly accepts draw Siphokazi with the wrong sex (L009):
@@ -225,6 +227,10 @@ classDiagram
   verified support still passes, without one it stays hard; held food stays hard. For each judged
   **person**, the age test (T086) comes first: a contradicted match is refused as that character
   and is never then tried as a stranger (no support can excuse it); then T072/T084 as before.
+  **T089:** the cases and their order, and the `background` and `food` variables, are unchanged;
+  every place above that files `UNSCRIPTED_OBJECT` ("hard") files `_filed(obj.category)`
+  instead: `UNSCRIPTED_OBJECT` for an animal or a weapon, else `BACKGROUND_OBJECT`, the detail
+  the same (§6).
 - **A person's support is an action line (T084).** A described person the judge matches to no
   character is scripted only by a verbatim `support`. On 2026-10-12 lost-property (L011) showed
   three accepted frames whose strangers were excused by what someone **says** ("Somebody might
@@ -301,7 +307,8 @@ classDiagram
   prop is now `BACKGROUND_OBJECT` (soft, `WARN`), whatever the judge called it, `unscripted` or
   `set_dressing`, even with the heading as support: food is never quietly the place's, it is shown with
   a warning. Held food (someone eating what the script never gave them) and a `scripted_prop` without
-  support stay hard. Animals, vehicles and weapons stay never set dressing.
+  support stay hard. Animals, vehicles and weapons stay never set dressing. (Since T089 held food,
+  an unsupported prop and a vehicle warn too; only an animal or a weapon stays hard.)
 - **Measured free** (every stored audit, main's `run_checks` against T086's): the-bread-van 1 → 2 shots
   with an accepted attempt, sipho-and-siphokazi (2026-10-11) 11 → 14 and its older run 10 → 11, the-red-
   kite `fbe668c8` 9 → 7 (two adults matched to LERATO, 10, now refused), every other project unchanged.
@@ -311,6 +318,51 @@ classDiagram
   checks were catching them by accident (L009 again): those audits are from before T082, and Siphokazi
   has no sex the judge could check (L010). **So T086 goes live after T088** (TASKS: the extraction model
   resolves a "his"/"her" to its character, code checks the quote; L010), as T083 went after T082.
+- **Objects and lettering warn (T089; Tumo, 2026-10-12).** Measured free on five runs' stored audits
+  with today's code (L014): the shots with an accepted attempt go the-bread-van 3 → 9 of 20 (and its
+  first run 2 → 5 of 19), lost-property 9 → 33 of 49, sipho-and-siphokazi 14 → 26 of 30, the-red-kite
+  19 → 20 of 21 when an object or a painted word the script didn't put there warns instead of
+  failing. klein can't spell (LOST PROPERTY is painted LOST POVERTY, LOST PORRY) and fills a place with
+  bags, pens, plates and cars; each one withheld the frame. Now:
+  - **An object** that would fail `UNSCRIPTED_OBJECT` (any reason: `unscripted`, `prop without
+    support`, `held, so not set dressing`, `the script names it`, `never set dressing`, `not in the
+    heading`) fails the soft `BACKGROUND_OBJECT` instead, with the same detail, **unless its category
+    is `animal` or `weapon`** (`_STORY_OBJECTS`): a dog or a knife the script never gave the scene is
+    a story choice, and stays hard. Keeping those two hard costs nothing measured (the same shots on
+    all five runs: a baton, a knife and a bird).
+  - **`TEXT_IN_FRAME` is soft.** A painted word the script didn't write is named on the card and the
+    frame shown with a warning. It is lettering, never a line someone says: speech bubbles come only
+    from the script's dialogue (comic.md).
+  - **Everything else stays hard:** every person (`UNSCRIPTED_PERSON`, the age check, `NO_CHARACTER`),
+    `SETTING`, and an animal or weapon. In `run_checks` the object cases are unchanged; only where a
+    failure is filed changes: `UNSCRIPTED_OBJECT` when `obj.category in _STORY_OBJECTS`, else
+    `BACKGROUND_OBJECT`, the detail the same.
+  - **Rule I, as the audit reads it now (PLAN.md Non-negotiable I; Tumo's call, 2026-10-12, "go a bit
+    easy on the refusals"):** a person, an animal or a weapon the script didn't write never reaches
+    the board; an everyday object, a misspelt sign, and **weather drawn as an object** (lightning in
+    a storm the script gives only thunder: the-red-kite 3.2, `nature`, newly accepted) do, **named on
+    the storyboard frame's card as a warning** (web.md §4.3). **The comic shows such a panel with no
+    note:** comic.md draws a `WARNED` panel as it draws a `PASSED` one (the same `run_checks`), so a
+    misspelt sign or an unscripted pen reaches a comic page unannotated; the storyboard card is
+    where it is named. This loosens the rule for props and painted words, so the team confirms it
+    on the design PR. Strict again is one revert of `_SEVERITY` and `_filed`.
+  - **No re-render for them:** a `WARN` is accepted at once, so a frame whose only faults are
+    objects or lettering is shown at that attempt instead of drawn again (up to 3 attempts). That
+    is the point: the retries went to frames klein can't draw without a bag or a misspelt sign.
+  - **What else reads these checks** (checked, none changes): `report.py` parses object and text
+    details whatever their severity, and its `ShotLine.failed` lists hard checks only, so it lists
+    fewer; a report over a project with audits from before and after T089 shows the first row's
+    severity for a check (old runs' reports stay as written). `recheck` reuses `run_checks`. The
+    web's and the comic's `withheld_check` take the first failed hard check, so a withheld frame
+    no longer names `text_in_frame`, or `unscripted_object` for anything but an animal or weapon.
+  - **Evidence:** L014 (the five runs, the 46 drawings) and L015 (split panels) in
+    docs/learning-log.md, landing with the-bread-van's second run report (#152), which merges first.
+  - **Looked at, every newly accepted drawing (46):** 34 right, **12 wrong, every one in its people**:
+    7 girls drawn as boys (sipho-and-siphokazi 2.2, 2.4, 4B.1, 4B.3, 6.1; lost-property 11.1, 3.2), two
+    split panels (L015), Mr. Dube drawn young (lost-property 12.2), Theo at a steering wheel (the-bread-van
+    3.1), a rowboat for a fishing boat (sipho 5.2). The audits of the girls predate T088 (no sex for
+    Siphokazi or Amahle then; T088 finds both now, not Priya): the object checks were catching them by
+    accident (L009). So T089 is live only with T088's sex, which is merged.
 - **The judge is Nemotron** (`Tier.REASONING`, Nemotron 3 Super, thinking on). It gets the shot's
   grounded spec (characters with their quotes, props, location, time of day, the verbatim `source`)
   and the description. It decides only what needs judgement: which described person is which
@@ -334,15 +386,15 @@ classDiagram
 | Check | Decided by | Severity | Fails when |
 |---|---|---|---|
 | `UNSCRIPTED_PERSON` | judge + code | **hard** | a described person is called with no character (or a name not in `shot.characters`) and has no verified `support`; **or** a character is called for more than one person (every person after the first called for it counts as unscripted); or (T072) the `support` of a person called with no character names a shot character; or (T084) that support isn't found in the shot's action text (`shot_action_text`), or has `he`, `him` or `she`; or (T086) a matched person's described age contradicts the character's introduced age |
-| `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks. **T072:** `set_dressing` also fails for an object whose name is, or is a word of, a prop the extraction names (§3). **T083:** never for an animal, vehicle, weapon or food the scene's action text names (`named_in_scene`); and an everyday unheld object called `unscripted`, or dressing not in the heading, is the soft `BACKGROUND_OBJECT` instead (§3, the order in `run_checks`) |
-| `TEXT_IN_FRAME` | code | **hard** | a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" fails). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing |
+| `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks. **T072:** `set_dressing` also fails for an object whose name is, or is a word of, a prop the extraction names (§3). **T083:** never for an animal, vehicle, weapon or food the scene's action text names (`named_in_scene`); and an everyday unheld object called `unscripted`, or dressing not in the heading, is the soft `BACKGROUND_OBJECT` instead (§3, the order in `run_checks`). **T089:** hard only for an object whose category is `animal` or `weapon` (`_STORY_OBJECTS`); for every other object the same failure, with the same detail, is the soft `BACKGROUND_OBJECT` (§3, Objects and lettering warn) |
+| `TEXT_IN_FRAME` | code | soft (T089; hard before) | a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" is not the script's; since T089 it warns). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing. T089: soft, named on the card |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
 | `NO_CHARACTER` (T080) | code | **hard** | the prompt put at least one of the shot's people on screen (`on_screen`, from storyboard.md §3.1's `visible_characters`) and no described person is matched to any of them: a frame of the setting alone, or of strangers, for a shot about its characters (on 2026-10-11 shot 1.3 was an empty roof, shown with a warning). A shot whose people are only heard off screen, or that names no one, has an empty `on_screen` and never fails it |
 | `MISSING_CHARACTER` | code | soft | a shot character **who is a person** matched to no described person (an animal character, `species` set, is described as an object: T052) |
 | `LIGHT` | code | soft | `light` is `day` and the shot's time is night-family (`NIGHT`, `MIDNIGHT`, `EVENING`), or `light` is `night` and the time is day-family (`DAY`, `MORNING`, `AFTERNOON`). Transitional times (`DAWN`, `DUSK`, `SUNRISE`, `SUNSET`, `MAGIC HOUR`), a `None` time, `dawn_or_dusk` and `unclear` always pass |
 | `FRAMING` | code | soft | `shot_size` is two or more steps from the shot's framing on wide → medium → close → extreme_close (`over_shoulder`, `pov` count as medium; `insert` as close); `unclear` passes |
-| `BACKGROUND_OBJECT` (T083; T086: and unheld food) | judge + code | soft | an object of category `other`, `nature`, `furniture` or `screen_or_sign`, not `held`, not a named prop, called `unscripted`, or `set_dressing` whose `support` isn't in the heading (§3, Background objects warn): the place's everyday things the script didn't mention. Its detail is `object N (name, category): not in the script` |
-| `SIGNATURE` (T077) | code | soft | `signature` is true: a signature, initials or an artist's mark, readable or not. Words the describer reads in it are still `text`, so a legible signature that isn't the script's (`@hutley`) still fails `TEXT_IN_FRAME` |
+| `BACKGROUND_OBJECT` (T083; T086: and unheld food) | judge + code | soft | an object of category `other`, `nature`, `furniture` or `screen_or_sign`, not `held`, not a named prop, called `unscripted`, or `set_dressing` whose `support` isn't in the heading (§3, Background objects warn): the place's everyday things the script didn't mention. Its detail is `object N (name, category): not in the script`. **T089:** also every object failure that isn't an animal's or a weapon's, with that failure's own detail (`held, so not set dressing`, `prop without support`, `unscripted`, `the script names it`, `never set dressing`, `not in the heading`) |
+| `SIGNATURE` (T077) | code | soft | `signature` is true: a signature, initials or an artist's mark, readable or not. Words the describer reads in it are still `text`, so a legible signature that isn't the script's (`@hutley`) still fails `TEXT_IN_FRAME` (soft since T089) |
 
 **Verdict:** `FAIL` if any hard check fails; `WARN` if only soft checks fail; `PASS` otherwise. Hard
 checks are the ones that would put something unscripted on screen; soft checks are quality
@@ -439,7 +491,8 @@ class Light(StrEnum): DAY = "day"; NIGHT = "night"; DAWN_OR_DUSK = "dawn_or_dusk
 class ShotSize(StrEnum): WIDE = "wide"; MEDIUM = "medium"; CLOSE = "close"; EXTREME_CLOSE = "extreme_close"; UNCLEAR = "unclear"
 class ObjectKind(StrEnum): SCRIPTED_PROP = "scripted_prop"; SET_DRESSING = "set_dressing"; UNSCRIPTED = "unscripted"
 class ObjectCategory(StrEnum): FURNITURE = "furniture"; ARCHITECTURE = "architecture"; NATURE = "nature"; CLOTHING = "clothing"; ANIMAL = "animal"; VEHICLE = "vehicle"; WEAPON = "weapon"; SCREEN_OR_SIGN = "screen_or_sign"; FOOD = "food"; OTHER = "other"
-class Check(StrEnum): UNSCRIPTED_PERSON; UNSCRIPTED_OBJECT; TEXT_IN_FRAME; SETTING; MISSING_CHARACTER; LIGHT; FRAMING; SIGNATURE; NO_CHARACTER; BACKGROUND_OBJECT   # BACKGROUND_OBJECT: T083, soft; value = the name in lower case; SIGNATURE: T077, soft; NO_CHARACTER: T080, hard
+class Check(StrEnum): UNSCRIPTED_PERSON; UNSCRIPTED_OBJECT; TEXT_IN_FRAME; SETTING; MISSING_CHARACTER; LIGHT; FRAMING; SIGNATURE; NO_CHARACTER; BACKGROUND_OBJECT   # BACKGROUND_OBJECT: T083, soft; value = the name in lower case; SIGNATURE: T077, soft; NO_CHARACTER: T080, hard;
+#   T089: TEXT_IN_FRAME soft, UNSCRIPTED_OBJECT only for an animal or a weapon
 class Severity(StrEnum): HARD = "hard"; SOFT = "soft"
 class Verdict(StrEnum): PASS = "pass"; WARN = "warn"; FAIL = "fail"; ERROR = "error"
 class FrameState(StrEnum): RENDERING; AUDITING; PASSED; WARNED; WITHHELD; FAILED   # value = the name in lower case
@@ -499,6 +552,10 @@ def shot_ages(shot: Shot, screenplay: Screenplay, years: Callable[[str, Screenpl
 #   T086: {character: years} for each shot character years() gives; years is storyboard's introduced_years,
 #   passed in (app.storyboard imports app.verify)
 # run_checks(..., *, on_screen=(), ages: Mapping[str, int] | None = None)  # T086: ages from shot_ages
+_STORY_OBJECTS: frozenset[ObjectCategory] = frozenset({ObjectCategory.ANIMAL, ObjectCategory.WEAPON})  # T089
+def _filed(category: ObjectCategory) -> Check: ...   # T089, pure: UNSCRIPTED_OBJECT if category in
+#   _STORY_OBJECTS else BACKGROUND_OBJECT; used at every UNSCRIPTED_OBJECT append in run_checks
+# _SEVERITY[Check.TEXT_IN_FRAME] = Severity.SOFT  (T089; UNSCRIPTED_OBJECT stays HARD, for animals and weapons)
 # services/api/app/verify/recheck.py (T083): measures a code-only audit change for free
 async def recheck(sessions: async_sessionmaker[AsyncSession], project_id: UUID, *,
                   target: AuditTarget | None = None) -> tuple[list[Reaudit], int]: ...
@@ -670,6 +727,7 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | `services/api/app/verify/recheck.py` | new | `recheck`, `accepted_shots`, `python -m app.verify.recheck` | T083 |
 | `services/api/app/verify/audit.py` | changed | `shot_action_text`, `_PERSON_PRONOUNS`, two person-support rules in `run_checks` | T084 |
 | `services/api/app/verify/{audit,recheck}.py`, `app/storyboard/prompt.py` | changed | `described_age`, `age_contradicts`, `inside_vehicle`, `part_of_vehicle`, `shot_ages`, `run_checks(ages=)`, unheld food as `BACKGROUND_OBJECT`; `introduced_years` | T086 |
+| `services/api/app/verify/audit.py` | changed | `_STORY_OBJECTS`, `_SEVERITY[TEXT_IN_FRAME]` soft, object failures routed to `BACKGROUND_OBJECT` | T089 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
@@ -697,10 +755,11 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 | Drawing marks (T078) | the describer leaves them out | a code list of mark words: the describer's names vary; the judge: it called "pencil shading" unscripted |
 | Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
 | Things the scene names (T083) | code: the object's noun or its whole's noun in the scene's action text, for the never-set-dressing categories only | the judge's label alone (it called the harbour's boats dressing 31 times); every category (it excused "small pills", "power lines", "tripod stand"); the shot's own text only: the boats a scene's first shot names belong to every shot of that harbour, and a later shot's own text often doesn't name them (11 objects excused against the scene's 32) |
-| Background objects (T083; Tumo, 2026-10-11) | the soft `BACKGROUND_OBJECT`: shown, named, the frame `WARN` | hard as before: on 2026-10-11 it withheld 5 of sipho-and-siphokazi's 30 shots and 3 of the-red-kite's 21 for a pen, grass or a moon alone; painted text warning too (Tumo kept it hard: legible invented words on an accepted frame) |
+| Background objects (T083; Tumo, 2026-10-11) | the soft `BACKGROUND_OBJECT`: shown, named, the frame `WARN` | hard as before: on 2026-10-11 it withheld 5 of sipho-and-siphokazi's 30 shots and 3 of the-red-kite's 21 for a pen, grass or a moon alone; painted text warning too (Tumo kept it hard: legible invented words on an accepted frame; reversed by T089, below) |
 | A matched person's age (T086) | code compares the describer's age word with the introduction's years | the judge alone (T072's sentence): on the-bread-van it matched THEO (9) to adults 17 times; a finer scale (teen for 11 or 12, adult for 50s): the describer's words are coarse, so only plain contradictions count |
 | A vehicle's parts inside it (T086) | code: part and interior words, inside a scene whose location is a vehicle | any `vehicle` object there (it passed a sailboat seen from a boat's cabin); the judge's call (it called the van's dashboard never-set-dressing) |
 | Unheld food (T086; Tumo, 2026-10-12) | soft `BACKGROUND_OBJECT` whatever the judge called it | food as plain set dressing with the heading as support (it would pass silently: a cake at a birthday the script never had); hard as before (bread in a bakery failed 26 times) |
+| Objects and lettering warn (T089; Tumo, 2026-10-12) | every object failure but an animal's or a weapon's, and `TEXT_IN_FRAME`, are soft and named on the card | strict as before (9 of 49 on lost-property, most for a misspelt LOST PROPERTY sign); all objects soft (the same counts, but a knife or a dog the script never gave would pass); asking klein for no lettering (a prompt change, fal money, and the script's own signs would go too); a setting for strict mode (one revert does it, no caller needs both) |
 | A person's support (T084) | code: found in the shot's action text, with no `he`, `him` or `she` | any verbatim quote of the shot or of an in-shot entity, as before (2026-10-12: three strangers accepted on lost-property, excused by dialogue or a pronoun, and an old woman for Siphokazi on sipho-and-siphokazi); a person-noun list the support must contain (a vocabulary that never ends: "commuter", "busker", "courier"); telling the judge only (it can't be measured free, and code would still trust what it cites; a judge sentence is §10's open question) |
 | Measuring a code-only audit change (T083) | `recheck`: today's checks on stored descriptions and judgements | `reaudit`: two Token Factory calls a drawing for a change that calls no model |
 | Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
@@ -830,6 +889,7 @@ it against the script."*
   not `UNSCRIPTED_OBJECT`; a held bun still fails `UNSCRIPTED_OBJECT`; food the scene names still passes (T083).
   Free: the comparison on every stored audit gives the numbers in §3, every newly accepted drawing looked at
   and listed in the PR. Live: after T088, on the held-out script.
+- **T089:** `run_checks`: an unheld pen called `unscripted` with no prop of that name and a held pen called `set_dressing` each fail `BACKGROUND_OBJECT` (soft, `WARN`) with details `object N (pen, other): not in the script` and `object N (pen, other): held, so not set dressing`; a held bun (food) and a car (vehicle) called never-set-dressing warn too, with their own details; a `scripted_prop` mug without a found support warns `prop without support`; a knife (weapon) called `unscripted` and a dog (animal) called `set_dressing` still fail `UNSCRIPTED_OBJECT` (hard); painted text 'LOST POVERTY' in a shot whose source says LOST PROPERTY fails `TEXT_IN_FRAME` with severity soft and the verdict `WARN`; with an unscripted person as well, the verdict is `FAIL`; painted text alone (no other fault) gives `WARN`. Also: an animal `scripted_prop` without support still fails `UNSCRIPTED_OBJECT` "prop without support"; a held knife (weapon) called `set_dressing` still fails it "held, so not set dressing"; a held `clothing` object (a scarf in a hand) now warns. `_filed`: animal and weapon → `UNSCRIPTED_OBJECT`; other, nature, furniture, screen_or_sign, clothing, architecture, vehicle, food → `BACKGROUND_OBJECT`. **Existing tests that change** (their hard object or text failure is now a warning): `test_checks.py` (the `hard` set loses `TEXT_IN_FRAME`; the verdict asserts on held, unsupported and never-dressing objects and on text), `test_t083.py` (a vehicle expected `FAIL`; `test_the_rest_stays_hard`'s held pen, named prop and unsupported prop, its animal case stays), `test_t086.py` (held food and a food `scripted_prop` without support), `test_t078.py` (an `UNSCRIPTED_OBJECT` assert); each is changed to the new routing, not deleted. Free: `recheck` on every stored project gives the numbers in §3, every newly accepted drawing looked at and listed in the PR. Live: the next run.
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 
