@@ -646,11 +646,13 @@ image_dirs() {
 }
 
 # Run in the image (deploy.md §6, *The image*): the app imports, and the files it reads at run time
-# are there. The public styles join this once an image ships them (the renderer PR).
+# are there, the public styles included (T063).
 IMAGE_PROBE='import pathlib, app.main
 from app.comic.layout import FONT_PATH
+from app.storyboard.styles import PUBLIC_STYLES, load_styles
 for need in (FONT_PATH, pathlib.Path("alembic.ini"), pathlib.Path("migrations/env.py")):
-    assert need.is_file(), f"missing in the image: {need}"'
+    assert need.is_file(), f"missing in the image: {need}"
+load_styles(PUBLIC_STYLES, None)'
 
 image_check() {
   local dir="$1" rel="$2" tag err
@@ -673,7 +675,7 @@ image_check() {
     tail -n 25 "$err" | sed 's/^/     /'
     fail=1
   else
-    say "   built $tag; app.main imports, the font, alembic.ini and migrations are in it"
+    say "   built $tag; app.main imports; the font, alembic.ini, migrations and the public styles are in it"
   fi
   docker image rm -f "$tag" >/dev/null 2>&1 || true
   rm -f "$err"
