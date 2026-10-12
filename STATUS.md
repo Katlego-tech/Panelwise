@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-11 — by Katlego (via Claude)_
+_Last updated: 2026-10-12 — by Tumo (via Claude)_
 
 ---
 
@@ -35,15 +35,15 @@ _Last updated: 2026-10-11 — by Katlego (via Claude)_
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037, T063 | Tumo (T030, T037 deploy, from 2026-10-11); Katlego (#80/#81, T063) | Claude | ✅ T037 code merged (PR #13) · 🟡 T030 on Render (decided 2026-10-11, Tumo) · 🟡 T063 (Katlego): design #80 revised for the paid plan `0.5c-512mb`, the public styles in the API image and Vercel in `fra1`; code #81 stacked on it · 🔴 T003 needs GPU access |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037, T063 | Tumo (T030, T037 deploy, from 2026-10-11); Katlego (#80/#81, T063) | Claude | ✅ T037 code merged (PR #13) · 🟡 T030 on Render (decided 2026-10-11, Tumo) · 🟡 T063 (Katlego): design #80 and code #81 merged (paid `0.5c-512mb`, the public styles in the API image, Vercel in `fra1`); the 512 MB check and the deploy on the Render account to go · 🔴 T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048 | Katlego | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) |
 | `shots` | Shot planner | T007 | | | ✅ T007 done |
-| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027, T082 | Katlego (Tumo for T082) | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 |
+| `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027, T082 | Katlego (Tumo for T082) | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · 🔴 T026 (renderer, Storage) blocked on T003 (GPU) and T021 (an interim Cloudflare renderer is proposed, awaiting Katlego) · T027 (PDF) after T026 · 🟡 T082 a character's sex from the script (#139 design, #141 code, merged 2026-10-12; Tumo, Claude): its Token Factory measurement to go |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Tumo | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ✅ T040 sign-in, projects, upload (PR #64) · ✅ T041 script page (PR #66; design commits from #65, T042 Files fix here) · ✅ compose gives web the publishable pair (PR #67) · ✅ T042 storyboard (PR #69 design, PR #70 code) · ✅ T045 frame sheet (PR #74 design, PR #75 code) · ✅ T061 audit log + "Try another render" (PR #78) · ✅ T024 the comic reader (PR #87; Tumo, Claude) |
-| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021, T083 | Katlego (Tumo for T083) | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · ✅ T062 the architecture check code (PR #82 design, #83 code; Tumo, Claude) · ✅ its live run on the-red-kite (2026-10-09) · 🟡 the browser check of the copy (Tumo) |
+| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021, T083 | Katlego (Tumo for T083) | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · ✅ T062 the architecture check code (PR #82 design, #83 code; Tumo, Claude) · ✅ its live run on the-red-kite (2026-10-09) · 🟡 the browser check of the copy (Tumo) · ✅ T083 things the scene names; background objects warn; `recheck` (#137 design, #138 code, 2026-10-12; Tumo, Claude) |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) · ✅ T064/T024 design (PR #85) · ✅ T064 the comic job, store and API (PR #86; Tumo, Claude) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
-| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · 🔴 T049 audit accuracy blocked on T026 · 🔵 T081 run reports + the learning log (Tumo, Claude: #135 design, #136 code) |
+| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · ⬜ T049 audit accuracy: #106/#107 closed 2026-10-12 (built on Workers AI; T081 and T083 measure the audit for now) · ✅ T081 run reports + the learning log (Tumo, Claude: #135 design, #136 code) |
 
 ## ⏭️ Next action
 
@@ -65,48 +65,37 @@ Tumo picked up the 2026-10-11 handoff in person. Plan to submit on **29 Oct** (3
 
 Proposed cuts (Tumo to confirm): T003 (fal renders; no money for a GPU VM) and T025 (several days of port, audit and new drawings; T079's looks cover the cheap half).
 
-### 👋 For Katlego (from Tumo, 2026-10-11)
+### 👋 For Katlego (from Tumo, 2026-10-12)
 
-**Everything is on `main`** (#90–#133). The 2026-10-08 list that stood here is done; it is in git
-history and in the Log. Main's gate: 11 checks, 1,042 API tests, 338 web tests.
+**Main has everything** up to #141, plus your #81. Main's gate: 11 checks, 1,126 API tests, 338
+web tests.
 
-**Decided by Tumo today:**
-- **Web on Vercel, API on Render on a paid plan, not Railway.** Your #80/#81 are the base.
-- The renderer stays fal.ai with FLUX.2 [klein] 4B. A signature only warns.
+**1. Write Tumo some new screenplays: this is the ask for today.** Tumo is testing yesterday's work
+(T082: each character's sex from the script; T083: things the scene names count as scripted) on
+scripts it wasn't designed on. Our three samples are used up for that, so we need held-out ones.
+- **Two or three short scripts**, 3–6 pages each, in screenplay format, as PDF (Fountain source
+  too if you have it). Self-written only: nothing copyrighted, because the repo is public.
+- **Make them hard in the ways we fix.** Characters introduced without she/he, or with a title
+  (MAMA, MR, AUNTIE…), or only as "a fisherman", "the girl"; an animal, a vehicle or a weapon the
+  action names; food on a table; a place with a lot of everyday things in it.
+- **Send them to Tumo directly, not through the repo or to Claude.** Claude must not see them until
+  a fix is measured on them; that is what makes them held out.
 
-**1. Deploy the web on Vercel today.** It works without the API. Steps:
-[docs/deploy.md](docs/deploy.md) step 3 and its **Web first** part.
-- Leave `API_URL` unset. Set `ENABLE_EXPERIMENTAL_COREPACK=1` and the two
-  `NEXT_PUBLIC_SUPABASE_*` values (the publishable key, never the secret one). Use Node 24.x.
-- Root directory `apps/web`.
-- Expected: sign-in works, `/projects` says "Your screenplays can't be loaded right now", and
-  `/api/health` answers 502 until the API exists.
-- Then put the Vercel URL under 🛠️ Environment & access below. Every push to `main` redeploys it.
+**2. Your PRs, cleaned up on 2026-10-12 (Tumo's call):**
+- **#81 merged**, after a fresh review: nothing blocking. One fix added (5ae4e62): a private style
+  pack at `services/api/styles/private/` is now ignored by git and kept out of the image. The
+  512 MB check (deploy.md §9) is still to run.
+- **#92 closed:** T065 (#94/#95) fixed the bubble placement.
+- **#106/#107 (T049) closed:** built on the Workers AI renderer, which we dropped for fal. T081's
+  report and T083's `recheck` now measure the audit for free. Your 27 labels are still in #107's
+  commits: reopen it if we want T049's precision and recall on fal frames.
+- **Stale branches left for you to delete** (no open PR uses them; each can be restored from its
+  closed PR): `docs/renderer-cloudflare`, `docs/renderer-workers-ai`, `feat/t026-workers-ai`,
+  `docs/eval-t049`, `feat/eval-t049`, `docs/status-bubble-repro`.
+- **#36 (README)** stays open until the feedback section is written.
 
-**2. Render, later.** #80/#81 were written on 2026-10-09, before T026 and T069.
-- #80 now conflicts with `main`.
-- They need, before the API can go up:
-  - **`/styles` in the API image.** The API reads styles at `/styles`, which compose mounts from
-    the repo root. A Render Docker build of `services/api` doesn't have them, so the hosted API
-    would start with no renderer: no frames, and "Try another render" answers 503.
-  - **The fal and audit settings** in `render.yaml`: `FAL_KEY` (secret), `FAL_MODEL`,
-    `RENDER_MAX_ATTEMPTS=3`, `NEBIUS_MODEL_VISION`.
-  - **T069's caps:** `LLM_MONTHLY_TOKEN_CAP`, `UPLOADS_PER_DAY`, `UPLOAD_MAX_PAGES`. Also decide
-    whether an image cap is needed: no code reads `IMAGE_MONTHLY_GENERATION_CAP` yet.
-  - **The paid plan.** It brings back a pre-deploy command for the migrations, no sleeping, more
-    than 512 MB, and `keepalive.yml` isn't needed.
-- Which instance type, and who brings #80/#81 up to `main` (you, or Claude on a new branch built
-  on your commits), is still open with Tumo. Agree it with him before you start.
-- The 2026-10-11 live run used about 134 MB while drawing; the comic job isn't measured yet.
-
-**3. Your other open PRs.**
-- **#36 (README):** waits on the team's feedback section.
-- **#92 (the bubble repro):** fixed by T065 (#94/#95). Close it if you agree.
-- **#106/#107 (T049):** #107's base, `feat/t026-workers-ai`, is closed. Re-point it at `main`,
-  then re-run the scorecard with the new audit.
-
-**Latest live result (2026-10-11):** the-red-kite on klein at 3 attempts accepted 16 of 21 frames.
-Lerato is drawn as a girl with braids. Details are in the Log.
+**3. Still yours:** the web on Vercel ([docs/deploy.md](docs/deploy.md) step 3, **Web first**),
+then T037's deploy check on the Render account.
 
 ### 👋 For Tumo (from Katlego, 2026-10-11)
 
@@ -124,7 +113,8 @@ from your note. Say if you want either changed, and it becomes a small follow-up
   `RENDER_MAX_ATTEMPTS` and `NEBIUS_MODEL_VISION` are left to their code defaults, which are the
   right values. T069's cap figures stay yours in T030.
 - **Next:** #81 (the code) is rebased on #80; it lands after its review. Then T037's deploy check
-  on the Render account.
+  on the Render account. **(2026-10-12: #81 merged by Tumo. Your two choices above are still
+  open with him.)**
 - **Token Factory spend (~$4):** checked against our runs and your re-audits; no key in git
   history, PRs or comments (gitleaks + a search for the key itself). Plan: one key per person and
   one for the hosted API, so the console shows who spent what.
@@ -217,6 +207,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
+- 2026-10-12 — Tumo (via Claude) — Merged, each after main's CI went green: #135, #136 (T081), #139, #141 (T082; #141 replaces #140, which GitHub closed when the repo's auto-delete removed its base branch), #137, #138 (T083), then Katlego's #81 (T063 code; review: nothing blocking, one fix 5ae4e62, the private style pack ignored by git and the image). T082 and T083 together: gate 11 checks, 1,126 API and 338 web tests. Tumo's call on T049 vs T081: T081's free report and T083's `recheck` win (T049 was built on the dropped Workers AI renderer); #106/#107 and #92 (fixed by T065) closed with notes. Open PRs: #36 only. Six stale branches of closed PRs are left for Katlego to delete. Next: Tumo tests T082 + T083 on new scripts (Katlego writes held-out ones); T082's Token Factory measurement on the three samples; the API container rebuilt from main before any live run. Blocked on: nothing.
 - 2026-10-11 — Katlego (via Claude) — T063 code (#81) to the revised design: `render.yaml` on `0.5c-512mb` with `FAL_KEY`; the public styles moved to `services/api/styles` (root `styles` a symlink), copied into the image and loaded by the gate's image probe; compose's styles mount gone; `vercel.json` `regions: ["fra1"]`; docs/deploy.md step 2 for the paid plan; `.env.example` names klein and `RENDER_MAX_ATTEMPTS`. Not yet run: the 512 MB check (a live storyboard + comic, ~$0.40, needs Katlego's go-ahead). Next: that check, the reviews, then T037. Blocked on: Render and Vercel accounts.
 - 2026-10-11 — Katlego (via Claude) — #80 revised (handoff §6 step 7, the deploy): Render `0.5c-512mb`, paid (Katlego); the public styles move into the API image, which had none on Render; Vercel functions in `fra1`; `FAL_KEY` in the Blueprint; a 512 MB check before paying. `main` merged in. #81 follows. Next: #81, then T037 on the real accounts (Tumo). Blocked on: Render and Vercel accounts.
 - 2026-10-11 — Tumo (via Claude) — merged T026 (fal.ai, now FLUX.2 [klein] 4B), T027, T065–T080 into main (#90–#130); closed #97/#98 in favour of fal with klein; handoff to Katlego raised (docs/HANDOFF.md). Next: §6 step 1, the live T079 + T080 run. Blocked on: nothing.
