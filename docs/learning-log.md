@@ -21,7 +21,8 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Seen:** 2026-10-12, the-bread-van (a test script Claude wrote for pronouns, not held out),
   [run report](../eval/runs/2026-10-12-the-bread-van.md). In failures: `food · never set dressing` 26 (bread loaves, loaves of bread, dough in INT.
   NOMSA'S BAKERY), `vehicle · never set dressing` 14 (rearview mirror, dashboard, headrests, car
-  seats in INT. VAN - MOVING), a held steering wheel 10 (`held, so not set dressing`).
+  seats in INT. VAN - MOVING), held objects 10 (`held, so not set dressing`: 4 a steering wheel as a
+  vehicle, 6 others, a steering wheel and a broom).
 - **Cause:** `verify/audit.py` never lets food or a vehicle be set dressing (`_NEVER_DRESSING`), and
   T083's `named_in_scene` reads only the scene's action text and the object's own noun. The
   heading's place (BAKERY, VAN) is never asked, and a driver holding the van's wheel is a held object
@@ -34,11 +35,11 @@ it before changing the prompt or the audit; add to it after every live run.
 ### L012 · The judge puts a character's name on someone it can't check · open
 
 - **Seen:** 2026-10-12, the-bread-van, [run report](../eval/runs/2026-10-12-the-bread-van.md): **1 of 19 shots accepted.** `unscripted_person` failed 35
-  attempts, "a child" 21 times, in shots that have THEO (9). Of the judge's 24 matches to THEO, 17
+  attempts, "a child" 21 times, in shots that have THEO, aged 9. Of the judge's 24 matches to THEO, 17
   were a person described as no child (an adult seen from behind, an adult man, an adult woman), and
   in 13 of those a drawn child was left unmatched and failed as a stranger. Counted the same way on
-  every stored run with a child character: 0 such matches on the seven runs since T074 (the-red-kite
-  and lost-property). Two more attempts (4.2, 4.3) were `ERROR`: the judge didn't call each
+  every stored run with a child character: at most 1 such match a run on the eight runs since T074
+  (0 on six, 1 on two; the-red-kite and lost-property). Two more attempts (4.2, 4.3) were `ERROR`: the judge didn't call each
   described person once. And DANIEL (40s) was drawn and matched as "an old man" (3.2, 3.3).
 - **Cause:** klein drew Theo in a t-shirt, not his look "in pyjamas and a school jersey". The judge
   is told (T080) that a person whose look plainly contradicts a character's is not that character,
