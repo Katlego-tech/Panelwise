@@ -211,8 +211,19 @@ classDiagram
       their own ("Sipho knocks. She opens the door.") when the model also claims "she" for Sipho.
       No wrong sex on the samples is no proof for other scripts: the held-out script measures it.
     - **The judge** sees the evidence sentence (`character_sex`), which may not name the character:
-      the spec line is already under that character's name. Faithfulness and recall don't change;
-      the schema and the prompt don't change.
+      the spec line is already under that character's name. Faithfulness and recall don't change.
+    - **The claim is asked for whenever the screenplay shows the sex** (§6: the prompt's sentence and
+      the field's description now allow `her` and `his` and ask for the word "best" from a quote, null
+      only when the screenplay never shows it): told to copy it only from its own quote, the model
+      left it null for KOOS, AMAHLE and TEBOGO although the script says "Koos taps his broom". A
+      `her`/`his` claim keys by `CONFLICT_WORDS`; T082's own rules still never keep such a word.
+    - **Measured** 2026-10-12, Token Factory, three extractions of each sample (about 42,000 tokens),
+      against eval/sex-labels.json: **WRONG 0, INVENTED 0** in all twelve; the-red-kite 3 of 3 each
+      run; sipho-and-siphokazi every extracted person right (SIPHO and SIPHOKAZI, missed by T082
+      alone; GOGO not always extracted); lost-property (found on) 7 of 12 a run, from 6 (AMAHLE, KOOS
+      when the model claims); the-bread-van (found on) 3 of 4, from 2 (DANIEL). Still missed: PRIYA
+      (her "She" sentences follow her speeches), TEBOGO and KOOS when the model gives no claim, MOLOI
+      (only a parenthetical), the sleeping commuter, THEO (a determiner in each of his sentences).
   - The filter now imports `name_tokens` / `NAME_STOP_WORDS` from `app/characters/redact.py`
     (a pure module that imports only `app.script`); `app/characters/__init__.py` must never import
     `labels.py`, which imports `app.grounding` (storyboard.md §6).
@@ -330,7 +341,12 @@ class ProposedEntity(BaseModel): name: str; kind: Literal["character", "prop"]; 
 # character and no one else; otherwise sex_word is null. Never guess: copy only a word the screenplay writes
 # about them." The schema docstring ("No age, gender or role fields") says sex_word is a copied word, as
 # species is; its Field description says the same.
-# T088 (filter.py, pure; the schema and the prompt are unchanged):
+# T088: the system prompt's sex_word sentence becomes: "For a character who is a person, give in sex_word one
+# word the screenplay writes about this character that shows whether they are female or male -- she, he, her,
+# his, or a noun such as woman, girl, man, boy or fisherman -- copied exactly, best from one of its quotes from
+# an action paragraph that names this character and no one else; null only when the screenplay never shows it.
+# Never guess: copy only a word the screenplay writes about them." The Field description says the same.
+# filter.py, pure:
 # def _pronoun_evidence(entity: Entity, cast: Sequence[Entity], screenplay: Screenplay,
 #                       names: frozenset[str]) -> list[tuple[Sex, Quote]]   # §3's evidence, script order
 # def _claimed_sex(entity: Entity, proposed: Sequence[str], cast: Sequence[Entity], screenplay: Screenplay,
