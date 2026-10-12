@@ -65,9 +65,10 @@ it before changing the prompt or the audit; add to it after every live run.
   wears headphones" (Koos, the sentence after his), and only "his"/"her" outside a look for Tebogo
   ("at his feet"), Amahle ("her mother's scrubs"), Moloi ("(closing his notebook)") and the
   sleeping commuter ("under his newspaper"). None of them has a sex noun or a title.
-- **Action:** none yet. The six misses are the held-out test set, so no fix is tuned to them: a
-  fix is designed on the samples' own patterns and scored here again, separately. The rule that
-  WRONG and INVENTED stay at 0 holds.
+- **Action:** T085 (designed 2026-10-12, storyboard.md §6 `referred_sex`): three narrow rules on the
+  script's own pronouns outside the introduction, every piece agreeing with the others and with T082's
+  sources. The pattern was seen here, so lost-property now counts as **found on**, not held out; Tumo's
+  new script (2026-10-12, unread until T085 is built) is the held-out test.
 - **Measured:** this is the held-out baseline: 3 of 9 found, 0 wrong. The Token Factory
   measurement on the three samples (several extractions each) is still to run.
 

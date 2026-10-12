@@ -519,5 +519,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:verify.md §6 verbatim: `shot_action_text(shot, scene) -> str`, `_PERSON_PRONOUNS`, the two detail strings
       Verify:  bash scripts/gate.sh (tests first: verify.md §9's T084 list); free: `recheck` on lost-property `0c7cceb4` (at most 9, 7.4/10.2/10.3 failing) and on every other stored project as held out, each newly failed attempt read
       Done:    on the stored audits, lost-property's 7.4, 10.2 and 10.3 fail `UNSCRIPTED_PERSON`; the PR lists every attempt the change newly fails on any project with its person, its support and which rule failed it, each marked read
+- [ ] T085 [US1] **A character's sex from the script's later references: the subject's own his/her, a He/She opening the next sentence, the speaker's parenthetical.** Found on 2026-10-12 (lost-property, L010): T082 gave 3 of 9 sexed characters their sex, and 4.1 and 6.2 drew Priya and Amahle as boys, accepted. Tumo's call (2026-10-12): fix it after T084. Lane `storyboard` (Claude for Tumo).
+      Design:  docs/design/storyboard.md §3.1 (the invariant's keying), §6 (`referred_sex`, `character_sex`, `sex_part`), §7, §8, §9 (T085)
+      Files:   services/api/app/storyboard/prompt.py; services/api/tests/storyboard/test_t085.py, test_invariant.py; docs/learning-log.md (L010's Measured)
+      Contract:storyboard.md §6 verbatim: `referred_sex(character, screenplay) -> tuple[Sex, str, Span] | None`, its three rules, the sentence split, `_NOT_POSSESSED`
+      Verify:  bash scripts/gate.sh (tests first: storyboard.md §9's T085 list); free: the stored projects scored against eval/sex-labels.json (WRONG 0, INVENTED 0 everywhere, lost-property at least 11 of 12); then the held-out script labelled and scored, and drawn once with Tumo's go-ahead
+      Done:    on the three samples' stored extractions no character gets a wrong or invented sex and lost-property gets at least 11 of its 12 labels right; the prompt and the judge's spec carry the new sexes; the invariant passes
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
