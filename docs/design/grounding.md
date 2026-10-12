@@ -1,6 +1,6 @@
 # Design — `grounding` (entity extraction + grounding filter; lane `script+grounding`)
 
-**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T006, T039 · **Spec:** PLAN.md Non-negotiable I;
+**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T006, T039, T082, T088 · **Spec:** PLAN.md Non-negotiable I;
 [SPEC.md](../../SPEC.md) US1
 
 ---
@@ -165,6 +165,40 @@ classDiagram
       word *about this character*; `character_sex` drops a sex the introduction contradicts;
       storyboard.md §9's labelled table measures what is left.
     - Faithfulness and recall don't change: a `sex_word` that fails is simply not kept.
+  - **`sex_pronoun_quote` (T088):** `sex_word` must sit in a quote that names the character, so a
+    sex the script gives only in a later sentence is missed: on 2026-10-12 T082 found 3 of the 9
+    sexed characters of lost-property (L010) and missed THEO ("A small brown dog, BISCUIT, sleeps
+    across his feet.") and DANIEL on the-bread-van. Code rules for these pronouns were stopped on
+    review (storyboard.md §8): no rule on words tells whose "his" it is ("Siphokazi takes his
+    hand"). So the **model** picks the sentence and says whom its pronoun means, and **code**
+    checks the sentence and that the claim is the plain reading. For a person `CHARACTER`, the
+    model may copy into `sex_pronoun_quote` one sentence of an action paragraph, exactly, in which
+    a pronoun (`he`, `him`, `his`, `himself`, `she`, `her`, `hers`, `herself`) refers to this
+    character. Code keeps it, as `Entity.sex` and `Entity.sex_quote`, only when all hold:
+    1. it is located (`locate_quote`) in an `Action` element (never a speech or a parenthetical);
+    2. its third-person singular pronouns (those eight words, whole words of `normalise`d text)
+       are at least one and **all one sex**: "She hands him the cup" gives nothing;
+    3. **the antecedent**: scanning back from its first such pronoun (through the earlier words of
+       the same element, then the scene's earlier elements in order, an `Action`'s words and a
+       `Dialogue`'s cue only, never what is said, to the scene's start), the first word that is a
+       name token of a person `CHARACTER` (`_tokens`: its name and kept other names; animals,
+       those with a `species`, are skipped) belongs to **this** character, and no sex noun
+       (`SEX_WORDS` less `PRONOUNS`: "a woman", "the girl") comes between that word and the
+       pronoun. So "THEO (9) … sleeps on a sack of flour … A small brown dog, BISCUIT, sleeps across
+       his feet." gives THEO male (BISCUIT is an animal); "Siphokazi takes his hand." claimed for
+       SIPHO gives nothing (the nearest name is SIPHOKAZI); "Daniel laughs and takes the bag from
+       him." claimed for THEO gives nothing; "She spots the hand-painted sign" right after PRIYA's
+       own speech gives PRIYA female (the cue is the nearest name); "Sipho waves to a woman. She
+       smiles." claimed for SIPHO gives nothing (a sex noun between).
+    4. Every kept piece of evidence, `sex_word` and `sex_pronoun_quote` from every chunk, gives one
+       sex, else `None` (T082's rule 3); with both kept, `sex_quote` is the `sex_word`'s. The species
+       test still runs first; never for props, locations or `Source.CUE` backfills.
+    - **What the model decides, what code checks:** the model resolves the pronoun; code refuses a
+      claim that isn't the plain reading (the nearest named person, no unnamed woman or man in
+      between). **Residual risk:** an unnamed person with no sex noun ("Sipho knocks. She opens the
+      door.") if the model claims that "She" for Sipho; `character_sex` still drops a sex another
+      source contradicts, and the labelled table measures what is left.
+    - The prompt's sentence and the schema field: §6. Faithfulness and recall don't change.
   - The filter now imports `name_tokens` / `NAME_STOP_WORDS` from `app/characters/redact.py`
     (a pure module that imports only `app.script`); `app/characters/__init__.py` must never import
     `labels.py`, which imports `app.grounding` (storyboard.md §6).
@@ -280,6 +314,13 @@ class ProposedEntity(BaseModel): name: str; kind: Literal["character", "prop"]; 
 # screenplay that shows whether this character is female or male -- she, he, or a noun such as woman, girl,
 # man, boy or fisherman -- copied exactly from one of its quotes from an action paragraph that names this
 # character and no one else; otherwise sex_word is null. Never guess: copy only a word the screenplay writes
+# about them." T088: ProposedEntity gains `sex_pronoun_quote: str | None` (required in the schema, null when
+# none), described as "Only for a character who is a person: one sentence of an action paragraph, copied
+# exactly, in which he, him, his, himself, she, her, hers or herself refers to this character. Null when there
+# is none, and for every prop"; the system prompt gains: "For a character who is a person, also give in
+# sex_pronoun_quote one sentence of an action paragraph, copied exactly, in which a pronoun such as he, him,
+# his, she or her refers to this character, choosing a sentence where that is plain; otherwise null." Code
+# (filter.py `_pronoun_sex(quote, entity, cast, screenplay)`, pure) applies §3's rules 1 to 3.
 # about them." The schema docstring ("No age, gender or role fields") says sex_word is a copied word, as
 # species is; its Field description says the same.
 # app/characters/sex.py (T082), pure, imports nothing from app.grounding or app.storyboard:
@@ -327,6 +368,7 @@ the parser, so a faithful quote is always locatable.
 | Aliases ("THABO" vs "THABO MOLEFE" proposed separately) | kept as two entries | fuzzy merge: risks fusing two people. `match_speaker` still binds cues correctly, so scenes and recall are unaffected |
 | Animals (T051) | a `species` word, grounded in the entity's own located quote | an `ANIMAL` entity kind: every consumer of `CHARACTER` (planner, cues, audit) would need a second branch, and an animal that speaks or acts is cast like a character; a model `is_animal` flag: an inferred attribute, ungroundable |
 | Other names (T051) | `other_names`, kept when the script mentions them; the label is decided downstream by pairing (storyboard.md §3.1) | merging them as entities: "Gerald" isn't a separate thing; dropping one not inside the entity's own quote: a dropped other name is a name left in a prompt, so it is kept and redacted to the neutral `it` instead. **Cost:** a common capitalised word given as another name ("Mum", "Captain") is redacted wherever the script capitalises it |
+| A sex from a later pronoun (T088; Tumo, 2026-10-12) | the model picks the sentence and means the pronoun, code checks it's located in an action line, of one sex, and the plain reading (the nearest named person, no unnamed woman or man between) | code rules alone (storyboard.md §8, T085 stopped: "Siphokazi takes his hand", "Sipho turns to her"); the model's word alone, as `sex_word` with any quote (it can claim "his" for Siphokazi); `sex_word` widened to his/her in a quote that names the character (still misses THEO and PRIYA, whose sentences don't name them) |
 | A character's sex (T082; Tumo, 2026-10-11) | a copied `sex_word`, keyed by a fixed vocabulary, grounded in a located Action quote that names only this character; with storyboard.md's code rules (the introduction's pronouns, a title) | a model `sex` field: an inferred attribute, ungroundable; code rules alone: sipho-and-siphokazi's three characters have no pronoun of their own in their introduction (L002), and "Siphokazi nods. She…" needs coreference a rule can't do safely; any quote: dialogue ("my uncle") is about someone else |
 | Species test (T051) | in an Action quote of the entity, not a person word, not a name token | any located quote: a person's speech mentioning "the cat" would pass; no word list: `species: "man"` would turn a person into an object for the audit. **Residual risk:** a person the model calls an animal, with that animal word in their own description line |
 | Chunk size | 12,000 chars | FrameFlow's 20,000: smaller chunks help recall, and Lightning is cheap |
@@ -339,6 +381,18 @@ the parser, so a faithful quote is always locatable.
   cases that must still fail — another speaker's cue, a wrong extension or parenthetical, nothing
   after the header, a cue not on its own line, a quote stitched across speeches, a heading or an
   action line as the "header", a name that is no cue.
+- `ground` (T088): `sex_pronoun_quote` "A small brown dog, BISCUIT, sleeps across his feet." after "THEO
+  (9) … sleeps on a sack of flour", with BISCUIT an animal → THEO male, `sex_quote` that sentence; "He
+  stretches until his back cracks." after "DANIEL (40s) … climbs out." → DANIEL male; "She spots the hand-
+  painted sign …" after PRIYA's speech → PRIYA female; "Siphokazi takes his hand." for SIPHO → None (nearest
+  name SIPHOKAZI); "Daniel laughs and takes the bag from him." for THEO → None; "She hands him the cup." →
+  None (two sexes); "Sipho waves to a woman. She smiles." for SIPHO → None (a sex noun between); a sentence
+  only in dialogue, or not found → None; a name spoken in dialogue ("Theo. Up.") is no antecedent; a
+  `sex_word` "she" and a pronoun quote giving male → None; both female → female with the `sex_word`'s quote.
+  The codec loads a stored proposal without the field (null). Live, Token Factory (Tumo approved
+  2026-10-12): the extraction, three runs on each of the four samples (the-red-kite, sipho-and-siphokazi,
+  lost-property, the-bread-van; the last two found on) against eval/sex-labels.json: WRONG 0 and INVENTED 0,
+  the misses counted per character; then Tumo's unread script, held out.
 - `ground` (T082): `sex_word` "She" in "Siphokazi nods. She cannot stop the smile." (one Action quote, one
   character) → `female` with that quote; "fisherman" in "a salt-and-pepper-bearded fisherman … This is SIPHO
   (50s)." → `male`; "her" in "MAMA THEMBI (60s), the shop's owner, watches her" (two characters) → None;
