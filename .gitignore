@@ -39,6 +39,7 @@ services/api/storage/
 
 # Private style packs live OUTSIDE this repo (PANELWISE_PRIVATE_STYLES); belt and braces:
 styles/private/
+services/api/styles/private/
 
 # Screenplays: only samples/ is tracked, and only public-domain or self-written scripts
 *.pdf

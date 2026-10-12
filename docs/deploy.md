@@ -10,9 +10,8 @@ the repo. Each step ends with a check; don't start the next until it passes.
 | 2 | Render | the API (`services/api`, from `render.yaml`) | the GitHub repo, step 1's connection string and keys, the Nebius key |
 | 3 | Vercel | the web app (`apps/web`) | the GitHub repo, step 2's domain |
 
-**Since 2026-10-11 (Tumo):** the API goes on **Render** (a paid plan), not Railway. Step 2 below
-is still the Railway text: Render's steps come with T063 (#80/#81) once they're brought up to
-`main`. The web can go first, before any API: see **Web first** in step 3.
+**Since 2026-10-11 (Tumo):** the API goes on **Render** (a paid plan), not Railway (T063, #80/#81).
+The web can go first, before any API: see **Web first** in step 3.
 
 ## 1. Supabase — the database
 
