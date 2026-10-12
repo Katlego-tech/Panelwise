@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
+from app.characters.sex import Sex
 from app.llm import Usage
 from app.script import Span
 
@@ -49,6 +50,9 @@ class Entity:
     # T051, grounding.md §3: the script's word for an animal character; other names it gives.
     species: str | None = None
     other_names: tuple[str, ...] = ()
+    # T082, grounding.md §3: the sex a copied sex_word gives, and the quote it sits in.
+    sex: Sex | None = None
+    sex_quote: Quote | None = None
 
 
 @dataclass(frozen=True)
