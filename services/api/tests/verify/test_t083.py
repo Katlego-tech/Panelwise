@@ -112,7 +112,7 @@ def test_boats_the_scene_names_pass_whatever_the_judge_called_them(
     assert Check.UNSCRIPTED_OBJECT not in failed
 
 
-def test_a_vehicle_the_scene_never_names_still_fails_hard(
+def test_a_vehicle_the_scene_never_names_warns(
     screenplay: Screenplay, extraction: Extraction
 ) -> None:
     failed, verdict = _objects(
@@ -122,8 +122,9 @@ def test_a_vehicle_the_scene_never_names_still_fails_hard(
         [{"name": "boats", "category": "vehicle", "held": False}],
         [{"object": 0, "kind": "set_dressing", "support": "KITCHEN"}],
     )
-    assert "never set dressing" in failed[Check.UNSCRIPTED_OBJECT]
-    assert verdict is Verdict.FAIL
+    assert "never set dressing" in failed[Check.BACKGROUND_OBJECT]  # T089: no animal or weapon
+    assert Check.UNSCRIPTED_OBJECT not in failed
+    assert verdict is Verdict.WARN
 
 
 def test_an_unheld_everyday_object_only_warns(
@@ -176,7 +177,7 @@ def test_an_unheld_everyday_object_only_warns(
         ),
     ],
 )
-def test_the_rest_stays_hard(
+def test_the_rest_is_still_flagged_and_an_animal_stays_hard(
     screenplay: Screenplay,
     extraction: Extraction,
     obj: dict[str, Any],
@@ -190,9 +191,13 @@ def test_the_rest_stays_hard(
         [{"name": "coat", "category": "clothing", "held": False}, obj],
         [{"object": 0, "kind": "scripted_prop", "support": "oilskin coat"}, call],
     )
-    assert failed[Check.UNSCRIPTED_OBJECT].endswith(reason)
-    assert Check.BACKGROUND_OBJECT not in failed
-    assert verdict is Verdict.FAIL
+    # T089: only an animal or a weapon stays hard; the rest warn with the same reason.
+    story = obj["category"] in ("animal", "weapon")
+    filed = Check.UNSCRIPTED_OBJECT if story else Check.BACKGROUND_OBJECT
+    other = Check.BACKGROUND_OBJECT if story else Check.UNSCRIPTED_OBJECT
+    assert failed[filed].endswith(reason)
+    assert other not in failed
+    assert verdict is (Verdict.FAIL if story else Verdict.WARN)
 
 
 def test_background_object_is_soft(screenplay: Screenplay, extraction: Extraction) -> None:

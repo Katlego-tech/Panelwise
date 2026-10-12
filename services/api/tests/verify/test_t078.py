@@ -61,7 +61,9 @@ def _fails(
         judged(objects=[{"object": 0} | call]),
         extraction,
     )
-    return Check.UNSCRIPTED_OBJECT in {c.check for c in checks if not c.ok}
+    # Flagged either way: hard for an animal or a weapon, else a warning (T089).
+    flagged = {Check.UNSCRIPTED_OBJECT, Check.BACKGROUND_OBJECT}
+    return bool(flagged & {c.check for c in checks if not c.ok})
 
 
 @pytest.mark.parametrize(
