@@ -340,7 +340,8 @@ def full(
 def test_the_schema_requires_species_and_other_names_for_strict_mode() -> None:
     schema = ProposedEntity.model_json_schema()
     assert set(schema["required"]) == {
-        "name", "kind", "quotes", "species", "other_names", "sex_word"  # T082
+        "name", "kind", "quotes", "species", "other_names", "sex_word",  # T082
+        "sex_pronoun_quote",  # T088
     }  # fmt: skip
 
 

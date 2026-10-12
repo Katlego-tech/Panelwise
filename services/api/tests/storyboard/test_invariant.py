@@ -15,7 +15,7 @@ from itertools import cycle, pairwise
 import pytest
 
 from app.characters import name_tokens, redact_all
-from app.characters.sex import SEX_TITLES, SEX_WORDS
+from app.characters.sex import CONFLICT_WORDS, SEX_TITLES
 from app.grounding import EntityKind, Extraction, normalize_for_grounding
 from app.script import ABSOLUTE_TIMES, Action, Dialogue, Screenplay, Span, parse_pdf, resolve_times
 from app.shots import Framing, Shot
@@ -118,7 +118,8 @@ def keyed(text: str, character: str, intro: str | None, extraction: Extraction) 
     entity = next((e for e in extraction.entities if e.name == character), None)
     if entity is not None and entity.sex_quote is not None and entity.sex == sex:
         quoted = re.findall(r"[a-z]+", entity.sex_quote.text.lower())
-        return any(SEX_WORDS.get(w) == sex for w in quoted)
+        # T088: a sex_quote from sex_pronoun_quote may hold only his, her, him or hers.
+        return any(CONFLICT_WORDS.get(w) == sex for w in quoted)
     return False
 
 

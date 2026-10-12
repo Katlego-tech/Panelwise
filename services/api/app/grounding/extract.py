@@ -38,7 +38,10 @@ SYSTEM_PROMPT = (
     "whether this character is female or male -- she, he, or a noun such as woman, girl, man, "
     "boy or fisherman -- copied exactly from one of its quotes from an action paragraph that "
     "names this character and no one else; otherwise sex_word is null. Never guess: copy only a "
-    "word the screenplay writes about them."
+    "word the screenplay writes about them. "
+    "For a character who is a person, also give in sex_pronoun_quote one sentence of an action "
+    "paragraph, copied exactly, in which a pronoun such as he, him, his, she or her refers to this "
+    "character, choosing a sentence where that is plain; otherwise null."
 )
 
 

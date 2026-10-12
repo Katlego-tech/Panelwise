@@ -52,6 +52,14 @@ class ProposedEntity(BaseModel):
             "the screenplay never writes one, and for every prop"
         ),
     )
+    sex_pronoun_quote: str | None = Field(
+        default=None,
+        description=(
+            "Only for a character who is a person: one sentence of an action paragraph, copied "
+            "exactly, in which he, him, his, himself, she, her, hers or herself refers to this "
+            "character. Null when there is none, and for every prop"
+        ),
+    )
 
 
 class ChunkEntities(BaseModel):

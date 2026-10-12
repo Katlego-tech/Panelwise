@@ -21,6 +21,8 @@ from app.characters.sex import CONFLICT_WORDS, PRONOUNS, SEX_WORDS, Sex
 from app.grounding.model import Dropped, Entity, EntityKind, GroundingReport, Quote, Source
 from app.grounding.schema import ProposedEntity
 from app.grounding.text import (
+    CueIndex,
+    Index,
     build_cue_index,
     build_index,
     locate_quote,
@@ -51,6 +53,8 @@ def ground(
         group.other_names.extend(p.other_names)
         if p.sex_word is not None:
             group.sex_words.append(p.sex_word)
+        if p.sex_pronoun_quote is not None:
+            group.pronoun_quotes.append(p.sex_pronoun_quote)
 
     # What a species may not be: a word for a person, or a word of a different character's name.
     actions = {e.span for sc in screenplay.scenes for e in sc.elements if isinstance(e, Action)}
@@ -93,8 +97,24 @@ def ground(
     sex_words = {
         normalise(g.name): g.sex_words for g in groups.values() if g.kind is EntityKind.CHARACTER
     }
+    pronouns = {  # T088
+        normalise(g.name): g.pronoun_quotes
+        for g in groups.values()
+        if g.kind is EntityKind.CHARACTER
+    }
     characters = [
-        _with_sex(c, sex_words.get(normalise(c.name), []), characters, actions) for c in characters
+        _with_sex(
+            c,
+            sex_words.get(normalise(c.name), []),
+            characters,
+            actions,
+            [
+                found
+                for q in pronouns.get(normalise(c.name), [])
+                if (found := _pronoun_sex(q, c, characters, screenplay, index, cues)) is not None
+            ],
+        )
+        for c in characters
     ]
     props = [
         Entity(
@@ -158,6 +178,7 @@ class _Group:
     species: list[str] = field(default_factory=list[str])
     other_names: list[str] = field(default_factory=list[str])
     sex_words: list[str] = field(default_factory=list[str])
+    pronoun_quotes: list[str] = field(default_factory=list[str])
 
 
 @dataclass(frozen=True)
@@ -236,11 +257,16 @@ def _quote_sex(word: str, quote: Quote, entity: Entity, cast: Sequence[Entity]) 
 
 
 def _with_sex(
-    entity: Entity, proposed: Sequence[str], cast: Sequence[Entity], actions: set[Span]
+    entity: Entity,
+    proposed: Sequence[str],
+    cast: Sequence[Entity],
+    actions: set[Span],
+    pronoun_sexes: Sequence[tuple[Sex, Quote]] = (),
 ) -> Entity:
     """The entity with the sex its copied words ground, all agreeing (grounding.md §3, T082);
-    unchanged for an animal, a CUE backfill or no proposal."""
-    if entity.species is not None or entity.source is not Source.MODEL or not proposed:
+    T088: and its checked pronoun sentences, after them. Unchanged for an animal, a CUE backfill
+    or no proposal."""
+    if entity.species is not None or entity.source is not Source.MODEL:
         return entity
     kept: list[tuple[Sex, Quote]] = []
     for word in proposed:
@@ -248,9 +274,113 @@ def _with_sex(
             if quote.span in actions and (sex := _quote_sex(word, quote, entity, cast)):
                 kept.append((sex, quote))
                 break
+    kept.extend(pronoun_sexes)
     if not kept or len({sex for sex, _ in kept}) != 1:
         return entity
     return replace(entity, sex=kept[0][0], sex_quote=kept[0][1])
+
+
+# The third-person singular pronouns a sex_pronoun_quote is read by (T088), and the words that
+# stop the antecedent scan: another possible referent stands between the name and the pronoun.
+_PERSON_PRONOUNS = frozenset({"he", "him", "his", "himself", "she", "her", "hers", "herself"})
+_POSSESSIVES = frozenset({"his", "her", "hers", "their", "theirs", "my", "your", "our"})
+_DETERMINERS = frozenset({"a", "an", "the", "this", "that", "these", "those", "another", "some"})
+# A sentence ends at . ! ? and whitespace, never after a title's abbreviation ("Mr. Dube").
+_SENTENCE_END = re.compile(r"(?<=[.!?])(?<!\bMr\.)(?<!\bMrs\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)\s+")
+_WORD = re.compile(r"[A-Za-z']+")
+
+
+def _sentences(text: str) -> list[list[str]]:
+    """An element's sentences, each as its words in their own case (T088)."""
+    return [_WORD.findall(s) for s in _SENTENCE_END.split(text) if _WORD.search(s)]
+
+
+def _title_case(word: str) -> bool:
+    """A word written as a name is ("Lerato"): a capital, then lower case. A prop in capitals
+    (RED KITE) is not one."""
+    return word[:1].isupper() and word[1:].islower()
+
+
+def _stretch(
+    scene_elements: Sequence[Action | Dialogue], at: int, text: str
+) -> tuple[list[str], list[str]] | None:
+    """The words before the quote's first pronoun in its own sentence, and the sentence before
+    that one (for an element's first sentence: the previous element's last sentence, or a
+    speech's cue). None when the quote isn't found in the element."""
+    sentences = _sentences(scene_elements[at].text)
+    flat = [(k, word) for k, words in enumerate(sentences) for word in words]
+    quoted = [w.lower() for w in _WORD.findall(text)]
+    lowered = [w.lower() for _, w in flat]
+    n = len(quoted)
+    begin = next((i for i in range(len(flat) - n + 1) if lowered[i : i + n] == quoted), None)
+    if begin is None:
+        return None
+    pronoun = next(i for i in range(begin, begin + n) if lowered[i] in _PERSON_PRONOUNS)
+    k = flat[pronoun][0]
+    own = [w for j, (kk, w) in enumerate(flat) if kk == k and j < pronoun]
+    if k > 0:
+        return own, sentences[k - 1]
+    if at > 0:
+        previous = scene_elements[at - 1]
+        if isinstance(previous, Action):
+            return own, (_sentences(previous.text) or [[]])[-1]
+        return own, previous.cue.split()
+    return own, []
+
+
+def _pronoun_sex(
+    text: str,
+    entity: Entity,
+    cast: Sequence[Entity],
+    screenplay: Screenplay,
+    index: Index,
+    cues: CueIndex,
+) -> tuple[Sex, Quote] | None:
+    """The sex a sex_pronoun_quote gives this character (grounding.md §3, T088), with the quote:
+    located in an Action element; its singular pronouns all one sex; and its first pronoun's
+    antecedent is plainly this character, named in the pronoun's own sentence or the one before,
+    with no other possible referent between. Else None."""
+    found = locate_quote(index, cues, text)
+    if found is None:
+        return None
+    _, scene_index, span = found
+    elements = screenplay.scenes[scene_index].elements
+    at = next((i for i, e in enumerate(elements) if e.span == span and isinstance(e, Action)), None)
+    said = [w.lower() for w in _WORD.findall(text) if w.lower() in _PERSON_PRONOUNS]
+    if at is None or not said or len({CONFLICT_WORDS[w] for w in said}) != 1:
+        return None
+    stretch = _stretch(elements, at, text)
+    if stretch is None:
+        return None
+    sex = CONFLICT_WORDS[said[0]]
+    owners: dict[str, list[Entity]] = {}
+    beings: set[str] = set()
+    for other in cast:
+        if other.kind is EntityKind.CHARACTER:
+            for token in _tokens(other):
+                if other.species is None:
+                    owners.setdefault(token, []).append(other)
+                else:
+                    beings.add(token)
+    own, before = stretch
+    for sentence, opening in ((own, own[:1]), (before, before[:1])):
+        for pos in range(len(sentence) - 1, -1, -1):
+            word = sentence[pos]
+            low, key = word.lower(), normalise(word)
+            named = word[:1].isupper()
+            if named and key in beings:
+                return None  # an animal: the pronoun may be its own
+            if named and key in owners:
+                return (sex, Quote(text, scene_index, span)) if owners[key] == [entity] else None
+            if low in _POSSESSIVES or (low in _PERSON_PRONOUNS and CONFLICT_WORDS[low] != sex):
+                return None  # "his mother", or someone of the other sex
+            if low in SEX_WORDS and low not in PRONOUNS:
+                return None  # "a woman": an unnamed person
+            if pos > 0 and _title_case(word) and key not in NAME_STOP_WORDS:
+                return None  # a name the extraction doesn't have
+        if opening and opening[0].lower() in _DETERMINERS:
+            return None  # "The cashier smiles.", "A small dog, BISCUIT, …": someone unnamed
+    return None
 
 
 def _other_names(group: _Group, script: str) -> tuple[str, ...]:
