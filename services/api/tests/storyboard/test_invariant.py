@@ -15,6 +15,7 @@ from itertools import cycle, pairwise
 import pytest
 
 from app.characters import name_tokens, redact_all
+from app.characters.sex import SEX_TITLES, SEX_WORDS
 from app.grounding import EntityKind, Extraction, normalize_for_grounding
 from app.script import ABSOLUTE_TIMES, Action, Dialogue, Screenplay, Span, parse_pdf, resolve_times
 from app.shots import Framing, Shot
@@ -93,6 +94,34 @@ def norm(text: str) -> str:
     return normalize_for_grounding(text)
 
 
+_SEX_NOUNS = {"girl": "female", "woman": "female", "her": "female", "female": "female",
+              "boy": "male", "man": "male", "his": "male", "male": "male"}  # fmt: skip
+_PRONOUNS = {"she": "female", "her": "female", "he": "male", "his": "male"}
+
+
+def keyed(text: str, character: str, intro: str | None, extraction: Extraction) -> bool:
+    """T082: the sex word in an AGE or SEX part is keyed by a word of the script: a pronoun of the
+    introducing line, a sex title as the name's first word, or the grounded sex_quote holding a
+    vocabulary word of that sex. A part with no sex word is keyed trivially."""
+    said = {_SEX_NOUNS[w] for w in re.findall(r"[a-z]+", text) if w in _SEX_NOUNS}
+    if not said:
+        return True
+    assert len(said) == 1, text
+    sex = said.pop()
+    if intro is not None and sex in {
+        _PRONOUNS[w] for w in re.findall(r"[a-z]+", intro.lower()) if w in _PRONOUNS
+    }:
+        return True
+    words = re.sub(r"[^A-Z ]", " ", character.upper()).split()
+    if words and SEX_TITLES.get(words[0]) == sex:
+        return True
+    entity = next((e for e in extraction.entities if e.name == character), None)
+    if entity is not None and entity.sex_quote is not None and entity.sex == sex:
+        quoted = re.findall(r"[a-z]+", entity.sex_quote.text.lower())
+        return any(SEX_WORDS.get(w) == sex for w in quoted)
+    return False
+
+
 def check(
     prompt: FramePrompt,
     shot: Shot,
@@ -135,7 +164,7 @@ def check(
             # Two characters can share an age phrase and a line: keep every name for each.
             names_for: dict[tuple[str, Span], list[str]] = {}
             for c in visible:
-                if (age := introduced_age(c, screenplay)) is not None:
+                if (age := introduced_age(c, screenplay, extraction)) is not None:
                     names_for.setdefault(age, []).append(c)
             assert (part.text, part.span) in names_for, f"{where}: {part} introduces no one shown"
             name = names_for[(part.text, part.span)][0]
@@ -145,6 +174,24 @@ def check(
                 e.text for s in screenplay.scenes for e in s.elements if e.span == part.span
             )
             assert re.search(rf"{re.escape(name)}\s*\(\s*{number.group()}", line), where
+            assert any(
+                keyed(text, c, line, extraction) for c in names_for[(part.text, part.span)]
+            ), f"{where}: {part}'s sex word is keyed by no word of the script"
+            continue
+        elif part.kind is K.SEX:
+            # T082: a sexed character with no age; the code's phrase, cited with the grounded
+            # quote's span or, for a title, the character's first located quote's.
+            assert text in {"a female person", "a male person"}, f"{where}: {part}"
+            visible = visible_characters(shot, screenplay, extraction)
+            owners = [
+                c
+                for c in visible
+                for e in extraction.entities
+                if e.name == c
+                and part.span in {e.quotes[0].span, *([e.sex_quote.span] if e.sex_quote else [])}
+            ]
+            assert owners, f"{where}: {part} cites no sexed character shown"
+            assert any(keyed(text, c, None, extraction) for c in owners), f"{where}: {part}"
             continue
         elif part.kind is K.LOOK:
             # T079: the line that introduces one of the shot's visible characters; each of the

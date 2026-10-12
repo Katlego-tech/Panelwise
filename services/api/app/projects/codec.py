@@ -82,6 +82,13 @@ def _load(hint: Any, data: Any, where: str) -> Any:
         values: dict[str, Any] = {}
         for field in dataclasses.fields(hint):
             if field.name not in record:
+                # T082: a field added later takes its default, so older rows still load.
+                if field.default is not dataclasses.MISSING:
+                    values[field.name] = field.default
+                    continue
+                if field.default_factory is not dataclasses.MISSING:
+                    values[field.name] = field.default_factory()
+                    continue
                 raise CodecError(f"{where}.{field.name}: missing")
             values[field.name] = _load(
                 hints[field.name], record[field.name], f"{where}.{field.name}"

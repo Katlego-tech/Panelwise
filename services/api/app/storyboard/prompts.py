@@ -29,13 +29,14 @@ from app.storyboard.prompt import (
     heading_span,
     introduced_age,
     introduced_look,
+    sex_part,
     time_source,
     visible_characters,
 )
 from app.storyboard.styles import PUBLIC_STYLES, Style, StyleError, load_styles
 
 _SCRIPT_KINDS = frozenset(
-    {PartKind.SETTING, PartKind.TIME, PartKind.AGE, PartKind.LOOK, PartKind.ACTION}
+    {PartKind.SETTING, PartKind.TIME, PartKind.AGE, PartKind.SEX, PartKind.LOOK, PartKind.ACTION}
 )
 
 
@@ -71,7 +72,9 @@ def cites_this_shot(
         },
     }
     visible = visible_characters(shot, screenplay, extraction)
-    ages = [introduced_age(c, screenplay) for c in visible]
+    ages = [introduced_age(c, screenplay, extraction) for c in visible]
+    # T082: a sexed character with no age, "a female person", cited with its evidence's span.
+    sexes = {s for c in visible if (s := sex_part(c, screenplay, extraction)) is not None}
     # Keyed by (age, span): two characters introduced in one line share its span (T074 review).
     introduced = {age for age in ages if age is not None}
     if source is not None:
@@ -95,6 +98,10 @@ def cites_this_shot(
             continue
         if p.kind is PartKind.AGE:
             if (p.text, p.span) not in introduced:  # the phrase around the script's own number
+                return False
+            continue
+        if p.kind is PartKind.SEX:
+            if (p.text, p.span) not in sexes:  # the code's phrase, keyed by the script's word
                 return False
             continue
         cited = allowed.get(p.kind, {}).get(p.span)

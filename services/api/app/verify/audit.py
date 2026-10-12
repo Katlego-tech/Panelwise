@@ -272,12 +272,13 @@ async def _judge(
     model: NebiusChatModel,
     shot: Shot,
     scene: Scene,
+    screenplay: Screenplay,
     extraction: Extraction,
     description: FrameDescription,
 ) -> tuple[Judgement, ChatResult]:
     messages = [
         {"role": "system", "content": JUDGE_PROMPT},
-        {"role": "user", "content": render_spec(shot, scene, extraction, description)},
+        {"role": "user", "content": render_spec(shot, scene, screenplay, extraction, description)},
     ]
     result = await structured_chat(model, messages, Judgement, Tier.REASONING, max_tokens=16384)
     return result.value, result.chat
@@ -299,7 +300,7 @@ async def audit_frame(
         description, chat = await describe_frame(model, frame.png)
         chats.append(chat)
         step = "judge"
-        judgement, chat = await _judge(model, shot, scene, extraction, description)
+        judgement, chat = await _judge(model, shot, scene, screenplay, extraction, description)
         chats.append(chat)
     except (LLMError, ValidationError) as exc:
         # Which step failed, and an LLMError's message: it names the model, status and finish
