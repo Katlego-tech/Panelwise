@@ -218,12 +218,12 @@ def test_a_judgement_that_does_not_call_everything_exactly_once_is_an_error(
         (
             {"name": "stove", "category": "furniture", "held": False},
             {"kind": "set_dressing", "support": "pours tea"},
-            False,
-        ),  # source, not the heading
+            "warn",
+        ),  # source, not the heading: an unheld everyday thing only warns (T083)
         (
             {"name": "stove", "category": "furniture", "held": False},
             {"kind": "set_dressing", "support": None},
-            False,
+            "warn",
         ),
         (
             {"name": "ladle", "category": "other", "held": True},
@@ -262,13 +262,18 @@ def test_objects(
     extraction: Extraction,
     obj: dict[str, object],
     call: dict[str, object],
-    ok: bool,
+    ok: bool | str,
 ) -> None:
     description = described(objects=[obj])
     judgement = judged(objects=[{"object": 0, **call}])
     checks, verdict, _ = run_checks(
         kitchen_shot(), screenplay.scenes[0], description, judgement, extraction
     )
+    if ok == "warn":  # T083: a background object
+        assert Check.UNSCRIPTED_OBJECT not in failing(checks)
+        assert Check.BACKGROUND_OBJECT in failing(checks)
+        assert verdict is Verdict.WARN
+        return
     assert (Check.UNSCRIPTED_OBJECT not in failing(checks)) is ok
     assert verdict is (Verdict.PASS if ok else Verdict.FAIL)
 
