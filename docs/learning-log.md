@@ -16,7 +16,7 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
-### L013 · The place's own things fail: bread in a bakery, a van's dashboard inside the van · open
+### L013 · The place's own things fail: bread in a bakery, a van's dashboard inside the van · fixed (T086, measured free)
 
 - **Seen:** 2026-10-12, the-bread-van (a test script Claude wrote for pronouns, not held out),
   [run report](../eval/runs/2026-10-12-the-bread-van.md). In failures: `food · never set dressing` 26 (bread loaves, loaves of bread, dough in INT.
@@ -32,7 +32,7 @@ it before changing the prompt or the audit; add to it after every live run.
   food a heading's place sells or makes stays a question for Tumo (T072 made food always scripted).
 - **Measured:** not yet.
 
-### L012 · The judge puts a character's name on someone it can't check · open
+### L012 · The judge puts a character's name on someone it can't check · partly fixed (T086; T087 next)
 
 - **Seen:** 2026-10-12, the-bread-van, [run report](../eval/runs/2026-10-12-the-bread-van.md): **1 of 19 shots accepted.** `unscripted_person` failed 35
   attempts, "a child" 21 times, in shots that have THEO, aged 9. Of the judge's 24 matches to THEO, 17
@@ -82,7 +82,7 @@ it before changing the prompt or the audit; add to it after every live run.
   read; none is a person the shot's action introduces. Still to see: a new drawing run on the
   held-out script.
 
-### L010 · T082 finds a sex for a third of the characters on a script it wasn't designed on · open
+### L010 · T082 finds a sex for a third of the characters on a script it wasn't designed on · improved (T088)
 
 - **Seen:** 2026-10-12, lost-property (held out), [run report](../eval/runs/2026-10-12-lost-property.md). Scored free on the run's own stored
   extraction against `eval/sex-labels.json`: **WRONG 0, INVENTED 0**, RIGHT 6 (Zanele, Mr. Dube,
@@ -103,7 +103,13 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Action:** none yet. The six misses are the held-out test set, so no fix is tuned to them: a
   fix is designed on the samples' own patterns and scored here again, separately. The rule that
   WRONG and INVENTED stay at 0 holds.
-- **Measured:** this is the held-out baseline: 3 of 9 found, 0 wrong. Also 2026-10-12, the-bread-van
+- **Measured:** T088 (2026-10-12, #149 design, #150 code), Token Factory, three extractions of each
+  sample: **WRONG 0, INVENTED 0** in all twelve; lost-property 6 → 7 of 12 a run, the-bread-van 2 → 3 of
+  4 (DANIEL), sipho-and-siphokazi every extracted person (SIPHO, SIPHOKAZI). The model's `sex_word` was
+  right for every person; only the quotes it gave were bad, so it is now a claim the script's own
+  subject pronouns must support. Still missed: PRIYA, TEBOGO and KOOS (no claim, or "She" only after
+  her speeches), MOLOI (a parenthetical), THEO, the sleeping commuter. Held-out script next.
+- **Before T088:** this is the held-out baseline: 3 of 9 found, 0 wrong. Also 2026-10-12, the-bread-van
   (Claude's test script, every sex stated the conventional way; [run report](../eval/runs/2026-10-12-the-bread-van.md)): Nomsa (her look) and Auntie
   Betty (the title) right, **Theo and Daniel missed** ("sleeps across his feet", "He stretches"), 0
   wrong. T085's code-only design was stopped on review: surface rules can't tell whose "his" or "her"
