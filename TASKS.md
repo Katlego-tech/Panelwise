@@ -536,9 +536,9 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Done:    on the four samples, three extractions each, no wrong or invented sex, the misses counted per character and fewer than T082's; T086 then goes live
 - [ ] T089 [US2] **Objects, but animals and weapons, and painted lettering warn instead of withholding a frame.** Found on 2026-10-12 (L014): with them soft, five runs' stored audits go 3 → 9, 2 → 5, 9 → 33, 14 → 26 and 19 → 20 shots with an accepted attempt; the 46 newly accepted drawings looked at, 34 right and 12 wrong, all wrong in their people. Tumo's call (2026-10-12): go easier on refusals; people stay strict. Lane `verify` (Claude for Tumo).
       Design:  docs/design/verify.md §3 (Objects and lettering warn), the checks table, §7, §8, §9 (T089)
-      Files:   services/api/app/verify/audit.py; services/api/tests/verify/test_t089.py and the existing tests whose hard object or text failure is now a warning; docs/learning-log.md (L014)
-      Contract:verify.md §3 verbatim: `_STORY_OBJECTS` = {animal, weapon}; `_SEVERITY[TEXT_IN_FRAME]` soft; an `UNSCRIPTED_OBJECT` failure of any other object is `BACKGROUND_OBJECT` with the same detail
+      Files:   services/api/app/verify/{audit,report}.py (report's docstring); services/api/tests/verify/test_t089.py; test_checks.py, test_t083.py, test_t086.py, test_t078.py (the asserts verify.md §9 names); docs/learning-log.md (L014's Measured)
+      Contract:verify.md §6 verbatim: `_STORY_OBJECTS`, `_filed`, `_SEVERITY[Check.TEXT_IN_FRAME] = Severity.SOFT`; §3's order paragraph (cases unchanged, only the filing)
       Verify:  bash scripts/gate.sh (tests first: verify.md §9's T089 list); free: `recheck` on every stored project, every newly accepted drawing looked at
-      Done:    on the stored audits the numbers in verify.md §3 hold, and a frame with an unscripted person, animal or weapon is still withheld
+      Done:    on the stored audits the numbers in verify.md §3 hold, every newly accepted drawing is listed in the PR as right or wrong, and a frame with an unscripted person, animal or weapon is still withheld
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
