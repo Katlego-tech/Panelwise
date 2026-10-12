@@ -93,7 +93,10 @@ def test_object_and_possessive_pronouns_are_not_in_the_vocabulary() -> None:
 
 def test_two_sexes_in_one_quote_give_none() -> None:
     quote = "ZOLA laughs. She hands him the cup."
-    assert grounded(proposal("ZOLA", [quote], "She"))["ZOLA"].sex is None
+    zola = grounded(proposal("ZOLA", [quote], "She"))["ZOLA"]
+    # T082's rule (e) refuses this quote; T088 keeps the claim from the script's own pronoun: "She"
+    # opens the sentence right after the one that opens with ZOLA.
+    assert zola.sex_quote is not None and zola.sex_quote.text == "She hands him the cup."
 
 
 def test_a_shared_token_names_the_other_character() -> None:
