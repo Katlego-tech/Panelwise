@@ -495,5 +495,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:verify.md §6 verbatim: `Check.SIGNATURE`, soft; `TEXT_IN_FRAME` no longer reads `signature`
       Verify:  bash scripts/gate.sh (tests first: verify.md §9's T077 list); free, with Tumo's go-ahead: T072's and T077's audits on Katlego's 27 labelled frames
       Done:    a frame whose only fault is a signature is WARN, shown with "artist's signature"; on the 27 labelled frames the only labelled-bad frames newly passing are ones labelled for a signature (Tumo's decision, 2026-10-11)
+- [ ] T081 [POL] **Run reports and the learning log: every live run becomes a committed report, every lesson an entry.** Found on 2026-10-11: the-red-kite accepted 16 of 21 frames, sipho-and-siphokazi 7 of 30 with a wrong frame accepted (8.3); what each script teaches was only in the chat. Lane `eval+submission` (Claude for Tumo).
+      Design:  docs/design/learning.md (all of it)
+      Files:   services/api/app/verify/report.py; services/api/tests/verify/test_report.py; eval/runs/README.md; eval/runs/2026-10-11-{the-red-kite,sipho-and-siphokazi}.md; docs/learning-log.md
+      Contract:learning.md §6 verbatim: `build_report`, `to_markdown`, `object_causes`, `person_causes`, `text_causes`, the CLI, the markdown layout, the learning-log entry
+      Verify:  bash scripts/gate.sh (tests first: learning.md §9); live, free: `python -m app.verify.report` on the two 2026-10-11 runs matches the database (16 of 21 and 38 drawings; 7 of 30 and 82 drawings)
+      Done:    both 2026-10-11 runs have a committed report, and docs/learning-log.md holds their lessons with the numbers, causes and actions
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
