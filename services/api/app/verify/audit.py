@@ -188,6 +188,26 @@ def _names_any(support: str | None, names: Sequence[str]) -> bool:
     return any(_in_words(name, [normalize_for_grounding(support or "")]) for name in names)
 
 
+# A word that points back at someone already introduced, a character (T084). Possessives and
+# reflexives usually belong to the sentence's own subject ("A WOMAN folds her umbrella").
+_PERSON_PRONOUNS = frozenset({"he", "him", "she"})
+
+
+def shot_action_text(shot: Shot, scene: Scene) -> str:
+    """The text of the shot's covered Action elements, in order (T084): a stranger's support must
+    be in it. A line someone says puts no one on screen."""
+    return normalize_for_grounding(
+        " ".join(
+            element.text for i in shot.elements if isinstance(element := scene.elements[i], Action)
+        )
+    )
+
+
+def _points_elsewhere(support: str | None) -> bool:
+    """The support has `he`, `him` or `she` (T084): it is about someone already introduced."""
+    return bool(_PERSON_PRONOUNS & set(re.findall(r"[a-z]+", (support or "").lower())))
+
+
 def _named_prop(name: str, props: Sequence[frozenset[str]]) -> bool:
     """Every word of `name` is a word of one prop the extraction names (T072): `kite` against
     `RED KITE`. Such a thing is a story choice, never set dressing."""
@@ -296,6 +316,7 @@ def run_checks(
         if (e.kind, e.name) in in_shot
         for q in e.quotes
     ]
+    action = [shot_action_text(shot, scene)]
     heading = [normalize_for_grounding(scene.heading)]
     props = [
         frozenset(normalize_for_grounding(e.name).split())
@@ -317,6 +338,10 @@ def run_checks(
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: no shot character, no support")
         elif _names_any(call.support, people):
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support is about a character")
+        elif not _found(call.support, action):
+            failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support is not an action line")
+        elif _points_elsewhere(call.support):
+            failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support points at someone else")
 
     for call in sorted(judgement.objects, key=lambda c: c.object):
         obj = description.objects[call.object]

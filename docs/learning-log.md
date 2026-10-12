@@ -16,7 +16,7 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
-### L011 · A stranger excused by a line of dialogue · open
+### L011 · A stranger excused by a line of dialogue · fixed
 
 - **Seen:** 2026-10-12, lost-property (held out: no fix was designed on it), [run report](../eval/runs/2026-10-12-lost-property.md). Of 12
   accepted shots, three show a person the shot doesn't have, and the audit's hard
@@ -35,11 +35,17 @@ it before changing the prompt or the audit; add to it after every live run.
   (`named_in_scene` reads only action text). In 7.4, matching a figure to TEBOGO is what the design
   allows (he is in `shot.characters`, addressed in the dialogue), though the prompt drew only
   Moloi.
-- **Action:** none yet. To consider, measured free with `recheck` first: a person's support must
-  come from the shot's action text, not its dialogue; and a support whose only person is a pronoun
-  for a shot character doesn't count. Whether a character the prompt didn't draw may be matched is a
-  separate question.
-- **Measured:** not yet.
+- **Action:** T084 (verify.md §3): an unmatched person's support must be found in the shot's own
+  action text, and must have no `he`, `him` or `she`. Whether a character the prompt didn't draw may
+  be matched (7.4's TEBOGO) is still a separate question.
+- **Measured:** free, `recheck` on every stored audit with T084's code. lost-property 12 → 9 shots
+  with an accepted attempt: 7.4, 10.2 and 10.3 now fail `unscripted_person`. **Not designed on:**
+  sipho-and-siphokazi (2026-10-11) 12 → 11 (9.3, an old woman for Siphokazi excused by "He takes the
+  tide book from her"; 6.1, a man excused by another shot's quote), the-red-kite runs 35 → 33, 16 → 15
+  and 10 → 9 (strangers excused by "my girl", "Is that my good shirt you are flying?" and "He
+  switches off the soldering iron."), every other project unchanged. Every newly failed attempt was
+  read; none is a person the shot's action introduces. Still to see: a new drawing run on the
+  held-out script.
 
 ### L010 · T082 finds a sex for a third of the characters on a script it wasn't designed on · open
 
