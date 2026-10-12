@@ -1,6 +1,6 @@
 # Design — `grounding` (entity extraction + grounding filter; lane `script+grounding`)
 
-**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T006, T039 · **Spec:** PLAN.md Non-negotiable I;
+**Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T006, T039, T082, T088 · **Spec:** PLAN.md Non-negotiable I;
 [SPEC.md](../../SPEC.md) US1
 
 ---
@@ -165,6 +165,69 @@ classDiagram
       word *about this character*; `character_sex` drops a sex the introduction contradicts;
       storyboard.md §9's labelled table measures what is left.
     - Faithfulness and recall don't change: a `sex_word` that fails is simply not kept.
+  - **A claimed sex, checked by the script's own pronouns (T088):** `sex_word` must sit in a quote
+    that names the character, so a sex the script gives only in a later sentence is missed: on
+    2026-10-12 T082 found 3 of the 9 sexed characters of lost-property (L010) and missed THEO and
+    DANIEL on the-bread-van. Looking at what the model proposes showed why: its `sex_word` was right
+    for **every** person of three samples, but the quote it put it in rarely holds it (an
+    introduction with no pronoun, a speech, a sentence where the pronoun is someone else's). Two
+    designs were stopped first: code rules alone (storyboard.md §8, T085: no rule tells whose "his"
+    it is) and the model citing a pronoun sentence itself (a `sex_pronoun_quote` field: its picks
+    were wrong as often as not). So the `sex_word` is now also a **claim**, and code looks in the
+    script for its own evidence. When a person's `sex_word` keys (`SEX_WORDS`) to one sex across all
+    its chunks and T082's rules don't keep it, code keeps it only when **at least one** Action
+    sentence supports it and **none** contradicts it, the first supporting sentence becoming
+    `sex_quote` (the script's own sentence, verbatim, at its element's span: an introduction is
+    left out only when its words are read). A sentence is evidence for this character (`_pronoun_evidence`,
+    in script order; an introduction's own description, `NAME (…), a phrase,`, is dropped first, so
+    "DANIEL (40s), a tall driver, climbs out." reads "DANIEL climbs out."; sentences split after
+    `.`, `!` or `?` and whitespace, never after `Mr.`, `Mrs.`, `Ms.`, `Dr.` or `St.`; words
+    `[A-Za-z']+`) when either:
+    - **its subject owns the pronoun**: the sentence opens with this character's name (`normalise`d
+      name words, an optional "The" first), and the first third-person pronoun after the name is
+      `his`, `himself`, `herself`, or `her` followed by a word not in `_NOT_POSSESSED` (a
+      possessive: "Amahle tugs at **her** mother's scrubs", not "hands her the box"); `he`, `she`,
+      `him`, `hers` and an object `her` give nothing here; and nothing between the name and it could
+      own it (`_clear`): no other name (another character's token, a name the script itself writes
+      as a cue or a `NAME (` introduction, or any Title-case word that is no name stop word), no
+      possessive, no `'s`, no determiner (`a`, `an`, `the`, `this`, `that`, `these`, `those`,
+      `another`, `some`), no sex noun. "Koos taps his broom." → male; "Sipho does not take his eyes
+      off the water." → male; "Ben stumbles out with a bag held against his chest." → nothing (a
+      determiner between); "Nomsa pulls Theo onto her lap." → nothing for either (Theo isn't the
+      subject, and he stands between Nomsa and "her");
+    - **or it opens with `He` or `She`** right after a sentence of the same element, or the last
+      sentence of the Action element just before, that opens with the name and holds nothing
+      `_clear` refuses: "Siphokazi nods. **She** cannot stop the smile." → female. A speech between
+      breaks the chain: a pronoun right after someone speaks is often the listener's ("…Me,
+      probably." from ZANELE, then "He peers at the ledger" is Mr. Dube), so a cue is never an
+      antecedent.
+    Every piece must agree with the claim: "Zola takes his hand." beside "Zola nods. She smiles."
+    leaves ZOLA with no sex. Then T082's rule 3 as before (every kept piece, from the `sex_word`'s
+    quotes and from this evidence, one sex), and storyboard.md's `character_sex` as before. Never for
+    an animal, a prop, a location or a `Source.CUE` backfill; no claim, no sex.
+    - **Why it holds:** a wrong sex needs the model to claim it **and** the script's own pronouns to
+      back it plainly with nothing against it: two signals that are wrong in different ways. The
+      prototype on 2026-10-12 found no piece of evidence that wasn't right once the cue and the
+      object were out. **Not checkable by code:** an unnamed person with no noun and no sentence of
+      their own ("Sipho knocks. She opens the door.") when the model also claims "she" for Sipho;
+      and a dative "her" read as a possessive ("Mike hands her coffee"): with a true claim ("he") it
+      only contradicts, so Mike gets no sex, but a model making the same misreading would agree with
+      it. Both need the model and the script to mislead the same way; the held-out script measures.
+      No wrong sex on the samples is no proof for other scripts: the held-out script measures it.
+    - **The judge** sees the evidence sentence (`character_sex`), which may not name the character:
+      the spec line is already under that character's name. Faithfulness and recall don't change.
+    - **The claim is asked for whenever the screenplay shows the sex** (§6: the prompt's sentence and
+      the field's description now allow `her` and `his` and ask for the word "best" from a quote, null
+      only when the screenplay never shows it): told to copy it only from its own quote, the model
+      left it null for KOOS, AMAHLE and TEBOGO although the script says "Koos taps his broom". A
+      `her`/`his` claim keys by `CONFLICT_WORDS`; T082's own rules still never keep such a word.
+    - **Measured** 2026-10-12, Token Factory, three extractions of each sample (about 42,000 tokens),
+      against eval/sex-labels.json: **WRONG 0, INVENTED 0** in all twelve; the-red-kite 3 of 3 each
+      run; sipho-and-siphokazi every extracted person right (SIPHO and SIPHOKAZI, missed by T082
+      alone; GOGO not always extracted); lost-property (found on) 7 of 12 a run, from 6 (AMAHLE, KOOS
+      when the model claims); the-bread-van (found on) 3 of 4, from 2 (DANIEL). Still missed: PRIYA
+      (her "She" sentences follow her speeches), TEBOGO and KOOS when the model gives no claim, MOLOI
+      (only a parenthetical), the sleeping commuter, THEO (a determiner in each of his sentences).
   - The filter now imports `name_tokens` / `NAME_STOP_WORDS` from `app/characters/redact.py`
     (a pure module that imports only `app.script`); `app/characters/__init__.py` must never import
     `labels.py`, which imports `app.grounding` (storyboard.md §6).
@@ -282,6 +345,18 @@ class ProposedEntity(BaseModel): name: str; kind: Literal["character", "prop"]; 
 # character and no one else; otherwise sex_word is null. Never guess: copy only a word the screenplay writes
 # about them." The schema docstring ("No age, gender or role fields") says sex_word is a copied word, as
 # species is; its Field description says the same.
+# T088: the system prompt's sex_word sentence becomes: "For a character who is a person, give in sex_word one
+# word the screenplay writes about this character that shows whether they are female or male -- she, he, her,
+# his, or a noun such as woman, girl, man, boy or fisherman -- copied exactly, best from one of its quotes from
+# an action paragraph that names this character and no one else; null only when the screenplay never shows it.
+# Never guess: copy only a word the screenplay writes about them." The Field description says the same.
+# filter.py, pure:
+# def _pronoun_evidence(entity: Entity, cast: Sequence[Entity], screenplay: Screenplay,
+#                       names: frozenset[str]) -> list[tuple[Sex, Quote]]   # §3's evidence, script order
+# def _claimed_sex(entity: Entity, proposed: Sequence[str], cast: Sequence[Entity], screenplay: Screenplay,
+#                  names: frozenset[str]) -> list[tuple[Sex, Quote]]   # [(claim, first support)] or []
+# def _script_names(screenplay: Screenplay) -> frozenset[str]   # cue and `NAME (` words, less NAME_STOP_WORDS
+# ground passes _claimed_sex's result to _with_sex, which adds it after the sex_word's pieces (rule 3)
 # app/characters/sex.py (T082), pure, imports nothing from app.grounding or app.storyboard:
 class Sex(StrEnum): FEMALE = "female"; MALE = "male"
 SEX_WORDS: dict[str, Sex]     # §3: the pronouns and nouns, lower case
@@ -327,6 +402,7 @@ the parser, so a faithful quote is always locatable.
 | Aliases ("THABO" vs "THABO MOLEFE" proposed separately) | kept as two entries | fuzzy merge: risks fusing two people. `match_speaker` still binds cues correctly, so scenes and recall are unaffected |
 | Animals (T051) | a `species` word, grounded in the entity's own located quote | an `ANIMAL` entity kind: every consumer of `CHARACTER` (planner, cues, audit) would need a second branch, and an animal that speaks or acts is cast like a character; a model `is_animal` flag: an inferred attribute, ungroundable |
 | Other names (T051) | `other_names`, kept when the script mentions them; the label is decided downstream by pairing (storyboard.md §3.1) | merging them as entities: "Gerald" isn't a separate thing; dropping one not inside the entity's own quote: a dropped other name is a name left in a prompt, so it is kept and redacted to the neutral `it` instead. **Cost:** a common capitalised word given as another name ("Mum", "Captain") is redacted wherever the script capitalises it |
+| A sex from a later pronoun (T088; Tumo, 2026-10-12) | the model's `sex_word` as a claim, kept when the script's own subject pronouns support it (a sentence opening with the name whose own his/her follows, or a He/She opening the next sentence) and none contradicts it | code rules alone (T085, stopped: "Siphokazi takes his hand"); the model citing a pronoun sentence (`sex_pronoun_quote`, built and measured 2026-10-12: it cited an introduction with no pronoun, a speech, or "Theo sits … with Biscuit on his lap" for Daniel); a cue as an antecedent (a pronoun after a speech is often the listener's: Zanele, then "He peers at the ledger"); any name before a possessive ("Nomsa pulls Theo onto her lap") |
 | A character's sex (T082; Tumo, 2026-10-11) | a copied `sex_word`, keyed by a fixed vocabulary, grounded in a located Action quote that names only this character; with storyboard.md's code rules (the introduction's pronouns, a title) | a model `sex` field: an inferred attribute, ungroundable; code rules alone: sipho-and-siphokazi's three characters have no pronoun of their own in their introduction (L002), and "Siphokazi nods. She…" needs coreference a rule can't do safely; any quote: dialogue ("my uncle") is about someone else |
 | Species test (T051) | in an Action quote of the entity, not a person word, not a name token | any located quote: a person's speech mentioning "the cat" would pass; no word list: `species: "man"` would turn a person into an object for the audit. **Residual risk:** a person the model calls an animal, with that animal word in their own description line |
 | Chunk size | 12,000 chars | FrameFlow's 20,000: smaller chunks help recall, and Lightning is cheap |
@@ -339,6 +415,24 @@ the parser, so a faithful quote is always locatable.
   cases that must still fail — another speaker's cue, a wrong extension or parenthetical, nothing
   after the header, a cue not on its own line, a quote stitched across speeches, a heading or an
   action line as the "header", a name that is no cue.
+- `ground` (T088), one scene per case, each claim's quote without the word (so T082 can't keep it): kept, with
+  the evidence as `sex_quote`, for DANIEL "he" ("DANIEL (40s), a tall driver, climbs out. He stretches until his
+  back cracks."), SIPHO "he" ("Sipho does not take his eyes off the water."), KAZI "she" ("KAZI (17) nods. She
+  cannot stop the smile."), AMAHLE "she" ("Amahle tugs at her mother's scrubs."), MR. DUBE "he" ("Mr. Dube takes
+  off his cap.", one sentence), JOHN "fisherman" ("John rubs his eyes."). Nothing for: ZOLA "she" with "Zola takes
+  his hand." (contradicted); PRIYA "she" with "She spots the sign" right after her speech; THEO "he" and NOMSA
+  "she" with "Nomsa pulls Theo onto her lap."; LINDA "she" with "behind him"; PETER "he" with "hands her the
+  box"; BEN "he" with "with a bag … his chest" (a determiner); OMAR "she" with "OMAR (40s) pays the cashier. She
+  smiles."; THABO "she" with "THABO (30s) hugs LERATO (10). She smiles." (a name the script writes); no claim;
+  two chunks claiming he and she; a claim the evidence contradicts; an animal (REX, a dog) claiming "he"; MIKE
+  "he" with "Mike hands her coffee." (a dative her: contradicted, so nothing). Kept: ZARA "she" from "ZARA (8)
+  tugs at her sleeve." with that verbatim text as `sex_quote`; NALEDI "she" from "She opens the letter." in the
+  Action right after "NALEDI (30s) sits down.". T082's
+  "ZOLA laughs. She hands him the cup." now has ZOLA female from "She hands him the cup." (rule (e) still
+  refuses that quote for the `sex_word`). Live, Token Factory (Tumo approved 2026-10-12): three extractions of
+  each of the four samples (the-red-kite, sipho-and-siphokazi, lost-property, the-bread-van; the last two found
+  on) against eval/sex-labels.json: WRONG 0 and INVENTED 0, the misses per character; then Tumo's unread script,
+  held out.
 - `ground` (T082): `sex_word` "She" in "Siphokazi nods. She cannot stop the smile." (one Action quote, one
   character) → `female` with that quote; "fisherman" in "a salt-and-pepper-bearded fisherman … This is SIPHO
   (50s)." → `male`; "her" in "MAMA THEMBI (60s), the shop's owner, watches her" (two characters) → None;
