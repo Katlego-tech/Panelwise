@@ -200,14 +200,14 @@ def test_unheld_food_warns_whatever_the_judge_called_it(
     assert verdict is Verdict.WARN
 
 
-def test_held_food_still_fails(extraction: Extraction) -> None:
+def test_held_food_warns_as_held(extraction: Extraction) -> None:
     failed, _ = _objects(
         BAKERY,
         [{"name": "bun", "category": "food", "held": True}],
         [{"object": 0, "kind": "set_dressing", "support": "BAKERY"}],
         extraction,
     )
-    assert "held, so not set dressing" in failed[Check.UNSCRIPTED_OBJECT]
+    assert "held, so not set dressing" in failed[Check.BACKGROUND_OBJECT]  # T089
 
 
 def test_food_the_scene_names_still_passes(extraction: Extraction) -> None:
@@ -292,4 +292,5 @@ def test_a_scripted_food_prop_needs_its_support(
         extraction,
     )
     failed = {c.check: c.detail for c in checks if not c.ok}
-    assert (Check.UNSCRIPTED_OBJECT in failed) is fails
+    assert (Check.BACKGROUND_OBJECT in failed) is fails  # T089: food warns, unsupported
+    assert Check.UNSCRIPTED_OBJECT not in failed

@@ -132,6 +132,26 @@ def _vehicle_and_rope(screenplay: Screenplay, extraction: Extraction) -> list[di
     )
 
 
+def _dog_and_rope(screenplay: Screenplay, extraction: Extraction) -> list[dict[str, Any]]:
+    """A hard object failure: since T089 only an animal or a weapon withholds a frame."""
+    return _checks(
+        screenplay,
+        extraction,
+        description={
+            "objects": [
+                {"name": "dog", "category": "animal", "held": False},
+                {"name": "rope; coiled", "category": "other", "held": False},
+            ]
+        },
+        judgement={
+            "objects": [
+                {"object": 0, "kind": "set_dressing", "support": "INT. KITCHEN"},
+                {"object": 1, "kind": "unscripted", "support": None},
+            ]
+        },
+    )
+
+
 def test_object_causes_key_by_category_and_reason(
     screenplay: Screenplay, extraction: Extraction
 ) -> None:
@@ -210,7 +230,7 @@ def _five_shots() -> list[Shot]:
 def _run(
     screenplay: Screenplay, extraction: Extraction
 ) -> tuple[ProjectRow, list[FrameRow], list[FrameAuditRow]]:
-    bad = _vehicle_and_rope(screenplay, extraction)
+    bad = _dog_and_rope(screenplay, extraction)
     good = _checks(screenplay, extraction)
     audits = [
         _audit(1, 1, "fail", bad, minutes=1),
@@ -331,7 +351,7 @@ def test_the_markdown_in_order(
 def test_the_last_audit_is_the_highest_attempt_whatever_the_row_order(
     screenplay: Screenplay, extraction: Extraction, styles: StyleRegistry
 ) -> None:
-    bad = _vehicle_and_rope(screenplay, extraction)
+    bad = _dog_and_rope(screenplay, extraction)
     good = _checks(screenplay, extraction)
     audits = [_audit(1, 2, "pass", good, minutes=2), _audit(1, 1, "fail", bad, minutes=1)]
     project = _project(screenplay, extraction, _five_shots()[:1])
@@ -354,7 +374,7 @@ def test_the_last_audit_is_the_highest_attempt_whatever_the_row_order(
 def test_a_comic_state_is_its_last_audit_verdict(
     screenplay: Screenplay, extraction: Extraction, styles: StyleRegistry
 ) -> None:
-    bad = _vehicle_and_rope(screenplay, extraction)
+    bad = _dog_and_rope(screenplay, extraction)
     good = _checks(screenplay, extraction)
     comic = AuditTarget.COMIC
     audits = [

@@ -39,8 +39,10 @@ logger = logging.getLogger(__name__)
 
 _SEVERITY = {
     Check.UNSCRIPTED_PERSON: Severity.HARD,
+    # Since T089 only an animal or a weapon (`_filed`): a story choice the script must make.
     Check.UNSCRIPTED_OBJECT: Severity.HARD,
-    Check.TEXT_IN_FRAME: Severity.HARD,
+    # Painted words the script never wrote: named on the card, never withheld (T089).
+    Check.TEXT_IN_FRAME: Severity.SOFT,
     Check.SETTING: Severity.HARD,
     Check.MISSING_CHARACTER: Severity.SOFT,
     Check.LIGHT: Severity.SOFT,
@@ -49,9 +51,22 @@ _SEVERITY = {
     Check.SIGNATURE: Severity.SOFT,
     # None of the people the prompt drew is in the frame: it isn't this shot (T080).
     Check.NO_CHARACTER: Severity.HARD,
-    # An everyday thing of the place the script didn't mention, nobody holding it (T083).
+    # An everyday thing of the place the script didn't mention, nobody holding it (T083); since
+    # T089 any object the script didn't put there that is no animal or weapon.
     Check.BACKGROUND_OBJECT: Severity.SOFT,
 }
+# An unscripted animal or weapon is a story choice: it still withholds the frame (T089).
+_STORY_OBJECTS: frozenset[ObjectCategory] = frozenset(
+    {ObjectCategory.ANIMAL, ObjectCategory.WEAPON}
+)
+
+
+def _filed(category: ObjectCategory) -> Check:
+    """Where an object's failure is filed (T089, pure): hard for an animal or a weapon, else the
+    soft BACKGROUND_OBJECT with the same detail."""
+    return Check.UNSCRIPTED_OBJECT if category in _STORY_OBJECTS else Check.BACKGROUND_OBJECT
+
+
 # Things a location never "naturally holds": each is a story choice the script must make.
 # A sign may be dressing (T071): its words are what could be unscripted, and TEXT_IN_FRAME
 # checks them.
@@ -504,30 +519,31 @@ def run_checks(
             and not _named_prop(obj.name, props)
         )
         food = background and obj.category is ObjectCategory.FOOD
+        filed = _filed(obj.category)  # T089: where a would-be hard failure goes
         match call.kind:
             case ObjectKind.SET_DRESSING if food:  # T086: food is never quietly the place's
                 failures[Check.BACKGROUND_OBJECT].append(f"{what}: not in the script")
             case ObjectKind.UNSCRIPTED if background:
                 failures[Check.BACKGROUND_OBJECT].append(f"{what}: not in the script")
             case ObjectKind.UNSCRIPTED:
-                failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: unscripted")
+                failures[filed].append(f"{what}: unscripted")
             case ObjectKind.SCRIPTED_PROP if not _found(call.support, supports):
-                failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: prop without support")
+                failures[filed].append(f"{what}: prop without support")
             case ObjectKind.SET_DRESSING if obj.held:
-                failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: held, so not set dressing")
+                failures[filed].append(f"{what}: held, so not set dressing")
             case ObjectKind.SET_DRESSING if _named_prop(obj.name, props):
-                failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: the script names it")
+                failures[filed].append(f"{what}: the script names it")
             case ObjectKind.SET_DRESSING if obj.category in _NEVER_DRESSING and not background:
-                failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: never set dressing")
+                failures[filed].append(f"{what}: never set dressing")
             case ObjectKind.SET_DRESSING if not _found(call.support, heading) and background:
                 failures[Check.BACKGROUND_OBJECT].append(f"{what}: not in the script")
             case ObjectKind.SET_DRESSING if not _found(call.support, heading):
-                failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: not in the heading")
+                failures[filed].append(f"{what}: not in the heading")
             case _:
                 pass
 
     # Only legible words the script never wrote (T071): the shot's own text or the scene's place.
-    # The heading's time of day isn't a haystack, so a painted "NIGHT" fails.
+    # The heading's time of day isn't a haystack, so a painted "NIGHT" warns (T089: soft).
     words = [normalize_for_grounding(shot.source), normalize_for_grounding(scene.location)]
     if description.signature:  # T077: soft; any words read in it are still `text`, below
         failures[Check.SIGNATURE].append("a signature or artist's mark")

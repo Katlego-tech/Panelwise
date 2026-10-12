@@ -34,8 +34,7 @@ def test_severities_follow_the_table(screenplay: Screenplay, extraction: Extract
     )
     hard = {
         Check.UNSCRIPTED_PERSON,
-        Check.UNSCRIPTED_OBJECT,
-        Check.TEXT_IN_FRAME,
+        Check.UNSCRIPTED_OBJECT,  # since T089 only an animal or a weapon
         Check.SETTING,
         Check.NO_CHARACTER,  # T080
     }
@@ -193,8 +192,8 @@ def test_a_judgement_that_does_not_call_everything_exactly_once_is_an_error(
         (
             {"name": "coat", "category": "clothing", "held": True},
             {"kind": "scripted_prop", "support": None},
-            False,
-        ),  # held (an unheld one is costume: T071)
+            "warn",
+        ),  # held (an unheld one is costume: T071); T089: warns, no animal or weapon
         (
             {"name": "knife", "category": "weapon", "held": True},
             {"kind": "scripted_prop", "support": "a kitchen knife"},
@@ -203,8 +202,8 @@ def test_a_judgement_that_does_not_call_everything_exactly_once_is_an_error(
         (
             {"name": "map", "category": "other", "held": True},
             {"kind": "scripted_prop", "support": "holding a torn map"},
-            False,
-        ),  # THABO not in shot
+            "warn",
+        ),  # THABO not in shot; T089: warns
         (
             {"name": "gun", "category": "weapon", "held": True},
             {"kind": "unscripted", "support": None},
@@ -228,8 +227,8 @@ def test_a_judgement_that_does_not_call_everything_exactly_once_is_an_error(
         (
             {"name": "ladle", "category": "other", "held": True},
             {"kind": "set_dressing", "support": "kitchen"},
-            False,
-        ),  # held: a prop, not dressing
+            "warn",
+        ),  # held: a prop, not dressing; T089: warns
         (
             {"name": "cat", "category": "animal", "held": False},
             {"kind": "set_dressing", "support": "kitchen"},
@@ -238,7 +237,7 @@ def test_a_judgement_that_does_not_call_everything_exactly_once_is_an_error(
         (
             {"name": "car", "category": "vehicle", "held": False},
             {"kind": "set_dressing", "support": "kitchen"},
-            False,
+            "warn",  # T089: a vehicle warns; only an animal or a weapon withholds
         ),
         (
             {"name": "rifle", "category": "weapon", "held": False},
@@ -269,7 +268,7 @@ def test_objects(
     checks, verdict, _ = run_checks(
         kitchen_shot(), screenplay.scenes[0], description, judgement, extraction
     )
-    if ok == "warn":  # T083: a background object
+    if ok == "warn":  # T083: a background object; T089: any object but an animal or weapon
         assert Check.UNSCRIPTED_OBJECT not in failing(checks)
         assert Check.BACKGROUND_OBJECT in failing(checks)
         assert verdict is Verdict.WARN
@@ -293,7 +292,7 @@ def test_an_entity_quote_supports_only_when_its_entity_is_in_the_shot(
 # --- code-decided checks ----------------------------------------------------------------------
 
 
-def test_text_in_frame_fails(screenplay: Screenplay, extraction: Extraction) -> None:
+def test_text_in_frame_warns(screenplay: Screenplay, extraction: Extraction) -> None:
     checks, verdict, _ = run_checks(
         kitchen_shot(),
         screenplay.scenes[0],
@@ -302,7 +301,7 @@ def test_text_in_frame_fails(screenplay: Screenplay, extraction: Extraction) -> 
         extraction,
     )
     assert failing(checks) == {Check.TEXT_IN_FRAME}
-    assert verdict is Verdict.FAIL
+    assert verdict is Verdict.WARN  # T089: soft
 
 
 # --- T071: legible text fails only when it isn't the script's words ---------------------------
@@ -332,7 +331,7 @@ def test_text_passes_only_as_the_script_s_own_words(
         extraction,
     )
     assert (Check.TEXT_IN_FRAME not in failing(checks)) is ok
-    assert verdict is (Verdict.PASS if ok else Verdict.FAIL)
+    assert verdict is (Verdict.PASS if ok else Verdict.WARN)  # T089: soft
 
 
 def test_a_failed_text_check_names_each_stray_text(
@@ -408,8 +407,8 @@ def test_a_held_costume_or_structure_object_is_still_checked(
     checks, verdict, _ = run_checks(
         kitchen_shot(), screenplay.scenes[0], described(objects=objects), judgement, extraction
     )
-    assert Check.UNSCRIPTED_OBJECT in failing(checks)
-    assert verdict is Verdict.FAIL
+    assert Check.BACKGROUND_OBJECT in failing(checks)  # T089: checked, and warns
+    assert verdict is Verdict.WARN
 
 
 @pytest.mark.parametrize(
@@ -502,11 +501,11 @@ def test_a_hard_failure_outranks_a_soft_one(screenplay: Screenplay, extraction: 
     checks, verdict, _ = run_checks(
         kitchen_shot(),
         screenplay.scenes[0],
-        described(has_text=True, text=["SALE"], light="day"),
+        described(setting="exterior", light="day"),  # T089: text is soft, so a wrong setting
         judged(),
         extraction,
     )
-    assert failing(checks) == {Check.TEXT_IN_FRAME, Check.LIGHT}
+    assert failing(checks) == {Check.SETTING, Check.LIGHT}
     assert verdict is Verdict.FAIL
 
 
@@ -565,7 +564,7 @@ def test_a_signature_alone_warns_and_withholds_nothing(
     assert "a signature" in result.detail
 
 
-def test_a_signature_with_an_unscripted_word_still_fails_on_the_word(
+def test_a_signature_with_an_unscripted_word_still_names_the_word(
     screenplay: Screenplay, extraction: Extraction
 ) -> None:
     checks, verdict, _ = run_checks(
@@ -576,7 +575,7 @@ def test_a_signature_with_an_unscripted_word_still_fails_on_the_word(
         extraction,
     )
     assert failing(checks) == {Check.SIGNATURE, Check.TEXT_IN_FRAME}
-    assert verdict is Verdict.FAIL
+    assert verdict is Verdict.WARN  # T089: both soft
 
 
 def test_no_signature_and_no_text_passes(screenplay: Screenplay, extraction: Extraction) -> None:
@@ -632,4 +631,6 @@ def test_a_thing_the_script_names_is_never_set_dressing(
     checks, _, _ = run_checks(
         kitchen_shot(), screenplay.scenes[0], description, judgement, extraction
     )
-    assert (Check.UNSCRIPTED_OBJECT not in failing(checks)) is ok
+    detail = next(c.detail for c in checks if c.check is Check.BACKGROUND_OBJECT)
+    assert Check.UNSCRIPTED_OBJECT not in failing(checks)  # T089: it warns, naming why
+    assert detail.endswith("the script names it") is not ok

@@ -166,7 +166,8 @@ def _tally(pairs: Sequence[tuple[str, str]]) -> list[Cause]:
 
 
 def object_causes(audits: Sequence[FrameAuditRow]) -> list[Cause]:
-    """Hard `unscripted_object` and, since T083, soft `background_object` failures."""
+    """`unscripted_object` (hard; since T089 only an animal or a weapon) and `background_object`
+    (soft, T083; since T089 every other object) failures."""
     pairs: list[tuple[str, str]] = []
     pieces = [*_pieces(audits, Check.UNSCRIPTED_OBJECT), *_pieces(audits, Check.BACKGROUND_OBJECT)]
     for _, piece in pieces:
