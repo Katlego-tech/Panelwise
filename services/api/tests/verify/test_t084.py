@@ -28,12 +28,13 @@ PLATFORM = Scene(
         Action("Passengers hurry past. They ignore him.", Span(5, 6, 6)),
         Action("A WOMAN, 40s, folds her umbrella.", Span(5, 7, 7)),
         Action("Where the shadows gather, a figure waits.", Span(5, 8, 8)),
+        Action("A MAN shaves himself and folds his towel. A guard says she left.", Span(5, 9, 9)),
     ),
-    span=Span(5, 1, 8),
+    span=Span(5, 1, 9),
 )
 
 
-def _shot(elements: tuple[int, ...] = (0, 1, 2, 3, 4, 5)) -> Shot:
+def _shot(elements: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 6)) -> Shot:
     return Shot(
         scene_index=0,
         number=1,
@@ -44,7 +45,7 @@ def _shot(elements: tuple[int, ...] = (0, 1, 2, 3, 4, 5)) -> Shot:
         props=(),
         time_of_day="NIGHT",
         rationale="Koos on the platform.",
-        span=Span(5, 1, 8),
+        span=Span(5, 1, 9),
         source=" ".join(PLATFORM.elements[i].text for i in elements),
     )
 
@@ -102,7 +103,14 @@ def test_dialogue_with_him_fails_as_not_an_action_line_first(extraction: Extract
 
 
 @pytest.mark.parametrize(
-    "support", ["A pigeon glares at him.", "He's already gone.", "She waves.", "They ignore him."]
+    "support",
+    [
+        "A pigeon glares at him.",
+        "He's already gone.",
+        "She waves.",
+        "They ignore him.",
+        "A guard says she left.",  # mid-sentence
+    ],
 )
 def test_a_support_with_he_him_or_she_points_at_someone_else(
     support: str, extraction: Extraction
@@ -118,6 +126,7 @@ def test_a_support_with_he_him_or_she_points_at_someone_else(
     [
         "A SLEEPING COMMUTER lies across a bench under a newspaper.",
         "A WOMAN, 40s, folds her umbrella.",  # her own possessive
+        "A MAN shaves himself and folds his towel.",  # his, himself alone
         "Passengers hurry past.",
         "Passengers hurry past. They",  # they alone
         "Where the shadows gather, a figure waits.",  # "he" inside "the", "where"

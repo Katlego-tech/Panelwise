@@ -16,7 +16,7 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
-### L011 · A stranger excused by a line of dialogue · fixed
+### L011 · A stranger excused by a line of dialogue · fixed (measured free)
 
 - **Seen:** 2026-10-12, lost-property (held out: no fix was designed on it), [run report](../eval/runs/2026-10-12-lost-property.md). Of 12
   accepted shots, three show a person the shot doesn't have, and the audit's hard
