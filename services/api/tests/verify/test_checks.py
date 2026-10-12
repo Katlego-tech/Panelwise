@@ -253,7 +253,7 @@ def test_a_judgement_that_does_not_call_everything_exactly_once_is_an_error(
         (
             {"name": "bread", "category": "food", "held": False},
             {"kind": "set_dressing", "support": "kitchen"},
-            False,
+            "warn",  # T086: unheld food warns, never passes as dressing
         ),
     ],
 )

@@ -9,7 +9,7 @@ import base64
 import hashlib
 import logging
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 
 from pydantic import ValidationError
 
@@ -70,6 +70,89 @@ _BACKGROUND = frozenset(
         ObjectCategory.NATURE,
         ObjectCategory.FURNITURE,
         ObjectCategory.SCREEN_OR_SIGN,
+    }
+)
+# A described person's age, from the describer's own words (T086), the earliest match wins: "a
+# 10-year-old girl" is a child, "an older woman" old. Anything else gives no age and no check.
+_DESCRIBED_AGES = (
+    ("child", re.compile(r"\b(child|children|kids?|boys?|girls?|toddlers?|baby|babies|infant)\b")),
+    ("teenager", re.compile(r"\b(teenagers?|teens?|teenage|adolescents?)\b")),
+    (
+        "old",
+        re.compile(
+            r"\bold (man|woman|person|adult)\b|\belderly\b"
+            r"|\b(grandmother|grandfather|granny|grandma|grandpa)\b"
+        ),
+    ),
+    (
+        "adult",
+        re.compile(
+            r"\b(adults?|man|men|woman|women|mother|father|mum|mom|dad|lady|gentleman|guy)\b"
+        ),
+    ),
+)
+# Places that are themselves a vehicle (T086): inside one, its parts are the place's structure.
+_VEHICLE_PLACES = frozenset(
+    {
+        "van",
+        "car",
+        "bus",
+        "minibus",
+        "kombi",
+        "taxi",
+        "cab",
+        "truck",
+        "lorry",
+        "bakkie",
+        "jeep",
+        "ambulance",
+        "train",
+        "carriage",
+        "tram",
+        "coach",
+        "boat",
+        "ship",
+        "ferry",
+        "plane",
+        "aeroplane",
+        "airplane",
+        "helicopter",
+    }
+)
+# A vehicle's own parts (T086): the vehicle words of T083's part list, never an animal's,
+# weapon's or food's ("barrel", "collar" and "crust" are parts, but not of a van).
+_VEHICLE_PART_WORDS = frozenset(
+    {
+        "wheel",
+        "door",
+        "window",
+        "windscreen",
+        "bonnet",
+        "boot",
+        "bumper",
+        "tyre",
+        "tire",
+        "engine",
+        "roof",
+        "seat",
+        "mirror",
+        "light",
+    }
+)
+# A vehicle's inside that the part words don't already name (T086).
+_INTERIOR_WORDS = frozenset(
+    {
+        "dashboard",
+        "steering",
+        "headrest",
+        "seatbelt",
+        "gearstick",
+        "gear",
+        "speedometer",
+        "windshield",
+        "visor",
+        "glovebox",
+        "upholstery",
     }
 )
 # Words that never name a thing (T083): `box of fish` is named by `fish`, never by `of`.
@@ -285,6 +368,59 @@ def named_in_scene(name: str, category: ObjectCategory, scene: Scene) -> str | N
     return None
 
 
+def described_age(appearance: str) -> str | None:
+    """The age class the describer gave a person (T086): child, teenager, old or adult; None when
+    its words give none."""
+    words = appearance.lower()
+    # The earliest age word is this person's: "an old man looking toward the girl" is old.
+    found = [(m.start(), age) for age, pattern in _DESCRIBED_AGES if (m := pattern.search(words))]
+    return min(found)[1] if found else None
+
+
+def age_contradicts(years: int, described: str | None) -> bool:
+    """A described age that plainly isn't a character introduced at `years` (T086): under 13 not
+    an adult or old; 13 to 19 not old; 20 to 49 not a child or old; 50 and over not a child or a
+    teenager. No described age is no contradiction."""
+    if years < 13:
+        return described in ("adult", "old")
+    if years < 20:
+        return described == "old"
+    if years < 50:
+        return described in ("child", "old")
+    return described in ("child", "teenager")
+
+
+def inside_vehicle(scene: Scene) -> frozenset[str]:
+    """The vehicle a non-EXT scene is inside (T086): the location's head noun, the last word of its
+    first part, when it is a vehicle. INT. VAN - MOVING -> {"van"}, SIPHO'S BAKKIE -> {"bakkie"}; a
+    place named after one is not inside it: BUS STATION, CAR PARK, TAXI RANK -> empty."""
+    if scene.int_ext is IntExt.EXT:
+        return frozenset()
+    words = re.findall(r"[a-z]+", scene.location.split(" - ")[0].lower())
+    return frozenset(words[-1:]) & _VEHICLE_PLACES
+
+
+def part_of_vehicle(name: str, category: ObjectCategory, scene: Scene) -> bool:
+    """A part of the vehicle the scene is inside (T086): inside INT. VAN a dashboard, a rearview
+    mirror, a held steering wheel, the seats. Only part and interior words: a bare vehicle (a
+    sailboat through the window, the van itself) is judged as before; never with a copy word."""
+    words = [w.strip(".,;:!?'\"()") for w in name.lower().split()]
+    if not inside_vehicle(scene) or not words or _COPY_WORDS & set(words):
+        return False
+    if category in (ObjectCategory.ANIMAL, ObjectCategory.WEAPON, ObjectCategory.FOOD):
+        return False
+    parts = _VEHICLE_PART_WORDS | _INTERIOR_WORDS
+    return bool(_forms(words[-1]) & parts or set(words) & _INTERIOR_WORDS)
+
+
+def shot_ages(
+    shot: Shot, screenplay: Screenplay, years: Callable[[str, Screenplay], int | None]
+) -> dict[str, int]:
+    """Each shot character's introduced age in years (T086), for run_checks' `ages`. `years` is
+    storyboard's introduced_years, passed in: app.storyboard imports app.verify."""
+    return {c: y for c in shot.characters if (y := years(c, screenplay)) is not None}
+
+
 def _calls_each_once(indexes: Sequence[int], n: int) -> bool:
     return sorted(indexes) == list(range(n))
 
@@ -297,6 +433,7 @@ def run_checks(
     extraction: Extraction,
     *,
     on_screen: tuple[str, ...] = (),
+    ages: Mapping[str, int] | None = None,
 ) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]:
     if not (
         _calls_each_once([c.person for c in judgement.people], len(description.people))
@@ -330,7 +467,13 @@ def run_checks(
         person = description.people[call.person]
         who = f"person {call.person} ({person.position}, {person.appearance})"
         name = match_speaker(call.character, people) if call.character else None
-        if name is not None and name in positions:
+        years = (ages or {}).get(name) if name is not None else None
+        if years is not None and age_contradicts(years, age := described_age(person.appearance)):
+            # T086: refused as that character, and never then excused as a stranger.
+            failures[Check.UNSCRIPTED_PERSON].append(
+                f"{who}: described as {age}, but {name} is introduced at {years}"
+            )
+        elif name is not None and name in positions:
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: {name} is already another person")
         elif name is not None:
             positions[name] = person.position
@@ -352,10 +495,18 @@ def run_checks(
             continue  # T078: whatever the judge said; its support is the prop's quote
         if named_in_scene(obj.name, obj.category, scene):
             continue  # T083: the script put it in this scene, whatever the judge said
+        if part_of_vehicle(obj.name, obj.category, scene):
+            continue  # T086: inside the scene's vehicle, its parts are the place itself
+        # T086: unheld food the scene doesn't name warns, as the place's everyday things do.
         background = (
-            obj.category in _BACKGROUND and not obj.held and not _named_prop(obj.name, props)
+            (obj.category in _BACKGROUND or obj.category is ObjectCategory.FOOD)
+            and not obj.held
+            and not _named_prop(obj.name, props)
         )
+        food = background and obj.category is ObjectCategory.FOOD
         match call.kind:
+            case ObjectKind.SET_DRESSING if food:  # T086: food is never quietly the place's
+                failures[Check.BACKGROUND_OBJECT].append(f"{what}: not in the script")
             case ObjectKind.UNSCRIPTED if background:
                 failures[Check.BACKGROUND_OBJECT].append(f"{what}: not in the script")
             case ObjectKind.UNSCRIPTED:
@@ -366,7 +517,7 @@ def run_checks(
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: held, so not set dressing")
             case ObjectKind.SET_DRESSING if _named_prop(obj.name, props):
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: the script names it")
-            case ObjectKind.SET_DRESSING if obj.category in _NEVER_DRESSING:
+            case ObjectKind.SET_DRESSING if obj.category in _NEVER_DRESSING and not background:
                 failures[Check.UNSCRIPTED_OBJECT].append(f"{what}: never set dressing")
             case ObjectKind.SET_DRESSING if not _found(call.support, heading) and background:
                 failures[Check.BACKGROUND_OBJECT].append(f"{what}: not in the script")
@@ -486,11 +637,17 @@ async def audit_frame(
     else:
         # T080: against the people the prompt drew. Imported here: T026's renderer modules in
         # app.storyboard import app.verify, so a module-level import would be a cycle there.
-        from app.storyboard.prompt import visible_characters
+        from app.storyboard.prompt import introduced_years, visible_characters
 
         on_screen = visible_characters(shot, screenplay, extraction)
         checks, verdict, positions = run_checks(
-            shot, scene, description, judgement, extraction, on_screen=on_screen
+            shot,
+            scene,
+            description,
+            judgement,
+            extraction,
+            on_screen=on_screen,
+            ages=shot_ages(shot, screenplay, introduced_years),
         )
 
     return Audit(
