@@ -343,7 +343,7 @@ grayscale = true      # the pixel pass after rendering (FrameFlow's image_postpr
 default = true        # exactly one PUBLIC style sets this
 ```
 
-- **Public** styles are the files in the repo's `styles/`; **private** ones are the `*.toml` files in
+- **Public** styles are the files in the repo's `styles/` (`services/api/styles`, the root `styles` a symlink to it since T063); **private** ones are the `*.toml` files in
   the directory `PANELWISE_PRIVATE_STYLES` names (unset or empty → none). `origin` is set by where a
   file was loaded from, never by the file.
 - **`load_styles` fails the start-up** (`StyleError`, naming the file) when: a field is missing,
@@ -579,7 +579,7 @@ the frame shows its failed card with "Try another render" (web.md §4.3).
 
 **The app's factory.** `create_app(fal=True)` (the module's `app`, never a test's) sets
 `app.state.renderer_factory` when `FAL_KEY` and the store are set and the public styles load (the
-image ships no `styles/`: compose mounts `./styles` at `/styles`; the hosted API needs the same, T063;
+image ships them since T063: `services/api/styles`, with the repo-root `styles` a symlink to it, deploy.md §6;
 a key set with styles that don't load is logged as an error at start-up and the app runs with no
 renderer, never half-configured): `lambda screenplay, extraction: FalRenderer(style=<the registry's default>, store=…,
 screenplay=…, extraction=…, client=<the app's shared httpx2 client>, settings=…)`, a fresh renderer
@@ -704,7 +704,7 @@ class StyleRegistry:
     def public(self) -> tuple[Style, ...]: ...          # sorted by key
 class StyleError(ValueError): ...
 SUBJECT_WORDS: frozenset[str]                           # §3.2's list
-PUBLIC_STYLES: Path                                     # the repo's styles/ (T026 must ship it in the API image)
+PUBLIC_STYLES: Path                                     # services/api/styles, in the API image (T063; deploy.md §6)
 def load_styles(public_dir: Path, private_dir: Path | None) -> StyleRegistry: ...
 
 # app/characters/redact.py  (built by T008; T025 uses it: characters.md §6)
