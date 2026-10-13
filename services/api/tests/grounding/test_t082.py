@@ -154,7 +154,8 @@ def test_reflexive_pronouns_give_a_sex() -> None:
 
 def test_relational_nouns_are_not_in_the_vocabulary() -> None:
     found = grounded(proposal("PETER", ["PETER hugs his mother."], "mother"))
-    assert found["PETER"].sex is None
+    # "mother" is no word for PETER's sex (never female); since T091 his own "his" makes him male.
+    assert found["PETER"].sex is Sex.MALE
 
 
 def test_a_title_alone_names_no_one() -> None:

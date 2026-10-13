@@ -364,17 +364,25 @@ def _owned(rest: Sequence[str]) -> Sex | None:
 def _pronoun_evidence(
     entity: Entity, cast: Sequence[Entity], screenplay: Screenplay, names: frozenset[str]
 ) -> list[tuple[Sex, Quote]]:
+    """`_pronoun_pieces` without the flag (T088's evidence; grounding.md §6)."""
+    return [(sex, quote) for sex, quote, _ in _pronoun_pieces(entity, cast, screenplay, names)]
+
+
+def _pronoun_pieces(
+    entity: Entity, cast: Sequence[Entity], screenplay: Screenplay, names: frozenset[str]
+) -> list[tuple[Sex, Quote, bool]]:
     """Every place an Action sentence's pronoun is plainly this character's (grounding.md §3,
     T088): a sentence opening with the name whose first pronoun after it is the subject's own
     with nothing that could own it between ("Koos taps his broom."), or a sentence opening with
     He or She right after a sentence of the same element (or the last of the Action element just
     before) that opens with the name and holds no other possible owner ("Siphokazi nods. She
     cannot stop the smile."). A speech between breaks the chain: a pronoun after one is often the
-    listener's."""
+    listener's. Each piece says whether its sentence's subject owns the pronoun (T091): True for
+    the first kind, False for a He or She opening the next sentence."""
     name = normalise(entity.name).split()
     own = _tokens(entity)
     others = (names | {t for c in cast if c is not entity for t in _tokens(c)}) - own
-    found: list[tuple[Sex, Quote]] = []
+    found: list[tuple[Sex, Quote, bool]] = []
     for scene_index, scene in enumerate(screenplay.scenes):
         previous: list[str] | None = None
         for element in scene.elements:
@@ -392,11 +400,11 @@ def _pronoun_evidence(
                         i for i, w in enumerate(words[end:]) if w.lower() in _PERSON_PRONOUNS
                     )
                     if _clear(words[end : end + pronoun], own, others):
-                        found.append((sex, quote))
+                        found.append((sex, quote, True))
                 if words[:1] in (["He"], ["She"]) and previous is not None:
                     before = _opens_with(previous, name)
                     if before is not None and _clear(previous[before:], own, others):
-                        found.append((Sex.MALE if words[0] == "He" else Sex.FEMALE, quote))
+                        found.append((Sex.MALE if words[0] == "He" else Sex.FEMALE, quote, False))
                 previous = words
     return found
 
@@ -410,11 +418,20 @@ def _claimed_sex(
 ) -> list[tuple[Sex, Quote]]:
     """The sex the model claims with its sex_word, kept when the script's own pronouns support it
     and none contradicts it (grounding.md §3, T088), with the first supporting sentence as the
-    quote; else nothing. Never for an animal or a CUE backfill."""
+    quote. With no claim at all (T091), the evidence alone: every piece one sex and at least one
+    sentence whose subject owns the pronoun, that sentence the quote. Else nothing; never for an
+    animal or a CUE backfill."""
+    if entity.species is not None or entity.source is not Source.MODEL:
+        return []
     # A claim may be a possessive too (his, her): only T088's evidence keeps it, never the word.
     claims = {CONFLICT_WORDS.get(w.strip().rstrip(".").lower()) for w in proposed} - {None}
-    if len(claims) != 1 or entity.species is not None or entity.source is not Source.MODEL:
+    if len(claims) > 1:
         return []
+    if not claims:  # T091: a next-sentence He/She alone keeps nothing without a claim
+        pieces = _pronoun_pieces(entity, cast, screenplay, names)
+        sexes = {sex for sex, _, _ in pieces}
+        owning = [quote for _, quote, owns in pieces if owns]
+        return [(sexes.pop(), owning[0])] if len(sexes) == 1 and owning else []
     claim = next(iter(claims))
     assert claim is not None
     evidence = _pronoun_evidence(entity, cast, screenplay, names)
