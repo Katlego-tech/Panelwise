@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-12 — by Tumo (via Claude)_
+_Last updated: 2026-10-13 — by Katlego (via Claude)_
 
 ---
 
@@ -43,7 +43,7 @@ _Last updated: 2026-10-12 — by Tumo (via Claude)_
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021, T083 | Katlego (Tumo for T083) | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · ✅ T062 the architecture check code (PR #82 design, #83 code; Tumo, Claude) · ✅ its live run on the-red-kite (2026-10-09) · 🟡 the browser check of the copy (Tumo) · 🟡 T089 objects, but animals and weapons, and lettering warn (Tumo, Claude: design `docs/objects-warn-t089`) · 🟡 T087 the judge and clothing (Tumo, Claude: measuring) · ✅ T086 age, vehicle parts, unheld food (#147, #148) · 🟡 T083 things the scene names; background objects warn; `recheck` (#137 design, #138 code, merged 2026-10-12; Tumo, Claude): measured on the two runs it was designed on; a held-out script to go |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) · ✅ T064/T024 design (PR #85) · ✅ T064 the comic job, store and API (PR #86; Tumo, Claude) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
-| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · ⬜ T049 audit accuracy: #106/#107 closed 2026-10-12 (built on Workers AI; T081 and T083 measure the audit for now) · ✅ T081 run reports + the learning log (Tumo, Claude: #135 design, #136 code) |
+| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · ⬜ T049 audit accuracy: #106/#107 closed 2026-10-12 (built on Workers AI; T081 and T083 measure the audit for now) · ✅ T081 run reports + the learning log (Tumo, Claude: #135 design, #136 code) · 🔵 T090 ten more sample scripts (Katlego, Claude) |
 
 ## ⏭️ Next action
 
@@ -97,6 +97,26 @@ scripts it wasn't designed on. Our three samples are used up for that, so we nee
 **3. Still yours:** the web on Vercel ([docs/deploy.md](docs/deploy.md) step 3, **Web first**).
 T063's 512 MB check and the first deploy on the Render account come next; Tumo owns T030 and
 T037's hosted run, so agree with him who does which before spending.
+
+### 👋 For Tumo (from Katlego, 2026-10-13): ten more sample scripts (T090)
+
+**Ten new self-written screenplays are in `samples/`** beside the three T031 ones, as Fountain
+source + PDF, built by the same `uv run python -m tools.build_samples` and checked by the same
+gate tests. They're ordinary spec scripts, 3–4 pages each, not edge cases: proper headings,
+present-tense action, characters introduced in caps with an age, sparing transitions. Genres and
+shapes vary (a two-hander, a seven-speaker classroom, a dog as a character, a monologue split
+over a page); the table and the conventions are in [samples/README.md](samples/README.md)
+§ The second set.
+
+- **Nothing in the pipeline changed** — no prompt, parser or style edits. `tools.evaluate` still
+  defaults to the T031 three (it took every sample, so a default paid run would have grown
+  fourfold); name a new one to include it. Otherwise only samples, the
+  builder's `OPTIONS`, the sample tests and the README.
+- **No live run yet.** Each costs about what the-red-kite does. If you want numbers for them
+  (T032-style faithfulness / recall, or a storyboard on klein), say which and who spends; the
+  results go in samples/README.md. `load-shedding` (7 speakers) and `stormwater` (an animal) are
+  the most useful to try first.
+- **Nothing for the demo changes**: `the-red-kite` stays the demo script.
 
 ### 👋 For Tumo (from Katlego, 2026-10-11)
 

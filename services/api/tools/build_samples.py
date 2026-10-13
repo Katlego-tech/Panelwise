@@ -56,6 +56,16 @@ OPTIONS: dict[str, Options] = {
     "the-red-kite": Options(),
     "lost-property": Options(numbered=False),
     "sipho-and-siphokazi": Options(continueds=True),
+    "the-night-taxi": Options(),
+    "market-day": Options(numbered=False),
+    "the-lighthouse-inspector": Options(continueds=True),
+    "the-borrowed-bicycle": Options(numbered=False),
+    "rooftop-tomatoes": Options(),
+    "load-shedding": Options(continueds=True),
+    "gogos-recipe": Options(numbered=False),
+    "stormwater": Options(),
+    "the-choir": Options(),
+    "final-whistle": Options(numbered=False),
 }
 
 
