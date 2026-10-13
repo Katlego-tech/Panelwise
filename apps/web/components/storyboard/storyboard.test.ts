@@ -113,6 +113,23 @@ describe("card text (web.md §4.3)", () => {
       ],
     });
     expect(cardState(warned)).toMatchObject({ verdict: { tone: "warn", label: "Passed with a warning" }, notes: ["Light: day light in a night scene"] });
+    // T094: a hard check off the rule ladder fails but warns, and the card names it.
+    const laddered = frame({
+      shot_id: "1.5",
+      state: "warned",
+      image_url: "https://s/5",
+      audits: [
+        {
+          attempt: 1, seed: 1, verdict: "warn", description: null, judgement: null, positions: {}, models: [], created_at: "",
+          checks: [
+            { check: "unscripted_person", severity: "hard", ok: false, detail: "person 2: no shot character, no support" },
+            { check: "light", severity: "soft", ok: false, detail: "day light in a night scene" },
+          ],
+        },
+      ],
+    });
+    expect(cardState(laddered).notes).toHaveLength(2);
+    expect(cardState(laddered).notes[1]).toBe("Light: day light in a night scene");
     expect(cardState(frame({ shot_id: "3.1", state: "withheld", withheld_check: "text_in_frame" }))).toEqual({
       media: { kind: "withheld", why: "Frame withheld: failed audit (text in frame)" },
       verdict: { tone: "withheld", label: "Withheld" },

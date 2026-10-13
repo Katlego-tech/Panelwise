@@ -102,11 +102,12 @@ export function cardState(frame: FrameView | undefined): CardState {
         };
       }
       const audit = frame.audits.at(-1);
-      const soft = (audit?.checks ?? []).filter((c) => c.severity === "soft" && !c.ok);
+      // Every failed check: with the rule ladder (T094) a hard one off it is shown, not withheld.
+      const failed = (audit?.checks ?? []).filter((c) => !c.ok);
       return {
         media,
         verdict: { tone: "warn", label: "Passed with a warning" },
-        notes: soft.map((c) => `${sentence(checkWords(c.check))}: ${c.detail}`),
+        notes: failed.map((c) => `${sentence(checkWords(c.check))}: ${c.detail}`),
       };
     }
   }

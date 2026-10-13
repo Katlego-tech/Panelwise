@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -91,6 +91,12 @@ class Settings(BaseSettings):
             query["ssl"] = query.pop("sslmode")
             parsed = parsed.set(query=query)
         return parsed.render_as_string(hide_password=False)
+
+    @model_validator(mode="after")
+    def _ladder_names_hard_checks(self) -> Settings:
+        """T094: a misspelt AUDIT_WITHHOLD_CHECKS stops the API starting, never a request."""
+        withholding(self)
+        return self
 
 
 def withholding(settings: Settings) -> frozenset[Check] | None:
