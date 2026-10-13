@@ -36,8 +36,9 @@ def frame_of(outcome: FrameOutcome, record: RenderRecord | None) -> StoryboardFr
     accepted = outcome.state in (FrameState.PASSED, FrameState.WARNED)
     noted: tuple[Check, ...] = ()
     if last is not None and outcome.state in (FrameState.WITHHELD, FrameState.WARNED):
-        severity = Severity.HARD if outcome.state is FrameState.WITHHELD else Severity.SOFT
-        failed = (c.check for c in last.checks if c.severity is severity and not c.ok)
+        # A warned frame names every check it failed: with AUDIT_WITHHOLDS off, hard ones too.
+        wanted = {Severity.HARD} if outcome.state is FrameState.WITHHELD else set(Severity)
+        failed = (c.check for c in last.checks if c.severity in wanted and not c.ok)
         noted = tuple(sorted(failed, key=_CHECK_ORDER.__getitem__))
     if outcome.frame is not None:
         prompt: str | None = outcome.frame.prompt
@@ -83,6 +84,7 @@ async def build_storyboard(
     height: int = 720,
     concurrency: int = 2,
     max_renders: int = 3,
+    withhold: bool = True,
 ) -> Storyboard:
     gate = asyncio.Semaphore(concurrency)
     failed: list[tuple[int, int]] = []  # shots whose renderer raised
@@ -119,6 +121,7 @@ async def build_storyboard(
                     width=width,
                     height=height,
                     max_renders=max_renders,
+                    withhold=withhold,
                     log=log_audit,
                     on_state=on_state,
                 )

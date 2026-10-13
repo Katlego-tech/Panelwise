@@ -42,6 +42,7 @@ async def run_attempt(
     sessions: async_sessionmaker[AsyncSession],
     model: NebiusChatModel,
     factory: RendererFactory,
+    withhold: bool = True,
 ) -> None:
     """Attempt `attempt` alone, under `job_id`. The job ends DONE (progress 100) whatever the
     audit says; any exception fails the frame (`render`) and the job. Never raises."""
@@ -67,6 +68,7 @@ async def run_attempt(
             height=HEIGHT,
             first_attempt=attempt,
             max_renders=1,
+            withhold=withhold,
             log=hooks_log,
             on_state=on_state,
         )

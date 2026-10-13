@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # A full render loop's attempts per frame (verify.md §4, T071): 1 while the pass rate is
     # unknown, so a systematic FAIL isn't paid for three times.
     render_max_attempts: int = Field(default=3, ge=1, le=3)
+    # Whether a failed hard check withholds a frame (verify.md §4). False (Tumo, 2026-10-13):
+    # every check only warns, the card still names it, and an attempt is accepted as WARNED;
+    # the rules come back one at a time. An audit that can't run still withholds.
+    audit_withholds: bool = True
 
     # Frames (docs/design/storyboard.md §6). The prompt's word budget, a conservative proxy for the
     # text encoder's token limit: 55 words for CLIP's 77 tokens until T003 picks the model.

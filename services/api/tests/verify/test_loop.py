@@ -189,3 +189,24 @@ async def test_attempt_numbers_start_at_one(
             first_attempt=first,
             max_renders=count,
         )
+
+
+async def test_with_audit_withholds_off_a_failed_attempt_is_accepted_as_warned(
+    monkeypatch: pytest.MonkeyPatch, screenplay: Screenplay, extraction: Extraction
+) -> None:
+    audits_with(monkeypatch, [Verdict.FAIL, Verdict.PASS])
+    rec, renderer = Recorder(), FakeRenderer()
+    outcome = await run(renderer, screenplay, extraction, rec, withhold=False)
+    assert outcome.state is FrameState.WARNED
+    assert outcome.frame is not None and outcome.frame.attempt == 1  # no re-render
+    assert [a.verdict for a in rec.audits] == [Verdict.WARN]  # logged as the warning it is
+    assert rec.states == [(R, 1), (A, 1), (FrameState.WARNED, 1)]
+
+
+async def test_with_audit_withholds_off_an_audit_error_still_withholds(
+    monkeypatch: pytest.MonkeyPatch, screenplay: Screenplay, extraction: Extraction
+) -> None:
+    audits_with(monkeypatch, [Verdict.ERROR])
+    rec, renderer = Recorder(), FakeRenderer()
+    outcome = await run(renderer, screenplay, extraction, rec, withhold=False)
+    assert outcome.state is FrameState.WITHHELD

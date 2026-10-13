@@ -266,6 +266,7 @@ async def run_comic_job(
     model: NebiusChatModel,
     factory: RendererFactory,
     max_renders: int = MAX_RENDERS,
+    withhold: bool = True,
     concurrency: int = 1,
 ) -> None:
     """comic.md §4a end to end for the job's project. Never raises: every failure is the job
@@ -344,6 +345,7 @@ async def run_comic_job(
                             width=size[0],
                             height=size[1],
                             max_renders=max_renders,
+                            withhold=withhold,
                             first_attempt=1 + (prior.last_attempt if prior else 0),
                             log=log_audit,
                             on_state=on_state,

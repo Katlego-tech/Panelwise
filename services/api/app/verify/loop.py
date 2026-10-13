@@ -5,6 +5,7 @@ audit: an audit that can't run (ERROR) withholds it, and running out of attempts
 """
 
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 
 from app.grounding import Extraction
 from app.llm import NebiusChatModel
@@ -31,6 +32,7 @@ async def render_until_accepted(
     first_attempt: int = 1,
     log: Callable[[Audit], Awaitable[None]],
     on_state: Callable[[FrameState, int], Awaitable[None]] | None = None,
+    withhold: bool = True,
 ) -> FrameOutcome:
     """Attempts `first_attempt` .. `first_attempt + max_renders - 1`, each seeded `seed_for(shot,
     attempt)`. `on_state` is awaited on every §5 transition, before the new state's work. A renderer
@@ -56,6 +58,9 @@ async def render_until_accepted(
             raise
         await enter(FrameState.AUDITING, attempt)
         audit = await audit_frame(model, frame, shot, screenplay, extraction)
+        if not withhold and audit.verdict is Verdict.FAIL:
+            # AUDIT_WITHHOLDS off: a failed check warns; the audit keeps every check it failed.
+            audit = replace(audit, verdict=Verdict.WARN)
         await log(audit)
         audits.append(audit)
         if (accepted := _ACCEPTED.get(audit.verdict)) is not None:

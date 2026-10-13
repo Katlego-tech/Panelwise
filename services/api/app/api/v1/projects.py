@@ -83,6 +83,7 @@ def start(request: Request, job_id: uuid.UUID) -> None:
             factory=state.renderer_factory,
             concurrency=state.settings.fal_concurrency,
             max_renders=state.settings.render_max_attempts,
+            withhold=state.settings.audit_withholds,
         )
     task = asyncio.create_task(work)
     state.tasks.add(task)
@@ -328,6 +329,7 @@ async def try_another_render(
             sessions=state.sessions,
             model=state.model,
             factory=state.renderer_factory,
+            withhold=state.settings.audit_withholds,
         )
     )
     state.tasks.add(task)
@@ -384,6 +386,7 @@ async def make_comic(
             factory=factory,
             max_renders=state.settings.render_max_attempts,
             concurrency=state.settings.fal_concurrency,
+            withhold=state.settings.audit_withholds,
         )
     )
     state.tasks.add(task)
