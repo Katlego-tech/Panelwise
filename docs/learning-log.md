@@ -27,10 +27,10 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Cause:** the planner may only list characters the extraction says are in the scene
   (`_allowed`: `scene_index in entity.scenes`), and the extraction's `scenes` are incomplete.
   Measured free on the stored plans of the seven read scripts: **45 of 266 shots** leave out a
-  character their own action line names, **39** of them because the planner was never offered
+  character their own action line names, **38** of them because the planner was never offered
   the character, 7 because the model left an offered one out. `_redact` joins only capitalised
   name words, so "Van der Merwe" is two runs.
-- **Action:** proposed as T092 (shots.md): after the model, a shot's cast gains every character a
+- **Action:** to be proposed as T092 (shots.md; its design PR follows this one, not yet in TASKS): after the model, a shot's cast gains every character a
   covered action line names as a figure (a Title-case name, or an UPPER-case introduction with its
   "("; never a possessive like "the Lionesses' goalkeeper", never a scoreboard's "LIONESSES 1");
   a name's lower-case particle (van, der, de…) joins its run. Prototype on the same plans: 40
