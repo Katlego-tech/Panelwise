@@ -81,7 +81,7 @@ def test_a_figure_run(text: str, names: list[str]) -> None:
         # possessives, straight, curly and plural
         ("He looks across at Jabu's paper.", ["JABU"]),
         ("NANDI'S KITCHEN is warm.", ["NANDI"]),
-        ("He takes Jabu’s pen.", ["JABU"]),  # a curly apostrophe
+        ("He takes Jabu" + chr(0x2019) + "s pen.", ["JABU"]),  # a curly apostrophe
         ("The Lionesses' goalkeeper, small, dives.", ["LIONESSES"]),
         # capitals with no introduction: a sign or a board
         ("The scoreboard is a blackboard: LIONESSES 1 - EAGLES 1.", ["LIONESSES", "EAGLES"]),
