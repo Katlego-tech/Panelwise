@@ -254,6 +254,38 @@ none of which names a person, prop or event.
   - A **maximal run** of name tokens (with an optional possessive `'S` on its last token), in UPPER
     or Title case at word boundaries, becomes one `a person` (`a person's` for a possessive): "NANDI
     MOLEFE pours" → "a person pours", "NANDI'S KITCHEN" → "a person's kitchen".
+  - **A name's lower-case particle joins its run (T092).** A maximal sequence of one or more words
+    of `NAME_PARTICLES` (`van`, `der`, `de`, `du`, `da`, `von`, `le`, `la`, `del`, `dos`, `den`,
+    `ter`, `bin`), each written in lower case, each upper-cased in the `tokens` the call uses, and
+    each separated from its neighbours by whitespace only, joins a run **only when it sits between
+    two name words**: a name word before it and a name word after it, whitespace on both sides. It
+    is added to the run upper-cased, so `label` receives it like any token. "Mr. Van der Merwe climbs
+    down" → "a person climbs down" (before T092, "a person der a person"; learning-log L019, added by
+    #160); "Jan van der Merwe" (two particles) → "a person". A particle with no name word before it
+    stays: for a character `LE ROUX`, "the house of le Roux" → "the house of le a person". So does
+    one at the end of the text or after a `.` or `,` ("Thabo. de Wet" breaks at the full stop), and
+    a lower-case particle that is no token of the call's names. The one realistic false join is a
+    particle word between two names that are both tokens ("Jabu bin Lindi" when BIN is some name's
+    token); accepted.
+  - **A name as a figure (T092).** `named_as_figure(text, tokens)` is true when **some** run of
+    `tokens` in `text` is a figure run, and one figure run is enough among possessive or capitals-only
+    runs ("Jabu's paper. Jabu covers it" is true). Runs are found by the **same run-finder `_redact`
+    uses** (a small refactor: `_name_runs(text, tokens) -> list[tuple[int, int]]`, the first and last
+    word of each run, particles joined, before `_redact` consumes a possessive `'s` or joins a
+    title), so the two can never disagree. A run is a figure run when it is not possessive and:
+    - **Title case:** some word of the run, particles aside, differs from its own upper case
+      ("Lindi", "Van Wyk", "McDONALD"); decided on the run itself, never on a title before it
+      (`_title_start` is not part of the run), so "Mr. Dube winds his watch" is Title case and
+      "Mr. DUBE winds his watch" is not; or
+    - **an introduction:** every word UPPER case and the run's last word followed by `[ \t]*\(`
+      ("AYANDA (17)", "AYANDA(17)"; a newline before the `(` does not count).
+    - **Possessive:** any of `_APOSTROPHES` (`'`, `’`, U+02BC) immediately after the run's last word,
+      with or without an `s` after it: "Jabu's paper", "NANDI'S", the plural "The Lionesses'
+      goalkeeper". An apostrophe inside a run (`O'BRIEN`) is not possessive. **Accepted:** a closing
+      single quote after a name ("calls 'Lindi' over") reads as possessive, so it names no figure.
+    The shot planner (shots.md §3) uses it to add the characters an action line puts on screen:
+    "Lindi rolls the ball out to Palesa." names both; "The Lionesses' goalkeeper" and "The
+    scoreboard is a blackboard: LIONESSES 1 - EAGLES 1." name no figure.
   - **Labels, not only "a person" (T052).** Redaction covers every character's name **and its
     `other_names`**, and every prop's `other_names` (a prop's own name, "VIOLIN", is a thing to draw
     and stays). `redaction_labels(extraction, screenplay)` gives **token → label**, inserted in rank
@@ -718,6 +750,9 @@ def load_styles(public_dir: Path, private_dir: Path | None) -> StyleRegistry: ..
 # app/characters/redact.py  (built by T008; T025 uses it: characters.md §6)
 NAME_STOP_WORDS: frozenset[str]                                # §3.1's list
 def name_tokens(names: Sequence[str]) -> frozenset[str]: ...   # words of normalise(name), for each name, minus NAME_STOP_WORDS
+NAME_PARTICLES: frozenset[str]                                 # T092, §3.1: van der de du da von le la del dos den ter bin (lower case)
+def named_as_figure(text: str, tokens: Collection[str]) -> bool: ...   # T092, §3.1: some run of `tokens` in `text` is Title case, or UPPER case followed by "(", and not possessive
+def _name_runs(text: str, tokens: Collection[str]) -> list[tuple[int, int]]: ...   # T092: (first, last) word index of each maximal run, particles joined; `_redact` and `named_as_figure` both use it
 def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...   # characters.md rule 2: this character → "a person", others → "another person"
 def redact_all(text: str, characters: Sequence[str]) -> str: ...                 # every character's name tokens → "a person"
 # app/characters/labels.py (T052; its own module because it imports app.grounding, whose filter imports redact.py.
@@ -1101,6 +1136,18 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   public style: every shot ends `PASSED`, `WARNED` or `WITHHELD`; the PDF and frames are in Storage;
   seconds per frame, renders per frame and fal's cost are recorded in `docs/rendering.md` (render cost; T049 uses the same renders); the
   pages are committed as the visual reference.
+- **T092** (`tests/characters/test_t092.py`, tests first): particles: "Mr. Van der Merwe climbs
+  down" → "a person climbs down", "MR. VAN DER MERWE (50s)" → "a person (50s)", "Jan van der Merwe"
+  (two particles) → "a person"; with `LE ROUX`, "the house of le Roux" → "the house of le a person";
+  a particle after a `.` or `,` ("Thabo. de Wet"), at the end of the text, or that is no token of
+  the call's names stays; `redact_names` labels a run with a particle as the character's own.
+  `named_as_figure`: Title case ("Lindi", "Officer Van Wyk", "McDONALD") true; an introduction
+  ("AYANDA (17)", "AYANDA(17)") true, but not with a newline before the `(`; "Mr. DUBE winds his
+  watch" false and "Mr. Dube winds his watch" true (a title is not the run); possessives false
+  ("Jabu's paper", "NANDI'S", "Jabu’s" with a curly apostrophe, the plural "The Lionesses'
+  goalkeeper"), `O'BRIEN` not possessive; "LIONESSES 1 - EAGLES 1" false; "Jabu's paper. Jabu
+  covers it" true. `_name_runs` gives the runs `_redact` replaces on every existing redaction
+  fixture. Every existing redaction test unchanged.
 
 ## 10. Open questions
 
