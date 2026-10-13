@@ -3,16 +3,24 @@ figure is left out (storyboard.md §3.1, §6, §9). A self-written script; no mo
 
 import pytest
 
+from app.characters.labels import redaction_labels
 from app.characters.sex import Sex
 from app.grounding import Extraction, ProposedEntity, ground
 from app.llm import Usage
 from app.script import Screenplay
 from app.storyboard import PartKind as K
 from app.storyboard import build_frame_prompt
-from app.storyboard.prompt import pronoun_figure, pronoun_sentences, visible_characters
+from app.storyboard.prompt import (
+    _script_text,  # pyright: ignore[reportPrivateUsage]
+    pronoun_figure,
+    pronoun_sentences,
+    visible_characters,
+)
 from app.storyboard.prompts import cites_this_shot
+from app.verify import Check, run_checks
 from tests.script.conftest import ACTION, CUE, DIALOGUE, Row, heading
 from tests.storyboard.conftest import STYLE, screenplay_of, shot_of
+from tests.verify.conftest import described, judged
 
 ROWS: list[Row] = [
     heading("1", "INT. DEPOT - DAY"),
@@ -181,3 +189,24 @@ def test_the_budget_works_on_the_split_parts() -> None:
     assert [p.text for p in two.parts if p.kind is K.ACTION] == ["a person"]
     assert two.trimmed == 2
     assert cites_this_shot(two, shot, sp, ex)
+
+
+def test_the_audit_sees_the_pronoun_figure_on_screen() -> None:
+    sp, ex = setup()
+    shot = shot_of(sp, 0, [3], characters=[VDM])
+    on_screen = visible_characters(shot, sp, ex)
+    assert on_screen == (VDM,)
+    description = described(
+        people=[{"position": "centre", "appearance": "an adult man with a beard"}], objects=[]
+    )
+    judgement = judged(people=[{"person": 0, "character": None, "support": None}], objects=[])
+    checks, _, _ = run_checks(shot, sp.scenes[0], description, judgement, ex, on_screen=on_screen)
+    failed = {c.check: c.detail for c in checks if not c.ok}
+    assert failed[Check.NO_CHARACTER] == f"none of {VDM} in frame"
+
+
+def test_the_pronouns_are_read_on_the_redacted_text() -> None:
+    sp, ex = setup()
+    labels = redaction_labels(ex, sp)
+    pieces = pronoun_sentences(_script_text("Mr. Dube nods. He waves.", labels))
+    assert pieces == (("a person nods.", None), ("He waves.", Sex.MALE))
