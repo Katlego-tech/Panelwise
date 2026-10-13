@@ -202,6 +202,60 @@ truncates drops the tail.
   action-line mention with that one character's labels (its name and paired other names). `COUNT`
   and `PLACEMENT`'s "exactly two" both use it, so a cat is never a figure; the action line that
   names it already says "the cat" after redaction.
+- **A He or She with no one drawn, or against everyone drawn (T093; learning-log L016).** The
+  prompt keeps action sentences whole, so a sentence whose subject is only a pronoun is drawn on
+  whoever klein draws.
+  - **Sentences.** `pronoun_sentences(text)` reads the text `build_frame_prompt` emits for an
+    element: `script(element.text)`, redacted and whitespace-collapsed. It splits it at
+    `SENTENCE_END`, the pattern grounding's `_pronoun_pieces` uses (`. ! ?` then whitespace, never
+    after `Mr.`, `Mrs.`, `Ms.`, `Dr.`, `St.`), made public by `app.grounding` (renamed from
+    `_SENTENCE_END`, the one object both use), and the pieces joined by one space give the text back.
+    A piece **opens with a pronoun** when its first word is exactly `He` or `She` (redaction can't
+    add or remove one: its labels are "a person", "the <species>", "it"); its sex is male or female.
+    Anything else is no pronoun opening and is always kept as it is: "Then he…", "They…", "His…", a
+    piece opening with a quote mark (`"He…`), and a He that doesn't follow whitespace after a full
+    stop (`"Go." He nods.` is one piece, opening with `"`).
+  - **Two rules**, both needing every sex they read to be known (`character_sex`), so an unknown
+    sex changes nothing. They use `_shown_characters`, today's `visible_characters` body (Listeners
+    included), so nothing calls itself: `visible_characters` returns `_shown_characters`' result
+    when it is not empty, else `(pronoun_figure(...),)` when that is a name, else `()`.
+  - **Rule 1: no one on screen, one person of that sex in the cast.** When `_shown_characters`
+    returns no one (Listeners included: a shot whose only other cast member is the off-screen speaker
+    is still no one) and every pronoun-opening piece of the covered `Action` elements gives the same
+    sex, `pronoun_figure` is the person with that sex among the shot's candidates: `shot.characters`,
+    no animal, no speaker the shot hears off screen (T079's `heard`). It names them when exactly one
+    candidate has that sex and every candidate's sex is known; else None. They are drawn like any
+    visible character (`COUNT`, `AGE` or `SEX`, `LOOK`), and the audit's `on_screen` (from
+    `visible_characters`) includes them, so the hard `NO_CHARACTER` now applies to that shot: a
+    frame where the judge matches no one to them is withheld, as for any drawn character.
+    stormwater 6.4, "He looks at the ball. He puts it in his pocket.", cast MR. VAN DER MERWE:
+    before T093 the prompt drew no figure, klein drew a man three times and the judge never matched
+    him (withheld); now "one figure, a man in his 50s, orange overalls".
+  - **Rule 2: figures drawn, none of that sex.** When `visible_characters` (its final result) is
+    not empty, every visible person's sex is known and none has a piece's sex, that piece is left
+    out of the `ACTION` parts: it is about someone the frame doesn't draw. Only that piece goes; in
+    a shot with a He and a She piece and only a man drawn, the She piece alone is left out. An
+    element's kept pieces become one `ACTION` part per run of consecutive kept pieces, each the
+    one-space join of its run (a substring of the collapsed redacted element: the invariant holds),
+    with the element's span; parts follow ascending element index, runs in sentence order, so read
+    together they follow the script. An element whose every piece is left out gives no `ACTION`
+    part (as an empty text does today), and that adds nothing to `trimmed`; a prompt may end with
+    no `ACTION` part at all. The Word budget then works on these parts as before: whole parts
+    dropped from the tail, the first kept part cut; `trimmed` counts parts, so a split element can
+    add more than one. lost-property 2.3, "He peers at the ledger over his spectacles." with only
+    ZANELE drawn (the He is MR. DUBE, who speaks before her) → left out. The audit's
+    `shot_action_text` still holds the left-out piece: it is only where a stranger's support is
+    looked for, and a support quoting it names someone the frame doesn't draw, which T084 already
+    refuses (it has a he/she).
+  - **Not covered:** a pronoun that agrees with a drawn figure but means someone else (the-bread-van
+    5.3, DANIEL's "He salutes and goes." on a drawn THEO), His/Her/They openings, a pronoun inside a
+    sentence. **Measured free** on the stored plans of the seven read scripts, with T092's casts:
+    of 52 He/She-opening sentences, 5 resolved (stormwater 2.3 and 6.4 ×2 to MR. VAN DER MERWE,
+    load-shedding 5.4 "She blows out the last candle." to MS. MOLEFE, the-red-kite 5.4 "He switches
+    off the soldering iron." to MOKGOSI) and 1 left out (lost-property 2.3), each read against the
+    script: **all 6 right**; 2 left as they are (a cast person of unknown sex, or no cast) and 44
+    kept as they were (the prototype did not leave out off-screen speakers;
+    the code PR re-measures with the real rule).
 - **Entity quotes from outside the shot never enter a prompt.** A character's introduction ("NANDI
   (60s, oilskin coat) pours tea…") or a prop's first mention carries that moment's event, so quoting
   it into another shot draws an event this shot doesn't have. A quote located *inside* a covered
@@ -810,7 +864,19 @@ PLACEMENT_PHRASES: frozenset[str] = frozenset({"one figure on the left, one on t
 OFF_SCREEN_MARKS: tuple[str, ...] = ("V.O.", "O.S.", "O.C.", "OFF")   # comic.md §3's list
 def heading_span(scene: Scene) -> Span: ...             # Span(scene.span.page, scene.span.line_start, scene.span.line_start)
 def time_source(scenes: Sequence[Scene], scene_index: int) -> int | None: ...   # the scene resolve_times took the clock from
-def visible_characters(shot: Shot, screenplay: Screenplay, extraction: Extraction) -> tuple[str, ...]: ...  # §3.1; people in shot.characters (no animals), same order (T052: the screenplay, for pairing, and the extraction)
+def visible_characters(shot: Shot, screenplay: Screenplay, extraction: Extraction) -> tuple[str, ...]: ...  # §3.1; people in shot.characters (no animals), same order (T052: the screenplay, for pairing, and the extraction); T093: with no one else on screen, `pronoun_figure`'s person
+def pronoun_sentences(text: str) -> tuple[tuple[str, Sex | None], ...]: ...   # T093, pure: `text` (already redacted and collapsed) split at SENTENCE_END, in order (joined by one space they give `text` back), each with the sex of an opening exact "He"/"She", else None
+def _shown_characters(shot: Shot, screenplay: Screenplay, extraction: Extraction) -> tuple[str, ...]: ...   # T093: today's visible_characters body, Listeners included
+def pronoun_figure(shot: Shot, screenplay: Screenplay, extraction: Extraction) -> str | None: ...
+#   T093: only when _shown_characters is empty (never calls visible_characters): the one candidate
+#   (shot.characters, no animal, no off-screen speaker of the shot) whose sex every covered He/She piece
+#   gives, when every candidate's sex is known (character_sex) and exactly one has it; else None
+# visible_characters, T093: _shown_characters' result if not empty, else (pronoun_figure,) if a name, else ()
+# build_frame_prompt, T093: a He/She piece whose sex no person of visible_characters' final result has (all
+#   their sexes known) is left out; an element's kept pieces become one ACTION part per consecutive run,
+#   the one-space join, same span, in element then sentence order; an element with none left gives no part
+
+# app/grounding/__init__.py, T093: SENTENCE_END (filter.py's _SENTENCE_END, renamed and exported; _pronoun_pieces uses it)
 def build_frame_prompt(shot: Shot, screenplay: Screenplay, extraction: Extraction, style: Style, *,
                        max_words: int, placement: str | None = None) -> FramePrompt: ...
 #   placement must be in PLACEMENT_PHRASES (else ValueError); T026 passes None, T025 passes
@@ -993,6 +1059,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | Dialogue in the prompt | never; speakers enter as the `COUNT` and, with T025, as references | the speech text: not visible, and the surest way to get letters in the art (hard `TEXT_IN_FRAME`) |
 | Camera movement in the prompt | never; printed under the frame | FrameFlow's movement words: a still can't pan, and "handheld" reads as blur |
 | Entity quotes | only as the covered elements' own text; nothing from outside the shot; appearance comes from T025's reference portrait | a character's first descriptive quote or a prop's first mention: each is an introduction that carries its own moment's event ("pours tea") into a shot that doesn't have it, which the audit then fails (`UNSCRIPTED_OBJECT`). **Cost:** until T025, a dialogue-only shot is drawn from its setting, time and figure count alone |
+| A sentence whose subject is only He or She (T093; Tumo, 2026-10-13) | drawn on the one cast person of that sex when no one else is on screen; left out when no drawn figure has that sex; every sex known, else nothing changes. **Consequence:** the pronoun figure is on screen for the audit, so `NO_CHARACTER` (hard) now applies to those shots | dropping every pronoun-subject sentence: 44 of the 52 measured are about the drawn figure, and the shot's action would go; resolving a pronoun across dialogue to its speaker or listener: "Keep it. You earned it." / "He looks at the ball." needs who is spoken to, which the script doesn't mark (L016's T088 note); asking the describer or judge who did what: an audit can't see a salute |
 | Figure count | `visible_characters`: planner characters the covered elements show on screen. Loose on shared name tokens ("JOHN SMITH"/"JOHN DOE") and possessives ("reads NANDI's letter"); both only change the count word | `len(shot.characters)`: the planner lists who it thinks fits, and `V.O.`/`O.S.` speakers aren't in the frame. **Known effect:** verify.md's soft `MISSING_CHARACTER` checks `shot.characters`, so a shot with an off-screen speaker ends `WARNED` with a `missing_character` note; accepted (it's soft and true), see §10 |
 | Unextracted names | accepted residual risk, pinned by a test | redacting every ALL-CAPS word: sound effects and emphasis ("SLAM", "NOW") are written the same way and would become "a person" |
 | Over-long prompts | drop whole parts from the tail, then cut the last kept part at a sentence end or word | cutting mid-word or mid-quote at random; letting the encoder truncate silently (it drops the end, whatever is there) |
@@ -1148,6 +1215,24 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   goalkeeper"), `O'BRIEN` not possessive; "LIONESSES 1 - EAGLES 1" false; "Jabu's paper. Jabu
   covers it" true. `_name_runs` gives the runs `_redact` replaces on every existing redaction
   fixture. Every existing redaction test unchanged.
+- **T093** (`tests/storyboard/test_t093.py`, tests first): `pronoun_sentences` splits at `. ! ?`
+  but not after `Mr.` ("Mr. Dube nods. She waves." is two pieces), joined by one space gives the
+  text back, and marks only an exact opening `He`/`She` ("Hesitant, she…", "Then he…", "They…",
+  `"He…` give None; `"Go." He nods.` is one piece); it reads the redacted text (a name redacted at a
+  sentence's start leaves no He). Rule 1: a shot covering only "He looks at the ball. He puts it in
+  his pocket." with cast `[MR. VAN DER MERWE]` (male by title) draws him: COUNT "one figure", his
+  AGE and LOOK, which pass `cites_this_shot`; a second male cast person, one of unknown sex, mixed
+  He and She pieces, an animal as the only cast, or the only male being the shot's off-screen
+  speaker: no one drawn; a Listeners shot (T079) that returns people is unchanged, and rule 2 then
+  reads those listeners. Rule 2: a She piece with only a male figure drawn is left out and the
+  element's other pieces stay as separate ACTION parts in element and sentence order, each passing
+  `cites_this_shot`; with He and She pieces and a man drawn, only the She piece goes; a She piece
+  with a figure of unknown sex stays; an element whose every piece is left out gives no ACTION
+  part and `trimmed` is unchanged, and so does a shot where every element goes; on a split element
+  over budget, a tail run is dropped and the first run cut at a sentence end, `trimmed` counting
+  each. The audit's `on_screen` and `report.py`'s rebuilt prompt agree with `build_frame_prompt`
+  (the pronoun figure included). Every existing prompt test and the invariant test unchanged. Free:
+  the §3.1 numbers re-measured by the real code on the stored plans with T092 built.
 
 ## 10. Open questions
 
