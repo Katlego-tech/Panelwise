@@ -224,6 +224,23 @@ def _shown_characters(
 # A character introduced the way screenplays do: `NAME (` and an age in years (T074). A number, an
 # optional `s`, an optional years word, then , ; or ): `(5 months)` is no age.
 def _introduction(character: str, screenplay: Screenplay) -> tuple[Action, re.Match[str]] | None:
+    # One scan per character and screenplay: every prompt part asks again (see _names_cache).
+    entry = _intro_cache[0] if _intro_cache else None
+    if entry is None or entry[0] is not screenplay:
+        found: dict[str, tuple[Action, re.Match[str]] | None] = {}
+        entry = (screenplay, found)
+        _intro_cache[:] = [entry]
+    if character not in entry[1]:
+        entry[1][character] = _scan_introduction(character, screenplay)
+    return entry[1][character]
+
+
+_intro_cache: list[tuple[Screenplay, dict[str, tuple[Action, re.Match[str]] | None]]] = []
+
+
+def _scan_introduction(
+    character: str, screenplay: Screenplay
+) -> tuple[Action, re.Match[str]] | None:
     pattern = re.compile(
         rf"(?<![A-Za-z0-9]){re.escape(character)}\s*\(\s*(\d{{1,3}})(s?)"
         rf"\s*(?:years?[- ]old|yrs?|yo|y/o)?\s*[,;)]"
@@ -239,6 +256,22 @@ def _other_names(character: str, screenplay: Screenplay) -> frozenset[str]:
     """Other characters' name words, lower case (T079 review): every dialogue cue and every
     `NAME (` introduction, less `character`'s own words and titles. Props in capitals (RED KITE)
     are neither, so they bound nothing."""
+    own = set(character.lower().split())
+    return frozenset(w for w in _name_words(screenplay) - own - _TITLES if len(w) > 1)
+
+
+# The last screenplay's name words: a prompt asks for them per character and per shot, and
+# scanning a whole feature each time made the invariant test take minutes. Held by identity,
+# with the screenplay itself, as labels.py's scene words are, so a new screenplay never reads a
+# stale entry.
+_names_cache: list[tuple[Screenplay, frozenset[str]]] = []
+
+
+def _name_words(screenplay: Screenplay) -> frozenset[str]:
+    """Every word of every dialogue cue and `NAME (` introduction, lower case."""
+    entry = _names_cache[0] if _names_cache else None  # one read: another thread may replace it
+    if entry is not None and entry[0] is screenplay:
+        return entry[1]
     names: set[str] = set()
     for scene in screenplay.scenes:
         for element in scene.elements:
@@ -246,9 +279,9 @@ def _other_names(character: str, screenplay: Screenplay) -> frozenset[str]:
                 names.add(element.cue)
             else:
                 names.update(m.group(1) for m in _INTRODUCED.finditer(element.text))
-    own = set(character.lower().split())
-    words = {w for n in names for w in re.findall(r"[a-z]+", n.lower())}
-    return frozenset(w for w in words - own - _TITLES if len(w) > 1)
+    words = frozenset(w for n in names for w in re.findall(r"[a-z]+", n.lower()))
+    _names_cache[:] = [(screenplay, words)]
+    return words
 
 
 _INTRODUCED = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Z'. -]*[A-Z])\s*\(\s*\d")

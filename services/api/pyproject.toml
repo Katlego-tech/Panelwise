@@ -40,6 +40,9 @@ venv = ".venv"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+# In parallel, one database per worker (tests/conftest.py); a test that hangs fails after five
+# minutes with its traceback, instead of the CI job being cancelled at 20 with no trace.
+addopts = "-n auto --timeout=300"
 markers = ["db: needs a Postgres (TEST_DATABASE_URL); the gate provides one"]
 
 [dependency-groups]
@@ -48,5 +51,7 @@ dev = [
     "pyright>=1.1.414",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pytest-timeout>=2.3",
+    "pytest-xdist>=3.6",
     "ruff>=0.16.9",
 ]

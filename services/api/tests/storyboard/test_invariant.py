@@ -74,11 +74,17 @@ def every_shot(
             if e.kind is EntityKind.CHARACTER and scene.index in e.scenes
         ]
         n = len(scene.elements)
+        # named_in_action over a range is the union over its elements, in extraction order.
+        each: list[set[str]] = [
+            set(named_in_action(scene, [i], extraction, screenplay)) if backfilled else set[str]()
+            for i in range(n)
+        ]
+        order = [e.name for e in extraction.entities]
         for first in range(n):
             for last in range(first, n):
                 covered = range(first, last + 1)
-                named = named_in_action(scene, covered, extraction, screenplay)
-                own = [*cast, *(c for c in named if c not in cast)] if backfilled else cast
+                named = sorted(set[str]().union(*each[first : last + 1]), key=order.index)
+                own = [*cast, *(c for c in named if c not in cast)]
                 yield shot_of(
                     screenplay, scene.index, covered, characters=own,
                     time_of_day=times[scene.index], framing=next(framings),
@@ -131,6 +137,13 @@ def keyed(text: str, character: str, intro: str | None, extraction: Extraction) 
     return False
 
 
+@cache
+def redacted(text: str, names: tuple[str, ...]) -> str:
+    """`redact_all`, normalised, once per text: the same lines are checked for every shot that
+    covers them, and redacting them again each time made this file take minutes."""
+    return norm(redact_all(text, list(names)))
+
+
 def check(
     prompt: FramePrompt,
     shot: Shot,
@@ -140,7 +153,7 @@ def check(
     max_words: int,
 ) -> None:
     scene = screenplay.scenes[shot.scene_index]
-    names = characters(extraction)
+    names = tuple(characters(extraction))
     heading = Span(scene.span.page, scene.span.line_start, scene.span.line_start)
     covered = {scene.elements[i].span: scene.elements[i] for i in shot.elements}
     fixed = {
@@ -212,7 +225,7 @@ def check(
                 e.text for s in screenplay.scenes for e in s.elements if e.span == part.span
             )
             for item in text.split(", "):
-                assert norm(item) in norm(redact_all(line, names)), f"{where}: {part}"
+                assert norm(item) in redacted(line, names), f"{where}: {part}"
             continue
         elif part.kind is K.ACTION:
             element = covered.get(part.span)
@@ -220,7 +233,7 @@ def check(
             source = element.text
         else:
             raise AssertionError(f"{where}: a {part.kind} part with a span")
-        assert norm(text) in norm(redact_all(source, names)), f"{where}: {part}"
+        assert norm(text) in redacted(source, names), f"{where}: {part}"
 
     whole = prompt.text()
     # No name, in the form screenplays write names (a lower-case common word is not one).
@@ -229,16 +242,14 @@ def check(
     assert not named, f"{where}: names {named} in {whole!r}"
     # No speech and no parenthetical, from anywhere in the script, unless a covered action line
     # happens to say the same words (both redacted: "Van Wyk." and "VAN WYK" are "a person").
-    actions = " | ".join(
-        norm(redact_all(e.text, names)) for e in covered.values() if isinstance(e, Action)
-    )
+    actions = " | ".join(redacted(e.text, names) for e in covered.values() if isinstance(e, Action))
     for other in screenplay.scenes:
         for element in other.elements:
             if not isinstance(element, Dialogue):
                 continue
             for said in (element.text, element.parenthetical or ""):
-                if len(said.split()) >= 2 and norm(redact_all(said, names)) not in actions:
-                    assert norm(redact_all(said, names)) not in norm(whole), f"{where}: {said!r}"
+                if len(said.split()) >= 2 and redacted(said, names) not in actions:
+                    assert redacted(said, names) not in norm(whole), f"{where}: {said!r}"
     assert norm(SENTINEL_RATIONALE) not in norm(whole)
     assert len(whole.split()) <= max_words
 

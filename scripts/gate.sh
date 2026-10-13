@@ -14,6 +14,12 @@
 #   bash scripts/gate.sh --changed-files <path>   # sweep only the paths listed in <path>
 #   bash scripts/gate.sh --list                   # print what it would run, run nothing
 #   bash scripts/gate.sh --install-deps           # install every project's deps (CI uses this)
+#   bash scripts/gate.sh --stage python|node|repo  # one stage only (CI runs the three at once)
+#
+# Stages: python (each Python project's ruff, pyright and pytest, with the test Postgres), node
+# (each Node project's lint, test and build), repo (the placeholder and secret sweeps, the
+# vulnerability scan, the duplication check and the image builds). With no --stage, all three,
+# one after the other -- the pre-push hook. A stage that runs zero checks fails, as the gate does.
 #
 # Exit codes: 0 = every applicable check ran and passed. 1 = something failed, or a
 # check that should have run could not run. There is deliberately no third state --
@@ -47,12 +53,17 @@ cd "$root"
 changed_files_list=""
 list_only=0
 install_only=0
+stage=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --changed-files) changed_files_list="${2:-}"; shift 2 ;;
     --list)          list_only=1; shift ;;
     --install-deps)  install_only=1; shift ;;
+    --stage)
+      stage="${2:-}"; shift 2
+      case "$stage" in python|node|repo) ;; *) echo "gate.sh: --stage is python, node or repo, not '$stage'" >&2; exit 2 ;; esac
+      ;;
     -h|--help)       sed -n '2,36p' "$0"; exit 0 ;;
     *) echo "gate.sh: unknown argument '$1'" >&2; exit 2 ;;
   esac
@@ -778,11 +789,14 @@ start_test_postgres() {
 }
 
 # ------------------------------------------------------------------ run -----
-say "== gate: $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD) =="
+# Whether this run includes a stage: every stage when --stage is not given.
+want() { [ -z "$stage" ] || [ "$stage" = "$1" ]; }
+
+say "== gate: $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD)${stage:+ (stage $stage)} =="
 
 # Once, before the per-project checks, so every pyrun subshell inherits TEST_DATABASE_URL; never
 # for --list or --install-deps.
-if [ "$install_only" -eq 0 ] && [ "$list_only" -eq 0 ]; then
+if [ "$install_only" -eq 0 ] && [ "$list_only" -eq 0 ] && want python; then
   while IFS= read -r dir; do
     if is_python_project "$dir"; then
       step "test Postgres"
@@ -798,8 +812,10 @@ while IFS= read -r dir; do
   if [ "$install_only" -eq 1 ]; then
     install_deps "$dir" "$rel"
   else
-    check_python      "$dir" "$rel"
-    check_node        "$dir" "$rel"
+    # A stage skips another stage's checks but still counts its manifests, so "no project
+    # manifest" and "zero checks ran" mean the same in a stage as in the whole gate.
+    if want python; then check_python "$dir" "$rel"; elif is_python_project "$dir"; then manifests=$((manifests + 1)); fi
+    if want node; then check_node "$dir" "$rel"; elif [ -f "$dir/package.json" ]; then manifests=$((manifests + 1)); fi
     collect_lockfiles "$dir" "$rel"
   fi
 done < <(project_dirs)
@@ -831,12 +847,14 @@ if [ "$list_only" -eq 1 ]; then
   exit 0
 fi
 
+if want repo; then
 placeholder_sweep
 secret_sweep
+fi
 
 # Both look at the whole repo rather than one project, so they run once, and only once
 # there is a project to look at.
-if [ "$manifests" -gt 0 ]; then
+if [ "$manifests" -gt 0 ] && want repo; then
   [ "${#LOCKFILES[@]}" -gt 0 ] && vuln_scan
   duplication_check
   while IFS= read -r dir; do
@@ -878,5 +896,5 @@ if [ "$fail" -ne 0 ]; then
 fi
 
 say ""
-say "== gate passed ($ran check(s) run across $manifests project(s)) =="
+say "== gate passed ($ran check(s) run across $manifests project(s))${stage:+ in stage $stage} =="
 exit 0
