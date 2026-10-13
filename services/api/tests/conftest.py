@@ -2,8 +2,13 @@
 
 `TEST_DATABASE_URL` names it. `scripts/gate.sh` starts a throwaway Postgres 17.11 and sets it, with
 `PANELWISE_REQUIRE_DB=1`: under the gate a missing database fails the run; by hand it skips.
+
+Tests run in parallel (pytest-xdist, `-n auto` in pyproject.toml). Each worker truncates every
+table before each test, so each worker gets a database of its own on the same server, named after
+it (`panelwise_test` -> `panelwise_gw0_test`), created when missing and migrated once.
 """
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -40,7 +45,26 @@ def database_url() -> str:
     name = make_url(url).database or ""
     if not name.endswith("_test"):
         pytest.fail(f"TEST_DATABASE_URL must name a database ending in _test, not {name!r}")
-    return url
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    if not worker:
+        return url
+    own = f"{name.removesuffix('_test')}_{worker}_test"
+    asyncio.run(_create_database(url, own))
+    return make_url(url).set(database=own).render_as_string(hide_password=False)
+
+
+async def _create_database(url: str, name: str) -> None:
+    """`name` on the server `url` points at, created if it isn't there yet."""
+    engine = create_async_engine(url, isolation_level="AUTOCOMMIT")
+    try:
+        async with engine.connect() as conn:
+            found = await conn.scalar(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": name}
+            )
+            if found is None:
+                await conn.execute(text(f'CREATE DATABASE "{name}"'))
+    finally:
+        await engine.dispose()
 
 
 @pytest.fixture(scope="session")

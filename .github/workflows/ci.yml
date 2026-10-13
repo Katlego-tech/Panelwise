@@ -45,9 +45,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gate:
+  # The gate's three stages at once (gate.sh --stage): the Python checks and tests, the Node
+  # checks and build, and the whole-repo sweeps and image build. Each job runs the same gate.sh
+  # the hook runs, one stage of it; the pre-push hook runs all three in a row.
+  stage:
+    name: gate (${{ matrix.stage }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [python, node, repo]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -149,5 +157,17 @@ jobs:
           fi
           echo "$(wc -l < /tmp/changed.txt) file(s) in the change set"
 
-      - name: Run the gate
-        run: bash scripts/gate.sh --changed-files /tmp/changed.txt
+      - name: Run the gate's ${{ matrix.stage }} stage
+        run: bash scripts/gate.sh --stage ${{ matrix.stage }} --changed-files /tmp/changed.txt
+
+  # One check named "gate", as before the stages: green only when every stage is.
+  gate:
+    needs: stage
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every stage passed
+        run: |
+          echo "stages: ${{ needs.stage.result }}"
+          test "${{ needs.stage.result }}" = success

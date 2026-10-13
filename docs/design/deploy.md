@@ -302,6 +302,10 @@ has Docker; `ci.yml` needs no service of its own):
 - **Safety:** the fixture refuses (fails) any `TEST_DATABASE_URL` whose database name doesn't end
   in `_test`, so pointing it at Supabase or the dev database can never wipe it. The gate's container
   creates `panelwise_test`.
+- **In parallel** (pytest-xdist, `-n auto`): each worker uses its own database on the same server,
+  `<name>_<worker>_test` (`panelwise_gw0_test`, …), created when missing and migrated once, so a
+  caller-supplied `TEST_DATABASE_URL`'s role needs `CREATEDB` (the gate's container uses the
+  superuser). Debugging one test by hand (`--pdb`, `-s`): add `-n0`.
 - **Where in the gate:** started once, before the per-project checks (so every `pyrun` subshell
   inherits the export), and only when a Python project has tests to run: never for `--list` or
   `--install-deps`. The host port is Docker's choice (`-p 127.0.0.1::5432`), read back with
