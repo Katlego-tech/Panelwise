@@ -41,6 +41,7 @@ def report(plan: ShotPlan, screenplay: Screenplay, extraction_usage: Usage) -> t
         f"{'yes' if partitioned else 'NO'}",
         f"repaired     {r.ranges_repaired} ranges; dropped {r.characters_dropped} character and "
         f"{r.props_dropped} prop names not in the scene",
+        f"added        {r.characters_added} characters an action line names (T092)",
         f"model        {', '.join(plan.models)}  planning tokens in={u.prompt_tokens} "
         f"out={u.completion_tokens} reasoning={u.reasoning_tokens} (extraction in="
         f"{extraction_usage.prompt_tokens} out={extraction_usage.completion_tokens})",

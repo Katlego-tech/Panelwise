@@ -19,6 +19,7 @@ from app.characters.sex import CONFLICT_WORDS, SEX_TITLES
 from app.grounding import EntityKind, Extraction, normalize_for_grounding
 from app.script import ABSOLUTE_TIMES, Action, Dialogue, Screenplay, Span, parse_pdf, resolve_times
 from app.shots import Framing, Shot
+from app.shots.planner import named_in_action
 from app.storyboard import (
     FRAMING_WORDS,
     PUBLIC_STYLES,
@@ -59,7 +60,11 @@ def characters(extraction: Extraction) -> list[str]:
     return [e.name for e in extraction.entities if e.kind is EntityKind.CHARACTER]
 
 
-def every_shot(screenplay: Screenplay, extraction: Extraction) -> Iterator[Shot]:
+def every_shot(
+    screenplay: Screenplay, extraction: Extraction, *, backfilled: bool = False
+) -> Iterator[Shot]:
+    """Every range of every scene. `backfilled` (T092): each shot's cast gains the characters
+    its covered action lines name, as the planner adds them."""
     times = resolve_times(screenplay.scenes)
     framings = cycle(Framing)
     for scene in screenplay.scenes:
@@ -71,8 +76,11 @@ def every_shot(screenplay: Screenplay, extraction: Extraction) -> Iterator[Shot]
         n = len(scene.elements)
         for first in range(n):
             for last in range(first, n):
+                covered = range(first, last + 1)
+                named = named_in_action(scene, covered, extraction, screenplay)
+                own = [*cast, *(c for c in named if c not in cast)] if backfilled else cast
                 yield shot_of(
-                    screenplay, scene.index, range(first, last + 1), characters=cast,
+                    screenplay, scene.index, covered, characters=own,
                     time_of_day=times[scene.index], framing=next(framings),
                     rationale=SENTINEL_RATIONALE,
                 )  # fmt: skip
@@ -246,6 +254,21 @@ def test_every_script_part_of_every_prompt_cites_this_shot(
     for shot in every_shot(screenplay, extraction):
         prompt = build_frame_prompt(shot, screenplay, extraction, style, max_words=budget)
         check(prompt, shot, screenplay, extraction, style, budget)
+        shots += 1
+    assert shots > 0
+
+
+@pytest.mark.parametrize("name", sorted(NON_SPEAKERS))
+def test_the_invariant_holds_on_backfilled_casts(name: str) -> None:
+    """T092: the planner adds whoever a covered action line names; the prompt still cites only
+    this shot."""
+    screenplay, extraction = sample(name)
+    shots = 0
+    for shot in every_shot(screenplay, extraction, backfilled=True):
+        prompt = build_frame_prompt(
+            shot, screenplay, extraction, PUBLIC[0], max_words=DEFAULT_BUDGET
+        )
+        check(prompt, shot, screenplay, extraction, PUBLIC[0], DEFAULT_BUDGET)
         shots += 1
     assert shots > 0
 

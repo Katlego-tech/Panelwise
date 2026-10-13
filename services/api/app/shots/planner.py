@@ -12,9 +12,11 @@ from collections.abc import Sequence
 
 from pydantic import ValidationError
 
+from app.characters.labels import redaction_labels
+from app.characters.redact import named_as_figure
 from app.grounding import EntityKind, Extraction
 from app.llm import LLMError, NebiusChatModel, StructuredResult, Tier, Usage, structured_chat
-from app.script import Dialogue, Scene, Screenplay, Span, match_speaker, resolve_times
+from app.script import Action, Dialogue, Scene, Screenplay, Span, match_speaker, resolve_times
 from app.shots.model import Framing, Movement, PlanReport, Shot, ShotError, ShotPlan
 from app.shots.schema import ProposedShot, ScenePlan
 
@@ -120,6 +122,25 @@ def _keep(proposed: Sequence[str], allowed: Sequence[str]) -> tuple[tuple[str, .
     return tuple(kept), dropped
 
 
+def named_in_action(
+    scene: Scene, elements: Sequence[int], extraction: Extraction, screenplay: Screenplay
+) -> tuple[str, ...]:
+    """Every character a covered Action element names as a figure, in extraction order (T092,
+    shots.md §3): its own and paired names' tokens, less any token another character also has."""
+    characters = [e.name for e in extraction.entities if e.kind is EntityKind.CHARACTER]
+    tokens = {c: frozenset(redaction_labels(extraction, screenplay, only=c)) for c in characters}
+    shared = {
+        t
+        for c in characters
+        for t in tokens[c]
+        if any(t in tokens[o] for o in characters if o != c)
+    }
+    texts = [e.text for i in elements if isinstance(e := scene.elements[i], Action)]
+    return tuple(
+        c for c in characters if any(named_as_figure(t, tokens[c] - shared) for t in texts)
+    )
+
+
 async def plan_shots(
     model: NebiusChatModel,
     screenplay: Screenplay,
@@ -159,7 +180,7 @@ async def plan_shots(
     results = {index: task.result() for index, task in tasks.items()}
 
     shots: list[Shot] = []
-    repaired = chars_dropped = props_dropped = 0
+    repaired = chars_dropped = props_dropped = chars_added = 0
     for scene in screenplay.scenes:
         time = times[scene.index]
         if not scene.elements:
@@ -194,6 +215,15 @@ async def plan_shots(
             props, p_drop = _keep(p.props if p else [], allowed_props)
             chars_dropped += c_drop
             props_dropped += p_drop
+            # T092: whoever a covered action line names is in frame, offered or not.
+            named = range(first, last + 1)
+            added = tuple(
+                c
+                for c in named_in_action(scene, named, extraction, screenplay)
+                if c not in characters
+            )
+            characters += added
+            chars_added += len(added)
             covered = scene.elements[first : last + 1]
             shots.append(
                 Shot(
@@ -222,6 +252,7 @@ async def plan_shots(
             ranges_repaired=repaired,
             characters_dropped=chars_dropped,
             props_dropped=props_dropped,
+            characters_added=chars_added,
         ),
         models=tuple(dict.fromkeys(c.model for c in chats)),
         usage=Usage(
