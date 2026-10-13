@@ -95,13 +95,18 @@ classDiagram
   allowed entity (`match_speaker`, so "Thabo" finds "THABO MOLEFE") is dropped and counted.
 - **A character the shot's own action names is in its cast (T092).** After the model's names are
   filtered, every `CHARACTER` entity (person or animal) that a covered `Action` element names **as
-  a figure** is appended, in extraction order, and counted in `characters_added`; this is the one
+  a figure** is appended after the model's names (the model's order first, then extraction order),
+  and counted in `characters_added`, per shot (a name in two shots counts twice); this is the one
   way a name joins a shot without being in `entity.scenes`, because the extraction's `scenes` are
-  incomplete (learning-log L019: in the stored plans of seven scripts, 45 times in 266 shots a shot left out a
+  incomplete (learning-log L019, added by #160: in the stored plans of seven scripts, 45 times in 266 shots a shot left out a
   character its own action names, 38 because the planner was never offered the character).
   "Names as a figure" is `named_as_figure(element.text, tokens)` (storyboard.md §3.1), with the
   character's tokens from `redaction_labels(extraction, screenplay, only=name)`, the same ones
-  `visible_characters` uses, so a backfilled character is one the prompt will also count as drawn:
+  `visible_characters` uses, so a backfilled person is one the prompt will also count as drawn (an
+  animal joins the cast, as the judge's "Animals in this shot", but is never a figure), **less
+  every token another `CHARACTER` entity also has**: "Dube winds his watch" with MR. DUBE and MRS.
+  DUBE both in the extraction adds neither (the model may still list one). No stored script has a
+  shared token today, so this changes none of the 40 below:
   - a **Title-case** run ("Lindi rolls the ball out to Palesa.", "Mr. Van der Merwe climbs down"),
     or an **UPPER-case run directly followed by `(`**, an introduction ("AYANDA (17), braids");
   - **never a possessive** run ("The Lionesses' goalkeeper, LINDI", "He looks across at Jabu's
@@ -112,7 +117,9 @@ classDiagram
   Measured free on the same stored plans (prototype): 40 characters added in 28 of 181 shots,
   every one read: 38 are people the line puts there; 2 are groups the extraction made characters
   (EAGLES in "The Eagles build a wall.", LIONESSES in "The Lionesses pile on top of Lindi."), which
-  L017 is about, not this.
+  L017 is about, not this: until L017 is fixed, they add a drawn figure to those two shots.
+  **Known cost:** a Title-case common word that is also a character's name ("Hope fades.", "Grace
+  fills the room.") already redacts as a name; now it also joins the cast.
 - **`time_of_day`**: `resolve_times(screenplay.scenes)[scene_index]`, never the model's.
 - **`rationale`**: the model's one-line reason for the framing. Metadata for the reader, never
   drawn and never used in an image prompt.
@@ -181,7 +188,8 @@ def named_in_action(scene: Scene, elements: Sequence[int], extraction: Extractio
                     screenplay: Screenplay) -> tuple[str, ...]: ...
 #   T092, pure: every CHARACTER entity's name, in extraction order, that some covered Action element
 #   names as a figure (`named_as_figure(element.text, tokens)`, tokens = the keys of
-#   `redaction_labels(extraction, screenplay, only=name)`, else `name_tokens([name])`). plan_shots
+#   `redaction_labels(extraction, screenplay, only=name)` less every token another CHARACTER entity
+#   has); `elements` are the shot's covered indexes, nothing outside them is read. plan_shots
 #   appends the ones not already kept, after `_keep`, and adds their count to characters_added.
 ```
 
@@ -235,6 +243,14 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   `entity.scenes` still joins (the L019 case: "Mr. Van der Merwe climbs down" in a scene whose
   allowed list lacks him); an animal joins ("Marmalade leaves in disgust."); a paired other name
   counts as its character's; an older stored `PlanReport` with no `characters_added` loads as 0.
+  Also: a name in an Action element outside the shot's range doesn't join; the model's
+  `["PALESA"]` with an action naming LINDI then PALESA → `("PALESA", "LINDI")`; the name the model
+  already gave adds nothing (`characters_added == 0`); a name in two shots of one scene is counted
+  in each; a token shared by two characters (MR. DUBE, MRS. DUBE; "Dube winds his watch") adds
+  neither; a shot whose model listed no one gets the named ones; and at the prompt: stormwater
+  3.1's fixture with the backfilled cast has COUNT "three figures" and MR. VAN DER MERWE's AGE part
+  citing his introduction. `tests/storyboard/test_invariant.py`'s `every_shot` gains a case whose
+  cast is the planner's plus `named_in_action`'s, so the invariant is checked on backfilled casts.
   Free: the prototype's 40 additions reproduced by the real code on the stored plans (re-planning
   is not needed: `named_in_action` on each stored shot's elements).
 
