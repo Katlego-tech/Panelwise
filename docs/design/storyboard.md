@@ -202,6 +202,19 @@ truncates drops the tail.
   action-line mention with that one character's labels (its name and paired other names). `COUNT`
   and `PLACEMENT`'s "exactly two" both use it, so a cat is never a figure; the action line that
   names it already says "the cat" after redaction.
+- **A sex noun in the introduction's appositive (T096).** `introduced_sex` also reads the
+  introducing sentence up to the name (the sentence starts after the last `. ! ?` before it). When it
+  opens with `A` or `An`, then at most three words, then a sex noun (`SEX_WORDS` less the pronouns:
+  boy, girl, man, woman, …), then **at most six words with no second sex noun and no `(`** up to a
+  comma directly before the name and its `(` ("A boy in a too-big school blazer, THABO (9)", "A small
+  boy, KAMO (7)"), that noun's sex is one more of the introduction's sources, and the one-sex rule
+  still holds (a noun and a pronoun that disagree give None). The bounds keep a clause about someone
+  else out: "A man helps a girl, AMA (7)" and "A boy, THABO (9), and a girl, AMA (7)" give AMA
+  nothing (a safe miss). **The invariant** (below) gains a fourth key: a sex noun of that sex before
+  the name in the introducing line. **Measured** free on the eight read samples: 2 found, both right
+  (THABO, KAMO, the scripts it was found on), 0 wrong, and a looser form (the article anywhere in the
+  sentence, no bounds after the noun) finds the same two. Not covered: "His young colleague, SIBUSISO
+  (20s)" (no sex noun), "A WOMAN WITH A PRAM" (the noun is the name: L017).
 - **A He or She with no one drawn, or against everyone drawn (T093; learning-log L016).** The
   prompt keeps action sentences whole, so a sentence whose subject is only a pronoun is drawn on
   whoever klein draws.
@@ -272,8 +285,8 @@ in their <n>s", and `<n>` stands in that element in a parenthesis right after th
 age is who the character is, not another moment's event, as a borrowed clock is when; T079: with the
 sex word `introduced_sex` reads there, the code's fixed vocabulary keyed by the script's own pronoun
 (**T088:** any `sex_quote` holding a `SEX_WORDS` word or `his`, `her`, `him` or `hers` of that sex (`CONFLICT_WORDS`): T088's evidence (grounding.md §3) may name the sex only by a possessive; **T082:** or keyed by a word of the character's name (a title), or of `Entity.sex_quote`, a located Action
-quote: the invariant test checks that the sex word of every `AGE` and `SEX` part is keyed by a word in one of
-those three); `SEX` (T082), whose span is `Entity.sex_quote`'s (a located Action quote, which may lie outside the
+quote; **T096:** or a sex noun before the name in the introducing line: the invariant test checks that the sex word of every `AGE` and `SEX` part is keyed by a word in one of
+those four); `SEX` (T082), whose span is `Entity.sex_quote`'s (a located Action quote, which may lie outside the
 shot) or, for a title, the character's first located quote's, and whose text is the code's fixed "a female
 person" / "a male person": like `AGE`'s phrase, it is outside the substring test, and only the keyed sex, never
 the quote's words, enters the prompt;
@@ -1233,6 +1246,15 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   each. The audit's `on_screen` and `report.py`'s rebuilt prompt agree with `build_frame_prompt`
   (the pronoun figure included). Every existing prompt test and the invariant test unchanged. Free:
   the §3.1 numbers re-measured by the real code on the stored plans with T092 built.
+
+- **T096** (`tests/storyboard/test_t096.py`): "A boy in a too-big school blazer, THABO (9),
+  stands." → male; "A small boy, KAMO (7)" → male; "A small girl, AMA (7)" → female; "An old woman,
+  NANDI (60s)" → female; after another sentence ("Six learners wait. A tall girl, ZOLA (17)") →
+  female; "The boy, THABO (9)", four words before the noun, more than six after it, a second sex noun
+  ("A woman hands the boy a letter, THABO (9)", "A man helps a girl, AMA (7)"), two appositives in
+  one sentence, a noun after the name, and a noun and a pronoun that disagree give None; THABO's
+  prompt reads "a 9-year-old boy" and passes `cites_this_shot`; the invariant test's `keyed` takes the
+  appositive noun.
 
 ## 10. Open questions
 
