@@ -14,6 +14,7 @@ from app.shots import PlanReport, plan_shots
 from app.shots.planner import named_in_action
 from app.storyboard.prompt import build_frame_prompt
 from app.storyboard.prompts import cites_this_shot
+from app.storyboard.styles import Style, StyleOrigin
 from tests.script.conftest import ACTION, CUE, DIALOGUE, Row, heading, layout
 
 MODELS = {Tier.FAST: "fast-model", Tier.REASONING: "r", Tier.VISION: "v"}
@@ -206,11 +207,7 @@ async def test_the_backfilled_shot_draws_and_cites_the_named() -> None:
     plan = await plan_shots(make(), sp, ex)
     climb = plan.shots[4]
     assert "MARMALADE" in climb.characters  # an animal joins the cast, never a figure
-    from app.storyboard.styles import Style, StyleOrigin
-
-    style = Style(
-        "s", "S", "d", "storyboard sketch", "", None, "", True, True, StyleOrigin.PUBLIC
-    )
+    style = Style("s", "S", "d", "storyboard sketch", "", None, "", True, True, StyleOrigin.PUBLIC)
     prompt = build_frame_prompt(climb, sp, ex, style, max_words=80)
     text = ", ".join(p.text for p in prompt.parts)
     assert "one figure" in text
