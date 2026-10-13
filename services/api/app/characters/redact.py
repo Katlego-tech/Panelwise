@@ -49,6 +49,12 @@ TITLE_WORDS = frozenset(
 # Only abbreviations take a full stop: "the OFFICER. Moloi turns" is a sentence end, not a title.
 _ABBREVIATIONS = frozenset({"MR", "MRS", "MS", "DR"})
 
+# Lower-case words that join a name's run between two name words when they are its tokens (T092,
+# storyboard.md §3.1): "Mr. Van der Merwe" is one run, not "a person der a person".
+NAME_PARTICLES = frozenset(
+    {"van", "der", "de", "du", "da", "von", "le", "la", "del", "dos", "den", "ter", "bin"}
+)
+
 # Word characters except U+02BC, the modifier-letter apostrophe that \w counts as a letter:
 # NANDI\u02bcS must tokenise as NANDI then S, like NANDI'S (PR #27 review).
 _WORD = re.compile(r"[^\W\u02bc]+")
@@ -88,24 +94,89 @@ def _is_name(word: str, tokens: Collection[str]) -> bool:
     return word[0].isupper() and word.upper() in tokens
 
 
-def _redact(text: str, tokens: Collection[str], label: Callable[[list[str]], str]) -> str:
-    """Each maximal run of name tokens (joined by whitespace, a hyphen or an apostrophe, as in
-    O'BRIEN, with an optional possessive 's on the last) becomes one label."""
-    if not tokens:
-        return text
-    words = list(_WORD.finditer(text))
-    out: list[str] = []
-    pos = i = 0
+def _is_particle(word: str, tokens: Collection[str]) -> bool:
+    return word in NAME_PARTICLES and word.upper() in tokens
+
+
+def _joins(gap: str) -> bool:
+    """Two name words of one run: whitespace, a hyphen or an apostrophe (O'BRIEN) between."""
+    return gap == "-" or gap in _APOSTROPHES or (bool(gap) and gap.isspace())
+
+
+def _after_particles(words: list[re.Match[str]], text: str, j: int, tokens: Collection[str]) -> int:
+    """T092: the index of the name word after one or more lower-case particles that follow word
+    `j`, every gap whitespace; or `j` when there is no such name word (a particle never ends or
+    starts a run)."""
+    k = j + 1
+    while k < len(words) and _is_particle(words[k].group(), tokens):
+        if not text[words[k - 1].end() : words[k].start()].isspace():
+            return j
+        k += 1
+    if k == j + 1 or k >= len(words) or not _is_name(words[k].group(), tokens):
+        return j
+    return k if text[words[k - 1].end() : words[k].start()].isspace() else j
+
+
+def _runs(words: list[re.Match[str]], text: str, tokens: Collection[str]) -> list[tuple[int, int]]:
+    """`_name_runs` on words already found."""
+    runs: list[tuple[int, int]] = []
+    i = 0
     while i < len(words):
         if not _is_name(words[i].group(), tokens):
             i += 1
             continue
         j = i
-        while j + 1 < len(words) and _is_name(words[j + 1].group(), tokens):
-            gap = text[words[j].end() : words[j + 1].start()]
-            if not (gap == "-" or gap in _APOSTROPHES or (gap and gap.isspace())):
+        while True:
+            if j + 1 < len(words) and _is_name(words[j + 1].group(), tokens):
+                if not _joins(text[words[j].end() : words[j + 1].start()]):
+                    break
+                j += 1
+            elif (k := _after_particles(words, text, j, tokens)) > j:
+                j = k
+            else:
                 break
-            j += 1
+        runs.append((i, j))
+        i = j + 1
+    return runs
+
+
+def _name_runs(text: str, tokens: Collection[str]) -> list[tuple[int, int]]:
+    """Each maximal run of name tokens in `text`, as its first and last word's index among
+    `_WORD`'s words: joined by whitespace, a hyphen or an apostrophe (O'BRIEN), and lower-case
+    particles between two name words (T092). `_redact` and `named_as_figure` both read these."""
+    if not tokens:
+        return []
+    return _runs(list(_WORD.finditer(text)), text, tokens)
+
+
+def named_as_figure(text: str, tokens: Collection[str]) -> bool:
+    """Some run of `tokens` names someone as a figure (T092, storyboard.md §3.1): not possessive
+    (no apostrophe right after it), and Title case ("Lindi", "McDONALD") or an UPPER-case
+    introduction followed by "(" ("AYANDA (17)"). A title before the run is no part of it."""
+    if not tokens:
+        return False
+    words = list(_WORD.finditer(text))
+    for i, j in _name_runs(text, tokens):
+        after = text[words[j].end() :]
+        if after[:1] in _APOSTROPHES:
+            continue
+        run = [w.group() for w in words[i : j + 1] if w.group() not in NAME_PARTICLES]
+        if any(w != w.upper() for w in run) or re.match(r"[ \t]*\(", after):
+            return True
+    return False
+
+
+def _redact(text: str, tokens: Collection[str], label: Callable[[list[str]], str]) -> str:
+    """Each maximal run of name tokens (`_name_runs`, with an optional possessive 's on the last)
+    becomes one label."""
+    if not tokens:
+        return text
+    words = list(_WORD.finditer(text))
+    out: list[str] = []
+    pos = 0
+    for i, j in _name_runs(text, tokens):
+        if words[i].start() < pos:
+            continue  # its first word went with the last run's possessive 's
         replacement = label([w.group().upper() for w in words[i : j + 1]])
         start = _title_start(text, words, i, pos)
         end = words[j].end()
@@ -119,9 +190,8 @@ def _redact(text: str, tokens: Collection[str], label: Callable[[list[str]], str
             # `it` has no apostrophe in its possessive: "Gerald's leg" -> "its leg".
             replacement += "s" if replacement == "it" else text[end] + "s"
             end = words[after].end()
-            after += 1
         out += [text[pos:start], replacement]
-        pos, i = end, after
+        pos = end
     out.append(text[pos:])
     return "".join(out)
 

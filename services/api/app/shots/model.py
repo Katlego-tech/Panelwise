@@ -60,6 +60,7 @@ class PlanReport:
     ranges_repaired: int
     characters_dropped: int
     props_dropped: int
+    characters_added: int = 0  # T092; the default lets older stored plans load
 
 
 @dataclass(frozen=True)
