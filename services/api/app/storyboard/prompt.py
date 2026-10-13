@@ -16,7 +16,7 @@ characters of action, the movement words, and the `classic` prompt's negations.
 """
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from types import MappingProxyType
@@ -25,7 +25,7 @@ from typing import Literal
 from app.characters import name_tokens, redact
 from app.characters.labels import animals, redaction_labels
 from app.characters.sex import SEX_TITLES, Sex
-from app.grounding import Entity, EntityKind, Extraction
+from app.grounding import SENTENCE_END, Entity, EntityKind, Extraction
 from app.script import (
     Action,
     Dialogue,
@@ -119,7 +119,81 @@ def visible_characters(
 ) -> tuple[str, ...]:
     """The planner's characters that the covered elements put on screen, in the planner's order:
     an on-screen speaker (not V.O., O.S., O.C. or OFF), or a character an action line names by
-    its name or a paired other name. People only: an animal is never a figure (T052)."""
+    its name or a paired other name. People only: an animal is never a figure (T052). T093: with
+    no one else on screen, the one cast person a covered He or She means (`pronoun_figure`)."""
+    if shown := _shown_characters(shot, screenplay, extraction):
+        return shown
+    figure = pronoun_figure(shot, screenplay, extraction)
+    return (figure,) if figure is not None else ()
+
+
+# T093: a sentence that opens with exactly He or She (He, She's, He: but not Hesitant or Then he).
+_PRONOUN_OPENING = re.compile(r"(He|She)(?![A-Za-z])")
+
+
+def pronoun_sentences(text: str) -> tuple[tuple[str, Sex | None], ...]:
+    """`text`, already redacted and collapsed, split at `SENTENCE_END` (T093): joined by one space
+    the pieces give `text` back. Each with the sex of an opening exact He or She, else None."""
+    out: list[tuple[str, Sex | None]] = []
+    for piece in SENTENCE_END.split(text):
+        if not piece:
+            continue
+        m = _PRONOUN_OPENING.match(piece)
+        sex = None if m is None else Sex.MALE if m.group(1) == "He" else Sex.FEMALE
+        out.append((piece, sex))
+    return tuple(out)
+
+
+def _script_text(text: str, labels: Mapping[str, str]) -> str:
+    """A script span as a prompt part says it: redacted, before any lower-casing, and collapsed."""
+    return " ".join(redact(text, labels).split())
+
+
+def _heard(shot: Shot, scene: Scene) -> set[str]:
+    """The shot's characters who speak off screen in it (T079)."""
+    heard: set[str] = set()
+    for i in shot.elements:
+        element = scene.elements[i]
+        if isinstance(element, Dialogue) and any(
+            mark in (element.extension or "").upper() for mark in OFF_SCREEN_MARKS
+        ):
+            if (who := match_speaker(element.cue, shot.characters)) is not None:
+                heard.add(who)
+    return heard
+
+
+def pronoun_figure(shot: Shot, screenplay: Screenplay, extraction: Extraction) -> str | None:
+    """T093 (storyboard.md §3.1): when the covered elements put no one on screen, the one candidate
+    (the shot's people, less its off-screen speakers) whose sex every covered He or She gives, when
+    every candidate's sex is known and exactly one has it. Else None."""
+    if _shown_characters(shot, screenplay, extraction):
+        return None
+    scene = screenplay.scenes[shot.scene_index]
+    labels = redaction_labels(extraction, screenplay)
+    sexes = {
+        sex
+        for i in shot.elements
+        if isinstance(element := scene.elements[i], Action)
+        for _, sex in pronoun_sentences(_script_text(element.text, labels))
+        if sex is not None
+    }
+    if len(sexes) != 1:
+        return None
+    wanted = sexes.pop()
+    beings, heard = animals(extraction), _heard(shot, scene)
+    candidates = [c for c in shot.characters if c not in beings and c not in heard]
+    known = [character_sex(c, screenplay, extraction) for c in candidates]
+    if not candidates or any(k is None for k in known):
+        return None
+    match = [c for c, k in zip(candidates, known, strict=True) if k is not None and k[0] is wanted]
+    return match[0] if len(match) == 1 else None
+
+
+def _shown_characters(
+    shot: Shot, screenplay: Screenplay, extraction: Extraction
+) -> tuple[str, ...]:
+    """`visible_characters` before T093: speakers on screen, people an action line names, and the
+    T079 listeners."""
     scene = screenplay.scenes[shot.scene_index]
     beings = animals(extraction)
     own = {c: _own_labels(c, screenplay, extraction) for c in shot.characters}
@@ -376,7 +450,7 @@ def build_frame_prompt(
 
     def script(text: str) -> str:
         # Redacted first, before any lower-casing: names are found by their capitals.
-        return " ".join(redact(text, labels).split())
+        return _script_text(text, labels)
 
     parts = [
         PromptPart(
@@ -438,11 +512,7 @@ def build_frame_prompt(
             f"words, over the budget of {max_words}"
         )
 
-    actions = [
-        PromptPart(PartKind.ACTION, text, element.span)
-        for i in sorted(shot.elements)
-        if isinstance(element := scene.elements[i], Action) and (text := script(element.text))
-    ]
+    actions = _action_parts(shot, scene, visible, script, screenplay, extraction)
     # T079: looks give way to the budget, from the last character back, so the shot's action
     # keeps at least _ACTION_FLOOR words; a look never fails a render.
     while (k := [i for i, p in enumerate(parts) if p.kind is PartKind.LOOK]) and (
@@ -451,6 +521,40 @@ def build_frame_prompt(
         del parts[k[-1]]
     actions, trimmed = _fit(actions, max_words - _words(parts))
     return FramePrompt(tuple(parts + actions), trimmed)
+
+
+def _action_parts(
+    shot: Shot,
+    scene: Scene,
+    visible: Sequence[str],
+    script: Callable[[str], str],
+    screenplay: Screenplay,
+    extraction: Extraction,
+) -> list[PromptPart]:
+    """Each covered Action element's text, in order. T093: when every drawn person's sex is
+    known, a sentence opening with a He or She none of them has is left out, and the element's
+    kept sentences become one part per run, each with the element's span."""
+    sexes = [character_sex(c, screenplay, extraction) for c in visible]
+    drawn = {k[0] for k in sexes if k is not None} if visible and None not in sexes else None
+    parts: list[PromptPart] = []
+    for i in sorted(shot.elements):
+        element = scene.elements[i]
+        if not isinstance(element, Action) or not (text := script(element.text)):
+            continue
+        if drawn is None:
+            parts.append(PromptPart(PartKind.ACTION, text, element.span))
+            continue
+        run: list[str] = []
+        for piece, sex in pronoun_sentences(text):
+            if sex is not None and sex not in drawn:
+                if run:
+                    parts.append(PromptPart(PartKind.ACTION, " ".join(run), element.span))
+                run = []
+            else:
+                run.append(piece)
+        if run:
+            parts.append(PromptPart(PartKind.ACTION, " ".join(run), element.span))
+    return parts
 
 
 def _words(parts: Sequence[PromptPart]) -> int:

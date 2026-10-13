@@ -1,7 +1,7 @@
 """Grounded entity extraction. Design: docs/design/grounding.md."""
 
 from app.grounding.extract import SYSTEM_PROMPT, chunk_scenes, extract, render_chunk
-from app.grounding.filter import ground
+from app.grounding.filter import SENTENCE_END, ground
 from app.grounding.model import (
     Dropped,
     Entity,
@@ -24,6 +24,7 @@ from app.grounding.text import (
 )
 
 __all__ = [
+    "SENTENCE_END",
     "SYSTEM_PROMPT",
     "ChunkEntities",
     "Dropped",
