@@ -64,7 +64,7 @@ while [ $# -gt 0 ]; do
       stage="${2:-}"; shift 2
       case "$stage" in python|node|repo) ;; *) echo "gate.sh: --stage is python, node or repo, not '$stage'" >&2; exit 2 ;; esac
       ;;
-    -h|--help)       sed -n '2,36p' "$0"; exit 0 ;;
+    -h|--help)       sed -n '2,42p' "$0"; exit 0 ;;
     *) echo "gate.sh: unknown argument '$1'" >&2; exit 2 ;;
   esac
 done
