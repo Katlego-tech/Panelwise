@@ -30,7 +30,7 @@ it before changing the prompt or the audit; add to it after every live run.
   character its own action line names, **38** of them because the planner was never offered
   the character, 7 because the model left an offered one out. `_redact` joins only capitalised
   name words, so "Van der Merwe" is two runs.
-- **Action:** to be proposed as T092 (shots.md; its design PR follows this one, not yet in TASKS): after the model, a shot's cast gains every character a
+- **Action:** T092 (shots.md §3): after the model, a shot's cast gains every character a
   covered action line names as a figure (a Title-case name, or an UPPER-case introduction with its
   "("; never a possessive like "the Lionesses' goalkeeper", never a scoreboard's "LIONESSES 1");
   a name's lower-case particle (van, der, de…) joins its run. Prototype on the same plans: 40
@@ -38,7 +38,10 @@ it before changing the prompt or the audit; add to it after every live run.
   5.4 "The Lionesses pile on top of Lindi. Palesa holds up the gloves", lost-property 12.2 "Mr. Dube
   winds his pocket watch"), 2 groups (EAGLES, LIONESSES: L017). On-screen speakers missing from a
   cast (12 more) are left alone: a shot of the listener is the planner's choice.
-- **Measured:** not yet live.
+- **Measured:** T092 built (#161 design, #163 code). Free, the real code on the same stored plans:
+  the same 40 characters in the same 28 shots as the prototype; stormwater's rebuilt prompts read
+  "a person climbs down" and "a person levers up the heavy steel MANHOLE COVER". Live: not yet (a
+  stored plan keeps its cast; the next upload is re-planned).
 
 ### L018 · T088 keeps a sex only when the model claims one, and on a new script it claimed none · open
 
@@ -74,6 +77,14 @@ it before changing the prompt or the audit; add to it after every live run.
   pronoun is "She drops to her knees", a next-sentence She after her own speech (a speech breaks
   the chain; a next-sentence She alone keeps nothing without a claim), and Sibusiso's "climbs out
   of the hole with Biscuit inside his overalls" has another name (the dog's) between him and his.
+  **A speech by the character itself keeps the chain: measured, not built** (Tumo, 2026-10-13).
+  Token Factory, two fresh extractions of each of six labelled scripts (about 38,000 tokens), the
+  raw proposals kept and grounded three ways: today; with "he"/"she" counted as claims; and with
+  that plus a speech by the character not breaking the He/She chain. **All three: 56 right, 0
+  wrong, 10 missed**, the same misses. The model does claim REFILWE "she", SIBUSISO "he" and PRIYA
+  "she", but T088's chain also needs the sentence before to hold no other possible owner, and
+  REFILWE's introduction "… runs down the pavement holding an empty lead" has "the". Loosening that
+  means guessing which nouns can be people, which is where wrong sexes come from.
 
 ### L017 · A team or a crowd is extracted as a character, and its name is blanked in the prompt · open
 
@@ -98,7 +109,7 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Cause:** the prompt replaces names with "a person" and keeps action sentences whole, so a
   sentence whose subject is a pronoun or an unintroduced name is read by klein as being about
   whoever is drawn. The audit can't see it: a salute is no object and no person.
-- **Action:** none yet. To consider, measured free on the stored prompts: drop an action sentence
+- **Action:** T093, for a He or She (below). First considered: drop an action sentence
   whose subject is a pronoun or a name not in the shot's drawn cast. That needs a new resolver:
   T088's `_pronoun_evidence` only links a pronoun to a name opening the sentence before it, so
   it doesn't cover 5.3 (its "He" follows a line of dialogue), and "Biscuit opens both." has no
@@ -108,8 +119,16 @@ it before changing the prompt or the audit; add to it after every live run.
   16 safe (the one drawn figure, or exactly one of several, has that sex), **12 in a shot that draws
   no figure** (stormwater 6.4 "He looks at the ball. He puts it in his pocket.": klein drew a man
   three times, the judge never matched him to MR. VAN DER MERWE, withheld), **2 against the only
-  drawn figure's sex** (the-bread-van 5.3), 24 ambiguous (several figures, or a sex unknown).
-- **Measured:** not yet.
+  drawn figure's sex** (the-bread-van 1.2, whose He is THEO, whom T092 now casts; lost-property 2.3,
+  "He peers at the ledger", MR. DUBE with only ZANELE drawn), 24 ambiguous (several figures, or a
+  sex unknown).
+  **T093** (storyboard.md §3.1): a He or She in a shot that draws no one is the one cast person of
+  that sex, all sexes known; one against every drawn figure's known sex is left out.
+- **Measured:** free, T093's real code on the stored plans with T092's casts: 4 shots now draw
+  the pronoun's person (stormwater 2.3 and 6.4 MR. VAN DER MERWE, load-shedding 5.4 MS. MOLEFE,
+  the-red-kite 5.4 MOKGOSI) and 1 sentence is left out (lost-property 2.3); each read against the
+  script, all right. Not covered: the-bread-van 5.3 (DANIEL's "He salutes and goes." on a drawn
+  THEO: the sex agrees). Live: not yet.
 
 ### L015 · klein draws two panels in one frame · open
 
@@ -120,8 +139,11 @@ it before changing the prompt or the audit; add to it after every live run.
   Again on 2026-10-13: load-shedding 1.3 (the lights on, then dark), accepted.
 - **Cause:** klein, on a "storyboard sketch" prompt, sometimes lays out a strip of panels. The
   describer lists the people of both halves as one frame, so nothing checks the layout.
-- **Action:** none yet. A prompt change (fal money, ask first) or a describer question ("is this
-  one picture or several panels?") that fails a split frame.
+- **Action:** parked (Tumo, 2026-10-13). fal's klein takes no negative prompt, so a fix means
+  rewording every style's positive words, which changes every drawing; and splits are rare (about 4
+  in some 500 stored drawings), so two test runs (about 80 drawings) could not show a change. A
+  describer question ("one picture or several panels?") is the measurable route, on the four
+  stored splits and as many whole frames, if it comes back.
 - **Measured:** not yet.
 
 ### L014 · Painted lettering and everyday objects hold back most shots · open
