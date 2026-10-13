@@ -97,8 +97,8 @@ classDiagram
   filtered, every `CHARACTER` entity (person or animal) that a covered `Action` element names **as
   a figure** is appended, in extraction order, and counted in `characters_added`; this is the one
   way a name joins a shot without being in `entity.scenes`, because the extraction's `scenes` are
-  incomplete (learning-log L019: in the stored plans of seven scripts, 45 of 266 shots left out a
-  character their own action names, 39 because the planner was never offered the character).
+  incomplete (learning-log L019: in the stored plans of seven scripts, 45 times in 266 shots a shot left out a
+  character its own action names, 38 because the planner was never offered the character).
   "Names as a figure" is `named_as_figure(element.text, tokens)` (storyboard.md §3.1), with the
   character's tokens from `redaction_labels(extraction, screenplay, only=name)`, the same ones
   `visible_characters` uses, so a backfilled character is one the prompt will also count as drawn:
