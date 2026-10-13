@@ -26,8 +26,8 @@ it before changing the prompt or the audit; add to it after every live run.
   word, and the lower-case "der" breaks the run.
 - **Cause:** the planner may only list characters the extraction says are in the scene
   (`_allowed`: `scene_index in entity.scenes`), and the extraction's `scenes` are incomplete.
-  Measured free on the stored plans of the seven read scripts: **45 of 266 shots** leave out a
-  character their own action line names, **38** of them because the planner was never offered
+  Measured free on the stored plans of the seven read scripts: **45 times in 266 shots** a shot leaves out a
+  character its own action line names, **38** of them because the planner was never offered
   the character, 7 because the model left an offered one out. `_redact` joins only capitalised
   name words, so "Van der Merwe" is two runs.
 - **Action:** to be proposed as T092 (shots.md; its design PR follows this one, not yet in TASKS): after the model, a shot's cast gains every character a
