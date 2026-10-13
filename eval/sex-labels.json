@@ -32,5 +32,21 @@
     "DANIEL": {"sex": "male", "evidence": "He stretches until his back cracks"},
     "AUNTIE BETTY": {"sex": "female", "evidence": "the title AUNTIE; She presses one loaf"},
     "TAXI DRIVER": {"sex": "male", "evidence": "leans on his taxi across the road"}
+  },
+  "load-shedding": {
+    "MS. MOLEFE": {"sex": "female", "evidence": "the title MS; She lights a CANDLE"},
+    "AYANDA": {"sex": "female", "evidence": "chews her pencil"},
+    "JABU": {"sex": "male", "evidence": "Jabu covers it with his arm"},
+    "FATIMA": {"sex": "female", "evidence": "calculator lined up with her ruler"},
+    "PIETER": {"sex": "male", "evidence": "Pieter pulls his hood down"},
+    "NOMSA": {"sex": "female", "evidence": "praying with her eyes closed"},
+    "LUCKY": {"sex": "male", "evidence": "He looks across at Jabu's paper"}
+  },
+  "final-whistle": {
+    "COACH DLAMINI": {"sex": null, "evidence": "never stated"},
+    "PALESA": {"sex": "female", "evidence": "lands on her bad wrist"},
+    "LINDI": {"sex": "female", "evidence": "The ball smacks into her chest. She holds on."},
+    "REFEREE": {"sex": "male", "evidence": "blows his whistle"},
+    "STRIKER": {"sex": null, "evidence": "never stated"}
   }
 }

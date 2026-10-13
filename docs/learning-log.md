@@ -16,6 +16,49 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L018 · T088 keeps a sex only when the model claims one, and on a new script it claimed none · open
+
+- **Seen:** 2026-10-13, load-shedding (Katlego's T090 sample, held out: no fix was designed on it),
+  [run report](../eval/runs/2026-10-13-load-shedding.md). The extraction gave **no sex to any of the six learners**, though the script
+  states each one plainly: AYANDA "chews her pencil", FATIMA "calculator lined up with her ruler",
+  NOMSA "praying with her eyes closed", JABU "covers it with his arm", PIETER "pulls his hood down",
+  LUCKY "looks at his paper". Two accepted frames draw girls as boys: **1.2** (Nomsa praying, and
+  Pieter's hood on a girl) and **2.4** (Fatima, 16). final-whistle ([run report](../eval/runs/2026-10-13-final-whistle.md)) missed the
+  REFEREE ("blows his whistle").
+- **Cause:** T088 keeps a sex only when the extraction model claims a `sex_word` *and* the script's
+  own subject pronouns support it. Here the model claimed nothing (and "she" for MS. MOLEFE, which
+  is a pronoun, not a claim), so the evidence code, which found the right sex for every one of
+  them, was never asked.
+- **Action:** none yet (T091 to come). Measured free on every labelled stored extraction: the
+  evidence alone (`_pronoun_evidence`, every quote one sex), with today's sex winning where it has
+  one:
+
+  | script | today | evidence alone |
+  |---|---|---|
+  | load-shedding (held out) | 1 of 7 | **7 of 7** |
+  | final-whistle (held out) | 4 of 5 | **5 of 5** |
+  | lost-property | 6 of 12 | 9 of 12 |
+  | sipho-and-siphokazi | 3 of 5 | 5 of 5 |
+  | the-red-kite, the-bread-van | 3 of 3, 3 of 5 | 3 of 3, 3 of 5 |
+
+  **0 wrong and 0 invented** in all 37 labels (RIGHT 20 → 32). Still missed: THEO, PRIYA, TEBOGO,
+  OFFICER MOLOI, the TAXI DRIVER.
+- **Measured:** not yet live.
+
+### L017 · A team or a crowd is extracted as a character, and its name is blanked in the prompt · open
+
+- **Seen:** 2026-10-13, final-whistle (held out), [run report](../eval/runs/2026-10-13-final-whistle.md). LIONESSES, EAGLES, CROWD and
+  STRIKER are characters in the extraction. The prompt redacts every character's name, so 2.1 reads
+  "The a person' a person, in red, breaks through and shoots" and 5.2 "The a person build a wall"
+  (drawn as two boys at a brick wall); 5.4 "The Lionesses pile on top of Lindi" is drawn as boys,
+  though the script says "A girls' team"; 5.3 failed "none of CROWD in frame"; and the judge matched
+  drawn men to "EAGLES" and "STRIKER".
+- **Cause:** the extraction treats any capitalised name that acts as a character; nothing marks a
+  group, so it is redacted, counted as a figure and checked like a person.
+- **Action:** none yet. To look at first: what the extraction returns for these (a group kind, or
+  no character at all) and how many samples have one.
+- **Measured:** not yet.
+
 ### L016 · A pronoun's action goes to whoever the prompt draws · open
 
 - **Seen:** 2026-10-12, the-bread-van, second run ([run report](../eval/runs/2026-10-12-the-bread-van-2.md)). Accepted **5.3** draws
@@ -38,6 +81,7 @@ it before changing the prompt or the audit; add to it after every live run.
   (second run) 1.3 attempt 1, sipho-and-siphokazi 6.1 attempt 1 and lost-property 11.5 attempt 1
   are each two side-by-side panels, the shot's people split across them (11.5 with a different
   cast in each half).
+  Again on 2026-10-13: load-shedding 1.3 (the lights on, then dark), accepted.
 - **Cause:** klein, on a "storyboard sketch" prompt, sometimes lays out a strip of panels. The
   describer lists the people of both halves as one frame, so nothing checks the layout.
 - **Action:** none yet. A prompt change (fal money, ask first) or a describer question ("is this
@@ -70,7 +114,13 @@ it before changing the prompt or the audit; add to it after every live run.
   soft toy (the-bread-van 3.1), and a rowboat for Sipho's fishing boat (sipho 5.2). So L009 again:
   relaxing objects is safe only where people are checked. The stored extractions of the two older
   runs have no sex (they predate T088); T088 now finds SIPHOKAZI and AMAHLE, not PRIYA (L010).
-- **Measured:** not yet live.
+- **Measured:** live, 2026-10-13, on two held-out scripts (Katlego's T090 samples, nothing tuned on
+  them): load-shedding **12 of 18** accepted ([report](../eval/runs/2026-10-13-load-shedding.md)), final-whistle **17 of 22**
+  ([report](../eval/runs/2026-10-13-final-whistle.md)); 29 of 40 together. Every accepted frame looked at: load-shedding 9 right, 2
+  wrong (girls drawn as boys, L018), 1 split panel (L015); final-whistle 13 right, 4 weak or wrong
+  (the Lionesses drawn as boys and team names blanked, L017; a crowd's chant drawn as one man).
+  The warned frames show misspelt boards (FINAL MEATHS EXAM, 2 – son 1) with their warning.
+  Every refusal on both runs is a person; none is an object or lettering.
 
 ### L013 · The place's own things fail: bread in a bakery, a van's dashboard inside the van · fixed (T086, measured free)
 
@@ -88,7 +138,7 @@ it before changing the prompt or the audit; add to it after every live run.
   food a heading's place sells or makes stays a question for Tumo (T072 made food always scripted).
 - **Measured:** live, 2026-10-12, the-bread-van second run ([run report](../eval/runs/2026-10-12-the-bread-van-2.md)): `food · never set dressing` 26 → 0 and `vehicle · never set dressing` 14 → 8 (left: a car in the street, seat belts, a door handle; `held, so not set dressing` 10 → 1, a baking tray). Food still fails as `not in the script` 13 times (a tray of buns, baskets of bread at the spaza shop, where the heading names no bakery).
 
-### L012 · The judge puts a character's name on someone it can't check · partly fixed (T086; T087 next)
+### L012 · The judge puts a character's name on someone it can't check · partly fixed (T086; T087 measured and parked)
 
 - **Seen:** 2026-10-12, the-bread-van, [run report](../eval/runs/2026-10-12-the-bread-van.md): **1 of 19 shots accepted.** `unscripted_person` failed 35
   attempts, "a child" 21 times, in shots that have THEO, aged 9. Of the judge's 24 matches to THEO, 17
@@ -106,6 +156,15 @@ it before changing the prompt or the audit; add to it after every live run.
   character; one introduced as an adult matched to "a child" too; "old" for a character under 50);
   and whether clothing of the moment ("in pyjamas") should be a reason to refuse a match at all.
 - **Measured:** live, 2026-10-12, the-bread-van second run ([run report](../eval/runs/2026-10-12-the-bread-van-2.md)): of the judge's 19 matches to THEO, **0** went to a person described as no child (17 of 24 on the first run), and DANIEL drawn "an old man" now fails on his age (T086). But the judge now leaves the drawn boy unmatched instead: "a child" fails `unscripted_person` 17 times, and AUNTIE BETTY (4.1 attempt 3) and NOMSA (5.2 attempt 3) were left unmatched as "an old woman" and "an adult woman" in attempts whose only hard failure that was. **3 of 20 accepted** (1 of 19 on the first run). T087 next.
+  **T087 measured, parked (Tumo, 2026-10-13):** each stored description judged again with today's
+  sentence and with "clothing is no contradiction; only age, sex or a fixed trait (hair, build, a
+  beard)" (Token Factory, judge only). Shots accepted, today's code: the-bread-van 8 → 9 and 5 → 5;
+  held out, final-whistle 15 → 17 and load-shedding 13 → 13. The judge flips both ways on the same
+  drawings (a lone boy in a THEO-only shot matched in one arm, refused in the other), so most of
+  it is noise; the one steady gain is COACH DLAMINI matched in tracksuit-less drawings (3 times),
+  and one loss is bad (final-whistle 5.4's boys for the Lionesses excused). A code rule matching
+  the only unmatched child to the only child character gained a shot a run but accepted a Lerato
+  with shoulder-length hair (the script gives braids). Neither is built.
 
 ### L011 · A stranger excused by a line of dialogue · fixed (measured free)
 
