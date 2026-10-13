@@ -74,6 +74,10 @@ class FrameWriter:
                         for c in audit.checks
                     ],
                     positions={name: p.value for name, p in audit.positions.items()},
+                    seen=[
+                        {"person": s.person, "character": s.character, "sex": s.sex}
+                        for s in audit.seen
+                    ],
                     verdict=audit.verdict.value,
                     models=list(audit.models),
                     prompt_tokens=audit.usage.prompt_tokens,

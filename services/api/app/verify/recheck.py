@@ -24,8 +24,8 @@ from app.db import make_engine, make_sessions
 from app.frames.model import AuditTarget, FrameAuditRow
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.model import ProjectRow
-from app.verify.audit import run_checks, shot_ages
-from app.verify.model import Severity, Verdict
+from app.verify.audit import run_checks, shot_ages, shot_sexes
+from app.verify.model import PersonSeen, Severity, Verdict
 from app.verify.reaudit import Reaudit, line, summary
 from app.verify.schema import FrameDescription, Judgement
 
@@ -40,7 +40,7 @@ async def recheck(
     with today's code, and how many were skipped: no description or judgement (an ERROR), or
     one stored before today's schema."""
     # Imported here, as audit_frame does: app.storyboard's renderer modules import app.verify.
-    from app.storyboard.prompt import introduced_years, visible_characters
+    from app.storyboard.prompt import character_sex, introduced_years, visible_characters
 
     async with sessions() as session:
         project = await session.get(ProjectRow, project_id)
@@ -90,6 +90,12 @@ async def recheck(
             extraction,
             on_screen=visible_characters(shot, screenplay, extraction),
             ages=shot_ages(shot, screenplay, introduced_years),
+            # T095: the stored answers; a row before 0007 has none, so no DRAWN_SEX.
+            seen=tuple(
+                PersonSeen(int(s["person"]), str(s["character"]), str(s["sex"]))
+                for s in row.seen or ()
+            ),
+            sexes=shot_sexes(shot, screenplay, extraction, character_sex),
         )
         hard = tuple(c.check for c in checks if not c.ok and c.severity is Severity.HARD)
         out.append(Reaudit(key, row.attempt, row.target, Verdict(row.verdict), verdict, hard))

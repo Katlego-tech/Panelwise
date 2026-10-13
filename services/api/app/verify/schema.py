@@ -4,6 +4,8 @@ The describer's schema has no field for a name: it can only say what it sees. Th
 nothing but index calls and verbatim support, which code checks (verify.md §8).
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.verify.model import Light, ObjectCategory, ObjectKind, Position, Setting, ShotSize
@@ -57,3 +59,9 @@ class ObjectCall(BaseModel):
 class Judgement(BaseModel):
     people: list[PersonCall]
     objects: list[ObjectCall]
+
+
+class PersonCheck(BaseModel):
+    """The sex agent's answer (T095): how one person is drawn, from the drawing alone."""
+
+    sex: Literal["male", "female", "unclear"]

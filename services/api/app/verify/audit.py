@@ -5,15 +5,18 @@ code can check it; "supported by the script" needs a verbatim quote, found the w
 filter finds one (verify.md §8). A failed call is an ERROR audit, never a pass.
 """
 
+import asyncio
 import base64
 import hashlib
 import logging
 import re
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 
 from pydantic import ValidationError
 
 from app.characters.labels import animals
+from app.characters.sex import Sex
 from app.grounding import EntityKind, Extraction, normalize_for_grounding
 from app.llm import ChatResult, LLMError, NebiusChatModel, Tier, Usage, structured_chat
 from app.script import Action, IntExt, Scene, Screenplay, match_speaker
@@ -25,6 +28,7 @@ from app.verify.model import (
     Light,
     ObjectCategory,
     ObjectKind,
+    PersonSeen,
     Position,
     RenderedFrame,
     Setting,
@@ -33,7 +37,7 @@ from app.verify.model import (
     Verdict,
 )
 from app.verify.prompts import DESCRIBE_PROMPT, JUDGE_PROMPT, render_spec
-from app.verify.schema import FrameDescription, Judgement
+from app.verify.schema import FrameDescription, Judgement, PersonCheck
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +58,8 @@ _SEVERITY = {
     # An everyday thing of the place the script didn't mention, nobody holding it (T083); since
     # T089 any object the script didn't put there that is no animal or weapon.
     Check.BACKGROUND_OBJECT: Severity.SOFT,
+    # A character the script sexes drawn as the other sex, as the sex agent sees it (T095).
+    Check.DRAWN_SEX: Severity.HARD,
 }
 # An unscripted animal or weapon is a story choice: it still withholds the frame (T089).
 _STORY_OBJECTS: frozenset[ObjectCategory] = frozenset(
@@ -436,6 +442,65 @@ def shot_ages(
     return {c: y for c in shot.characters if (y := years(c, screenplay)) is not None}
 
 
+def shot_sexes(
+    shot: Shot,
+    screenplay: Screenplay,
+    extraction: Extraction,
+    sex_of: Callable[[str, Screenplay, Extraction], tuple[Sex, str] | None],
+) -> dict[str, str]:
+    """Each person character's sex the script gives (T095), for run_checks' `sexes`. `sex_of` is
+    storyboard's character_sex, passed in: app.storyboard imports app.verify."""
+    beings = animals(extraction)
+    return {
+        c: found[0].value
+        for c in shot.characters
+        if c not in beings and (found := sex_of(c, screenplay, extraction)) is not None
+    }
+
+
+def matched_people(
+    shot: Shot,
+    description: FrameDescription,
+    judgement: Judgement,
+    extraction: Extraction,
+    ages: Mapping[str, int] | None = None,
+) -> dict[int, str]:
+    """Described person -> the character run_checks accepts them as (T095): the judge's name as
+    `match_speaker` resolves it among the shot's people, not refused for their age (T086), and the
+    first person called for that name. Pure; the sex agent asks only about these."""
+    beings = animals(extraction)
+    people = tuple(c for c in shot.characters if c not in beings)
+    out: dict[int, str] = {}
+    for call in sorted(judgement.people, key=lambda c: c.person):
+        if not call.character or not 0 <= call.person < len(description.people):
+            continue
+        name = match_speaker(call.character, people)
+        if name is None or name in out.values():
+            continue
+        years = (ages or {}).get(name)
+        appearance = description.people[call.person].appearance
+        if years is not None and age_contradicts(years, described_age(appearance)):
+            continue
+        out[call.person] = name
+    return out
+
+
+def apply_ladder(audit: Audit, withholding: frozenset[Check] | None) -> Audit:
+    """The rule ladder (T094): every hard check off `withholding` becomes soft in the audit, so a
+    FAIL with no failed check left on the ladder is WARN, and a withheld frame names only a check
+    that withheld it. None keeps the audit as it is (every hard check withholds)."""
+    if withholding is None or audit.verdict is not Verdict.FAIL:
+        return audit
+    checks = tuple(
+        replace(c, severity=Severity.SOFT)
+        if c.severity is Severity.HARD and c.check not in withholding
+        else c
+        for c in audit.checks
+    )
+    hard = any(not c.ok and c.severity is Severity.HARD for c in checks)
+    return replace(audit, checks=checks, verdict=Verdict.FAIL if hard else Verdict.WARN)
+
+
 def _calls_each_once(indexes: Sequence[int], n: int) -> bool:
     return sorted(indexes) == list(range(n))
 
@@ -449,6 +514,8 @@ def run_checks(
     *,
     on_screen: tuple[str, ...] = (),
     ages: Mapping[str, int] | None = None,
+    seen: Sequence[PersonSeen] = (),
+    sexes: Mapping[str, str] | None = None,
 ) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]:
     if not (
         _calls_each_once([c.person for c in judgement.people], len(description.people))
@@ -500,6 +567,22 @@ def run_checks(
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support is not an action line")
         elif _points_elsewhere(call.support):
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support points at someone else")
+
+    # T095: a matched character the script sexes, drawn as the other sex.
+    accepted = matched_people(shot, description, judgement, extraction, ages)
+    for answer in seen:
+        want = (sexes or {}).get(answer.character)
+        if (
+            want is not None
+            and accepted.get(answer.person) == answer.character
+            and answer.sex in ("male", "female")
+            and answer.sex != want
+        ):
+            person = description.people[answer.person]
+            failures[Check.DRAWN_SEX].append(
+                f"person {answer.person} ({person.position}, {person.appearance}): drawn "
+                f"{answer.sex}, but {answer.character} is {want}"
+            )
 
     for call in sorted(judgement.objects, key=lambda c: c.object):
         obj = description.objects[call.object]
@@ -602,6 +685,68 @@ async def describe_frame(model: NebiusChatModel, png: bytes) -> tuple[FrameDescr
     return result.value, result.chat
 
 
+SEX_AGENT_PROMPT = (
+    "You look at one person in a storyboard drawing and say how that person is drawn, from the "
+    "drawing alone: male, female, or unclear when the drawing doesn't show it. Answer only about "
+    "the person described; ignore everyone else."
+)
+
+
+async def check_person(
+    model: NebiusChatModel, image: str, description: FrameDescription, index: int
+) -> tuple[PersonCheck, ChatResult]:
+    """The sex agent (T095): one vision question about described person `index` on the image
+    (a data URL), naming the others so the answer is about the right one."""
+    person = description.people[index]
+    text = f"The person: {person.position}, {person.appearance}."
+    others = [p for i, p in enumerate(description.people) if i != index]
+    if others:
+        text += " Not these others: " + "; ".join(f"{p.position}, {p.appearance}" for p in others)
+    messages = [
+        {"role": "system", "content": SEX_AGENT_PROMPT},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": text},
+                {"type": "image_url", "image_url": {"url": image}},
+            ],
+        },
+    ]
+    result = await structured_chat(model, messages, PersonCheck, Tier.VISION, max_tokens=1024)
+    return result.value, result.chat
+
+
+async def _ask_sexes(
+    model: NebiusChatModel,
+    png: bytes,
+    description: FrameDescription,
+    matched: Mapping[int, str],
+    sexes: Mapping[str, str],
+    chats: list[ChatResult],
+) -> tuple[PersonSeen, ...]:
+    """The sex agent on every matched person the script sexes, at once (T095). A failed question
+    checks nothing for that person: logged, never an ERROR."""
+    asks = [(i, name) for i, name in sorted(matched.items()) if name in sexes]
+    if not asks:
+        return ()
+    image = f"data:image/png;base64,{base64.b64encode(png).decode()}"
+    answers = await asyncio.gather(
+        *(check_person(model, image, description, i) for i, _ in asks), return_exceptions=True
+    )
+    seen: list[PersonSeen] = []
+    for (i, name), answer in zip(asks, answers, strict=True):
+        if isinstance(answer, BaseException):
+            if not isinstance(answer, LLMError | ValidationError):
+                raise answer
+            detail = str(answer) if isinstance(answer, LLMError) else type(answer).__name__
+            logger.warning("sex agent on person %d (%s) failed: %s", i, name, detail)
+            continue
+        check, chat = answer
+        chats.append(chat)
+        seen.append(PersonSeen(i, name, check.sex))
+    return tuple(seen)
+
+
 async def _judge(
     model: NebiusChatModel,
     shot: Shot,
@@ -629,6 +774,7 @@ async def audit_frame(
     chats: list[ChatResult] = []
     description: FrameDescription | None = None
     judgement: Judgement | None = None
+    seen: tuple[PersonSeen, ...] = ()
     step = "describe"
     try:
         description, chat = await describe_frame(model, frame.png)
@@ -653,9 +799,13 @@ async def audit_frame(
     else:
         # T080: against the people the prompt drew. Imported here: T026's renderer modules in
         # app.storyboard import app.verify, so a module-level import would be a cycle there.
-        from app.storyboard.prompt import introduced_years, visible_characters
+        from app.storyboard.prompt import character_sex, introduced_years, visible_characters
 
         on_screen = visible_characters(shot, screenplay, extraction)
+        ages = shot_ages(shot, screenplay, introduced_years)
+        sexes = shot_sexes(shot, screenplay, extraction, character_sex)
+        matched = matched_people(shot, description, judgement, extraction, ages)
+        seen = await _ask_sexes(model, frame.png, description, matched, sexes, chats)
         checks, verdict, positions = run_checks(
             shot,
             scene,
@@ -663,7 +813,9 @@ async def audit_frame(
             judgement,
             extraction,
             on_screen=on_screen,
-            ages=shot_ages(shot, screenplay, introduced_years),
+            ages=ages,
+            seen=seen,
+            sexes=sexes,
         )
 
     return Audit(
@@ -681,4 +833,5 @@ async def audit_frame(
             completion_tokens=sum(c.usage.completion_tokens for c in chats),
             reasoning_tokens=sum(c.usage.reasoning_tokens for c in chats),
         ),
+        seen=seen,
     )

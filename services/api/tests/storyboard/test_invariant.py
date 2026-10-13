@@ -116,7 +116,8 @@ _PRONOUNS = {"she": "female", "her": "female", "he": "male", "his": "male"}
 def keyed(text: str, character: str, intro: str | None, extraction: Extraction) -> bool:
     """T082: the sex word in an AGE or SEX part is keyed by a word of the script: a pronoun of the
     introducing line, a sex title as the name's first word, a sex noun before the name in the
-    introducing line (T096), or the grounded sex_quote holding a vocabulary word of that sex. A part with no sex word is keyed trivially."""
+    introducing line (T096), or the grounded sex_quote holding a vocabulary word of that sex. A
+    part with no sex word is keyed trivially."""
     said = {_SEX_NOUNS[w] for w in re.findall(r"[a-z]+", text) if w in _SEX_NOUNS}
     if not said:
         return True

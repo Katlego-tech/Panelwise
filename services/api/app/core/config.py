@@ -102,8 +102,12 @@ def withholding(settings: Settings) -> frozenset[Check] | None:
     if raw.lower() == "all":
         return None
     names = [n.strip() for n in raw.split(",") if n.strip()]
-    known = {c.value for c in Check}
+    from app.verify.audit import _SEVERITY  # pyright: ignore[reportPrivateUsage]
+    from app.verify.model import Severity
+
+    # Only a hard check can withhold: a soft name here would switch nothing on.
+    known = {c.value for c, severity in _SEVERITY.items() if severity is Severity.HARD}
     unknown = [n for n in names if n not in known]
     if unknown:
-        raise ValueError(f"AUDIT_WITHHOLD_CHECKS names no check: {', '.join(unknown)}")
+        raise ValueError(f"AUDIT_WITHHOLD_CHECKS names no hard check: {', '.join(unknown)}")
     return frozenset(Check(n) for n in names)
