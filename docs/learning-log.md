@@ -29,7 +29,7 @@ it before changing the prompt or the audit; add to it after every live run.
   own subject pronouns support it. Here the model claimed nothing (and "she" for MS. MOLEFE, which
   is a pronoun, not a claim), so the evidence code, which found the right sex for every one of
   them, was never asked.
-- **Action:** none yet (T091 to come). Measured free on every labelled stored extraction: the
+- **Action:** none yet; proposed as T091 (not yet in TASKS). Measured free on every labelled stored extraction: the
   evidence alone (`_pronoun_evidence`, every quote one sex), with today's sex winning where it has
   one:
 
@@ -51,8 +51,8 @@ it before changing the prompt or the audit; add to it after every live run.
   STRIKER are characters in the extraction. The prompt redacts every character's name, so 2.1 reads
   "The a person' a person, in red, breaks through and shoots" and 5.2 "The a person build a wall"
   (drawn as two boys at a brick wall); 5.4 "The Lionesses pile on top of Lindi" is drawn as boys,
-  though the script says "A girls' team"; 5.3 failed "none of CROWD in frame"; and the judge matched
-  drawn men to "EAGLES" and "STRIKER".
+  though the script says "A girls' team"; 5.3 failed "none of CROWD in frame"; and in T087's re-judge of these drawings the judge
+  matched drawn men to "EAGLES" and "STRIKER".
 - **Cause:** the extraction treats any capitalised name that acts as a character; nothing marks a
   group, so it is redacted, counted as a figure and checked like a person.
 - **Action:** none yet. To look at first: what the extraction returns for these (a group kind, or
@@ -120,7 +120,8 @@ it before changing the prompt or the audit; add to it after every live run.
   wrong (girls drawn as boys, L018), 1 split panel (L015); final-whistle 13 right, 4 weak or wrong
   (the Lionesses drawn as boys and team names blanked, L017; a crowd's chant drawn as one man).
   The warned frames show misspelt boards (FINAL MEATHS EXAM, 2 – son 1) with their warning.
-  Every refusal on both runs is a person; none is an object or lettering.
+  Of the 11 withheld shots, 9 are refused over a person and none over an object or lettering;
+  2 ended in an audit error (load-shedding 5.2, final-whistle 5.3).
 
 ### L013 · The place's own things fail: bread in a bakery, a van's dashboard inside the van · fixed (T086, measured free)
 
@@ -158,7 +159,8 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Measured:** live, 2026-10-12, the-bread-van second run ([run report](../eval/runs/2026-10-12-the-bread-van-2.md)): of the judge's 19 matches to THEO, **0** went to a person described as no child (17 of 24 on the first run), and DANIEL drawn "an old man" now fails on his age (T086). But the judge now leaves the drawn boy unmatched instead: "a child" fails `unscripted_person` 17 times, and AUNTIE BETTY (4.1 attempt 3) and NOMSA (5.2 attempt 3) were left unmatched as "an old woman" and "an adult woman" in attempts whose only hard failure that was. **3 of 20 accepted** (1 of 19 on the first run). T087 next.
   **T087 measured, parked (Tumo, 2026-10-13):** each stored description judged again with today's
   sentence and with "clothing is no contradiction; only age, sex or a fixed trait (hair, build, a
-  beard)" (Token Factory, judge only). Shots accepted, today's code: the-bread-van 8 → 9 and 5 → 5;
+  beard)" (Token Factory, judge only; re-judged on the stored descriptions, so not the live counts).
+  Shots accepted, today's code: the-bread-van 8 → 9 and 5 → 5;
   held out, final-whistle 15 → 17 and load-shedding 13 → 13. The judge flips both ways on the same
   drawings (a lone boy in a THEO-only shot matched in one arm, refused in the other), so most of
   it is noise; the one steady gain is COACH DLAMINI matched in tracksuit-less drawings (3 times),
