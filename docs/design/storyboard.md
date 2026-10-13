@@ -202,6 +202,15 @@ truncates drops the tail.
   action-line mention with that one character's labels (its name and paired other names). `COUNT`
   and `PLACEMENT`'s "exactly two" both use it, so a cat is never a figure; the action line that
   names it already says "the cat" after redaction.
+- **A sex noun in the introduction's appositive (T096).** `introduced_sex` also reads the
+  introducing sentence up to the name: when it opens with `A` or `An`, then at most three words, then
+  a sex noun (`SEX_WORDS` less the pronouns: boy, girl, man, woman, …), then anything up to a comma
+  directly before the name and its `(` ("A boy in a too-big school blazer, THABO (9)", "A small
+  boy, KAMO (7)"), that noun's sex is one more of the introduction's sources, and the one-sex rule
+  still holds (a noun and a pronoun that disagree give None). **Measured** free on the eight read
+  samples: 2 found, both right (THABO, KAMO, the scripts it was found on), 0 wrong, and a looser
+  form (the article anywhere in the sentence) finds the same two. Not covered: "His young
+  colleague, SIBUSISO (20s)" (no sex noun), "A WOMAN WITH A PRAM" (the noun is the name: L017).
 - **A He or She with no one drawn, or against everyone drawn (T093; learning-log L016).** The
   prompt keeps action sentences whole, so a sentence whose subject is only a pronoun is drawn on
   whoever klein draws.
@@ -1233,6 +1242,12 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   each. The audit's `on_screen` and `report.py`'s rebuilt prompt agree with `build_frame_prompt`
   (the pronoun figure included). Every existing prompt test and the invariant test unchanged. Free:
   the §3.1 numbers re-measured by the real code on the stored plans with T092 built.
+
+- **T096** (`tests/storyboard/test_t096.py`): "A boy in a too-big school blazer, THABO (9),
+  stands." → male; "A small girl, AMA (7), waits." → female; "An old woman, NANDI (60s), sits." →
+  female; the noun more than three words after the article, a sentence not opening with an article
+  ("The boy, THABO (9)"), a noun after the name, and a noun and a pronoun that disagree ("A boy,
+  SAM (9), lifts her hand.") give what they gave before; the invariant test unchanged.
 
 ## 10. Open questions
 

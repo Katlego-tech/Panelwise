@@ -564,5 +564,23 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:storyboard.md §6 verbatim: `pronoun_sentences`, `_shown_characters`, `pronoun_figure`, `visible_characters`' T093 clause, `build_frame_prompt`'s T093 split
       Verify:  bash scripts/gate.sh (tests first: storyboard.md §9's T093 list; the invariant test unchanged); free: the real code on every stored plan reproduces §3.1's 5 resolved and 1 left out
       Done:    on the stored plans with T092, stormwater 6.4's prompt draws "one figure, a man in his 50s", lost-property 2.3's prompt has no "He peers at the ledger", every other shot's prompt is unchanged but the measured ones, and the next held-out runs' changed prompts are listed and read
+- [ ] T094 [US2] **The rule ladder: which failed checks withhold a frame is a setting.** Found on 2026-10-13 (market-day, held out): 0 of 15 accepted with about 12 of the final drawings right, every refusal a market crowd. Tumo's call (2026-10-13): drop the rules, bring them back one at a time. Lane `verify` (Claude for Tumo).
+      Design:  docs/design/verify.md §3 (The rule ladder), §6 (T094 contracts), §8, §9 (T094)
+      Files:   services/api/app/core/config.py; services/api/app/verify/loop.py; services/api/app/{storyboard/build,projects/job,comic/job,frames/attempt,api/v1/projects}.py; services/api/app/storyboard/{build,document}.py (a warned card names hard failures); services/api/tests/verify/test_loop.py
+      Contract:verify.md §6 verbatim: `audit_withhold_checks`, `withholding`, `render_until_accepted(withholding=)`
+      Verify:  bash scripts/gate.sh (§9's T094 list); live: market-day with an empty ladder (done 2026-10-13: 16 of 17 shown)
+      Done:    with `AUDIT_WITHHOLD_CHECKS=""` every audited frame is shown with its notes, with `all` nothing changes, and a misspelt rule stops the API starting
+- [ ] T095 [US2] **The sex agent: a matched character drawn as the other sex fails `DRAWN_SEX`.** Found on 2026-10-13 (L018, L014: every wrong accepted frame of the held-out runs was a character's sex). Measured on stored drawings (Token Factory): 175 people asked, 12 flagged, all 12 real, 0 false alarms. Lane `verify` (Claude for Tumo). The first rule on the ladder.
+      Design:  docs/design/verify.md §3 (The sex agent; the checks table), §4, §6 (T095 contracts), §8, §9 (T095)
+      Files:   services/api/app/verify/{model,schema,audit,recheck,report}.py; services/api/app/frames/model.py; services/api/migrations/versions/0007_*.py; services/api/app/storyboard/document.py (the check's name); services/api/tests/verify/test_t095.py
+      Contract:verify.md §6 verbatim: `Check.DRAWN_SEX`, `PersonSeen`, `Audit.seen`, `PersonCheck`, `SEX_AGENT_PROMPT`, `check_person`, `run_checks(seen=)`, `FrameAuditRow.seen`
+      Verify:  bash scripts/gate.sh (§9's T095 list); Token Factory: the real code on one stored run's drawings; live: one held-out script with `AUDIT_WITHHOLD_CHECKS=drawn_sex` (fal: ask Tumo)
+      Done:    a frame whose matched character is drawn as the other sex is withheld with `DRAWN_SEX` named, an `unclear` one is shown, and no frame is withheld because the agent's call failed
+- [ ] T096 [US1] **A sex noun in the introduction's appositive: "A boy …, THABO (9)".** Found on 2026-10-13 (the-night-taxi THABO, market-day KAMO: no sex from the script, though the introduction says boy). Measured free on eight read samples: 2 right, 0 wrong. Lane `storyboard` (Claude for Tumo).
+      Design:  docs/design/storyboard.md §3.1 (A sex noun in the introduction's appositive), §9 (T096)
+      Files:   services/api/app/storyboard/prompt.py (`introduced_sex`); services/api/tests/storyboard/test_t096.py
+      Contract:storyboard.md §6: `introduced_sex`'s signature unchanged
+      Verify:  bash scripts/gate.sh (§9's T096 list; the invariant test unchanged); free: the eight read samples' introductions (2 right, 0 wrong)
+      Done:    THABO and KAMO are male from their introductions, no labelled character changes sex, and the next held-out runs' characters are scored
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
