@@ -282,7 +282,7 @@ _NOT_POSSESSED = frozenset(
     }
 )  # fmt: skip
 # A sentence ends at . ! ? and whitespace, never after a title's abbreviation ("Mr. Dube").
-_SENTENCE_END = re.compile(r"(?<=[.!?])(?<!\bMr\.)(?<!\bMrs\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)\s+")
+SENTENCE_END = re.compile(r"(?<=[.!?])(?<!\bMr\.)(?<!\bMrs\.)(?<!\bMs\.)(?<!\bDr\.)(?<!\bSt\.)\s+")
 _WORD = re.compile(r"[A-Za-z']+")
 # An introduction's own description, dropped first: "DANIEL (40s), a tall driver, climbs out."
 # reads as "DANIEL climbs out.", so its "a" is no unnamed person.
@@ -391,7 +391,7 @@ def _pronoun_pieces(
                 continue
             # The quote is the script's own sentence; only its words are read with an
             # introduction's description left out.
-            for sentence in (s for s in _SENTENCE_END.split(element.text) if _WORD.search(s)):
+            for sentence in (s for s in SENTENCE_END.split(element.text) if _WORD.search(s)):
                 words = _WORD.findall(_INTRODUCTION.sub(r"\1", sentence))
                 end = _opens_with(words, name)
                 quote = Quote(sentence.strip(), scene_index, element.span)
