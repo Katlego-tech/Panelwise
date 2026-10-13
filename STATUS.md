@@ -43,7 +43,7 @@ _Last updated: 2026-10-13 — by Katlego (via Claude)_
 | `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021, T083 | Katlego (Tumo for T083) | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · ✅ T062 the architecture check code (PR #82 design, #83 code; Tumo, Claude) · ✅ its live run on the-red-kite (2026-10-09) · 🟡 the browser check of the copy (Tumo) · 🟡 T089 objects, but animals and weapons, and lettering warn (Tumo, Claude: design `docs/objects-warn-t089`) · 🟡 T087 the judge and clothing (Tumo, Claude: measuring) · ✅ T086 age, vehicle parts, unheld food (#147, #148) · 🟡 T083 things the scene names; background objects warn; `recheck` (#137 design, #138 code, merged 2026-10-12; Tumo, Claude): measured on the two runs it was designed on; a held-out script to go |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) · ✅ T064/T024 design (PR #85) · ✅ T064 the comic job, store and API (PR #86; Tumo, Claude) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
-| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · ⬜ T049 audit accuracy: #106/#107 closed 2026-10-12 (built on Workers AI; T081 and T083 measure the audit for now) · ✅ T081 run reports + the learning log (Tumo, Claude: #135 design, #136 code) · 🔵 T090 ten more sample scripts (Katlego, Claude) |
+| `eval+submission` | Samples, benchmarks, video, disclosure table, go public | T031–T035, T049 | Katlego | Claude | ✅ T031 done (PR #21) · ✅ T032 done (PR #33 design, PR #34 code; numbers in `eval/README.md` and the Devpost draft) · 🔵 T033 README drafted (draft PR #36, two independent reviews, fixes in; **feedback section is the team's to write**, then it merges) · ⬜ T049 audit accuracy: #106/#107 closed 2026-10-12 (built on Workers AI; T081 and T083 measure the audit for now) · ✅ T081 run reports + the learning log (Tumo, Claude: #135 design, #136 code) · ✅ T090 ten more sample scripts (Katlego, Claude: PR #155) |
 
 ## ⏭️ Next action
 
@@ -98,7 +98,7 @@ scripts it wasn't designed on. Our three samples are used up for that, so we nee
 T063's 512 MB check and the first deploy on the Render account come next; Tumo owns T030 and
 T037's hosted run, so agree with him who does which before spending.
 
-### 👋 For Tumo (from Katlego, 2026-10-13): ten more sample scripts (T090)
+### 👋 For Tumo (from Katlego, 2026-10-13): ten more sample scripts (T090, merged in #155)
 
 **Ten new self-written screenplays are in `samples/`** beside the three T031 ones, as Fountain
 source + PDF, built by the same `uv run python -m tools.build_samples` and checked by the same
