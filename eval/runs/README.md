@@ -21,3 +21,4 @@ Find a project by its id, never by its title: two uploads of one script share a 
 | 2026-10-12 | the-bread-van, second run (not held out) | klein, 3 attempts, after T084 + T086 + T088 | 3 of 20 | 54 | [report](2026-10-12-the-bread-van-2.md) |
 | 2026-10-13 | load-shedding (held out, T090) | klein, 3 attempts, after T089 | 12 of 18 | 32 | [report](2026-10-13-load-shedding.md) |
 | 2026-10-13 | final-whistle (held out, T090) | klein, 3 attempts, after T089 | 17 of 22 | 44 | [report](2026-10-13-final-whistle.md) |
+| 2026-10-13 | stormwater (held out, T090) | klein, 3 attempts, after T089 + T091 | 17 of 21 | 36 | [report](2026-10-13-stormwater.md) |

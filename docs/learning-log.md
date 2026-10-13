@@ -16,6 +16,30 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L019 · A character the shot's own action names is left out of its cast · open
+
+- **Seen:** 2026-10-13, stormwater (Katlego's T090 sample, held out), [run report](../eval/runs/2026-10-13-stormwater.md). 3.1's action
+  is "Mr. Van der Merwe climbs down with a crowbar and a torch", but the shot's cast is SIBUSISO and
+  REFILWE: the prompt draws two figures, and the old man klein drew (attempt 2) failed as a
+  stranger; 3.1 withheld. 3.2 ("Mr. Van der Merwe levers up the … MANHOLE COVER") has no cast at
+  all. And the prompt reads **"a person der a person climbs down"**: the name is redacted word by
+  word, and the lower-case "der" breaks the run.
+- **Cause:** the planner may only list characters the extraction says are in the scene
+  (`_allowed`: `scene_index in entity.scenes`), and the extraction's `scenes` are incomplete.
+  Measured free on the stored plans of the seven read scripts: **45 of 266 shots** leave out a
+  character their own action line names, **39** of them because the planner was never offered
+  the character, 7 because the model left an offered one out. `_redact` joins only capitalised
+  name words, so "Van der Merwe" is two runs.
+- **Action:** proposed as T092 (shots.md): after the model, a shot's cast gains every character a
+  covered action line names as a figure (a Title-case name, or an UPPER-case introduction with its
+  "("; never a possessive like "the Lionesses' goalkeeper", never a scoreboard's "LIONESSES 1");
+  a name's lower-case particle (van, der, de…) joins its run. Prototype on the same plans: 40
+  characters added in 28 of 181 shots, every one read: 38 people the line puts there (final-whistle
+  5.4 "The Lionesses pile on top of Lindi. Palesa holds up the gloves", lost-property 12.2 "Mr. Dube
+  winds his pocket watch"), 2 groups (EAGLES, LIONESSES: L017). On-screen speakers missing from a
+  cast (12 more) are left alone: a shot of the listener is the planner's choice.
+- **Measured:** not yet live.
+
 ### L018 · T088 keeps a sex only when the model claims one, and on a new script it claimed none · open
 
 - **Seen:** 2026-10-13, load-shedding (Katlego's T090 sample, held out: no fix was designed on it),
@@ -43,7 +67,13 @@ it before changing the prompt or the audit; add to it after every live run.
 
   **0 wrong and 0 invented** in all 37 labels (RIGHT 20 → 32). Still missed: THEO, PRIYA, TEBOGO,
   OFFICER MOLOI, the TAXI DRIVER.
-- **Measured:** not yet live.
+- **Measured:** T091 built (#158/#159). Live, 2026-10-13, stormwater (held out, after T091,
+  [run report](../eval/runs/2026-10-13-stormwater.md)): **1 of 3** (MR. VAN DER MERWE, by his title), 0 wrong; REFILWE and SIBUSISO
+  missed, and **all 5 wrong accepted frames** are theirs: Refilwe (11) drawn as a boy (1.2, 6.2),
+  Sibusiso (20s) as a young woman (3.3, 4.1, 5.2). T091 finds neither, as designed: Refilwe's only
+  pronoun is "She drops to her knees", a next-sentence She after her own speech (a speech breaks
+  the chain; a next-sentence She alone keeps nothing without a claim), and Sibusiso's "climbs out
+  of the hole with Biscuit inside his overalls" has another name (the dog's) between him and his.
 
 ### L017 · A team or a crowd is extracted as a character, and its name is blanked in the prompt · open
 
@@ -73,6 +103,12 @@ it before changing the prompt or the audit; add to it after every live run.
   T088's `_pronoun_evidence` only links a pronoun to a name opening the sentence before it, so
   it doesn't cover 5.3 (its "He" follows a line of dialogue), and "Biscuit opens both." has no
   pronoun at all.
+  Counted free on the stored plans of the seven read scripts (2026-10-13), each action sentence
+  of a prompt that opens with He, She, They, His or Her, by the figures the prompt draws: **54**;
+  16 safe (the one drawn figure, or exactly one of several, has that sex), **12 in a shot that draws
+  no figure** (stormwater 6.4 "He looks at the ball. He puts it in his pocket.": klein drew a man
+  three times, the judge never matched him to MR. VAN DER MERWE, withheld), **2 against the only
+  drawn figure's sex** (the-bread-van 5.3), 24 ambiguous (several figures, or a sex unknown).
 - **Measured:** not yet.
 
 ### L015 · klein draws two panels in one frame · open
@@ -122,6 +158,11 @@ it before changing the prompt or the audit; add to it after every live run.
   The warned frames show misspelt boards (FINAL MEATHS EXAM, 2 – son 1) with their warning.
   Of the 11 withheld shots, 9 are refused over a person and none over an object or lettering;
   2 ended in an audit error (load-shedding 5.2, final-whistle 5.3).
+  stormwater (held out, after T091): **17 of 21** ([report](../eval/runs/2026-10-13-stormwater.md)); 8 right, 4 weak (1.1 no dog, 1.3
+  a child of no clear sex, 4.4 a dry tunnel, 5.3 the ball in the wrong hand), 5 wrong, all in their
+  people's sex (L018). Klein's misspelt lettering ("Only the arswerts", "MH. NOVE AC HOSE") warned;
+  the 4 withheld shots are refused over a person (3.1, 6.1, 6.4) or the setting (5.1), none over an
+  object or lettering.
 
 ### L013 · The place's own things fail: bread in a bakery, a van's dashboard inside the van · fixed (T086, measured free)
 

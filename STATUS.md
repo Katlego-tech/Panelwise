@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-13 — by Katlego (via Claude)_
+_Last updated: 2026-10-13 — by Tumo (via Claude)_
 
 ---
 
@@ -228,6 +228,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
+- 2026-10-13 — Tumo (via Claude) — Held-out run on **stormwater** (Katlego's T090 sample; klein, 3 attempts, after T091): **17 of 21 accepted**, every accepted frame looked at: 8 right, 4 weak, 5 wrong, all over sex (Refilwe drawn as a boy, Sibusiso as a young woman; T091 finds neither, L018). New: L019, a character the shot's own action names left out of its cast (45 of 266 stored shots; "a person der a person" in the prompt). Tumo's call: build before more uploads, Claude's four (T092 the cast, then L016 pronouns, L015 one panel, a claimed sex across a speech), then two held-out scripts. Blocked on: nothing.
 - 2026-10-13 — Tumo (via Claude) — Merged #152, #153, #154 (T089: objects but animals and weapons, and lettering warn). Two held-out runs on Katlego's T090 samples (klein, 3 attempts): **load-shedding 12 of 18**, **final-whistle 17 of 22**, every accepted frame looked at; 9 of 11 withheld shots refused over a person, 2 audit errors. Found: T088 keeps no sex when the model claims none (L018: 0 of 6 learners; the evidence alone measures 0 wrong, 20 → 32 right in 37 labels); teams and crowds extracted as characters (L017). T087 measured on four runs and parked (mostly the judge's own noise). Next: T091, proposed (sex from the script's pronouns alone), stormwater, then the other seven samples. Blocked on: nothing.
 - 2026-10-12 — Tumo (via Claude) — Tumo re-uploaded **the-bread-van** (not held out; klein, 3 attempts, after T084 + T086 + T088): **3 of 20 accepted** (1 of 19 before), report `eval/runs/2026-10-12-the-bread-van-2.md`. The judge put THEO's name on no adult (17 of 24 before), bread in the bakery no longer fails (26 → 0); but it now leaves the drawn boy, Auntie Betty and Nomsa unmatched (T087), and 5.3 draws Theo doing Daniel's salute (L016). Free what-if (L014): with objects and painted lettering only warning, 5 runs go 3→9, 2→5, 9→33, 14→26, 19→20; the 46 newly accepted drawings looked at: 34 right, 12 wrong, all in their people (7 girls drawn as boys, before T088's sex). Tumo: build the relaxation, T087 and the script-context retry, then re-test. Blocked on: nothing.
 - 2026-10-12 — Tumo (via Claude) — Merged: #149/#150 (T088: a claimed sex kept with the script's own subject pronouns; WRONG 0 in twelve Token Factory extractions), then #148 (T086: a matched person's age in code, a vehicle's parts inside it, unheld food warns; it waited for T088, L009). API container rebuilt from main (klein, 3 attempts). Next, in a new session: Tumo uploads his unread held-out script; the run report, every accepted frame looked at, what got fixed and what's left; then T087 (the judge refusing a match over clothing) and whatever the run shows. Blocked on: nothing.
