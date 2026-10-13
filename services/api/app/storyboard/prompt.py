@@ -24,7 +24,7 @@ from typing import Literal
 
 from app.characters import name_tokens, redact
 from app.characters.labels import animals, redaction_labels
-from app.characters.sex import SEX_TITLES, Sex
+from app.characters.sex import PRONOUNS, SEX_TITLES, SEX_WORDS, Sex
 from app.grounding import SENTENCE_END, Entity, EntityKind, Extraction
 from app.script import (
     Action,
@@ -349,11 +349,36 @@ def introduced_sex(character: str, screenplay: Screenplay) -> Literal["female", 
         rest = rest[: end.start()]
     words = set(re.findall(r"[a-z]+", rest.lower()) if rest else [])
     look = set(re.findall(r"[a-z]+", (_look_of(element, m, character, screenplay) or "").lower()))
-    female = "she" in words or "her" in look
-    male = "he" in words or "his" in look
+    noun = _appositive_sex(element.text[: m.start()])  # T096: "A boy in a blazer, THABO (9)"
+    female = "she" in words or "her" in look or noun is Sex.FEMALE
+    male = "he" in words or "his" in look or noun is Sex.MALE
     if female == male:
         return None
     return "female" if female else "male"
+
+
+# T096: an introducing sentence that opens "A"/"An", at most three words, a sex noun, then
+# anything up to the comma right before the name ("A small boy, KAMO (7)").
+_SEX_NOUNS = sorted((w for w in SEX_WORDS if w not in PRONOUNS), key=len, reverse=True)
+_APPOSITIVE = re.compile(
+    rf"(?:^|(?<=[.!?]\s))(?:A|An)\s+(?:[\w'-]+\s+){{0,3}}?({'|'.join(map(re.escape, _SEX_NOUNS))})"
+    rf"\b[^.!?()]*,\s*$"
+)
+
+
+def _appositive_sex(before: str) -> Sex | None:
+    """The sex noun of an appositive opening the sentence that ends at the name (T096), or None.
+    `before` is the element's text up to the name."""
+    sentence = re.split(r"(?<=[.!?])\s+", before)[-1]
+    m = _APPOSITIVE.match(sentence)
+    if m is None:
+        return None
+    # The noun's own phrase, not a clause about someone else: at most six words after it, and no
+    # second sex noun ("A woman hands the boy a letter, THABO (9)" names no one's sex).
+    after = re.findall(r"[A-Za-z'-]+", sentence[m.end(1) :])
+    if len(after) > 6 or any(w.lower() in _SEX_NOUNS for w in after):
+        return None
+    return SEX_WORDS[m.group(1)]
 
 
 def title_sex(character: str) -> Sex | None:
