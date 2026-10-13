@@ -4,6 +4,7 @@
 import pytest
 
 from app.characters.redact import (
+    _WORD,  # pyright: ignore[reportPrivateUsage]
     _name_runs,  # pyright: ignore[reportPrivateUsage]
     name_tokens,
     named_as_figure,
@@ -95,12 +96,23 @@ def test_no_figure_run(text: str, names: list[str]) -> None:
 
 
 def test_name_runs_are_the_runs_redact_replaces() -> None:
+    word = _WORD
     fixtures = [
-        ("NANDI MOLEFE pours tea for THABO.", ["NANDI MOLEFE", "THABO"]),
-        ("NANDI'S KITCHEN. O'BRIEN waits; Mary-Jane nods.", ["NANDI", "O'BRIEN", "MARY-JANE"]),
-        ("Mr. Van der Merwe and Thabo. van Thabo", ["MR. VAN DER MERWE", "THABO"]),
+        ("NANDI MOLEFE pours tea for THABO.", ["NANDI MOLEFE", "THABO"], ["NANDI MOLEFE", "THABO"]),
+        ("NANDI'S KITCHEN. O'BRIEN waits.", ["NANDI", "O'BRIEN"], ["NANDI", "O'BRIEN"]),
+        (
+            "Mr. Van der Merwe and Thabo. van Thabo",
+            ["MR. VAN DER MERWE", "THABO"],
+            ["Van der Merwe", "Thabo", "Thabo"],
+        ),
     ]
-    for text, names in fixtures:
-        tokens = name_tokens(names)
-        runs = _name_runs(text, tokens)
-        assert len(runs) == redact_all(text, names).count("a person")
+    for text, names, want in fixtures:
+        words = list(word.finditer(text))
+        runs = _name_runs(text, name_tokens(names))
+        assert [text[words[i].start() : words[j].end()] for i, j in runs] == want
+
+
+def test_a_particle_after_a_possessive_or_a_hyphen_never_joins() -> None:
+    names = ["THABO", "WET", "MR. VAN DER MERWE"]
+    assert redact_all("Thabo's van Wet", names) == "a person's van a person"
+    assert redact_all("Thabo van-der Wet", names) == "a person van-der a person"

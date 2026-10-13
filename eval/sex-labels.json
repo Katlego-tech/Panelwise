@@ -48,5 +48,10 @@
     "LINDI": {"sex": "female", "evidence": "The ball smacks into her chest. She holds on."},
     "REFEREE": {"sex": "male", "evidence": "blows his whistle"},
     "STRIKER": {"sex": null, "evidence": "never stated"}
+  },
+  "stormwater": {
+    "REFILWE": {"sex": "female", "evidence": "She drops to her knees at the drain."},
+    "MR. VAN DER MERWE": {"sex": "male", "evidence": "MR.; He answers with his mouth full."},
+    "SIBUSISO": {"sex": "male", "evidence": "Sibusiso climbs out of the hole with Biscuit inside his overalls"}
   }
 }

@@ -49,6 +49,7 @@ ROWS: list[Row] = [
     ),
     *_scene("3", "PORCH", (ACTION, "MR. DUBE (60s) and MRS. DUBE (60s) sit.")),
     *_scene("4", "LANE", (ACTION, "Mr. Van der Merwe climbs down from the cab.")),
+    *_scene("5", "YARD", (ACTION, "Oom Piet waits by the gate. MR. VAN DER MERWE (50s) waves.")),
 ]
 
 
@@ -98,6 +99,25 @@ def test_an_introduction_is_named_and_possessives_and_boards_are_not() -> None:
     assert named_in_action(sp.scenes[0], [4], ex, sp) == ()  # Jabu's paper
 
 
+def test_a_paired_other_name_counts_as_its_character() -> None:
+    sp = screenplay()
+    proposals = [
+        ProposedEntity.model_validate(
+            {
+                "kind": "character",
+                "name": "MR. VAN DER MERWE",
+                "quotes": ["MR. VAN DER MERWE (50s), orange overalls"],
+                "other_names": ["Oom Piet"],
+            }
+        )
+    ]
+    entities, report = ground(proposals, sp)
+    ex = Extraction(entities, report, ("fast-model",), Usage(0, 0, 0))
+    vdm = next(e for e in ex.entities if e.name == "MR. VAN DER MERWE")
+    assert "Oom Piet" in vdm.other_names
+    assert named_in_action(sp.scenes[4], [0], ex, sp) == ("MR. VAN DER MERWE",)
+
+
 def test_dialogue_and_speakers_name_no_one() -> None:
     sp = screenplay()
     ex = extraction(sp)
@@ -138,6 +158,8 @@ class Scripted:
         scene = json.loads(request.content)["messages"][-1]["content"]
         if "PITCH" in scene:
             shots = [shot(0, 0, []), shot(1, 1, ["PALESA"]), shot(2, 4, ["LINDI"])]
+        elif "YARD" in scene:
+            shots = [shot(0, 0, [])]
         elif "LANE" in scene:
             shots = [shot(0, 0, [])]
         elif "PORCH" in scene:
@@ -182,10 +204,19 @@ async def test_plan_shots_appends_the_named_after_the_models_and_counts_them() -
         vdm_cat,  # the model listed no one: extraction order
         ("MR. DUBE", "MRS. DUBE"),
         ("MR. VAN DER MERWE",),  # L019: never offered to this scene's planner
+        ("MR. VAN DER MERWE",),
     ]
-    assert plan.report.characters_added == 2 + 1 + 0 + 0 + 2 + 0 + 1
+    assert plan.report.characters_added == 2 + 1 + 0 + 0 + 2 + 0 + 1 + 1
     vdm = next(e for e in ex.entities if e.name == "MR. VAN DER MERWE")
     assert 3 not in vdm.scenes  # so `_allowed` never offered him in the lane
+
+
+def test_a_name_in_two_shots_of_one_scene_counts_in_each() -> None:
+    sp = screenplay()
+    ex = extraction(sp)
+    assert named_in_action(sp.scenes[0], [0], ex, sp) == ("LINDI", "PALESA")
+    assert named_in_action(sp.scenes[0], [1], ex, sp) == ("LINDI", "PALESA")
+    # the plan above: scene 1's first two shots add LINDI and PALESA to each (2 + 1)
 
 
 def test_an_older_plan_report_with_no_characters_added_loads_as_zero() -> None:
