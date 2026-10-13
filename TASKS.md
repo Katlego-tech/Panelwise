@@ -546,5 +546,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:verify.md §6 verbatim: `_STORY_OBJECTS`, `_filed`, `_SEVERITY[Check.TEXT_IN_FRAME] = Severity.SOFT`; §3's order paragraph (cases unchanged, only the filing)
       Verify:  bash scripts/gate.sh (tests first: verify.md §9's T089 list); free: `recheck` on every stored project, every newly accepted drawing looked at
       Done:    on the stored audits the numbers in verify.md §3 hold, every newly accepted drawing is listed in the PR as right or wrong, and a frame with an unscripted person, animal or weapon is still withheld
+- [ ] T091 [US1] **With no claim, a character's sex from the script's own possessive.** Found on 2026-10-13 (load-shedding, held out, L018): the extraction claimed no sex for six of seven characters, the script states each, and two accepted frames drew girls as boys. Measured free on six scripts' stored extractions: 0 wrong, 0 invented in 37 labels, right 20 → 31 (held out: 1 → 7 of 7, 4 → 5 of 5). Lane `script+grounding` (Claude for Tumo).
+      Design:  docs/design/grounding.md §3 (No claim: the script's own possessive), §6, §8, §9 (T091)
+      Files:   services/api/app/grounding/filter.py; services/api/tests/grounding/test_t091.py; docs/learning-log.md (L018's Measured)
+      Contract:grounding.md §6 verbatim: `_claimed_sex`'s T091 branch, `_owns`
+      Verify:  bash scripts/gate.sh (tests first: grounding.md §9's T091 list); free: every labelled stored extraction scored with the real code (0 wrong, 0 invented, the §3 counts)
+      Done:    on the six scripts' stored extractions the counts in grounding.md §3 hold with the real code, and the next held-out run's characters are scored against labels written after it
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
