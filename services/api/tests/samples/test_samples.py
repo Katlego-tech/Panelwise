@@ -54,6 +54,16 @@ JOINED_AT_A_HYPHEN = {
         88: "nineteen-ninety-something",
         213: "in the teeth of a south-westerly.",
     },
+    "the-night-taxi": {210: "The prize-giving was tonight?"},
+    "market-day": {},
+    "the-lighthouse-inspector": {},
+    "the-borrowed-bicycle": {},
+    "rooftop-tomatoes": {},
+    "load-shedding": {},
+    "gogos-recipe": {},
+    "stormwater": {},
+    "the-choir": {},
+    "final-whistle": {},
 }
 
 
@@ -93,6 +103,15 @@ def test_line_break_hyphens_are_joined_in_the_tricky_sample() -> None:
     assert not any(" sea- " in t or "south- " in t for t in texts)
     signs = [e.text for s in committed("lost-property").scenes for e in s.elements]
     assert any("LOST PROPERTY - PLATFORM 9" in t for t in signs)
+
+
+def test_the_choir_splits_its_long_speech_over_a_page() -> None:
+    elements = [e for s in committed("the-choir").scenes for e in s.elements]
+    speeches = [e for e in elements if isinstance(e, Dialogue)]
+    split = next(i for i, d in enumerate(speeches) if d.extension == "CONT'D")
+    before, after = speeches[split - 1], speeches[split]
+    assert before.cue == after.cue == "MAMA GRACE"
+    assert after.span.page == before.span.page + 1
 
 
 @pytest.mark.parametrize("name", NAMES)

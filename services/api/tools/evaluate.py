@@ -2,7 +2,7 @@
 
     cd services/api && uv run python -m tools.evaluate [--runs N] [--out PATH] [sample ...]
 
-Runs extract + plan_shots over each sample (all three by default) N times (default 5), re-checks
+Runs extract + plan_shots over each sample (T031's three by default) N times (default 5), re-checks
 in code that every kept quote and every shot cites verbatim script text, writes every run to
 eval/results/extraction-<date>.json, and prints the table eval/README.md carries. Exits 1 if
 anything ungrounded was kept. Only self-written samples: never a copyrighted script.
@@ -26,6 +26,8 @@ from app.shots import Shot, ShotPlan, plan_shots
 from tools.build_samples import OPTIONS, SAMPLES
 
 EVAL = SAMPLES.parent / "eval"
+# The T031 three, the set eval/README.md's numbers are over; a later sample is run by naming it.
+DEFAULT_SAMPLES = ["lost-property", "sipho-and-siphokazi", "the-red-kite"]
 
 
 @dataclass(frozen=True)
@@ -279,7 +281,7 @@ def _parse_args(argv: list[str]) -> tuple[int, Path | None, list[str]] | None:
             samples.append(arg)
         else:
             return None
-    return (runs, out, samples or sorted(OPTIONS)) if runs > 0 else None
+    return (runs, out, samples or DEFAULT_SAMPLES) if runs > 0 else None
 
 
 def _save(path: Path, report: EvalReport) -> None:
