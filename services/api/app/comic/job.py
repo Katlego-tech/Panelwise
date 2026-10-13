@@ -37,7 +37,7 @@ from app.script import Screenplay
 from app.shots import Shot
 from app.storage import AssetStore
 from app.verify.loop import MAX_RENDERS, render_until_accepted
-from app.verify.model import Audit, FrameState, Position, RecordingRenderer
+from app.verify.model import Audit, Check, FrameState, Position, RecordingRenderer
 
 log = logging.getLogger(__name__)
 
@@ -266,7 +266,7 @@ async def run_comic_job(
     model: NebiusChatModel,
     factory: RendererFactory,
     max_renders: int = MAX_RENDERS,
-    withhold: bool = True,
+    withholding: frozenset[Check] | None = None,
     concurrency: int = 1,
 ) -> None:
     """comic.md §4a end to end for the job's project. Never raises: every failure is the job
@@ -345,7 +345,7 @@ async def run_comic_job(
                             width=size[0],
                             height=size[1],
                             max_renders=max_renders,
-                            withhold=withhold,
+                            withholding=withholding,
                             first_attempt=1 + (prior.last_attempt if prior else 0),
                             log=log_audit,
                             on_state=on_state,

@@ -84,7 +84,7 @@ async def build_storyboard(
     height: int = 720,
     concurrency: int = 2,
     max_renders: int = 3,
-    withhold: bool = True,
+    withholding: frozenset[Check] | None = None,
 ) -> Storyboard:
     gate = asyncio.Semaphore(concurrency)
     failed: list[tuple[int, int]] = []  # shots whose renderer raised
@@ -121,7 +121,7 @@ async def build_storyboard(
                     width=width,
                     height=height,
                     max_renders=max_renders,
-                    withhold=withhold,
+                    withholding=withholding,
                     log=log_audit,
                     on_state=on_state,
                 )

@@ -21,7 +21,7 @@ from app.projects.model import ProjectRow
 from app.projects.pipeline import Stage
 from app.script import Screenplay
 from app.verify.loop import render_until_accepted
-from app.verify.model import FrameState, RecordingRenderer
+from app.verify.model import Check, FrameState, RecordingRenderer
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ async def run_attempt(
     sessions: async_sessionmaker[AsyncSession],
     model: NebiusChatModel,
     factory: RendererFactory,
-    withhold: bool = True,
+    withholding: frozenset[Check] | None = None,
 ) -> None:
     """Attempt `attempt` alone, under `job_id`. The job ends DONE (progress 100) whatever the
     audit says; any exception fails the frame (`render`) and the job. Never raises."""
@@ -68,7 +68,7 @@ async def run_attempt(
             height=HEIGHT,
             first_attempt=attempt,
             max_renders=1,
-            withhold=withhold,
+            withholding=withholding,
             log=hooks_log,
             on_state=on_state,
         )

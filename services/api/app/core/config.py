@@ -1,6 +1,7 @@
 """Settings, read from the environment (see .env.example at the repo root)."""
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,6 +10,10 @@ from sqlalchemy.engine import make_url
 # The repo-root .env, wherever the API is started from. In the Docker image this path
 # doesn't exist and compose supplies the environment instead; a missing file is ignored.
 REPO_ENV = Path(__file__).resolve().parents[4] / ".env"
+
+
+if TYPE_CHECKING:
+    from app.verify.model import Check
 
 
 class Settings(BaseSettings):
@@ -30,10 +35,11 @@ class Settings(BaseSettings):
     # A full render loop's attempts per frame (verify.md §4, T071): 1 while the pass rate is
     # unknown, so a systematic FAIL isn't paid for three times.
     render_max_attempts: int = Field(default=3, ge=1, le=3)
-    # Whether a failed hard check withholds a frame (verify.md §4). False (Tumo, 2026-10-13):
-    # every check only warns, the card still names it, and an attempt is accepted as WARNED;
-    # the rules come back one at a time. An audit that can't run still withholds.
-    audit_withholds: bool = True
+    # The rule ladder (verify.md §4; Tumo, 2026-10-13): which failed hard checks withhold a
+    # frame. "all" (the default) is every hard check; "" is none, so every check only warns
+    # and the card still names it; else a comma list of check names ("no_character"), the
+    # rules brought back one at a time. An audit that can't run still withholds.
+    audit_withhold_checks: str = "all"
 
     # Frames (docs/design/storyboard.md §6). The prompt's word budget, a conservative proxy for the
     # text encoder's token limit: 55 words for CLIP's 77 tokens until T003 picks the model.
@@ -85,3 +91,19 @@ class Settings(BaseSettings):
             query["ssl"] = query.pop("sslmode")
             parsed = parsed.set(query=query)
         return parsed.render_as_string(hide_password=False)
+
+
+def withholding(settings: Settings) -> frozenset[Check] | None:
+    """`audit_withhold_checks` read (verify.md §4): None for "all" (every hard check withholds),
+    else the checks that do; an unknown name is a ValueError, so a typo can't switch a rule off."""
+    from app.verify.model import Check  # here: app.verify imports this module
+
+    raw = settings.audit_withhold_checks.strip()
+    if raw.lower() == "all":
+        return None
+    names = [n.strip() for n in raw.split(",") if n.strip()]
+    known = {c.value for c in Check}
+    unknown = [n for n in names if n not in known]
+    if unknown:
+        raise ValueError(f"AUDIT_WITHHOLD_CHECKS names no check: {', '.join(unknown)}")
+    return frozenset(Check(n) for n in names)
