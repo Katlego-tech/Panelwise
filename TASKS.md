@@ -572,15 +572,15 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Done:    with `AUDIT_WITHHOLD_CHECKS=""` every audited frame is shown with its notes, with `all` nothing changes, and a misspelt rule stops the API starting
 - [ ] T095 [US2] **The sex agent: a matched character drawn as the other sex fails `DRAWN_SEX`.** Found on 2026-10-13 (L018, L014: every wrong accepted frame of the held-out runs was a character's sex). Measured on stored drawings (Token Factory): 175 people asked, 12 flagged, all 12 real, 0 false alarms. Lane `verify` (Claude for Tumo). The first rule on the ladder.
       Design:  docs/design/verify.md §3 (The sex agent; the checks table), §4, §6 (T095 contracts), §8, §9 (T095)
-      Files:   services/api/app/verify/{model,schema,audit,recheck,report}.py; services/api/app/frames/model.py; services/api/migrations/versions/0007_*.py; services/api/app/storyboard/document.py (the check's name); services/api/tests/verify/test_t095.py
-      Contract:verify.md §6 verbatim: `Check.DRAWN_SEX`, `PersonSeen`, `Audit.seen`, `PersonCheck`, `SEX_AGENT_PROMPT`, `check_person`, `run_checks(seen=)`, `FrameAuditRow.seen`
+      Files:   services/api/app/verify/{model,schema,audit,recheck,loop}.py; services/api/app/frames/{model,writer}.py; services/api/migrations/versions/0007_audit_seen.py; services/api/tests/verify/{test_t095,test_checks}.py
+      Contract:verify.md §6 verbatim: `Check.DRAWN_SEX`, `PersonSeen`, `Audit.seen`, `PersonCheck`, `SEX_AGENT_PROMPT`, `check_person`, `matched_people`, `shot_sexes`, `apply_ladder`, `run_checks(seen=, sexes=)`, `FrameAuditRow.seen`
       Verify:  bash scripts/gate.sh (§9's T095 list); Token Factory: the real code on one stored run's drawings; live: one held-out script with `AUDIT_WITHHOLD_CHECKS=drawn_sex` (fal: ask Tumo)
       Done:    a frame whose matched character is drawn as the other sex is withheld with `DRAWN_SEX` named, an `unclear` one is shown, and no frame is withheld because the agent's call failed
 - [ ] T096 [US1] **A sex noun in the introduction's appositive: "A boy …, THABO (9)".** Found on 2026-10-13 (the-night-taxi THABO, market-day KAMO: no sex from the script, though the introduction says boy). Measured free on eight read samples: 2 right, 0 wrong. Lane `storyboard` (Claude for Tumo).
       Design:  docs/design/storyboard.md §3.1 (A sex noun in the introduction's appositive), §9 (T096)
-      Files:   services/api/app/storyboard/prompt.py (`introduced_sex`); services/api/tests/storyboard/test_t096.py
+      Files:   services/api/app/storyboard/prompt.py (`introduced_sex`, `_appositive_sex`); services/api/tests/storyboard/{test_t096,test_invariant}.py (`keyed` takes the noun)
       Contract:storyboard.md §6: `introduced_sex`'s signature unchanged
-      Verify:  bash scripts/gate.sh (§9's T096 list; the invariant test unchanged); free: the eight read samples' introductions (2 right, 0 wrong)
+      Verify:  bash scripts/gate.sh (§9's T096 list; the invariant test's fourth key); free: the eight read samples' introductions (2 right, 0 wrong)
       Done:    THABO and KAMO are male from their introductions, no labelled character changes sex, and the next held-out runs' characters are scored
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

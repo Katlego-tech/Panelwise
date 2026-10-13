@@ -403,39 +403,57 @@ checks are the ones that would put something unscripted on screen; soft checks a
 
 **The rule ladder (T094; Tumo, 2026-10-13).** Which failed hard checks withhold a frame is a
 setting, `AUDIT_WITHHOLD_CHECKS`: `all` (the default, every hard check, as above), empty (none), or a
-comma list of check names (`drawn_sex,no_character`); an unknown name is refused at start-up, so a
-typo can never switch a rule off. A failed hard check **not** on the ladder makes the attempt
-`WARN` instead of `FAIL`: the frame is accepted on that attempt, and the audit keeps every check it
-failed, so the card names it ("Audit: warn (unscripted person, …)"; a warned card lists hard as well
-as soft failures). An audit that can't run (`ERROR`) still withholds, whatever the ladder: nothing
-shows the frame was looked at. **Why:** on 2026-10-13, market-day (held out) had 0 of 15 shots
-accepted, though about 12 of the 15 final drawings were right: klein fills a market with shoppers
-and every one failed `UNSCRIPTED_PERSON`. With an empty ladder the same script showed 16 of 17,
-9 right, 5 weak, 2 split panels (L015), none of the wrong sex or age, in 17 drawings instead of 44.
-The rules come back one at a time, each measured on the stored audits first: a rule earns its
-place when it withholds wrong frames and few right ones.
+comma list of hard check names (`drawn_sex,no_character`); a name that is no **hard** check (a typo,
+or a soft check that could switch nothing on) is refused at start-up. `apply_ladder(audit,
+withholding)` turns every hard check **not** on the ladder into a soft one in the audit itself, before
+it is logged: an attempt whose remaining failed hard checks are none is `WARN` and accepted on that
+attempt, and a withheld frame's audit holds only failed hard checks that are on the ladder, so every
+reader that names the reason (`writer.withheld_check`, the comic's `withheld_checks`, the card's
+`_noted`) names a check that withheld it. A warned card lists every failed check ("Audit: warn
+(unscripted person, …)"). An audit that can't run (`ERROR`) still withholds, whatever the ladder:
+nothing shows the frame was looked at. `recheck`, `reaudit` and the run report run today's checks at
+full strictness (`all`) on the stored descriptions, so they show what each rule *would* withhold:
+that is how a rule is measured before it goes back on the ladder; their "before" is the logged
+verdict, the ladder's. **Why:** on 2026-10-13, market-day (held out) had 0 of 15 shots accepted,
+though about 12 of the 15 final drawings were right: klein fills a market with shoppers and every
+one failed `UNSCRIPTED_PERSON`. With an empty ladder the same script showed 16 of 17, 9 right, 5
+weak, 2 split panels (L015), none of the wrong sex or age, in 17 drawings instead of 44.
+**Non-negotiable I (PLAN.md):** an empty or partial ladder shows frames that fail a hard check, so §1's
+"never shown" holds only for the checks on the ladder. This is Tumo's call (2026-10-13), labelled:
+such a frame is always WARNED and its card names the failed check, never presented as passing. The
+code default stays `all`; the hosted demo's value is set at deploy (deploy.md, not changed here) and
+is Tumo's to choose.
 
-**The sex agent (T095).** After the judge, for each described person the judge matched to a
-character whose sex the script gives (`character_sex`, people only), one more vision call asks about
-that person alone: the image, the person's `position` and `appearance` as the describer wrote them,
-and the fixed question "male, female or unclear; child, teenager, adult, old or unclear", answered
-as a `PersonCheck`. The answers are kept with the audit (`Audit.seen`, the `frame_audits.seen`
-column) so `recheck` runs `DRAWN_SEX` again for free. `run_checks` fails `DRAWN_SEX` when the agent
-answers the other sex; the age answer is stored and shown, never checked (below). A failed agent call
-(an `LLMError` or a `ValidationError`) checks nothing for that person and is logged: it never turns
-the audit into `ERROR`, so a flaky question can't withhold a frame. **Measured** (2026-10-13,
-Token Factory, DeepSeek-V4.1-Flash, stored drawings of stormwater, load-shedding, the-night-taxi,
-market-day's second run and the-red-kite, the labels' sex standing in for the script's): **175**
-matched people asked; 154 agree, 9 `unclear`, **12 the other sex, every one looked at and every
-one a real error** (Fatima drawn as a boy twice, Pieter as a girl twice, a girl matched to Jabu, a
-young man to Fatima, Refilwe as a boy three times, Sibusiso as a young woman three times); **0 false
-alarms**. Three known wrong frames pass as `unclear` (Refilwe as a short-haired child in 1.2 and 6.2,
+**The sex agent (T095).** After the judge, for each described person accepted as a character whose
+sex the script gives, one more vision call asks about that person alone. **Who:** `matched_people`,
+pure, the rule `run_checks` itself uses: the judge's name resolved by `match_speaker` among the shot's
+people, not refused for their age (T086), the first person called for that name; an animal never.
+**Which sex:** `shot_sexes` (`character_sex` per shot person, passed in like `shot_ages`, since
+`run_checks` has no screenplay). **The question:** the image, the person's `position` and
+`appearance` as the describer wrote them, every other described person's position and appearance
+("not these others: …") so two people in one position can't be confused, and the fixed
+`SEX_AGENT_PROMPT`: male, female or unclear, as a `PersonCheck`. The questions of one attempt run at
+once (`asyncio.gather`), the PNG encoded once. **Kept:** `Audit.seen` (`PersonSeen`: person, the
+resolved character, sex), written by `FrameWriter.log` to the `frame_audits.seen` column (migration
+0007), so `recheck` runs `DRAWN_SEX` again for free; its tokens count in the audit's usage and
+models. **Fails:** `run_checks(..., seen=, sexes=)` fails `DRAWN_SEX` when an answer about a person
+accepted as that character is the other sex; `unclear` passes. **Never an ERROR:** the agent runs
+only after the judge succeeds (a judge failure is `ERROR` as before, with no question asked), in its
+own handling: a failed question (an `LLMError` or `ValidationError`) checks nothing for that person
+and is logged. **Measured** (2026-10-13, Token Factory, DeepSeek-V4.1-Flash, stored drawings of
+stormwater, load-shedding, the-night-taxi, market-day's second run and the-red-kite; the labels' sex
+standing in for the script's, and the prototype asking about every judge match): **175** matched
+people asked; 154 agree, 9 `unclear`, **12 the other sex, every one looked at and every one a real
+error** (Fatima drawn as a boy twice, Pieter as a girl twice, a girl matched to Jabu, a young man to
+Fatima, Refilwe as a boy three times, Sibusiso as a young woman three times); **0 false alarms**.
+Three known wrong frames pass as `unclear` (Refilwe as a short-haired child in 1.2 and 6.2,
 load-shedding 1.2). About 1,000 tokens a question, so roughly 45,000 a script of 20 shots.
-**Age is not checked:** in the same 175 answers the agent called men in their 50s `old` 15 times
-(BONGANI, MR. VAN DER MERWE), and a 60s woman `adult`: an introduction's decade doesn't map to the
-agent's bands. T086's code age check stays the one age rule. **Only where the script gives a sex:**
-in the live runs above, REFILWE, SIBUSISO and FATIMA had none in the extraction, so the agent would
-have asked about none of them; T096 and the L018 work widen that.
+**No age:** the prototype asked age too, and called men in their 50s `old` 15 times (BONGANI,
+MR. VAN DER MERWE) and a 60s woman `adult`; nothing would read it, so the question is sex only and
+T086's code age check stays the one age rule. **Only where the script gives a sex:** in the live
+runs above, REFILWE, SIBUSISO and FATIMA had none in the extraction, so the agent would have asked
+about none of them; T096 and the L018 work widen that. A row's `seen` holds only the characters
+sexed when it was audited: `recheck` can't measure a sex found later (that needs `reaudit`, tokens).
 
 ## 4. Flow
 
@@ -755,26 +773,30 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
 ```python
 # app/core/config.py
 class Settings: audit_withhold_checks: str = "all"     # T094: "all", "" or a comma list of Check values
-def withholding(settings: Settings) -> frozenset[Check] | None: ...   # None for "all"; ValueError for an unknown name
+def withholding(settings: Settings) -> frozenset[Check] | None: ...   # None for "all"; ValueError for a name that is no hard check
 
 # app/verify/loop.py
 async def render_until_accepted(..., withholding: frozenset[Check] | None = None) -> FrameOutcome: ...
-#   T094: a FAIL whose failed hard checks are all off `withholding` is logged and accepted as WARN;
+#   T094: apply_ladder before log: a FAIL whose failed hard checks are all off `withholding` is logged and accepted as WARN;
 #   None keeps today's rule (every hard check withholds). build_storyboard, run_job, run_comic_job and
 #   run_attempt pass it through; the API passes withholding(settings).
 
 # app/verify/model.py
-class Check(StrEnum): ... DRAWN_SEX = "drawn_sex"         # T095, hard
-@dataclass(frozen=True) class PersonSeen: person: int; character: str; sex: str; age: str   # T095
+class Check(StrEnum): ... DRAWN_SEX = "drawn_sex"         # T095, hard; appended last (enum order is report order)
+_SEVERITY[Check.DRAWN_SEX] = Severity.HARD
+@dataclass(frozen=True) class PersonSeen: person: int; character: str; sex: str   # T095: male, female or unclear
 @dataclass(frozen=True) class Audit: ...; seen: tuple[PersonSeen, ...] = ()               # T095
 
 # app/verify/schema.py
-class PersonCheck(BaseModel): sex: Literal["male", "female", "unclear"]; age: Literal["child", "teenager", "adult", "old", "unclear"]
+class PersonCheck(BaseModel): sex: Literal["male", "female", "unclear"]
 
 # app/verify/audit.py
 SEX_AGENT_PROMPT: str      # the fixed question above, verbatim in the code
-async def check_person(model: NebiusChatModel, png: bytes, position: str, appearance: str) -> tuple[PersonCheck, ChatResult]: ...  # Tier.VISION
-def run_checks(..., seen: Sequence[PersonSeen] = ()) -> ...   # T095: DRAWN_SEX from `seen` and character_sex
+async def check_person(model: NebiusChatModel, image: str, description: FrameDescription, index: int) -> tuple[PersonCheck, ChatResult]: ...  # Tier.VISION; image a data URL, encoded once
+def matched_people(shot, description, judgement, extraction, ages=None) -> dict[int, str]: ...   # pure: who run_checks accepts as which character
+def shot_sexes(shot, screenplay, extraction, sex_of) -> dict[str, str]: ...   # character_sex per shot person, passed in
+def apply_ladder(audit: Audit, withholding: frozenset[Check] | None) -> Audit: ...   # T094: off-ladder hard checks become soft; FAIL -> WARN when none is left
+def run_checks(..., seen: Sequence[PersonSeen] = (), sexes: Mapping[str, str] | None = None) -> ...   # T095: DRAWN_SEX
 
 # app/frames/model.py, migration 0007
 FrameAuditRow.seen: Mapped[list[dict] | None]   # JSONB, nullable: older rows have none (recheck: no DRAWN_SEX)
@@ -966,19 +988,23 @@ it against the script."*
 - **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
   injected extra person or object, gives the audit's precision and recall for the README.
 
-- **T094** (`tests/verify/test_loop.py`, `tests/core`): a failed check off the ladder is
-  accepted as WARN on that attempt, logged as WARN, its checks kept; one on the ladder still
-  withholds; an empty ladder still withholds an `ERROR`; `all` is today's loop; the setting parses
-  `all`, `ALL`, empty and a spaced comma list, and refuses a misspelt name; a warned card names
-  hard failures too (`build.py`, `document.py`).
+- **T094** (`tests/verify/test_loop.py`, `tests/verify/test_t095.py`): a failed check off the
+  ladder is accepted as WARN on that attempt, logged as WARN with that check now soft; one on the
+  ladder still withholds, and a frame failing both names only the one on the ladder; an empty ladder
+  still withholds an `ERROR`; `all` returns the audit unchanged; the setting parses `all`, `ALL`,
+  empty and a spaced comma list, and refuses a misspelt name and a soft check's name; a warned card
+  names every failed check (`build.py`, `document.py`).
 - **T095** (`tests/verify/test_t095.py`, tests first): `run_checks` fails `DRAWN_SEX` for a seen
-  `male` on a female character and passes `unclear`, the same sex, a person matched to no
-  character, and a character with no sex from the script; an animal is never asked;
-  `audit_frame` asks only about matched people with a script sex (a MockTransport counts the
-  vision calls), stores `seen`, and a failing agent call checks nothing and leaves the verdict
-  as the other checks make it; `recheck` reruns `DRAWN_SEX` from a stored row's `seen` and skips
-  it for a row with none; migration 0007 upgrades and downgrades. Free and Token Factory: the
-  prototype's 175 questions reproduced in shape by the real code on one stored run.
+  `male` on a female character with the detail above, and passes `unclear`, the same sex, a
+  character with no sex from the script, and an answer filed against a person not accepted as that
+  character; `matched_people` skips a second person called for one name, a name not in the shot and
+  a person refused for their age; `audit_frame` asks the agent only about a matched person with a
+  script sex (a MockTransport counts the questions), names the other described people in the
+  question, stores `seen`, counts the agent's tokens, and a failing question leaves `seen` empty and
+  the verdict no `ERROR`; `FrameWriter.log` writes `seen`; the severity table names `DRAWN_SEX`
+  hard; migration 0007 upgrades and downgrades (the schema test). Live: one script with
+  `AUDIT_WITHHOLD_CHECKS=drawn_sex`, where the real code meets `character_sex` (the prototype used
+  the labels).
 
 ## 10. Open questions
 
