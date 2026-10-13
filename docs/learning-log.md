@@ -16,6 +16,31 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L020 · Every stranger withheld the frame, so right frames were hidden · open (T094, T095 in review)
+
+- **Seen:** 2026-10-13, market-day (held out), [run report](../eval/runs/2026-10-13-market-day.md): **0 of 15** accepted, 44 drawings.
+  Every stored attempt pulled from Storage and looked at: about 12 of the 15 final drawings are right
+  (Auntie Precious's floral headscarf and glasses, Yusuf's apron over a football shirt, Kamo with the
+  newspaper); the judge matched the shot's own characters in nearly every attempt; every refusal was
+  `UNSCRIPTED_PERSON` over market shoppers klein added. the-night-taxi (held out,
+  [report](../eval/runs/2026-10-13-the-night-taxi.md)): 10 of 20, the 10 withheld all over people (klein's extras, Bongani drawn
+  three times for "He stops, frowns, and laughs", the judge missing an obvious match), 0 wrong in the
+  accepted. Free what-if on the stored audits of nine runs: accepting an attempt whose only hard
+  failure is `UNSCRIPTED_PERSON` takes 144 of 216 shots to about 203 (crude: it also holds age refusals).
+- **Cause:** the audit's rule that every person traces to the script fights the image model: klein
+  draws places as they look, full of people, and fal's klein takes no negative prompt.
+- **Action:** Tumo's call (2026-10-13): drop the rules and bring them back one at a time. T094 (the
+  rule ladder, `AUDIT_WITHHOLD_CHECKS`), T095 (the sex agent, `DRAWN_SEX`, the first rule back),
+  T096 (an appositive sex noun, "A boy …, THABO (9)"): #166 design merged; #167 and #168 code in
+  review.
+- **Measured:** market-day again with no rule withholding ([report](../eval/runs/2026-10-13-market-day-2.md)): **16 of 17** shown in 17
+  drawings, 9 right, 5 weak, 2 split panels (L015), none the wrong sex or age. The sex agent's
+  prototype on stored drawings: 175 people asked, 12 flagged, every one a real error, 0 false alarms.
+  load-shedding with only `drawn_sex` withholding ([report](../eval/runs/2026-10-13-load-shedding-2.md)): **18 of 18** shown in 19 drawings;
+  3.1's first attempt drew Pieter as a girl and was withheld and redrawn as a boy; every frame looked
+  at, 13 right, 5 weak (1.3 a split panel, 5.3 an extra man), none the wrong sex (the last run had
+  Fatima and Nomsa as boys). T091 gave all 7 learners a sex this time (1 of 7 before).
+
 ### L019 · A character the shot's own action names is left out of its cast · open
 
 - **Seen:** 2026-10-13, stormwater (Katlego's T090 sample, held out), [run report](../eval/runs/2026-10-13-stormwater.md). 3.1's action
