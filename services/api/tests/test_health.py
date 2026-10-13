@@ -68,11 +68,14 @@ def test_checks_run_concurrently() -> None:
     async def slow() -> None:
         await asyncio.sleep(0.3)
 
+    # The request alone is timed: building the app and its client is not the checks' time, and
+    # with the suite on every core it pushed this past the bound (pytest -n auto, #165).
+    client = client_with({"postgres": slow, "second": slow})
     started = time.monotonic()
-    res = client_with({"postgres": slow, "second": slow}).get("/api/v1/health")
+    res = client.get("/api/v1/health")
 
     assert res.status_code == 200
-    assert time.monotonic() - started < 0.55
+    assert time.monotonic() - started < 0.55  # two 0.3 s checks in a row would take 0.6
 
 
 def test_the_real_app_checks_postgres_only() -> None:
