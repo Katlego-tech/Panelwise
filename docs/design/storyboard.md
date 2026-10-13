@@ -254,6 +254,18 @@ none of which names a person, prop or event.
   - A **maximal run** of name tokens (with an optional possessive `'S` on its last token), in UPPER
     or Title case at word boundaries, becomes one `a person` (`a person's` for a possessive): "NANDI
     MOLEFE pours" → "a person pours", "NANDI'S KITCHEN" → "a person's kitchen".
+  - **A name's lower-case particle joins its run (T092).** A word of `NAME_PARTICLES` (`van`,
+    `der`, `de`, `du`, `da`, `von`, `le`, `la`, `del`, `dos`, `den`, `ter`, `bin`), written in lower
+    case, that is itself one of the tokens and has a name token right after it, joins the run, so
+    "Mr. Van der Merwe climbs down" → "a person climbs down" (before T092, "a person der a person";
+    learning-log L019). A particle never starts a run, so "the house of le Roux" redacts only
+    "Roux", and a lower-case particle that is no token of any name stays.
+  - **A name as a figure (T092).** `named_as_figure(text, tokens)` reads the same runs and is true
+    when one of them is **Title case** (any word of it not all capitals, particles aside) or is
+    **UPPER case directly followed by `(`** (an introduction), and **is not possessive** (no `'`
+    right after it). The shot planner (shots.md §3) uses it to add the characters an action line
+    puts on screen: "Lindi rolls the ball out to Palesa." names both; "The Lionesses' goalkeeper"
+    and "The scoreboard is a blackboard: LIONESSES 1 - EAGLES 1." name no figure.
   - **Labels, not only "a person" (T052).** Redaction covers every character's name **and its
     `other_names`**, and every prop's `other_names` (a prop's own name, "VIOLIN", is a thing to draw
     and stays). `redaction_labels(extraction, screenplay)` gives **token → label**, inserted in rank
@@ -718,6 +730,8 @@ def load_styles(public_dir: Path, private_dir: Path | None) -> StyleRegistry: ..
 # app/characters/redact.py  (built by T008; T025 uses it: characters.md §6)
 NAME_STOP_WORDS: frozenset[str]                                # §3.1's list
 def name_tokens(names: Sequence[str]) -> frozenset[str]: ...   # words of normalise(name), for each name, minus NAME_STOP_WORDS
+NAME_PARTICLES: frozenset[str]                                 # T092, §3.1: van der de du da von le la del dos den ter bin (lower case)
+def named_as_figure(text: str, tokens: Collection[str]) -> bool: ...   # T092, §3.1: some run of `tokens` in `text` is Title case, or UPPER case followed by "(", and not possessive
 def redact_names(text: str, character: str, others: Sequence[str]) -> str: ...   # characters.md rule 2: this character → "a person", others → "another person"
 def redact_all(text: str, characters: Sequence[str]) -> str: ...                 # every character's name tokens → "a person"
 # app/characters/labels.py (T052; its own module because it imports app.grounding, whose filter imports redact.py.
@@ -1101,6 +1115,13 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   public style: every shot ends `PASSED`, `WARNED` or `WITHHELD`; the PDF and frames are in Storage;
   seconds per frame, renders per frame and fal's cost are recorded in `docs/rendering.md` (render cost; T049 uses the same renders); the
   pages are committed as the visual reference.
+- **T092** (`tests/characters/test_t092.py`, tests first): "Mr. Van der Merwe climbs down" →
+  "a person climbs down" and "MR. VAN DER MERWE (50s)" → "a person (50s)"; a particle that is no
+  token stays ("the house of de Klerk" with only KLERK a token → "the house of de a person"); a
+  particle never starts a run; `named_as_figure`: Title case and an UPPER-case introduction
+  (`AYANDA (17)`) true; a possessive ("the Lionesses' goalkeeper", "Jabu's paper", "NANDI'S") and
+  an UPPER-case run without `(` ("LIONESSES 1 - EAGLES 1") false; one figure run among other runs
+  is enough ("Jabu's paper. Jabu covers it" true). Every existing redaction test unchanged.
 
 ## 10. Open questions
 
