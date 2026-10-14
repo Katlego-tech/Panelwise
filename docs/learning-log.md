@@ -16,6 +16,26 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L021 · The judge leaves a drawn character unmatched, citing their own line · open (T097)
+
+- **Seen:** 2026-10-14, a free what-if (`recheck` with `drawn_sex` plus one rule) on nine stored runs:
+  `NO_CHARACTER` would withhold **30** of the frames shown today; every one looked at, **23 had the
+  character plainly drawn** (22 at first look; final-whistle 3.3's referee does wear the striped shirt) (Lindi in goal with her gloves, Siphokazi smiling, Thabo laughing in the
+  taxi). In nearly all of them the describer saw the person and the judge called them no character,
+  often with the character's own line as the support (the-night-taxi 2.4: support "Thabo laughs.").
+  The other candidate rules measured worse or no better: `setting` 3 real of 8 (EXT bakery scenes
+  drawn inside; the false alarms indoor places that look open: a covered platform, the tunnels, a
+  bait shack), `unscripted_object` 0 of 2 (a police baton on a belt, a knife on a workbench),
+  `unscripted_person` 114 frames (L020).
+- **Cause:** the judge does the matching and the stranger rules in one answer; on a person whose look
+  doesn't spell out the quote's details it leans to "no character", even when it quotes that
+  character's line.
+- **Action:** T097, the presence agent: when the judge matched none of the drawn characters, a vision
+  question per character ("which numbered person, if any, is this character?"); a found person
+  counts for `NO_CHARACTER` only. Design: verify.md §3.
+- **Measured:** prototype on the 30 stored frames (Token Factory, two runs): 18 and 16 of 23 false
+  alarms found, 2 and 3 of 7 real misses wrongly found. Live: not yet.
+
 ### L020 · Every stranger withheld the frame, so right frames were hidden · open (T094, T095 in review)
 
 - **Seen:** 2026-10-13, market-day (held out), [run report](../eval/runs/2026-10-13-market-day.md): **0 of 15** accepted, 44 drawings.
