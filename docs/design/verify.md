@@ -486,9 +486,11 @@ person stays unmatched for every other check (`UNSCRIPTED_PERSON`, `MISSING_CHAR
 `DRAWN_SEX`), so a found person is no excuse for anything else, and `positions` is unchanged (a
 speaker shown only through `found` gets the comic bubble's fallback placement). **What the viewer
 sees (Non-negotiable I):** a person the agent finds is still unmatched, so the judge's call stands
-for `UNSCRIPTED_PERSON`: on a ladder without it that is a warning the card names (`person N: no
-shot character, no support`), so a frame shown only through `found` is never shown as passing. The
-agent's own pick is not on the card; it is in the audit log (`found`). The cost is the measured one:
+for `UNSCRIPTED_PERSON`: the person passes it only when the judge's support holds for a stranger
+(T084: an action line of the shot, naming no character, with no he or she), and otherwise fails it,
+a warning the card names on a ladder without it (`person N: no shot character, no support`). So a
+frame shown only through `found` carries no note of it when the judge's stranger support holds; the
+agent's own pick is not on the card, it is in the audit log (`found`). The cost is the measured one:
 about a third of the real misses found wrongly are shown, warned. **Never an ERROR:** a failed
 question (an `LLMError` or `ValidationError`) finds no one, is logged, and leaves `NO_CHARACTER` as
 the judge's matches decide it, so the verdict is the judge-alone verdict; the safe side, a redraw. **Measured** (2026-10-14, Token Factory,
