@@ -39,6 +39,7 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Action:** none yet. Candidates, to measure first: fold such a name into the one character whose
   words contain it (grounding); give the presence agent's question the sex of the character a bare
   name folds into; redact a multi-word role name only whole.
+- **Measured:** not yet.
 - **Sex labels** (eval/sex-labels.json): `character_sex` right for MS. NAIDOO and MR. FORTUIN, a miss
   for both duplicates, 0 wrong, 0 invented. The sex agent asked about 32 matched people, every
   answer the script's sex; nothing withheld.
@@ -63,8 +64,8 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Measured:** prototype on the 30 stored frames (Token Factory, two runs): 18 and 16 of 23 false
   alarms found, 2 and 3 of 7 real misses wrongly found. The real code on the same frames (#172): 17
   of 23 and 3 of 7. Live, 2026-10-14, the-lighthouse-inspector (held out, `drawn_sex,no_character`):
-  the agent ran once in 26 shots (7.5) and found a person the describer called a woman for MR.
-  FORTUIN, a wrong frame shown (L022); `no_character` withheld nothing.
+  the agent ran once in 26 shots (7.5) and found a person the describer called a woman for the
+  bare `FORTUIN` (a duplicate of MR. FORTUIN), a wrong frame shown (L022); `no_character` withheld nothing.
 
 ### L020 · Every stranger withheld the frame, so right frames were hidden · open (T094, T095 in review)
 
