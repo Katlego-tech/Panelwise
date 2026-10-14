@@ -35,7 +35,7 @@ it before changing the prompt or the audit; add to it after every live run.
   opening with "Naledi" holds a pronoun.
 - **Action:** none yet. Candidate: a sentence that opens with Her or His (a possessive: not "Her to",
   "Her a") right after the sentence that introduces one character (one `NAME (` in it) gives that
-  character's sex. Measured free on the 12 read scripts' labels: **1 found (NALEDI), 1 right, 0
+  character's sex. Measured free on the labels of the 10 labelled scripts with a sample file: **1 found (NALEDI), 1 right, 0
   wrong**. Separately, a plural "They" with the shot's own people in the scene draws no one (4.2).
 - **Measured:** not yet.
 - **Sex labels** (eval/sex-labels.json): `character_sex` right for TSHEPO, SHOPKEEPER and MR. KEKANA,
