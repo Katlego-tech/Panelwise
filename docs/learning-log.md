@@ -16,6 +16,31 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L023 · A girl the script says is a girl, drawn as a boy all through: her sex was in a "Her" · open
+
+- **Seen:** 2026-10-14, the-borrowed-bicycle (held out), [run report](../eval/runs/2026-10-14-the-borrowed-bicycle.md):
+  **18 of 18** shown in 19 drawings (`no_character` withheld 1.4's first attempt; its redraw was
+  shown). Every drawing looked at: NALEDI (12) is drawn as a boy in about 11 frames (1.1, 1.2, 1.3,
+  2.1, 2.3, 3.1, 3.2, 4.1, 4.3, 5.1, 5.2; 1.4's redraw unclear). The extraction gave her no sex, so
+  every prompt said "a 12-year-old" and klein drew a boy in dungarees; the sex agent had no script
+  sex to check. **4.2** ("They sit up, brown from head to toe") drew a naked muscular adult man
+  beside the bicycle: no figure in the prompt (a plural "They" resolves to no one), klein invented
+  him, the judge called him a stranger, and `unscripted_person` is off the ladder, so it was only
+  warned. Right: 2.2 (the shopkeeper and his newspaper), 3.3 (the puddle), Mr. Kekana in his church
+  suit and feathered hat (5.2), 5.4; 5.1 has extra children; 5.5 an empty yard for a line.
+- **Cause:** every sign of Naledi's sex is a "her": "NALEDI (12), dungarees, scraped knees, stares at
+  it. **Her** little brother TSHEPO (8) …" and "Tshepo sits on the carrier behind **her**, arms
+  around **her** waist". `introduced_sex` reads only the introducing sentence and its look; the
+  evidence code (T088/T091) chains a next sentence only when it opens with He or She, and no sentence
+  opening with "Naledi" holds a pronoun.
+- **Action:** none yet. Candidate: a sentence that opens with Her or His (a possessive: not "Her to",
+  "Her a") right after the sentence that introduces one character (one `NAME (` in it) gives that
+  character's sex. Measured free on the 12 read scripts' labels: **1 found (NALEDI), 1 right, 0
+  wrong**. Separately, a plural "They" with the shot's own people in the scene draws no one (4.2).
+- **Measured:** not yet.
+- **Sex labels** (eval/sex-labels.json): `character_sex` right for TSHEPO, SHOPKEEPER and MR. KEKANA,
+  a miss for NALEDI; 0 wrong, 0 invented.
+
 ### L022 · A bare surname became a second character, with no sex · open
 
 - **Seen:** 2026-10-14, the-lighthouse-inspector (held out), [run report](../eval/runs/2026-10-14-the-lighthouse-inspector.md):
