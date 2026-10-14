@@ -22,3 +22,7 @@ Find a project by its id, never by its title: two uploads of one script share a 
 | 2026-10-13 | load-shedding (held out, T090) | klein, 3 attempts, after T089 | 12 of 18 | 32 | [report](2026-10-13-load-shedding.md) |
 | 2026-10-13 | final-whistle (held out, T090) | klein, 3 attempts, after T089 | 17 of 22 | 44 | [report](2026-10-13-final-whistle.md) |
 | 2026-10-13 | stormwater (held out, T090) | klein, 3 attempts, after T089 + T091 | 17 of 21 | 36 | [report](2026-10-13-stormwater.md) |
+| 2026-10-13 | the-night-taxi (held out, T090) | klein, 3 attempts, after T092 + T093 | 10 of 20 | 41 | [report](2026-10-13-the-night-taxi.md) |
+| 2026-10-13 | market-day (held out, T090) | klein, 3 attempts, after T092 + T093 | 0 of 15 | 44 | [report](2026-10-13-market-day.md) |
+| 2026-10-13 | market-day, second run (not held out) | klein, 3 attempts, branch `feat/audit-warn-only`: no rule withholds | 16 of 17 | 17 | [report](2026-10-13-market-day-2.md) |
+| 2026-10-13 | load-shedding, second run (not held out) | klein, 3 attempts, branch `feat/sex-agent`: only `drawn_sex` withholds (T094, T095, T096) | 18 of 18 | 19 | [report](2026-10-13-load-shedding-2.md) |

@@ -53,5 +53,17 @@
     "REFILWE": {"sex": "female", "evidence": "She drops to her knees at the drain."},
     "MR. VAN DER MERWE": {"sex": "male", "evidence": "MR.; He answers with his mouth full."},
     "SIBUSISO": {"sex": "male", "evidence": "Sibusiso climbs out of the hole with Biscuit inside his overalls"}
+  },
+  "the-night-taxi": {
+    "BONGANI": {"sex": "male", "evidence": "He counts coins into a tin."},
+    "THABO": {"sex": "male", "evidence": "A boy in a too-big school blazer, THABO (9), stands alone by the queue barrier."},
+    "UNCLE SIZWE": {"sex": "male", "evidence": "UNCLE; He kneels in front of the boy."},
+    "RADIO PRESENTER": {"sex": null, "evidence": "never stated"}
+  },
+  "market-day": {
+    "AUNTIE PRECIOUS": {"sex": "female", "evidence": "AUNTIE; Auntie Precious lowers her glasses and reads it."},
+    "YUSUF": {"sex": "male", "evidence": "Yusuf throws his hands up."},
+    "WOMAN WITH A PRAM": {"sex": "female", "evidence": "A WOMAN WITH A PRAM stops between the two stalls. She looks left."},
+    "KAMO": {"sex": "male", "evidence": "A small boy, KAMO (7), tugs at her skirt."}
   }
 }
