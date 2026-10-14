@@ -232,8 +232,9 @@ truncates drops the tail.
   the next `SENTENCE_END` or the element's end. No boundary inside the element (the introducing
   sentence is its last) gives nothing.
   **Only when the introducing sentence is about this character alone**, read from just after its
-  parenthesis to that boundary: no other character's name word (`_other_names`), no next
-  introduction (`_NEXT_INTRODUCTION`), no `SEX_WORDS` word (man, woman, boy, girl, he, she, …), no
+  parenthesis to that boundary: no other character's name word (`_other_names`), no capitalised
+  word at all (a name the script never introduced or cued: "greets Dr. Dube"; found writing
+  T100's tests), no next introduction (`_NEXT_INTRODUCTION`), no `SEX_WORDS` word (man, woman, boy, girl, he, she, …), no
   `CONFLICT_WORDS` word (him, her, his, hers), no `them`, and no T096 `_PERSON_NOUNS` word (child,
   baby, friend, people, person, family, …). This is a positional test on the untruncated text, not
   on `introduced_sex`'s cut `rest`: in the NALEDI line the next introduction `TSHEPO (` lies past
@@ -1290,8 +1291,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - **T100** (`tests/storyboard/test_t100.py`): "NALEDI (12), dungarees, scraped knees, stares at
   it. Her little brother TSHEPO (8) …" → NALEDI female; "SAM (40) sits down. His hands shake." →
   male, and the same with `!` or `?` ending the first sentence, or `…` between them; "SAM (40) sits
-  down. Her hands shake." with "SAM (40) waits as he sits down." in its place → None (one-sex rule:
-  he and Her); None for each of: "MAMA (60s) hugs SIPHO. His …" (another name), "NANDI (60s)
+  down. Her hands shake." → female; "A girl, SAM (12), sits down. His hands shake." → None (one-sex
+  rule: the appositive's girl and His); "SAM (40) waits as he sits down. Her hands shake." → male
+  (the he is a possible owner, so the next sentence isn't read); None for each of: "MAMA (60s) hugs SIPHO. His …" (another name), "NANDI (60s)
   waves to THABO (9). His …" (a next introduction), "SAM (40) kisses the woman. Her eyes close."
   (a sex noun), "NALEDI (12) hands the man a coin. His hand shakes." (a sex noun), "SAM (40) holds
   the baby. His …" (a person noun), "SAM (40) greets Dr. Dube. His …" (another name after "Dr.",
