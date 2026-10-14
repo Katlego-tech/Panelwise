@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn), T094 (the rule ladder), T095 (the sex agent), T097 (the presence agent) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn), T094 (the rule ladder), T095 (the sex agent), T099 (the presence agent) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -389,7 +389,7 @@ classDiagram
 | `UNSCRIPTED_OBJECT` | judge + code | **hard** | an object called `unscripted`; `scripted_prop` without a verified `support`; or `set_dressing` when the object is `held`, or its category is `animal`, `vehicle`, `weapon` or `food`, or its `support` isn't found in the heading. **Never** for an object of category `clothing` or `architecture` that isn't held (T071): costume and the place's own structure are not story choices the script makes, whatever the judge called them. A `screen_or_sign` may be set dressing (T071): what makes a sign a risk is its words, which `TEXT_IN_FRAME` checks. **T072:** `set_dressing` also fails for an object whose name is, or is a word of, a prop the extraction names (§3). **T083:** never for an animal, vehicle, weapon or food the scene's action text names (`named_in_scene`); and an everyday unheld object called `unscripted`, or dressing not in the heading, is the soft `BACKGROUND_OBJECT` instead (§3, the order in `run_checks`). **T089:** hard only for an object whose category is `animal` or `weapon` (`_STORY_OBJECTS`); for every other object the same failure, with the same detail, is the soft `BACKGROUND_OBJECT` (§3, Objects and lettering warn) |
 | `TEXT_IN_FRAME` | code | soft (T089; hard before) | a piece of the description's `text` isn't found (`normalize_for_grounding`, as whole words) in the shot's `source` or the scene's `location` (T071): legible words the script never wrote. The heading's time of day is not a haystack (a painted "NIGHT" is not the script's; since T089 it warns). An empty `text` passes, whatever `has_text` says; `has_text` is logged and shown but decides nothing. T089: soft, named on the card |
 | `SETTING` | code | **hard** | `interior`/`exterior` contradicts `Scene.int_ext` (`INT_EXT` accepts either; `unclear` passes) |
-| `NO_CHARACTER` (T080; T097) | code; T097: + presence agent (VISION) | **hard** | the prompt put at least one of the shot's people on screen (`on_screen`, from storyboard.md §3.1's `visible_characters`) and no described person is matched to any of them: a frame of the setting alone, or of strangers, for a shot about its characters (on 2026-10-11 shot 1.3 was an empty roof, shown with a warning). A shot whose people are only heard off screen, or that names no one, has an empty `on_screen` and never fails it. **T097:** a character the presence agent finds (a person who exists, not accepted as another character, of no contradicted age) counts as in the frame; the detail is unchanged |
+| `NO_CHARACTER` (T080; T099) | code; T099: + presence agent (VISION) | **hard** | the prompt put at least one of the shot's people on screen (`on_screen`, from storyboard.md §3.1's `visible_characters`) and no described person is matched to any of them: a frame of the setting alone, or of strangers, for a shot about its characters (on 2026-10-11 shot 1.3 was an empty roof, shown with a warning). A shot whose people are only heard off screen, or that names no one, has an empty `on_screen` and never fails it. **T099:** a character the presence agent finds (a person who exists, not accepted as another character, of no contradicted age) counts as in the frame; the detail is unchanged |
 | `MISSING_CHARACTER` | code | soft | a shot character **who is a person** matched to no described person (an animal character, `species` set, is described as an object: T052) |
 | `LIGHT` | code | soft | `light` is `day` and the shot's time is night-family (`NIGHT`, `MIDNIGHT`, `EVENING`), or `light` is `night` and the time is day-family (`DAY`, `MORNING`, `AFTERNOON`). Transitional times (`DAWN`, `DUSK`, `SUNRISE`, `SUNSET`, `MAGIC HOUR`), a `None` time, `dawn_or_dusk` and `unclear` always pass |
 | `FRAMING` | code | soft | `shot_size` is two or more steps from the shot's framing on wide → medium → close → extreme_close (`over_shoulder`, `pov` count as medium; `insert` as close); `unclear` passes |
@@ -455,7 +455,7 @@ runs above, REFILWE, SIBUSISO and FATIMA had none in the extraction, so the agen
 about none of them; T096 and the L018 work widen that. A row's `seen` holds only the characters
 sexed when it was audited: `recheck` can't measure a sex found later (that needs `reaudit`, tokens).
 
-**The presence agent (T097).** When the judge has matched none of the people the prompt drew, so
+**The presence agent (T099).** When the judge has matched none of the people the prompt drew, so
 `NO_CHARACTER` would fail, one more vision call per drawn character asks which described person, if
 any, is that character. **Why:** on nine stored runs (2026-10-14) `NO_CHARACTER` would have withheld
 30 frames that `drawn_sex` alone shows, and 23 of them had the character plainly drawn (22 at first
@@ -519,7 +519,7 @@ sequenceDiagram
         J->>D: image + neutral instruction → FrameDescription
         J->>N: shot spec + description → Judgement
         J->>D: T095: each matched person with a script sex → PersonCheck
-        J->>D: T097: none of on_screen matched → each on_screen character → Presence
+        J->>D: T099: none of on_screen matched → each on_screen character → Presence
         J->>J: verify supports; run the checks; verdict; T094: a hard failure off the ladder warns
         J->>L: Audit (every attempt, pass or fail)
         alt PASS or WARN
@@ -858,12 +858,12 @@ FrameAuditRow.seen: Mapped[list[dict] | None]   # JSONB, nullable: older rows ha
 The card names `drawn sex` like any check (`document.py`'s check names). `report.py` counts it with
 the others; `recheck` reads `seen` from the row.
 
-### T097 contracts
+### T099 contracts
 
 ```python
 # app/verify/model.py
-@dataclass(frozen=True) class PersonFound: character: str; person: int | None; reason: str   # T097: one answer
-@dataclass(frozen=True) class Audit: ...; found: tuple[PersonFound, ...] = ()                # T097
+@dataclass(frozen=True) class PersonFound: character: str; person: int | None; reason: str   # T099: one answer
+@dataclass(frozen=True) class Audit: ...; found: tuple[PersonFound, ...] = ()                # T099
 
 # app/verify/schema.py
 class Presence(BaseModel): person: int | None; reason: str
@@ -880,13 +880,13 @@ async def find_character(model: NebiusChatModel, image: str, character: str, sho
 #   (the judge's own helpers, imported from app.verify.prompts on purpose), "", "Shot text:",
 #   shot.source, "", "People in the drawing:", "[i] position: appearance" per person or "none";
 #   then the image (a data URL, encoded once per attempt)
-async def _ask_sexes(model, image: str, description, matched, sexes, chats) -> ...   # T097: takes the
+async def _ask_sexes(model, image: str, description, matched, sexes, chats) -> ...   # T099: takes the
 #   data URL audit_frame encoded, not the PNG bytes
 def present_characters(on_screen: Sequence[str], found: Sequence[PersonFound], accepted: Mapping[int, str],
                        description: FrameDescription, ages: Mapping[str, int] | None) -> frozenset[str]: ...
 #   pure: the on_screen characters an answer finds: 0 <= person < len(description.people), not a key of `accepted`
 #   (matched_people), and no age_contradicts(years, described_age(appearance))
-def run_checks(..., found: Sequence[PersonFound] = ()) -> ...   # T097: NO_CHARACTER passes when
+def run_checks(..., found: Sequence[PersonFound] = ()) -> ...   # T099: NO_CHARACTER passes when
 #   any on_screen character is matched (as before) or in present_characters(...)
 #   audit_frame: encodes the PNG once; after the judge succeeds with _calls_each_once true, the sex
 #   agent first, then, when on_screen is not empty and matched_people accepts none of it,
@@ -920,7 +920,7 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 | `services/api/app/verify/{audit,recheck}.py`, `app/storyboard/prompt.py` | changed | `described_age`, `age_contradicts`, `inside_vehicle`, `part_of_vehicle`, `shot_ages`, `run_checks(ages=)`, unheld food as `BACKGROUND_OBJECT`; `introduced_years` | T086 |
 | `services/api/app/verify/audit.py` | changed | `_STORY_OBJECTS`, `_SEVERITY[TEXT_IN_FRAME]` soft, object failures routed to `BACKGROUND_OBJECT` | T089 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
-| `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0008_audit_found` | changed | `PersonFound`, `Presence`, `PRESENCE_AGENT_PROMPT`, `find_character`, `present_characters`, `run_checks(found=)`, `frame_audits.found` | T097 |
+| `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0008_audit_found` | changed | `PersonFound`, `Presence`, `PRESENCE_AGENT_PROMPT`, `find_character`, `present_characters`, `run_checks(found=)`, `frame_audits.found` | T099 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
 ## 8. Decisions & alternatives
@@ -929,7 +929,7 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 |---|---|---|
 | Which failures withhold (T094; Tumo, 2026-10-13) | a ladder setting, empty on the hosted demo until each rule is measured back in; `all` stays the code default | every hard check (before): market-day 0 of 15 with most drawings right; dropping the audit: the card's notes and `recheck` are how the rules come back |
 | A drawn character's sex (T095) | a vision question about the one matched person, only when the script gives a sex, `unclear` passing | the judge alone (T082 tells it the sex; it still matched the girls drawn as boys); asking the describer for every person's sex (more tokens on people nobody checks, and a describer told to look for sex starts guessing it); age bands from the same answer (15 of 175 called men in their 50s old) |
-| A character the judge didn't match (T097) | a vision question per drawn character, only when the judge matched none of them; it counts for `NO_CHARACTER` alone | a judge sentence (the judge already gets the same lines and cites them while calling the person no one; and it can't be measured free); code taking a stranger's support that names a drawn character as a match (free, but by the stored supports it finds about 8 of the 23, and none where the judge cited nothing); making the found person a full match (it would excuse `UNSCRIPTED_PERSON` and start `DRAWN_SEX` questions on a second opinion's say-so; measured only for presence) |
+| A character the judge didn't match (T099) | a vision question per drawn character, only when the judge matched none of them; it counts for `NO_CHARACTER` alone | a judge sentence (the judge already gets the same lines and cites them while calling the person no one; and it can't be measured free); code taking a stranger's support that names a drawn character as a match (free, but by the stored supports it finds about 8 of the 23, and none where the judge cited nothing); making the found person a full match (it would excuse `UNSCRIPTED_PERSON` and start `DRAWN_SEX` questions on a second opinion's say-so; measured only for presence) |
 | Who sees the image | a vision model, blind to the shot | Nemotron directly: no Token Factory Nemotron accepts images (U7); telling the describer what to expect: it would agree |
 | Who judges | Nemotron (reasoning tier) + code | the vision model judging itself: not NVIDIA, and it already saw the image without the spec, which is the point |
 | Countable checks | code | the judge counting: code is exact and free |
@@ -1105,7 +1105,7 @@ it against the script."*
   hard; migration 0007 upgrades and downgrades (the schema test). Live: one script with
   `AUDIT_WITHHOLD_CHECKS=drawn_sex`, where the real code meets `character_sex` (the prototype used
   the labels).
-- **T097** (`tests/verify/test_t097.py`, tests first): `present_characters` finds a character
+- **T099** (`tests/verify/test_t097.py`, tests first): `present_characters` finds a character
   whose answer names a person in range, and not one whose answer is null, out of range (past the end, or negative), a person
   `matched_people` accepts as another character, or a person whose described age contradicts the
   introduction (a `child` for a character of 50); `run_checks` with such an answer passes
