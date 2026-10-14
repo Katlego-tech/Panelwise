@@ -65,5 +65,19 @@
     "YUSUF": {"sex": "male", "evidence": "Yusuf throws his hands up."},
     "WOMAN WITH A PRAM": {"sex": "female", "evidence": "A WOMAN WITH A PRAM stops between the two stalls. She looks left."},
     "KAMO": {"sex": "male", "evidence": "A small boy, KAMO (7), tugs at her skirt."}
+  },
+  "the-lighthouse-inspector": {
+    "MS. NAIDOO": {"sex": "female", "evidence": "MS.; Wind tugs at her jacket."},
+    "NAIDOO": {"sex": "female", "evidence": "the same person as MS. NAIDOO (an extraction duplicate)"},
+    "SUPERVISOR": {"sex": null, "evidence": "never stated"},
+    "FORTUIN": {"sex": "male", "evidence": "the same person as MR. FORTUIN (an extraction duplicate)"},
+    "MR. FORTUIN": {"sex": "male", "evidence": "MR.; He doesn't ask what."},
+    "RESCUE OFFICER": {"sex": null, "evidence": "never stated"}
+  },
+  "the-borrowed-bicycle": {
+    "NALEDI": {"sex": "female", "evidence": "Her little brother TSHEPO (8), shorts down past his knees, stands beside her."},
+    "TSHEPO": {"sex": "male", "evidence": "Tshepo polishes the bell with the hem of his shirt."},
+    "SHOPKEEPER": {"sex": "male", "evidence": "The SHOPKEEPER (60s) looks up from his newspaper."},
+    "MR. KEKANA": {"sex": "male", "evidence": "MR.; He takes off his hat and hangs it on the handlebars."}
   }
 }

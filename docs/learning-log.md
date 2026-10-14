@@ -16,6 +16,59 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L023 · A girl the script says is a girl, drawn as a boy all through: her sex was in a "Her" · open
+
+- **Seen:** 2026-10-14, the-borrowed-bicycle (held out), [run report](../eval/runs/2026-10-14-the-borrowed-bicycle.md):
+  **18 of 18** shown in 19 drawings (`no_character` withheld 1.4's first attempt; its redraw was
+  shown). Every drawing looked at: NALEDI (12) is drawn as a boy in about 11 frames (1.1, 1.2, 1.3,
+  2.1, 2.3, 3.1, 3.2, 4.1, 4.3, 5.1, 5.2; 1.4's redraw unclear). The extraction gave her no sex, so
+  every prompt said "a 12-year-old" and klein drew a boy in dungarees; the sex agent had no script
+  sex to check. **4.2** ("They sit up, brown from head to toe") drew a naked muscular adult man
+  beside the bicycle: no figure in the prompt (a plural "They" resolves to no one), klein invented
+  him, the judge called him a stranger, and `unscripted_person` is off the ladder, so it was only
+  warned. Right: 2.2 (the shopkeeper and his newspaper), 3.3 (the puddle), Mr. Kekana in his church
+  suit and feathered hat (5.2), 5.4; 5.1 has extra children; 5.5 an empty yard for a line.
+- **Cause:** every sign of Naledi's sex is a "her": "NALEDI (12), dungarees, scraped knees, stares at
+  it. **Her** little brother TSHEPO (8) …" and "Tshepo sits on the carrier behind **her**, arms
+  around **her** waist". `introduced_sex` reads only the introducing sentence and its look; the
+  evidence code (T088/T091) chains a next sentence only when it opens with He or She, and no sentence
+  opening with "Naledi" holds a pronoun.
+- **Action:** none yet. Candidate: a sentence that opens with Her or His (a possessive: not "Her to",
+  "Her a") right after the sentence that introduces one character (one `NAME (` in it) gives that
+  character's sex. Measured free on the labels of the 10 labelled scripts with a sample file: **1 found (NALEDI), 1 right, 0
+  wrong**. Separately, a plural "They" with the shot's own people in the scene draws no one (4.2).
+- **Measured:** not yet.
+- **Sex labels** (eval/sex-labels.json): `character_sex` right for TSHEPO, SHOPKEEPER and MR. KEKANA,
+  a miss for NALEDI; 0 wrong, 0 invented.
+
+### L022 · A bare surname became a second character, with no sex · open
+
+- **Seen:** 2026-10-14, the-lighthouse-inspector (held out), [run report](../eval/runs/2026-10-14-the-lighthouse-inspector.md):
+  **26 of 26** shown, every one at its first attempt, every frame looked at: **14 right, 11 weak,
+  1 wrong**. The wrong one is **7.5**, Mr. Fortuin drawn as an old woman cranking the lamp. Its cast is
+  `FORTUIN`, a second character the extraction proposed beside `MR. FORTUIN` with the same verbatim
+  lines (and `NAIDOO` beside `MS. NAIDOO`); the script's cues are always `MR. FORTUIN` and `MS. NAIDOO`.
+  `FORTUIN` has no sex, so 7.1 and 7.5 prompted "a person in their 70s". On 7.5 the describer said
+  "woman", the judge matched no one, and the presence agent (T099) found her as FORTUIN ("the
+  describer's guess of 'woman' is uncertain"): with no sex from the script in its question it had
+  nothing to refuse her by, and a found person gets no `DRAWN_SEX` question (by design). Without T099,
+  `no_character` would have withheld 7.5 for a redraw. The weak ones: Ms. Naidoo drawn twice (4.2,
+  7.3), an extra man on the stairs (4.1), the lens room without its lens (5.1), no rescue boat (8.1),
+  props or actions missing (2.2, 6.1, 9.1), empty frames for heard-only speakers (2.3, 7.4), an
+  old person of unclear sex (7.1, the same `FORTUIN`). 8.1's prompt reads "An orange a person BOAT":
+  the RESCUE of RESCUE BOAT redacted as a word of RESCUE OFFICER.
+- **Cause:** grounding keeps every proposed character whose quotes are verbatim; nothing folds a name
+  whose words are a proper subset of another's (FORTUIN, MR. FORTUIN) into it. Measured free on every
+  stored extraction (newest per script, 10 scripts): only this one has such pairs (2), and the bare
+  `FORTUIN` is cast in 2 of its 26 shots.
+- **Action:** none yet. Candidates, to measure first: fold such a name into the one character whose
+  words contain it (grounding); give the presence agent's question the sex of the character a bare
+  name folds into; redact a multi-word role name only whole.
+- **Measured:** not yet.
+- **Sex labels** (eval/sex-labels.json): `character_sex` right for MS. NAIDOO and MR. FORTUIN, a miss
+  for both duplicates, 0 wrong, 0 invented. The sex agent asked about 32 matched people, every
+  answer the script's sex; nothing withheld.
+
 ### L021 · The judge leaves a drawn character unmatched, citing their own line · open (T099)
 
 - **Seen:** 2026-10-14, a free what-if (`recheck` with `drawn_sex` plus one rule) on nine stored runs:
@@ -34,7 +87,10 @@ it before changing the prompt or the audit; add to it after every live run.
   question per character ("which numbered person, if any, is this character?"); a found person
   counts for `NO_CHARACTER` only. Design: verify.md §3.
 - **Measured:** prototype on the 30 stored frames (Token Factory, two runs): 18 and 16 of 23 false
-  alarms found, 2 and 3 of 7 real misses wrongly found. Live: not yet.
+  alarms found, 2 and 3 of 7 real misses wrongly found. The real code on the same frames (#172): 17
+  of 23 and 3 of 7. Live, 2026-10-14, the-lighthouse-inspector (held out, `drawn_sex,no_character`):
+  the agent ran once in 26 shots (7.5) and found a person the describer called a woman for the
+  bare `FORTUIN` (a duplicate of MR. FORTUIN), a wrong frame shown (L022); `no_character` withheld nothing.
 
 ### L020 · Every stranger withheld the frame, so right frames were hidden · open (T094, T095 in review)
 
