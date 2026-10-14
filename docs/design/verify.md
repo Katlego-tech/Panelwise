@@ -1105,7 +1105,7 @@ it against the script."*
   hard; migration 0007 upgrades and downgrades (the schema test). Live: one script with
   `AUDIT_WITHHOLD_CHECKS=drawn_sex`, where the real code meets `character_sex` (the prototype used
   the labels).
-- **T099** (`tests/verify/test_t097.py`, tests first): `present_characters` finds a character
+- **T099** (`tests/verify/test_t099.py`, tests first): `present_characters` finds a character
   whose answer names a person in range, and not one whose answer is null, out of range (past the end, or negative), a person
   `matched_people` accepts as another character, or a person whose described age contradicts the
   introduction (a `child` for a character of 50); `run_checks` with such an answer passes
