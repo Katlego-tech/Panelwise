@@ -185,7 +185,7 @@ classDiagram
     `[A-Za-z']+`) when either:
     - **its subject owns the pronoun**: the sentence opens with this character's name (`normalise`d
       name words, an optional "The" first), and the first third-person pronoun after the name is
-      `his`, `himself`, `herself`, or `her` followed by a word not in `_NOT_POSSESSED` (a
+      `his`, `himself`, `herself`, or `her` followed by a word not in `NOT_POSSESSED` (a
       possessive: "Amahle tugs at **her** mother's scrubs", not "hands her the box"); `he`, `she`,
       `him`, `hers` and an object `her` give nothing here; and nothing between the name and it could
       own it (`_clear`): no other name (another character's token, a name the script itself writes

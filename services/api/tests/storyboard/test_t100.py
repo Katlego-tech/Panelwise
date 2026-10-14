@@ -67,6 +67,10 @@ def test_tshepo_is_not_read_from_the_her_before_his_name() -> None:
         ("SAM (40) sits. HER HANDS SHAKE.", "SAM"),  # not capitalised as a sentence opens
         ("SAM (40) sits. his hands shake.", "SAM"),
         ("SAM (40) sits.", "SAM"),  # the element's last sentence
+        ("SAM (40) sits. Her, then silence.", "SAM"),  # punctuation: nothing owned
+        ("SAM (40) greets \u00c9milie. His hand shakes.", "SAM"),  # an accented name
+        ("NALEDI (12) hands the clerk a coin. His hand shakes.", "NALEDI"),  # an article
+        ("SAM (40) pats a dog. Her tail wags.", "SAM"),  # an article
     ],
 )
 def test_nothing_from_the_next_sentence(line: str, name: str) -> None:

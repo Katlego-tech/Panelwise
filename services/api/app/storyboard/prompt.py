@@ -417,11 +417,17 @@ def _appositive_sex(before: str) -> Sex | None:
 
 # T100: the introducing sentence ends where grounding's do (never after "Mr." or "Dr."), or at "…".
 _T100_END = re.compile(SENTENCE_END.pattern.replace("(?<=[.!?])", "(?<=[.!?\u2026])", 1))
-# T100: words in the introducing sentence that mean someone else is in it, whom a Her or His
-# opening the next sentence could belong to.
+# T100: words in the introducing sentence that mean someone else is (or may be) in it, whom a Her
+# or His opening the next sentence could belong to; an article or determiner may bring in anyone
+# no list holds ("hands the clerk a coin", "pats a dog"), so it blocks too.
 _SOMEONE_ELSE = (
-    frozenset(SEX_WORDS) | frozenset(CONFLICT_WORDS) | _PERSON_NOUNS | frozenset({"them"})
+    frozenset(SEX_WORDS)
+    | frozenset(CONFLICT_WORDS)
+    | _PERSON_NOUNS
+    | frozenset({"them", "the", "a", "an", "this", "that", "these", "those", "another", "some"})
 )
+# A word of any script: letters (accented too), then letters, digits or either apostrophe.
+_T100_WORD = r"[^\W\d_][\w'\u2019]*"
 
 
 def _next_sentence_sex(
@@ -431,7 +437,8 @@ def _next_sentence_sex(
     the introducing one gives, when the introducing sentence, from just after its parenthesis to
     its end, holds no one else: no other name (a known one, or any capitalised word: a name the
     script never introduced), no next introduction, no sex noun or pronoun, no person noun, no
-    them. None otherwise, and when the introducing sentence is the element's last."""
+    them, no article or determiner. None otherwise, and when the introducing sentence is the
+    element's last."""
     text = element.text
     close = text.find(")", m.start())
     if close < 0:
@@ -442,19 +449,20 @@ def _next_sentence_sex(
     tail = text[close + 1 : end.start()]
     if _NEXT_INTRODUCTION.search(tail):
         return None
-    found = re.findall(r"[A-Za-z']+", tail)
+    found = re.findall(_T100_WORD, tail)
     words = {w.lower() for w in found}
     if words & _other_names(character, screenplay) or words & _SOMEONE_ELSE:
         return None
     if any(w[0].isupper() for w in found):
         return None
     nxt = _T100_END.split(text[end.end() :], maxsplit=1)[0]
-    opening = re.match(r"(Her|His)\b\W*([A-Za-z']*)", nxt)
+    # Only whitespace between Her and the word it owns: "Her, then silence." owns nothing.
+    opening = re.match(rf"(Her|His)\b(?:[ \t]+({_T100_WORD}))?", nxt)
     if opening is None:
         return None
     if opening.group(1) == "His":
         return Sex.MALE
-    following = opening.group(2).lower()
+    following = (opening.group(2) or "").lower()
     return Sex.FEMALE if following and following not in NOT_POSSESSED else None
 
 
