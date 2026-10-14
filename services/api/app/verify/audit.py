@@ -37,7 +37,7 @@ from app.verify.model import (
     ShotSize,
     Verdict,
 )
-from app.verify.prompts import (  # T097: the judge's own character lines, on purpose
+from app.verify.prompts import (  # T099: the judge's own character lines, on purpose
     DESCRIBE_PROMPT,
     JUDGE_PROMPT,
     _quoted,  # pyright: ignore[reportPrivateUsage]
@@ -651,7 +651,7 @@ def run_checks(
     failures[Check.MISSING_CHARACTER] += [
         f"{name} not seen" for name in people if name not in positions
     ]
-    # T080; T097: or one the presence agent found the judge left unmatched.
+    # T080; T099: or one the presence agent found the judge left unmatched.
     present = present_characters(on_screen, found, accepted, description, ages)
     if on_screen and not any(name in positions or name in present for name in on_screen):
         failures[Check.NO_CHARACTER].append(f"none of {', '.join(on_screen)} in frame")
@@ -793,7 +793,7 @@ async def find_character(
     extraction: Extraction,
     description: FrameDescription,
 ) -> tuple[Presence, ChatResult]:
-    """The presence agent (T097): one vision question, which described person (if any) is
+    """The presence agent (T099): one vision question, which described person (if any) is
     `character`, given the judge's own line about them, the shot text and the numbered people."""
     about = _sexed(
         _quoted(extraction, EntityKind.CHARACTER, (character,)),
@@ -835,7 +835,7 @@ def present_characters(
     description: FrameDescription,
     ages: Mapping[str, int] | None,
 ) -> frozenset[str]:
-    """The drawn characters the presence agent finds (T097, pure): an answer naming a person who
+    """The drawn characters the presence agent finds (T099, pure): an answer naming a person who
     exists, whom `matched_people` doesn't accept as another character, and whose described age
     doesn't contradict the character's introduced years."""
     out: set[str] = set()
@@ -864,7 +864,7 @@ async def _find_characters(
     description: FrameDescription,
     chats: list[ChatResult],
 ) -> tuple[PersonFound, ...]:
-    """The presence agent on every drawn character, at once (T097). A failed question finds no
+    """The presence agent on every drawn character, at once (T099). A failed question finds no
     one: logged, never an ERROR."""
     answers = await asyncio.gather(
         *(
@@ -932,7 +932,7 @@ async def audit_frame(
         matched = matched_people(shot, description, judgement, extraction, ages)
         image = f"data:image/png;base64,{base64.b64encode(frame.png).decode()}"
         seen = await _ask_sexes(model, image, description, matched, sexes, chats)
-        # T097: none of the drawn characters matched, on a judgement run_checks will read.
+        # T099: none of the drawn characters matched, on a judgement run_checks will read.
         well_formed = _calls_each_once(
             [c.person for c in judgement.people], len(description.people)
         ) and _calls_each_once([c.object for c in judgement.objects], len(description.objects))

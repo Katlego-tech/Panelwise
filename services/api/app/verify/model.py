@@ -147,7 +147,7 @@ class Audit:
     models: tuple[str, ...]
     usage: Usage
     seen: tuple[PersonSeen, ...] = ()  # T095: the sex agent's answers
-    found: tuple[PersonFound, ...] = ()  # T097: the presence agent's answers
+    found: tuple[PersonFound, ...] = ()  # T099: the presence agent's answers
 
 
 @dataclass(frozen=True)
@@ -162,7 +162,7 @@ class PersonSeen:
 
 @dataclass(frozen=True)
 class PersonFound:
-    """The presence agent's answer about one drawn character (T097): the described person
+    """The presence agent's answer about one drawn character (T099): the described person
     it is, or None, and why."""
 
     character: str

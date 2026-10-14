@@ -68,7 +68,7 @@ class PersonCheck(BaseModel):
 
 
 class Presence(BaseModel):
-    """The presence agent's answer (T097): which numbered described person is the character,
+    """The presence agent's answer (T099): which numbered described person is the character,
     or None, and a short reason."""
 
     person: int | None

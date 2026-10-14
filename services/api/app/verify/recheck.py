@@ -101,7 +101,7 @@ async def recheck(
                 for s in row.seen or ()
             ),
             sexes=shot_sexes(shot, screenplay, extraction, character_sex),
-            # T097: the stored answers; a row before 0008 has none, so the judge alone.
+            # T099: the stored answers; a row before 0008 has none, so the judge alone.
             found=tuple(
                 PersonFound(
                     str(f["character"]),

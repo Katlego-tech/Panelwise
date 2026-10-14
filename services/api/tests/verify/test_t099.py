@@ -1,4 +1,4 @@
-"""T097: the presence agent, a drawn character the judge didn't match (verify.md §3, §6, §9).
+"""T099: the presence agent, a drawn character the judge didn't match (verify.md §3, §6, §9).
 MockTransport, no network."""
 
 import json
