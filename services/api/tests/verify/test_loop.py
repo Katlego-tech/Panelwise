@@ -253,6 +253,7 @@ async def test_an_empty_ladder_withholds_nothing_but_an_audit_error(
         ("", frozenset[Check]()),
         ("no_character", frozenset({Check.NO_CHARACTER})),
         (" no_character , setting ", frozenset({Check.NO_CHARACTER, Check.SETTING})),
+        ("drawn_sex", frozenset({Check.DRAWN_SEX})),  # T095
     ],
 )
 def test_the_ladder_setting(raw: str, want: frozenset[Check] | None) -> None:
@@ -262,3 +263,9 @@ def test_the_ladder_setting(raw: str, want: frozenset[Check] | None) -> None:
 def test_a_misspelt_rule_is_refused() -> None:
     with pytest.raises(ValueError, match="no_charcter"):
         withholding(Settings(audit_withhold_checks="no_charcter"))
+
+
+def test_a_soft_check_is_refused() -> None:
+    """Only a hard check can withhold: a soft name would switch nothing on."""
+    with pytest.raises(ValueError, match="text_in_frame"):
+        withholding(Settings(audit_withhold_checks="drawn_sex,text_in_frame"))

@@ -205,8 +205,12 @@ truncates drops the tail.
 - **A sex noun in the introduction's appositive (T096).** `introduced_sex` also reads the
   introducing sentence up to the name (the sentence starts after the last `. ! ?` before it). When it
   opens with `A` or `An`, then at most three words, then a sex noun (`SEX_WORDS` less the pronouns:
-  boy, girl, man, woman, …), then **at most six words with no second sex noun and no `(`** up to a
-  comma directly before the name and its `(` ("A boy in a too-big school blazer, THABO (9)", "A small
+  boy, girl, man, woman, …; never a possessive, "A boy's teacher"), then **nothing, or the noun's
+  own describing phrase**: at most six words, no `(`, opening with `in`, `with`, `wearing`,
+  `dressed`, `of` or `from`, and holding no second sex noun, no him/his/her, no conjunction
+  (`and`, `or`, `but`, `who`, `whose`, `that`, `which`, `while`) and no other person noun (`baby`,
+  `child`, `kid`, `toddler`, `infant`, `teenager`, `friend`, `people`, `person`, `family`)
+  (code review of #168), up to a comma directly before the name and its `(` ("A boy in a too-big school blazer, THABO (9)", "A small
   boy, KAMO (7)"), that noun's sex is one more of the introduction's sources, and the one-sex rule
   still holds (a noun and a pronoun that disagree give None). The bounds keep a clause about someone
   else out: "A man helps a girl, AMA (7)" and "A boy, THABO (9), and a girl, AMA (7)" give AMA
@@ -1251,8 +1255,12 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   stands." → male; "A small boy, KAMO (7)" → male; "A small girl, AMA (7)" → female; "An old woman,
   NANDI (60s)" → female; after another sentence ("Six learners wait. A tall girl, ZOLA (17)") →
   female; "The boy, THABO (9)", four words before the noun, more than six after it, a second sex noun
-  ("A woman hands the boy a letter, THABO (9)", "A man helps a girl, AMA (7)"), two appositives in
-  one sentence, a noun after the name, and a noun and a pronoun that disagree give None; THABO's
+  ("A woman hands the boy a letter, THABO (9)", "A man helps a girl, AMA (7)"), a phrase about
+  someone else ("A woman and her child, ZANELE (6)", "A man holding a baby, NOMSA (1)", "A man
+  hands the driver a note, SIPHO (30s)", "A woman with a baby, LUMKA (1)", "A boy's teacher,
+  SAM (40)" with either apostrophe), two appositives in
+  one sentence, a noun after the name, and a noun and a pronoun that disagree give None ("A man
+  wearing a cap, SIPHO (30s)" → male, "A girl with braids, AMA (7)" → female); THABO's
   prompt reads "a 9-year-old boy" and passes `cites_this_shot`; the invariant test's `keyed` takes the
   appositive noun.
 

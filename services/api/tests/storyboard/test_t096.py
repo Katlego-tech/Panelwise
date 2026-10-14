@@ -31,6 +31,15 @@ def sex_of(line: str, name: str) -> str | None:
         # two people in one sentence: the second appositive is no one's
         ("A boy, THABO (9), and a girl, AMA (7), play.", "AMA", None),
         ("A man helps a girl, AMA (7), up.", "AMA", None),
+        # the noun's own describing phrase only: never a clause, a possessive or another person
+        ("A woman and her child, ZANELE (6), waits.", "ZANELE", None),
+        ("A man holding a baby, NOMSA (1), sleeps.", "NOMSA", None),
+        ("A man hands the driver a note, SIPHO (30s), reads.", "SIPHO", None),
+        ("A boy's teacher, SAM (40), waits.", "SAM", None),
+        ("A boy\u2019s teacher, SAM (40), waits.", "SAM", None),
+        ("A woman with a baby, LUMKA (1), cries.", "LUMKA", None),
+        ("A man wearing a cap, SIPHO (30s), waits.", "SIPHO", "male"),
+        ("A girl with braids, AMA (7), waits.", "AMA", "female"),
     ],
 )
 def test_the_appositive_noun(line: str, name: str, want: str | None) -> None:
