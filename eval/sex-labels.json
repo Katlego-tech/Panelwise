@@ -65,5 +65,13 @@
     "YUSUF": {"sex": "male", "evidence": "Yusuf throws his hands up."},
     "WOMAN WITH A PRAM": {"sex": "female", "evidence": "A WOMAN WITH A PRAM stops between the two stalls. She looks left."},
     "KAMO": {"sex": "male", "evidence": "A small boy, KAMO (7), tugs at her skirt."}
+  },
+  "the-lighthouse-inspector": {
+    "MS. NAIDOO": {"sex": "female", "evidence": "MS.; Wind tugs at her jacket."},
+    "NAIDOO": {"sex": "female", "evidence": "the same person as MS. NAIDOO (an extraction duplicate)"},
+    "SUPERVISOR": {"sex": null, "evidence": "never stated"},
+    "FORTUIN": {"sex": "male", "evidence": "the same person as MR. FORTUIN (an extraction duplicate)"},
+    "MR. FORTUIN": {"sex": "male", "evidence": "MR.; He doesn't ask what."},
+    "RESCUE OFFICER": {"sex": null, "evidence": "never stated"}
   }
 }
