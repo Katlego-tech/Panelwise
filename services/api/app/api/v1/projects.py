@@ -27,6 +27,7 @@ from app.comic.job import ComicRefused, run_comic_job, start_comic
 from app.comic.rows import ComicRow
 from app.comic.views import comic_job_view, comic_view
 from app.core.auth import Caller, current_caller
+from app.core.config import withholding
 from app.frames import ACCEPTED, FrameRow, audits_of, frame_view, frames_of
 from app.frames.attempt import RendererFactory, run_attempt
 from app.jobs import JobKind, JobRow, JobState
@@ -83,6 +84,7 @@ def start(request: Request, job_id: uuid.UUID) -> None:
             factory=state.renderer_factory,
             concurrency=state.settings.fal_concurrency,
             max_renders=state.settings.render_max_attempts,
+            withholding=withholding(state.settings),
         )
     task = asyncio.create_task(work)
     state.tasks.add(task)
@@ -328,6 +330,7 @@ async def try_another_render(
             sessions=state.sessions,
             model=state.model,
             factory=state.renderer_factory,
+            withholding=withholding(state.settings),
         )
     )
     state.tasks.add(task)
@@ -384,6 +387,7 @@ async def make_comic(
             factory=factory,
             max_renders=state.settings.render_max_attempts,
             concurrency=state.settings.fal_concurrency,
+            withholding=withholding(state.settings),
         )
     )
     state.tasks.add(task)

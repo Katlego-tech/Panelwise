@@ -92,11 +92,12 @@ def _noted(state: FrameState, audit: FrameAuditRow | None) -> tuple[Check, ...]:
     """As `frame_of` picks them: hard failures for WITHHELD, soft for WARNED, in enum order."""
     if audit is None or state not in (FrameState.WITHHELD, FrameState.WARNED):
         return ()
-    severity = Severity.HARD if state is FrameState.WITHHELD else Severity.SOFT
+    # A warned frame names every check it failed: with AUDIT_WITHHOLDS off, hard ones too.
+    wanted = {Severity.HARD.value} if state is FrameState.WITHHELD else {s.value for s in Severity}
     failed = {
         Check(c["check"])
         for c in audit.checks
-        if c.get("severity") == severity.value and c.get("ok") is False
+        if c.get("severity") in wanted and c.get("ok") is False
     }
     return tuple(sorted(failed, key=_CHECK_ORDER.__getitem__))
 
