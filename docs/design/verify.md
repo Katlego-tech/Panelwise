@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn), T094 (the rule ladder), T095 (the sex agent) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn), T094 (the rule ladder), T095 (the sex agent), T097 (the head agent: where each person's head is, for the comic's bubbles) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -455,6 +455,37 @@ runs above, REFILWE, SIBUSISO and FATIMA had none in the extraction, so the agen
 about none of them; T096 and the L018 work widen that. A row's `seen` holds only the characters
 sexed when it was audited: `recheck` can't measure a sex found later (that needs `reaudit`, tokens).
 
+**The head agent (T097; Katlego, 2026-10-14).** Where each described person's head is in a comic
+panel's accepted frame, so the comic can point a bubble's tail at the speaker's head and keep
+bubbles off faces (comic.md §4 steps 7 and 8, T098). **It is no check:** it never fails, warns,
+withholds or changes a verdict; it only measures. **When:** in `render_until_accepted`, only with
+`heads=True` (the comic job; the storyboard has no bubbles), and only on the attempt that is
+accepted, after the ladder: one question per panel, never one on a frame that is thrown away.
+**The question:** the image, every described person numbered with their `position` and
+`appearance` as the describer wrote them (`0: left third, an old man …`), and the fixed
+`HEAD_AGENT_PROMPT`, on `Tier.VISION`, `max_tokens=4096`; the answer is a `HeadCheck`: per person,
+`visible` and a box `x0, y0, x1, y1` as fractions of the frame's width and height from its
+top-left. **Kept:** `heads_seen` (pure) keeps an answer only when its person is a described one,
+the first answer for that person, `visible`, and `0 ≤ x0 < x1 ≤ 1`, `0 ≤ y0 < y1 ≤ 1`; anything
+else is dropped (counted in one log line). Each kept box becomes a `HeadSeen` carrying the
+character that person was accepted as (`Audit.matched`, the same `matched_people` the sex agent
+uses; `None` for a person matched to no one), written by `FrameWriter.log` to
+`frame_audits.heads` (migration 0008); its tokens count in the audit's usage and models. **Never
+an ERROR:** a failed question (`LLMError` or `ValidationError`) leaves `heads` empty and is
+logged; the frame is accepted exactly as it was, and the comic falls back to the third. A frame
+with no described person asks nothing. **Measured** (2026-10-14, Token Factory,
+DeepSeek-V4.1-Flash, a prototype asking head boxes and anatomy in one call, on 15 distinct
+drawings of the 2026-10-10 the-red-kite runs, Workers AI's FLUX.2 [klein] 4B, 21 people): every
+box of the 8 drawings looked at lies on the head, the small far ones and profiles too, sometimes
+generous, never off; the same drawing asked twice gave boxes within 0.02; about 1,900 prompt and
+500 completion tokens a frame; 0 of 30 questions failed (one of a later 15, with a longer prompt,
+spent its budget thinking at `max_tokens=2048`, hence 4096). The prompt here is the head half of
+the prototype's, so T097's Verify measures it again. **No anatomy:** the same prototype was asked
+for each person's heads, arms, legs and hands, and called a man drawn with three arms (0.3 a1)
+`normal` twice, even when told to count each limb back to its shoulder; it counted 0 legs on
+standing people and 1 arm on a person with two, and called one drawing's ordinary hands deformed.
+A rule built on it would withhold right frames and pass wrong ones, so there is none (§8).
+
 ## 4. Flow
 
 ```mermaid
@@ -471,6 +502,9 @@ sequenceDiagram
         J->>N: shot spec + description → Judgement
         J->>D: T095: each matched person with a script sex → PersonCheck
         J->>J: verify supports; run the checks; verdict; T094: a hard failure off the ladder warns
+        opt T097: heads=True (a comic panel) and the attempt is accepted
+            J->>D: every described person → HeadCheck (head boxes; never a verdict)
+        end
         J->>L: Audit (every attempt, pass or fail)
         alt PASS or WARN
             J-->>J: state PASSED / WARNED; stop
@@ -808,6 +842,41 @@ FrameAuditRow.seen: Mapped[list[dict] | None]   # JSONB, nullable: older rows ha
 The card names `drawn sex` like any check (`document.py`'s check names). `report.py` counts it with
 the others; `recheck` reads `seen` from the row.
 
+### T097 contracts
+
+```python
+# app/verify/model.py
+type HeadBox = tuple[float, float, float, float]   # x0, y0, x1, y1: fractions of the frame's width and height, from its top-left
+@dataclass(frozen=True) class HeadSeen: person: int; character: str | None; box: HeadBox   # T097: character None for a person matched to no one
+@dataclass(frozen=True) class Audit: ...; matched: Mapping[int, str] = field(default_factory=dict)   # T097: matched_people's answer, kept (not stored)
+                                       heads: tuple[HeadSeen, ...] = ()                              # T097: the head agent's kept answers
+
+# app/verify/schema.py
+class HeadAnswer(BaseModel): person: int; visible: bool; x0: float; y0: float; x1: float; y1: float
+class HeadCheck(BaseModel): heads: list[HeadAnswer]
+
+# app/verify/audit.py
+HEAD_AGENT_PROMPT = (
+    "You look at the people in a storyboard drawing and say where each listed person's head is: "
+    "the box around the head, from the top of the hair to the chin, as fractions of the image's "
+    "width and height from its top-left corner (0 to 1). Set visible to false when the head is out "
+    "of frame or hidden. Answer for every person listed, by their number, and only for them."
+)
+def heads_seen(answer: HeadCheck, people: int, matched: Mapping[int, str]) -> tuple[HeadSeen, ...]: ...   # pure: the keep rule above, in person order
+async def find_heads(model: NebiusChatModel, frame: RenderedFrame, audit: Audit) -> Audit: ...
+#   one Tier.VISION question (max_tokens=4096) on audit.description's people; returns the audit with heads, usage and models
+#   added, verdict and checks untouched; no description or no people: the audit unchanged, no call; LLMError or
+#   ValidationError: logged ("head agent on shot %s attempt %d failed: %s"), the audit unchanged; anything else raises
+
+# app/verify/loop.py
+async def render_until_accepted(..., heads: bool = False) -> FrameOutcome: ...
+#   T097: after apply_ladder, an accepted audit (PASS or WARN) gets find_heads before log; never on a FAIL or ERROR.
+#   run_comic_job passes heads=True; build_storyboard, run_job and run_attempt keep the default.
+
+# app/frames/model.py, migration 0008_audit_heads
+FrameAuditRow.heads: Mapped[list[dict] | None]   # JSONB, nullable: [{"person": 0, "character": "NANDI" | null, "box": [x0, y0, x1, y1]}]; older rows and storyboard rows have none
+```
+
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
@@ -824,6 +893,7 @@ the others; `recheck` reads `seen` from the row.
 | `services/api/app/verify/audit.py` | changed | `shot_action_text`, `_PERSON_PRONOUNS`, two person-support rules in `run_checks` | T084 |
 | `services/api/app/verify/{audit,recheck}.py`, `app/storyboard/prompt.py` | changed | `described_age`, `age_contradicts`, `inside_vehicle`, `part_of_vehicle`, `shot_ages`, `run_checks(ages=)`, unheld food as `BACKGROUND_OBJECT`; `introduced_years` | T086 |
 | `services/api/app/verify/audit.py` | changed | `_STORY_OBJECTS`, `_SEVERITY[TEXT_IN_FRAME]` soft, object failures routed to `BACKGROUND_OBJECT` | T089 |
+| `services/api/app/verify/{model,schema,audit,loop}.py`, `app/frames/{model,writer}.py`, migration `0008_audit_heads`, `app/comic/job.py` | changed / new | `HeadSeen`, `Audit.matched`, `Audit.heads`, `HeadCheck`, `HEAD_AGENT_PROMPT`, `heads_seen`, `find_heads`, `render_until_accepted(heads=)`, `FrameAuditRow.heads`; the comic job asks for heads | T097 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
@@ -833,6 +903,7 @@ the others; `recheck` reads `seen` from the row.
 |---|---|---|
 | Which failures withhold (T094; Tumo, 2026-10-13) | a ladder setting, empty on the hosted demo until each rule is measured back in; `all` stays the code default | every hard check (before): market-day 0 of 15 with most drawings right; dropping the audit: the card's notes and `recheck` are how the rules come back |
 | A drawn character's sex (T095) | a vision question about the one matched person, only when the script gives a sex, `unclear` passing | the judge alone (T082 tells it the sex; it still matched the girls drawn as boys); asking the describer for every person's sex (more tokens on people nobody checks, and a describer told to look for sex starts guessing it); age bands from the same answer (15 of 175 called men in their 50s old) |
+| Where a head is (T097) | one vision question per comic panel, on the accepted attempt only, boxes as fractions, never a verdict | face detection (another model and dependency for a box the vision model already gives, measured on the drawings); the describer giving boxes (it is blind and general; a longer schema on every attempt, storyboard frames too); asking on every attempt (tokens on frames thrown away); an anatomy rule from the same question (it missed a three-armed man twice and miscounted limbs: §3) |
 | Who sees the image | a vision model, blind to the shot | Nemotron directly: no Token Factory Nemotron accepts images (U7); telling the describer what to expect: it would agree |
 | Who judges | Nemotron (reasoning tier) + code | the vision model judging itself: not NVIDIA, and it already saw the image without the spec, which is the point |
 | Countable checks | code | the judge counting: code is exact and free |
@@ -1008,6 +1079,20 @@ it against the script."*
   hard; migration 0007 upgrades and downgrades (the schema test). Live: one script with
   `AUDIT_WITHHOLD_CHECKS=drawn_sex`, where the real code meets `character_sex` (the prototype used
   the labels).
+
+- **T097** (`tests/verify/test_t097.py`, tests first): `heads_seen` keeps a visible in-range box
+  with its matched character, `None` for an unmatched person, in person order, and drops an
+  out-of-range person, a second answer for one person, `visible` false, a box with `x0 ≥ x1` or
+  `y0 ≥ y1`, and a coordinate outside 0–1; `render_until_accepted(heads=True)` asks the head agent
+  once, on the accepted attempt only (a MockTransport counts the questions over a FAIL then a
+  PASS), names every described person by number with position and appearance, logs the audit with
+  `heads` and the agent's tokens added, and leaves verdict and checks as they were;
+  `heads=False` (the default) never asks; a frame with no described person asks nothing; a failing
+  question leaves `heads` empty and the frame accepted; `FrameWriter.log` writes `heads` (`None`
+  when the audit has none); the comic job passes `heads=True` and the storyboard paths don't;
+  migration 0008 upgrades and downgrades (the schema test). Token Factory, before the code merges:
+  the real `find_heads` on the 15 drawings of §3's measurement, the boxes drawn on each and looked
+  at, every one on its head.
 
 ## 10. Open questions
 
