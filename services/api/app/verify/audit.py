@@ -28,6 +28,7 @@ from app.verify.model import (
     Light,
     ObjectCategory,
     ObjectKind,
+    PersonFound,
     PersonSeen,
     Position,
     RenderedFrame,
@@ -36,8 +37,14 @@ from app.verify.model import (
     ShotSize,
     Verdict,
 )
-from app.verify.prompts import DESCRIBE_PROMPT, JUDGE_PROMPT, render_spec
-from app.verify.schema import FrameDescription, Judgement, PersonCheck
+from app.verify.prompts import (  # T097: the judge's own character lines, on purpose
+    DESCRIBE_PROMPT,
+    JUDGE_PROMPT,
+    _quoted,  # pyright: ignore[reportPrivateUsage]
+    _sexed,  # pyright: ignore[reportPrivateUsage]
+    render_spec,
+)
+from app.verify.schema import FrameDescription, Judgement, PersonCheck, Presence
 
 logger = logging.getLogger(__name__)
 
@@ -516,6 +523,7 @@ def run_checks(
     ages: Mapping[str, int] | None = None,
     seen: Sequence[PersonSeen] = (),
     sexes: Mapping[str, str] | None = None,
+    found: Sequence[PersonFound] = (),
 ) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]:
     if not (
         _calls_each_once([c.person for c in judgement.people], len(description.people))
@@ -643,7 +651,9 @@ def run_checks(
     failures[Check.MISSING_CHARACTER] += [
         f"{name} not seen" for name in people if name not in positions
     ]
-    if on_screen and not any(name in positions for name in on_screen):  # T080
+    # T080; T097: or one the presence agent found the judge left unmatched.
+    present = present_characters(on_screen, found, accepted, description, ages)
+    if on_screen and not any(name in positions or name in present for name in on_screen):
         failures[Check.NO_CHARACTER].append(f"none of {', '.join(on_screen)} in frame")
 
     time = (shot.time_of_day or "").upper()
@@ -718,7 +728,7 @@ async def check_person(
 
 async def _ask_sexes(
     model: NebiusChatModel,
-    png: bytes,
+    image: str,
     description: FrameDescription,
     matched: Mapping[int, str],
     sexes: Mapping[str, str],
@@ -729,7 +739,6 @@ async def _ask_sexes(
     asks = [(i, name) for i, name in sorted(matched.items()) if name in sexes]
     if not asks:
         return ()
-    image = f"data:image/png;base64,{base64.b64encode(png).decode()}"
     answers = await asyncio.gather(
         *(check_person(model, image, description, i) for i, _ in asks), return_exceptions=True
     )
@@ -763,6 +772,121 @@ async def _judge(
     return result.value, result.chat
 
 
+PRESENCE_AGENT_PROMPT = (
+    "You check whether a storyboard drawing shows one character from a screenplay. You get what "
+    "the script says about the character, the shot's text, and a numbered list of the people a "
+    "describer saw in the drawing. Look at the drawing and answer which numbered person is that "
+    "character, or null when none of them can be. Pick a person when the drawing fits what the "
+    "script says: their age group, their sex if the script gives it, and what the shot has them "
+    "doing. A detail the drawing leaves out (a hat, a colour) doesn't rule anyone out. A person "
+    "who is plainly someone else in the shot text (a bystander, a vendor, another character) is "
+    "not this character. Give a short reason."
+)
+
+
+async def find_character(
+    model: NebiusChatModel,
+    image: str,
+    character: str,
+    shot: Shot,
+    screenplay: Screenplay,
+    extraction: Extraction,
+    description: FrameDescription,
+) -> tuple[Presence, ChatResult]:
+    """The presence agent (T097): one vision question, which described person (if any) is
+    `character`, given the judge's own line about them, the shot text and the numbered people."""
+    about = _sexed(
+        _quoted(extraction, EntityKind.CHARACTER, (character,)),
+        (character,),
+        screenplay,
+        extraction,
+    )
+    people = [f"[{i}] {p.position}: {p.appearance}" for i, p in enumerate(description.people)]
+    text = "\n".join(
+        [
+            "The character:",
+            *about,
+            "",
+            "Shot text:",
+            shot.source,
+            "",
+            "People in the drawing:",
+            *(people or ["none"]),
+        ]
+    )
+    messages = [
+        {"role": "system", "content": PRESENCE_AGENT_PROMPT},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": text},
+                {"type": "image_url", "image_url": {"url": image}},
+            ],
+        },
+    ]
+    result = await structured_chat(model, messages, Presence, Tier.VISION, max_tokens=4096)
+    return result.value, result.chat
+
+
+def present_characters(
+    on_screen: Sequence[str],
+    found: Sequence[PersonFound],
+    accepted: Mapping[int, str],
+    description: FrameDescription,
+    ages: Mapping[str, int] | None,
+) -> frozenset[str]:
+    """The drawn characters the presence agent finds (T097, pure): an answer naming a person who
+    exists, whom `matched_people` doesn't accept as another character, and whose described age
+    doesn't contradict the character's introduced years."""
+    out: set[str] = set()
+    for answer in found:
+        i = answer.person
+        if answer.character not in on_screen or i is None:
+            continue
+        if not 0 <= i < len(description.people) or i in accepted:
+            continue
+        years = (ages or {}).get(answer.character)
+        if years is not None and age_contradicts(
+            years, described_age(description.people[i].appearance)
+        ):
+            continue
+        out.add(answer.character)
+    return frozenset(out)
+
+
+async def _find_characters(
+    model: NebiusChatModel,
+    image: str,
+    on_screen: Sequence[str],
+    shot: Shot,
+    screenplay: Screenplay,
+    extraction: Extraction,
+    description: FrameDescription,
+    chats: list[ChatResult],
+) -> tuple[PersonFound, ...]:
+    """The presence agent on every drawn character, at once (T097). A failed question finds no
+    one: logged, never an ERROR."""
+    answers = await asyncio.gather(
+        *(
+            find_character(model, image, c, shot, screenplay, extraction, description)
+            for c in on_screen
+        ),
+        return_exceptions=True,
+    )
+    found: list[PersonFound] = []
+    for character, answer in zip(on_screen, answers, strict=True):
+        if isinstance(answer, BaseException):
+            if not isinstance(answer, LLMError | ValidationError):
+                raise answer
+            detail = str(answer) if isinstance(answer, LLMError) else type(answer).__name__
+            logger.warning("presence agent on %s failed: %s", character, detail)
+            continue
+        presence, chat = answer
+        chats.append(chat)
+        found.append(PersonFound(character, presence.person, presence.reason))
+    return tuple(found)
+
+
 async def audit_frame(
     model: NebiusChatModel,
     frame: RenderedFrame,
@@ -775,6 +899,7 @@ async def audit_frame(
     description: FrameDescription | None = None
     judgement: Judgement | None = None
     seen: tuple[PersonSeen, ...] = ()
+    found: tuple[PersonFound, ...] = ()
     step = "describe"
     try:
         description, chat = await describe_frame(model, frame.png)
@@ -805,7 +930,16 @@ async def audit_frame(
         ages = shot_ages(shot, screenplay, introduced_years)
         sexes = shot_sexes(shot, screenplay, extraction, character_sex)
         matched = matched_people(shot, description, judgement, extraction, ages)
-        seen = await _ask_sexes(model, frame.png, description, matched, sexes, chats)
+        image = f"data:image/png;base64,{base64.b64encode(frame.png).decode()}"
+        seen = await _ask_sexes(model, image, description, matched, sexes, chats)
+        # T097: none of the drawn characters matched, on a judgement run_checks will read.
+        well_formed = _calls_each_once(
+            [c.person for c in judgement.people], len(description.people)
+        ) and _calls_each_once([c.object for c in judgement.objects], len(description.objects))
+        if well_formed and on_screen and not set(on_screen) & set(matched.values()):
+            found = await _find_characters(
+                model, image, on_screen, shot, screenplay, extraction, description, chats
+            )
         checks, verdict, positions = run_checks(
             shot,
             scene,
@@ -816,6 +950,7 @@ async def audit_frame(
             ages=ages,
             seen=seen,
             sexes=sexes,
+            found=found,
         )
 
     return Audit(
@@ -834,4 +969,5 @@ async def audit_frame(
             reasoning_tokens=sum(c.usage.reasoning_tokens for c in chats),
         ),
         seen=seen,
+        found=found,
     )
