@@ -623,7 +623,10 @@ async def recheck(sessions: async_sessionmaker[AsyncSession], project_id: UUID, 
 #   ERROR) or doesn't validate as FrameDescription / Judgement (stored before today's schema). A row whose
 #   lists make run_checks return ERROR is not skipped: its `after` is `error`. Reads the project and its
 #   frame_audits only: no model, no Storage, no write. Raises ValueError for no project or no plan,
-#   as reaudit does
+#   as reaudit does. T094: `withholding=` (keyword, default None), the rule ladder, applied to each
+#   row's checks as the loop applies it before it logs (`apply_ladder`), so a stored WARN isn't a
+#   change; the CLI passes `withholding(Settings())`, so AUDIT_WITHHOLD_CHECKS names a rule to
+#   measure on its way back (code review of #168)
 def accepted_shots(rows: Sequence[Reaudit]) -> tuple[int, int]: ...   # pure: shots with any attempt
 #   `pass` or `warn`, before and after
 # python -m app.verify.recheck <project-id> [--target storyboard|comic]   (default: both, as reaudit)

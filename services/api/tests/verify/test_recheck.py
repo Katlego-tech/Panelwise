@@ -109,6 +109,25 @@ async def test_todays_checks_on_stored_audits_and_the_unreadable_skipped(
     assert await _count(sessions) == before  # nothing written
 
 
+async def test_the_ladder_applies_as_it_does_live(
+    sessions: async_sessionmaker[AsyncSession],
+) -> None:
+    """T094: recheck demotes the hard checks off the ladder, as the loop does before it logs, so a
+    stored WARN isn't reported as a change; None ("all") keeps every hard check."""
+    pid, _, today = await _logged(sessions)
+    assert today is Verdict.FAIL
+    (raw,), _ = await recheck(sessions, pid, target=AuditTarget.STORYBOARD)
+    (none,), _ = await recheck(
+        sessions, pid, target=AuditTarget.STORYBOARD, withholding=frozenset()
+    )
+    (kept,), _ = await recheck(
+        sessions, pid, target=AuditTarget.STORYBOARD, withholding=frozenset(raw.failed)
+    )
+    assert raw.failed and raw.after is Verdict.FAIL
+    assert (none.after, none.failed) == (Verdict.WARN, ())
+    assert (kept.after, kept.failed) == (Verdict.FAIL, raw.failed)
+
+
 async def test_no_target_means_both(sessions: async_sessionmaker[AsyncSession]) -> None:
     pid, _, _ = await _logged(sessions)
     rows, skipped = await recheck(sessions, pid)

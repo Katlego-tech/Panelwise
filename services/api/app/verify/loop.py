@@ -5,13 +5,12 @@ audit: an audit that can't run (ERROR) withholds it, and running out of attempts
 """
 
 from collections.abc import Awaitable, Callable
-from dataclasses import replace
 
 from app.grounding import Extraction
 from app.llm import NebiusChatModel
 from app.script import Screenplay
 from app.shots import Shot
-from app.verify.audit import audit_frame, seed_for
+from app.verify.audit import apply_ladder, audit_frame, seed_for
 from app.verify.model import (
     Audit,
     Check,
@@ -19,7 +18,6 @@ from app.verify.model import (
     FrameState,
     RenderedFrame,
     Renderer,
-    Severity,
     Verdict,
 )
 
@@ -67,12 +65,7 @@ async def render_until_accepted(
             raise
         await enter(FrameState.AUDITING, attempt)
         audit = await audit_frame(model, frame, shot, screenplay, extraction)
-        if withholding is not None and audit.verdict is Verdict.FAIL:
-            # The rule ladder: a failed hard check not on it only warns; the audit keeps every
-            # check it failed, so the card still names it.
-            failed = {c.check for c in audit.checks if not c.ok and c.severity is Severity.HARD}
-            if not failed & withholding:
-                audit = replace(audit, verdict=Verdict.WARN)
+        audit = apply_ladder(audit, withholding)  # T094: off the ladder, a hard check warns
         await log(audit)
         audits.append(audit)
         if (accepted := _ACCEPTED.get(audit.verdict)) is not None:

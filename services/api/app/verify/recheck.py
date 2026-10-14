@@ -6,6 +6,8 @@
 It reads each stored audit's description and judgement and runs today's `run_checks` on them:
 no model call, no Storage, no write. So a change to the checks alone is measured for free, on
 the very audits it changes. A change to what the describer or the judge is asked needs reaudit.
+The rule ladder (T094) applies as it does live: `AUDIT_WITHHOLD_CHECKS` names the hard checks
+that withhold, so measure a rule's way back by naming it there.
 """
 
 import argparse
@@ -19,13 +21,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.core.config import Settings
+from app.core.config import Settings, withholding
 from app.db import make_engine, make_sessions
 from app.frames.model import AuditTarget, FrameAuditRow
+from app.llm import Usage
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.model import ProjectRow
-from app.verify.audit import run_checks, shot_ages
-from app.verify.model import Severity, Verdict
+from app.verify.audit import apply_ladder, run_checks, shot_ages, shot_sexes
+from app.verify.model import Audit, Check, PersonSeen, Severity, Verdict
 from app.verify.reaudit import Reaudit, line, summary
 from app.verify.schema import FrameDescription, Judgement
 
@@ -35,12 +38,14 @@ async def recheck(
     project_id: uuid.UUID,
     *,
     target: AuditTarget | None = None,
+    withholding: frozenset[Check] | None = None,
 ) -> tuple[list[Reaudit], int]:
     """Every stored audit of the project (one target, or both) in reaudit's order, checked again
     with today's code, and how many were skipped: no description or judgement (an ERROR), or
-    one stored before today's schema."""
+    one stored before today's schema. `withholding` is the rule ladder (T094), applied as the
+    loop applies it before it logs; None keeps every hard check."""
     # Imported here, as audit_frame does: app.storyboard's renderer modules import app.verify.
-    from app.storyboard.prompt import introduced_years, visible_characters
+    from app.storyboard.prompt import character_sex, introduced_years, visible_characters
 
     async with sessions() as session:
         project = await session.get(ProjectRow, project_id)
@@ -90,7 +95,29 @@ async def recheck(
             extraction,
             on_screen=visible_characters(shot, screenplay, extraction),
             ages=shot_ages(shot, screenplay, introduced_years),
+            # T095: the stored answers; a row before 0007 has none, so no DRAWN_SEX.
+            seen=tuple(
+                PersonSeen(int(s["person"]), str(s["character"]), str(s["sex"]))
+                for s in row.seen or ()
+            ),
+            sexes=shot_sexes(shot, screenplay, extraction, character_sex),
         )
+        laddered = apply_ladder(
+            Audit(
+                key,
+                row.attempt,
+                row.seed,
+                description,
+                judgement,
+                checks,
+                verdict,
+                {},
+                (),
+                Usage(0, 0, 0),
+            ),
+            withholding,
+        )
+        checks, verdict = laddered.checks, laddered.verdict
         hard = tuple(c.check for c in checks if not c.ok and c.severity is Severity.HARD)
         out.append(Reaudit(key, row.attempt, row.target, Verdict(row.verdict), verdict, hard))
     return out, skipped
@@ -105,10 +132,13 @@ def accepted_shots(rows: Sequence[Reaudit]) -> tuple[int, int]:
 
 
 async def _main(project_id: uuid.UUID, target: AuditTarget | None) -> int:
-    engine = make_engine(Settings())
+    settings = Settings()
+    engine = make_engine(settings)
     sessions = make_sessions(engine)
     try:
-        rows, skipped = await recheck(sessions, project_id, target=target)
+        rows, skipped = await recheck(
+            sessions, project_id, target=target, withholding=withholding(settings)
+        )
         async with sessions() as session:
             project = await session.get(ProjectRow, project_id)
     except ValueError as exc:

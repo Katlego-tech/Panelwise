@@ -115,8 +115,9 @@ _PRONOUNS = {"she": "female", "her": "female", "he": "male", "his": "male"}
 
 def keyed(text: str, character: str, intro: str | None, extraction: Extraction) -> bool:
     """T082: the sex word in an AGE or SEX part is keyed by a word of the script: a pronoun of the
-    introducing line, a sex title as the name's first word, or the grounded sex_quote holding a
-    vocabulary word of that sex. A part with no sex word is keyed trivially."""
+    introducing line, a sex title as the name's first word, a sex noun before the name in the
+    introducing line (T096), or the grounded sex_quote holding a vocabulary word of that sex. A
+    part with no sex word is keyed trivially."""
     said = {_SEX_NOUNS[w] for w in re.findall(r"[a-z]+", text) if w in _SEX_NOUNS}
     if not said:
         return True
@@ -129,6 +130,11 @@ def keyed(text: str, character: str, intro: str | None, extraction: Extraction) 
     words = re.sub(r"[^A-Z ]", " ", character.upper()).split()
     if words and SEX_TITLES.get(words[0]) == sex:
         return True
+    # T096: a sex noun of that sex in the introducing line, before the name ("A boy …, THABO (9)").
+    if intro is not None:
+        before = intro.split(character, 1)[0].lower()
+        if sex in {_SEX_NOUNS[w] for w in re.findall(r"[a-z]+", before) if w in _SEX_NOUNS}:
+            return True
     entity = next((e for e in extraction.entities if e.name == character), None)
     if entity is not None and entity.sex_quote is not None and entity.sex == sex:
         quoted = re.findall(r"[a-z]+", entity.sex_quote.text.lower())
