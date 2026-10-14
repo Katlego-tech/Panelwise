@@ -34,8 +34,8 @@ it before changing the prompt or the audit; add to it after every live run.
   evidence code (T088/T091) chains a next sentence only when it opens with He or She, and no sentence
   opening with "Naledi" holds a pronoun.
 - **Action:** T100 (storyboard.md §3.1): a sentence that opens with a possessive Her or His right
-  after a character's introducing sentence, read only when that sentence ended uncut, gives that
-  character's sex. Measured free on the labels of the 10 labelled scripts with a sample file: **1 found (NALEDI), 1 right, 0
+  after a character's introducing sentence gives that character's sex, only when the introducing
+  sentence holds no other person (named, a sex noun, a person noun, or a him/her/his/them). Measured free on the labels of the 10 labelled scripts with a sample file: **1 candidate (NALEDI), 1 right, 0
   wrong**. Separately, a plural "They" with the shot's own people in the scene draws no one (4.2).
 - **Measured:** not yet.
 - **Sex labels** (eval/sex-labels.json): `character_sex` right for TSHEPO, SHOPKEEPER and MR. KEKANA,
