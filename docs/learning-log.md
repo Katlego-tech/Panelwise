@@ -16,7 +16,7 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
-### L021 · The judge leaves a drawn character unmatched, citing their own line · open (T097)
+### L021 · The judge leaves a drawn character unmatched, citing their own line · open (T099)
 
 - **Seen:** 2026-10-14, a free what-if (`recheck` with `drawn_sex` plus one rule) on nine stored runs:
   `NO_CHARACTER` would withhold **30** of the frames shown today; every one looked at, **23 had the
@@ -30,7 +30,7 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Cause:** the judge does the matching and the stranger rules in one answer; on a person whose look
   doesn't spell out the quote's details it leans to "no character", even when it quotes that
   character's line.
-- **Action:** T097, the presence agent: when the judge matched none of the drawn characters, a vision
+- **Action:** T099, the presence agent: when the judge matched none of the drawn characters, a vision
   question per character ("which numbered person, if any, is this character?"); a found person
   counts for `NO_CHARACTER` only. Design: verify.md §3.
 - **Measured:** prototype on the 30 stored frames (Token Factory, two runs): 18 and 16 of 23 false
