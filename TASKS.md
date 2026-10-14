@@ -588,5 +588,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:verify.md §6 verbatim: `PersonFound`, `Audit.found`, `Presence`, `PRESENCE_AGENT_PROMPT`, `find_character`, `present_characters`, `run_checks(found=)`, `FrameAuditRow.found`
       Verify:  bash scripts/gate.sh (§9's T099 list); Token Factory: the real code on the 30 stored frames; live: one held-out script with `AUDIT_WITHHOLD_CHECKS=drawn_sex,no_character` (fal: ask Tumo)
       Done:    a frame whose drawn character the judge left unmatched but the agent finds is shown, one with none of its characters drawn is withheld with `NO_CHARACTER` named, and a failed agent call changes nothing: the verdict is the judge-alone verdict, never `ERROR`
+- [ ] T100 [US1] **A Her or His opening the sentence after an introduction gives that character's sex.** Found on 2026-10-14 (L023, the-borrowed-bicycle, held out: NALEDI (12) drawn as a boy in about 11 of 18 frames; the script's only signs are "Her little brother TSHEPO" and "her waist"). Measured free on the 10 labelled read scripts: 1 found, 1 right, 0 wrong. Tumo's call (2026-10-14): build it. Lane `storyboard` (Claude for Tumo).
+      Design:  docs/design/storyboard.md §3.1 (A Her or His opening the next sentence), §6 (`introduced_sex`), §9 (T100)
+      Files:   services/api/app/storyboard/prompt.py (`introduced_sex`); services/api/tests/storyboard/test_t100.py
+      Contract:storyboard.md §6: `introduced_sex`'s signature unchanged
+      Verify:  bash scripts/gate.sh (§9's T100 list; the invariant test unchanged); free: the labelled read scripts (1 found, 0 wrong)
+      Done:    NALEDI is female from her introduction and her prompt says "a 12-year-old girl", no labelled character changes sex, and the next held-out runs' characters are scored
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

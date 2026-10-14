@@ -219,6 +219,23 @@ truncates drops the tail.
   (THABO, KAMO, the scripts it was found on), 0 wrong, and a looser form (the article anywhere in the
   sentence, no bounds after the noun) finds the same two. Not covered: "His young colleague, SIBUSISO
   (20s)" (no sex noun), "A WOMAN WITH A PRAM" (the noun is the name: L017).
+- **A Her or His opening the next sentence (T100; learning-log L023).** `introduced_sex` also
+  reads the sentence right after the introducing one, in the same `Action` element, when that
+  sentence opens with exactly `Her` or `His` used as a possessive: `His` always, `Her` only when the
+  word after it is not one of grounding's `_NOT_POSSESSED` ("Her to …", "Her a …" are no owner).
+  `His` gives male and `Her` female, one more of the introduction's sources under the one-sex rule.
+  **Only when the introducing sentence is plainly about this character alone:** it is read only if
+  `introduced_sex`'s own bounds left that sentence whole, that is no other character's name word
+  (`_other_names`) and no next introduction (`_NEXT_INTRODUCTION`) cut it before its end, and it
+  ends inside the element with `. ! ?`. So "MAMA (60s) hugs SIPHO. His …" and "NANDI (60s) waves to
+  THABO (9). His …" give nothing (a safe miss), and a `Her`/`His` further on, or after a line of
+  dialogue, is never read. "NALEDI (12), dungarees, scraped knees, stares at it. Her little brother
+  TSHEPO (8) …" gives NALEDI female; the next sentence's own introduction (TSHEPO) doesn't matter,
+  since its `Her` opens it. **Measured** free on the labelled read scripts (`eval/sex-labels.json`,
+  the 10 with a sample file; the held-out ones never opened): **1 found, NALEDI, right; 0 wrong**.
+  The-borrowed-bicycle had Naledi drawn as a boy in about 11 of 18 frames, her prompts saying only
+  "a 12-year-old". **The invariant** is unchanged: its introducing line is the whole `Action`
+  element, whose `Her` or `His` already keys the sex (`keyed`'s pronoun of the introducing line).
 - **A He or She with no one drawn, or against everyone drawn (T093; learning-log L016).** The
   prompt keeps action sentences whole, so a sentence whose subject is only a pronoun is drawn on
   whoever klein draws.
@@ -845,6 +862,8 @@ def introduced_age(character: str, screenplay: Screenplay) -> tuple[str, Span] |
 #   None when no introduction gives one. Never a word the script doesn't have but the age's own number
 #   T079: the phrase carries the sex `introduced_sex` reads: "a 10-year-old girl", "a man in his 70s"
 def introduced_sex(character: str, screenplay: Screenplay) -> Literal["female", "male"] | None: ...   # T079, pure
+#   T096: a sex noun in the appositive before the name; T100: a possessive Her or His opening the next
+#   sentence of the same Action element, read only when the introducing sentence ended uncut
 def title_sex(character: str) -> Sex | None: ...   # T082, pure: the name's first word, upper case, a trailing
 #   full stop ignored, looked up in app/characters/sex.py's SEX_TITLES (female: MRS, MS, MISS, MADAM, MADAME,
 #   LADY, MAMA, GOGO, OUMA, AUNTIE, AUNT, TANNIE, SISTER, QUEEN, PRINCESS; male: MR, SIR, LORD, BABA, OUPA,
@@ -1250,6 +1269,17 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   each. The audit's `on_screen` and `report.py`'s rebuilt prompt agree with `build_frame_prompt`
   (the pronoun figure included). Every existing prompt test and the invariant test unchanged. Free:
   the §3.1 numbers re-measured by the real code on the stored plans with T092 built.
+
+- **T100** (`tests/storyboard/test_t100.py`): "NALEDI (12), dungarees, scraped knees, stares at
+  it. Her little brother TSHEPO (8) …" → NALEDI female; "SAM (40) sits down. His hands shake." →
+  male; "SAM (40) sits down. Her …" with SAM's "he" in the introducing sentence → None (one-sex
+  rule); "MAMA (60s) hugs SIPHO. His …" → None for MAMA (another name in the sentence);
+  "NANDI (60s) waves to THABO (9). His …" → None for NANDI (a next introduction); "SAM (40) sits.
+  Rain falls. His …" → None (not the next sentence); "SAM (40) sits. Her to …" → None (not a
+  possessive); "SAM (40) sits." then a line of dialogue, then an Action "His …" → None (another
+  element); TSHEPO, introduced in the `Her` sentence, keeps his own sources only. NALEDI's prompt
+  reads "a 12-year-old girl" and passes `cites_this_shot`; the invariant test is unchanged and
+  passes. Free: the labelled read scripts give §3.1's 1 found, 0 wrong.
 
 - **T096** (`tests/storyboard/test_t096.py`): "A boy in a too-big school blazer, THABO (9),
   stands." → male; "A small boy, KAMO (7)" → male; "A small girl, AMA (7)" → female; "An old woman,
