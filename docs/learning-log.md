@@ -66,12 +66,18 @@ it before changing the prompt or the audit; add to it after every live run.
   cue only to a name holding all its words. So a bare `CHARACTER` name folds into the one titled
   spelling (a cue, or a model name the script writes) whose words are it plus forms of address
   (`TITLE_WORDS`; never a kinship word: Mama Thembi can be Thembi's mother); none, two (`MR. DUBE`,
-  `MRS. DUBE`), a bare cue or a superset name (`THABO DUBE`): no fold. Still open: the presence agent's sex question
-  (a found person gets no `DRAWN_SEX`), and redacting a multi-word role name only whole (8.1).
+  `MRS. DUBE`), a bare cue or a superset name (`THABO DUBE`): no fold. Merged 2026-10-16 (#179,
+  #180). T102 (verify.md §3): a person the presence agent finds is asked T095's sex question too,
+  and `DRAWN_SEX` fails on the other sex. Still open: redacting a multi-word role name only whole
+  (8.1).
 - **Measured:** free, 2026-10-15, `ground` replayed on the model entities of all 30 stored
   extractions with a prototype fold: **1 changed**, this one: `MR. FORTUIN` and `MS. NAIDOO` each one
   `Source.MODEL` character with their 3 quotes, recall 2/4 → 4/4, `MS. NAIDOO` female from her own
-  pronouns; 29 identical. Live: the next held-out runs.
+  pronouns; 29 identical. T102, Token Factory only (2026-10-16): the presence agent run afresh on
+  the 77 stored frames it would run on found 36 people the script sexes; asked, 2 the other sex,
+  both real (sipho-and-siphokazi 2.1, MAMA THEMBI drawn as a man; the-borrowed-bicycle 4.1,
+  NALEDI as a boy), 0 false alarms, 6 questions failed (the model's thinking used its tokens).
+  Live: the next held-out runs.
 - **Sex labels** (eval/sex-labels.json): `character_sex` right for MS. NAIDOO and MR. FORTUIN, a miss
   for both duplicates, 0 wrong, 0 invented. The sex agent asked about 32 matched people, every
   answer the script's sex; nothing withheld.
