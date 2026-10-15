@@ -57,16 +57,17 @@ Tumo picked up the 2026-10-11 handoff in person. Plan to submit on **29 Oct** (3
 | Dates | Work | Who | Status (15 Oct) |
 |---|---|---|---|
 | 11–12 Oct | T079 + T080 live run on the-red-kite | Tumo | ✅ 16 of 21 accepted |
-| 12–13 Oct | T030 design on Render (#80/#81): hosted settings, image-spend cap, judge seed | Katlego | ✅ design and code merged |
+| 12–13 Oct | T063 Render hosting (#80/#81): design and code | Katlego | ✅ merged; T030 (hosted settings, image-spend cap figures, judge seed) still open: below |
 | 13–15 Oct | Audit: the rule ladder, the sex agent, the presence agent, Her/His (T094–T096, T099, T100); held-out runs on market-day, load-shedding, the-lighthouse-inspector, the-borrowed-bicycle | Tumo (Claude) | ✅ merged (#167, #168, #171, #172, #174, #175) |
-| **15–17 Oct** | **Hosted demo:** API on Render, web on Vercel, the hosted Supabase migrated to **0008**, judge seed, `AUDIT_WITHHOLD_CHECKS` set (Tumo's call; suggested `drawn_sex,no_character`), an end-to-end hosted run (T037, T030, T069, T063 live) | Katlego (deploy); Tumo (Claude) to help | 🔴 not started: 1 day behind |
+| **15–17 Oct** | **Hosted demo, Katlego's part (T063):** the 512 MB check first (the comic job at `0.5c-512mb`; else `1c-2g`), then web on Vercel first (deploy.md step 3), then the API on Render; its `CMD` runs `alembic upgrade head`, so the hosted Supabase reaches head on deploy (0008 today; 0009 if #170 lands first): check `alembic current` in the Render log | Katlego | 🔴 not started: 1 day behind |
+| **15–17 Oct** | **Hosted demo, Tumo's part (T030, T037):** expand T030 (Design/Files/Contract/Verify/Done); add `AUDIT_WITHHOLD_CHECKS` to `render.yaml` and deploy.md §6's env rows (the code default `all` would withhold every hard check; the demo's value is Tumo's call, suggested `drawn_sex,no_character`); the image-spend cap figures; the judge seed (T069's caps); **check the Devpost rules accept a judge login** before relying on it; then the end-to-end hosted run | Tumo (Claude) | 🔴 not started |
 | 15–16 Oct | One more held-out run on main (T100 live), then the free audit backlog only if the deploy doesn't need hands | Tumo (Claude) | 🟡 local API on main, watcher armed |
 | 17–19 Oct | What a judge feels: batch-signed frame URLs, the 401 on a slow session refresh, letterbox trim; speaker names on the PDF's dialogue | Tumo (Claude) | ⬜ |
 | 20–22 Oct | Audit backlog, measured free first: L022 (a bare surname folded into its titled name), the presence agent's sex question, a "drawn twice" agent | Tumo (Claude) | ⬜ |
 | 23 Oct | Judge sample re-rendered on the hosted stack; T036 sweep; T055 | both | ⬜ |
 | 24–26 Oct | T033 README (feedback: the team's words), T034 video script + ported-code table | both | ⬜ |
-| 27–28 Oct | gitleaks over the commits since 2026-10-05 (repo public already), Devpost text, final hosted smoke | both | ⬜ |
-| 29 Oct | Submit | both | ⬜ |
+| 27–28 Oct | gitleaks over the commits since 2026-10-05 (repo public already), Devpost text, final hosted smoke (T035) | both | ⬜ |
+| 29 Oct | Submit (T035) | both | ⬜ |
 
 Proposed cuts (Tumo to confirm): T003 (fal renders; no money for a GPU VM) and T025 (several days of port, audit and new drawings; T079's looks cover the cheap half).
 
@@ -153,6 +154,8 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 
 ## 🗓️ Timeline to 2026-10-30 10:00 PDT (19:00 SAST)
 
+> Superseded by the day plan in ⏭️ Next action (re-planned 2026-10-15); kept as the original week plan.
+
 | Week | What | Target window | Status |
 |-------|------|---------------|--------|
 | 1 | Token Factory check; versions + compose; ComfyUI on Nebius GPU; port llm, script, grounding | 28 Sep – 4 Oct | 🟡 all but T003 (GPU) and T037's deploy check (accounts) |
@@ -233,7 +236,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
-- 2026-10-15 — Tumo (via Claude) — Merged #173 (lighthouse + bicycle runs, L022, L023), #174/#175 (T100: a Her or His opening the sentence after an introduction gives the character's sex; free on 10 labelled scripts: NALEDI right, 0 wrong). Re-planned: the hosted demo is the critical path, 1 day behind (Katlego deploying; Supabase to 0008; the demo's ladder is Tumo's call). **Next:** one held-out run with T100; help the deploy. **Blocked:** none.
+- 2026-10-15 — Tumo (via Claude) — Merged #173 (lighthouse + bicycle runs, L022, L023), #174/#175 (T100: a Her or His opening the sentence after an introduction gives the character's sex; free on 10 labelled scripts: NALEDI right, 0 wrong). Re-planned: the hosted demo is the critical path, 1 day behind: Katlego does T063 (512 MB check, Vercel, Render), Tumo (Claude) T030 (expand it, `AUDIT_WITHHOLD_CHECKS` into `render.yaml`, caps, judge seed, the Devpost login rule) and the hosted run (T037). **Next:** one held-out run with T100; T030. **Blocked:** none.
 - 2026-10-14 — Tumo (via Claude) — Held-out run on **the-borrowed-bicycle** (same settings): **18 of 18** shown in 19 drawings, every one looked at: NALEDI (12) drawn as a boy in about 11 frames (the script's only signs in its action lines are "Her little brother" and "her waist", read by no rule: L023), and 4.2 a naked adult man for "They sit up" (`unscripted_person` off the ladder). **Next:** a Her/His-after-the-introduction rule (free: 1 right, 0 wrong on 10 labelled scripts), L022's fold, a plural They. **Blocked:** none.
 - 2026-10-14 — Tumo (via Claude) — Merged #171/#172 (T099 the presence agent; renumbered from T097: Katlego's #170 has T097/T098; asked on #170 to move its migration to 0009). Held-out run on **the-lighthouse-inspector** (klein, 3 attempts, main, `drawn_sex,no_character`): **26 of 26** shown at attempt 1, every frame looked at: 14 right, 11 weak, **1 wrong** (7.5, Mr. Fortuin drawn as a woman, found by the presence agent through a sexless duplicate `FORTUIN`: L022). Sex agent: 32 asked, all agree. **Next:** measure L022's fold free; the next held-out script. **Blocked:** none.
 - 2026-10-14 — Tumo (via Claude) — #168's fresh review: T096 gave a sex to the wrong person ("A woman and her child, ZANELE (6)"), fixed (the noun's own describing phrase only; the read samples unchanged, KAMO and THABO); `recheck` now applies the ladder. Merged #169, #167, #168; main green. The next rule, measured free on nine stored runs and every frame looked at: none is ready (`no_character` 8 real of 30, `setting` 3 of 8, `unscripted_object` 0 of 2). L021: the judge leaves drawn characters unmatched. Tumo's call: build T099, the presence agent (prototype: 18 and 16 of 23 false alarms found, 2–3 of 7 real misses let through). **Next:** T099 design PR, then code; the-lighthouse-inspector run (local API on main, `drawn_sex`). **Blocked:** none.
