@@ -482,8 +482,9 @@ tokens count in the audit's usage and models. **Passes:** `run_checks(..., found
 character as in the frame for `NO_CHARACTER` when an answer names a person who exists, whom
 `matched_people` doesn't already accept as another character, and whose described age doesn't
 contradict the character's introduced years (`age_contradicts`, T086). That is all it changes: the
-person stays unmatched for every other check (`UNSCRIPTED_PERSON`, `MISSING_CHARACTER`,
-`DRAWN_SEX`), so a found person is no excuse for anything else, and `positions` is unchanged (a
+person stays unmatched for every other check (`UNSCRIPTED_PERSON`, `MISSING_CHARACTER`; and
+`DRAWN_SEX` until T102, which asks a found person's sex: below), so a found person is no excuse for
+anything else, and `positions` is unchanged (a
 speaker shown only through `found` gets the comic bubble's fallback placement). **What the viewer
 sees (Non-negotiable I):** a person the agent finds is still unmatched, so the judge's call stands
 for `UNSCRIPTED_PERSON`: the person passes it only when the judge's support holds for a stranger
@@ -510,17 +511,26 @@ as him, and a found person was asked nothing, so the frame was shown. T099 left 
 found person on purpose ("measured only for presence"); this is that measurement. **Who:** after the
 presence agent, each person `found_people` gives (the rule `present_characters` already applies: an
 answer naming a person in range, not accepted by `matched_people` as another character, of no
-contradicted age), for a character the script sexes (`sexes`, as T095). One question per
-(person, character) pair: the same person found for two characters (load-shedding 5.2: JABU and
-PIETER both person 0) is asked once per character, as `_ask_sexes` already asks per pair. **The
-question:** T095's, unchanged (`check_person`: the image, the person's position and appearance,
-the others, `SEX_AGENT_PROMPT`), all at once, after the presence agent's `gather`. **Kept:** in
+contradicted age), for a character the script sexes (`sexes`, as T095). **One question per
+person:** the question names no character, so a person found for two characters (load-shedding
+5.2: JABU and PIETER both person 0) is asked once, and the answer is kept once per character
+(`PersonSeen(person, character, sex)` for each, characters in name order). When those characters'
+script sexes differ, the answer fails `DRAWN_SEX` for the one it contradicts: a decision, because
+one person can't be both, and at most one of them is drawn. **The question:** T095's
+(`check_person`: the image, the person's position and appearance, the others, `SEX_AGENT_PROMPT`),
+all at once, after the presence agent's `gather`. **Its token budget** rises from 1,024 to 4,096 for
+T095's questions too (`check_person` serves both): at 1,024, 6 of the 36 questions below came back
+empty (the vision model spent the budget thinking), as T099's presence questions did at 1,024 (9 of
+about 40; 6 of about 80 at 4,096); the budget is a ceiling, so an answer that ends early costs what
+it did. **Kept:** in
 `Audit.seen` with T095's answers (`PersonSeen`: person, character, sex), so `recheck` reads them from
 `frame_audits.seen` with no migration; a row from before T102 has none for found people and decides
 as before. **Fails:** `run_checks` fails `DRAWN_SEX` for an answer about a person found as that
 character (`found_people(...)[character] == person`) that is the other sex, with T095's detail;
 `unclear` passes. A found person still counts for `NO_CHARACTER` (T099 is unchanged), but the
-frame fails `DRAWN_SEX`, which the ladder withholds (`drawn_sex` is on it), so the shot is redrawn.
+frame fails `DRAWN_SEX`: withheld and redrawn when `drawn_sex` is on the ladder
+(`AUDIT_WITHHOLD_CHECKS`, T094; the local runs and render.yaml set `drawn_sex,no_character`), else
+`WARN`, the card naming the check.
 Nothing else changes: the found person stays unmatched for `UNSCRIPTED_PERSON` and
 `MISSING_CHARACTER`. **Never an ERROR:** as T095, a failed question checks nothing for that person
 and is logged. **Measured** (2026-10-16, Token Factory, DeepSeek-V4.1-Flash, `proto_found_sex.py`;
@@ -530,10 +540,11 @@ afresh) found **36** people for characters the script sexes; asked, **2 the othe
 at and both real errors** (sipho-and-siphokazi 2.1's second attempt, MAMA THEMBI drawn as an old
 man; the-borrowed-bicycle 4.1, NALEDI drawn as a boy, L023), 2 `unclear` (LUCKY seen from behind,
 KAMO), 26 agreeing, 6 failed questions (the vision model spent its 1,024 tokens thinking: logged,
-checking nothing, as T095); **0 false alarms**. the-lighthouse-inspector 7.5 isn't among them: its
-stored extraction gives the bare `FORTUIN` no sex; since T101 the character is `MR. FORTUIN`, whose
-title gives the prompt and `character_sex` male, so 7.5 would be asked. About 1,000 tokens a question,
-on the frames the presence agent runs on (36 questions on 33 of the 77 frames here).
+checking nothing); **0 false alarms**: 2 of 36, a small sample, the rule generic. the-lighthouse-
+inspector 7.5 isn't among them: its stored extraction gives the bare `FORTUIN` no sex; since T101
+the character is `MR. FORTUIN`, whose title gives the prompt and `character_sex` male, so 7.5 would
+be asked; the code's measurement replays 7.5 with T101's names. About 1,000 tokens a question, on
+the frames the presence agent runs on (36 questions on 33 of the 77 frames here).
 
 ## 4. Flow
 
@@ -913,6 +924,7 @@ async def find_character(model: NebiusChatModel, image: str, character: str, sho
 #   shot.source, "", "People in the drawing:", "[i] position: appearance" per person or "none";
 #   then the image (a data URL, encoded once per attempt)
 async def _ask_sexes(model, image: str, description, matched, sexes, chats) -> ...   # T099: takes the
+#   (T102 replaces this signature and the order below: see T102 contracts)
 #   data URL audit_frame encoded, not the PNG bytes
 def present_characters(on_screen: Sequence[str], found: Sequence[PersonFound], accepted: Mapping[int, str],
                        description: FrameDescription, ages: Mapping[str, int] | None) -> frozenset[str]: ...
@@ -941,12 +953,16 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 # app/verify/audit.py
 def found_people(on_screen: Sequence[str], found: Sequence[PersonFound], accepted: Mapping[int, str],
                  description: FrameDescription, ages: Mapping[str, int] | None) -> dict[str, int]: ...
-#   pure: character -> person for each answer present_characters keeps (same three tests), the first
-#   answer per character; present_characters(...) returns frozenset(found_people(...)), its signature unchanged
-async def _ask_sexes(model, image: str, description, asks: Sequence[tuple[int, str]], sexes, chats) -> ...
-#   T102: takes the (person, character) pairs to ask instead of `matched`; asks each pair whose character
-#   is in `sexes`, in the given order. audit_frame passes sorted(matched.items()) first (T095, as
-#   before), then, after the presence agent, the found_people pairs sorted by person then character
+#   pure: character -> person for each answer that passes the three tests, the first answer that
+#   passes per character (an earlier null or out-of-range one is skipped); present_characters(...)
+#   returns frozenset(found_people(...)), its signature unchanged
+async def _ask_sexes(model, image: str, description, pairs: Sequence[tuple[int, str]], sexes, chats) -> ...
+#   T102: takes (person, character) pairs instead of `matched`; keeps the pairs whose character is in
+#   `sexes`, asks check_person once per distinct person (in person order), and returns one PersonSeen per
+#   kept pair in the given order, each with its person's answer; a failed question drops that person's
+#   pairs. audit_frame passes sorted(matched.items()) first (T095, as before), then, after the presence
+#   agent, the found_people pairs sorted by person then character
+# check_person: max_tokens 1024 -> 4096 (T095 and T102)
 def run_checks(...) -> ...   # unchanged signature; DRAWN_SEX reads an answer when accepted.get(person)
 #   == character (T095) or found_people(on_screen, found, accepted, description, ages).get(character)
 #   == person (T102); the detail is T095's
@@ -974,7 +990,7 @@ No migration: the answers go in `frame_audits.seen` with T095's. `recheck` alrea
 | `services/api/app/verify/audit.py` | changed | `_STORY_OBJECTS`, `_SEVERITY[TEXT_IN_FRAME]` soft, object failures routed to `BACKGROUND_OBJECT` | T089 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
 | `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0008_audit_found` | changed | `PersonFound`, `Presence`, `PRESENCE_AGENT_PROMPT`, `find_character`, `present_characters`, `run_checks(found=)`, `frame_audits.found` | T099 |
-| `services/api/app/verify/audit.py` | changed | `found_people`, `_ask_sexes(asks=)`, `run_checks`' `DRAWN_SEX` for a found person, `audit_frame` asks after the presence agent | T102 |
+| `services/api/app/verify/audit.py` | changed | `found_people`, `_ask_sexes(pairs)` one question per person, `check_person` at 4,096 tokens, `run_checks`' `DRAWN_SEX` for a found person, `audit_frame` asks after the presence agent | T102 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
 ## 8. Decisions & alternatives
@@ -1161,7 +1177,8 @@ it against the script."*
   `AUDIT_WITHHOLD_CHECKS=drawn_sex`, where the real code meets `character_sex` (the prototype used
   the labels).
 - **T102** (`tests/verify/test_t102.py`, tests first): `found_people` gives character → person for
-  the answers `present_characters` keeps, the first per character, and `present_characters` equals its
+  the answers `present_characters` keeps, the first that passes per character (a null first answer
+  skipped), and `present_characters` equals its
   keys on every T099 case; `run_checks` fails `DRAWN_SEX` for a seen `male` on a found female
   character with T095's detail, and passes `unclear`, the same sex, a found character with no script
   sex, an answer about a found person filed under another character, and an answer about a person
@@ -1171,9 +1188,15 @@ it against the script."*
   question after the presence agent for a found person with a script sex, once per (person,
   character) pair, none for a character with no script sex, none when the presence agent didn't run,
   none for a null answer, and a failing question leaves that answer out of `seen` and the verdict no
-  `ERROR`; `seen` holds T095's answers first; `recheck` on a row with such `seen` and `found` fails
-  `DRAWN_SEX`. Token Factory: the real code on the 77 stored frames gives about §3's numbers.
-  Live: the next held-out runs with `AUDIT_WITHHOLD_CHECKS=drawn_sex,no_character`.
+  `ERROR`; a person found for two characters is asked once and kept twice, and with opposite script
+  sexes the answer fails `DRAWN_SEX` for the one it contradicts only; a person matched to an
+  off-screen character's name beside a found on-screen character (T099's shape): T095's question, the
+  presence agent, T102's question, and `seen` in that order; a malformed judgement asks nothing;
+  `check_person` asks with `max_tokens` 4,096; with `drawn_sex` off the ladder the frame is `WARN`
+  (`apply_ladder`); `recheck` on a row with such `seen` and `found` fails `DRAWN_SEX`, and on a row with
+  T095's `seen` alone and `found` decides as before. Token Factory: the real code on the 77 stored
+  frames gives about §3's numbers, and lighthouse 7.5 replayed with T101's names is asked and
+  flagged. Live: the next held-out runs with `AUDIT_WITHHOLD_CHECKS=drawn_sex,no_character`.
 - **T099** (`tests/verify/test_t099.py`, tests first): `present_characters` finds a character
   whose answer names a person in range, and not one whose answer is null, out of range (past the end, or negative), a person
   `matched_people` accepts as another character, or a person whose described age contradicts the
