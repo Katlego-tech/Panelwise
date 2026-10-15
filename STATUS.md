@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-15 — by Tumo (via Claude)_
+_Last updated: 2026-10-16 — by Katlego (via Claude)_
 
 ---
 
@@ -35,7 +35,7 @@ _Last updated: 2026-10-15 — by Tumo (via Claude)_
 | Lane | Covers | Tasks | Owner | AI | Status |
 |------|--------|-------|-------|----|--------|
 | `llm` | Nebius Token Factory provider, model tiers, structured_chat | T001, T004 | | | ✅ T001, T004 done |
-| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037, T063 | Tumo (T030, T037 deploy, from 2026-10-11); Katlego (#80/#81, T063) | Claude | ✅ T037 code merged (PR #13) · 🟡 T030 on Render (decided 2026-10-11, Tumo) · 🟡 T063 (Katlego): design #80 and code #81 merged (paid `0.5c-512mb`, the public styles in the API image, Vercel in `fra1`); the 512 MB check and the deploy on the Render account to go · 🔴 T003 needs GPU access |
+| `infra` | Pinned versions, docker-compose, ComfyUI on a Nebius GPU, hosted demo | T002, T003, T030, T037, T063 | Tumo (T030, T037 deploy, from 2026-10-11); Katlego (#80/#81, T063) | Claude | ✅ T037 code merged (PR #13) · 🟡 T030 on Render (decided 2026-10-11, Tumo) · ✅ T063 (Katlego): design #80, code #81, the memory check (2026-10-16: 506 MiB of 512 at its peak → plan `1c-2g`) · ✅ web on Vercel, https://panelwise.vercel.app (2026-10-16, Katlego) · ⏸️ the API on Render: ~24 Oct, when `1c-2g` is paid for · 🔴 T003 needs GPU access |
 | `script+grounding` | Parser, scene time, dialogue linker, extraction, grounding filter | T005, T006, T039, T048, T091 | Katlego (Tumo for T091) | Claude | ✅ T005, T006, T039, T048 done (T048: PR #31 design, PR #32 code) · ✅ T051 animals + other names (PR #40 design, PR #41 code) · 🟡 T091 sex from the script's own possessive (Tumo, Claude: design `docs/evidence-sex-t091`) · 🔵 T101 a bare name folds into its titled spelling (L022; Tumo, Claude: design `docs/fold-t101`) |
 | `shots` | Shot planner | T007, T092 | Tumo (T092) | Claude | ✅ T007 done · ✅ T092 a character the shot's own action names joins its cast; "van der" stays whole (#161 design, #163 code; Tumo, Claude) |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027, T082, T093 | Katlego (Tumo for T082, T093) | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · ✅ T026 the renderer on fal.ai (now FLUX.2 [klein] 4B) and T027 the PDF (merged 2026-10-11, #90–#132) · 🟡 T082 a character's sex from the script (#139 design, #141 code, merged 2026-10-12; Tumo, Claude): its Token Factory measurement to go · 🔵 T093 a He or She with no one drawn, or against everyone drawn (#162 design merged; code `feat/pronouns-t093`; Tumo, Claude) · ✅ T096 a sex noun in the introduction's appositive (#166 design, #168 code; Tumo, Claude) · ✅ T100 a Her or His opening the next sentence (#174 design, #175 code; Tumo, Claude) |
@@ -59,7 +59,7 @@ Tumo picked up the 2026-10-11 handoff in person. Plan to submit on **29 Oct** (3
 | 11–12 Oct | T079 + T080 live run on the-red-kite | Tumo | ✅ 16 of 21 accepted |
 | 12–13 Oct | T063 Render hosting (#80/#81): design and code | Katlego | ✅ merged; T030 (hosted settings, image-spend cap figures, judge seed) still open: below |
 | 13–15 Oct | Audit: the rule ladder, the sex agent, the presence agent, Her/His (T094–T096, T099, T100); held-out runs on market-day, load-shedding, the-lighthouse-inspector, the-borrowed-bicycle | Tumo (Claude) | ✅ merged (#167, #168, #171, #172, #174, #175) |
-| **15–17 Oct** | **Hosted demo, Katlego's part (T063):** the 512 MB check first (the comic job at `0.5c-512mb`; else `1c-2g`), then web on Vercel first (deploy.md step 3), then the API on Render; its `CMD` runs `alembic upgrade head`, so the hosted Supabase reaches head on deploy (0008 today; 0009 if #170 lands first): check `alembic current` in the Render log | Katlego | 🔴 not started: 1 day behind |
+| **15–17 Oct** | **Hosted demo, Katlego's part (T063):** the 512 MB check first (the comic job at `0.5c-512mb`; else `1c-2g`), then web on Vercel first (deploy.md step 3), then the API on Render; its `CMD` runs `alembic upgrade head`, so the hosted Supabase reaches head on deploy (0008 today; 0009 if #170 lands first): check `alembic current` in the Render log | Katlego | 🟡 memory check ✅ (→ `1c-2g`); web ✅ https://panelwise.vercel.app (16 Oct); **the API on Render ~24 Oct**, when `1c-2g` is paid for: T030's hosted run moves with it |
 | **15–17 Oct** | **Hosted demo, Tumo's part (T030, T037):** design `docs/hosted-t030` (the image budget from `frame_audits`, the hosted `render.yaml` values; the money caps' figures and Devpost's login rule from Katlego); expand T030 (Design/Files/Contract/Verify/Done); add `AUDIT_WITHHOLD_CHECKS` to `render.yaml` and deploy.md §6's env rows (the code default `all` would withhold every hard check; the demo's value is Tumo's call, suggested `drawn_sex,no_character`); the image-spend cap figures; the judge seed (T069's caps); **check the Devpost rules accept a judge login** before relying on it; then the end-to-end hosted run | Tumo (Claude) | 🔴 not started |
 | 15–16 Oct | One more held-out run on main (T100 live), then the free audit backlog only if the deploy doesn't need hands | Tumo (Claude) | 🟡 local API on main, watcher armed |
 | 17–19 Oct | What a judge feels: batch-signed frame URLs, the 401 on a slow session refresh, letterbox trim; speaker names on the PDF's dialogue | Tumo (Claude) | ⬜ |
@@ -103,6 +103,26 @@ scripts it wasn't designed on. Our three samples are used up for that, so we nee
 **3. Still yours:** the web on Vercel ([docs/deploy.md](docs/deploy.md) step 3, **Web first**).
 T063's 512 MB check and the first deploy on the Render account come next; Tumo owns T030 and
 T037's hosted run, so agree with him who does which before spending.
+
+### 👋 For Tumo (from Katlego, 2026-10-16): the fal cap is yours; the API waits for ~24 Oct
+
+- **Please set `IMAGE_MONTHLY_GENERATION_CAP`.** The fal account is yours and you've been watching
+  its spend, so the figure is your call: drawings a month (about $0.003–0.004 each). Record it in
+  deploy.md §6 beside the token cap and tick limits.md §10. It's a `sync: false` value entered when
+  the Blueprint is applied; **the API is never deployed with it blank** (blank is off).
+  Measured today for scale: the-red-kite's storyboard and comic made **44 drawings** (22 + 22, all at
+  attempt 1). The cap counts per month, so the demo can spend it in Oct, Nov and Dec.
+- **Token cap decided:** `LLM_MONTHLY_TOKEN_CAP` = **2,800,000** (30% of the $18 left on Token
+  Factory over three months; one storyboard + comic = 339,000 tokens, so about 8 a month, or about
+  16 storyboards alone). The other 70% is our own runs up to 29 Oct. Keep about $5.40 in the account
+  for the demo: the cap bounds the hosted API, not our local runs, which share the balance.
+- **Render plan `1c-2g`** (~$25/month). The 512 MB check: after its first comic the API sits at
+  ~415 MiB between jobs and peaks at 506 MiB, so a storyboard beside a comic would be killed
+  (deploy.md §9). **The API goes up ~24 Oct**, when the plan is paid for; T030's hosted run and the judge
+  sample on the hosted stack (23 Oct in the plan) move with it.
+- **The web is up:** https://panelwise.vercel.app (functions in `fra1`; `/api/health` answers 502
+  until the API exists). Vercel needed "Include files outside the root directory" turned off
+  (docs/deploy.md step 3).
 
 ### 👋 For Tumo (from Katlego, 2026-10-13): ten more sample scripts (T090, merged in #155)
 
@@ -190,6 +210,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 
 ## 🛠️ Environment & access
 
+- **Web on Vercel (2026-10-16, Katlego):** https://panelwise.vercel.app, project root `apps/web`, functions in `fra1`, built from `main`. Env: `ENABLE_EXPERIMENTAL_COREPACK`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; `API_URL` unset until the API is on Render (~24 Oct).
 - **Supabase project (2026-10-02, created by Katlego, checked by Claude):** region **eu-west-1 (Ireland)**, so Render runs in `frankfurt` (T063); Postgres **17.11** (see ⚠️). Session-pooler connection OK; private buckets `panelwise` and `panelwise-dev` (anonymous reads refused, signed URLs work); email/password Auth on, a dev user for end-to-end checks (`PANELWISE_DEV_EMAIL` in `.env`). Values live in each contributor's local `.env` (keys as in `.env.example`, plus the local-only `SUPABASE_DB_URL`, `PANELWISE_DEV_EMAIL`/`_PASSWORD` for live checks, listed at the end of `.env.example`; `DATABASE_URL` stays local). From South Africa a cold connection takes ~2–4 s, over the API's 2 s health timeout: run a local health check against Supabase with `HEALTH_CHECK_TIMEOUT_S=10`; Render, in Frankfurt beside the database, keeps the 2 s default.
 - **Time zones and hours (T038, 2026-10-01, from Katlego):** Katlego and Tumo are both in South Africa (SAST, UTC+2) and work flexible hours, so the overlap is the whole day; nothing needs scheduling around time zones. Hand-offs still go through STATUS.md and the ⇄ HANDOFF block.
 - FrameFlow (private, `Katlego-tech/FrameFlow`) is the source for every ported module. Both of us have access.
@@ -214,7 +235,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 - **`main` is unprotected on the server** (decided 2026-09-28 while private + GitHub Free). The repo is now public, so branch protection is free: turning it on is the team's call (a repo setting). Until then only the pre-push hook and AGENTS.md §4 guard it; Tumo's clone has the hook since 2026-10-05.
 - **No copyrighted scripts** in the repo, demo or video. Only public-domain or self-written samples.
 - GPU cost: $50 of credit covers Token Factory calls, not a GPU VM. Check the cost of the ComfyUI box in T003.
-- **API host: Render, plan `0.5c-512mb` (paid, ~$7/month)** (deploy.md §8, §11; T063). Render over Railway decided 2026-10-08 by Katlego (nothing was deployed to Railway, so it's a config + docs change); the paid plan over Free decided 2026-10-11 by Katlego: the team will pay for hosting, and Free sleeps after 15 idle minutes, restarts at any time and has 0.1 CPU. Migrations run in the image's start command (one instance, so nothing races them); the GitHub Actions keep-alive is the uptime alert and keeps a free Supabase project from pausing. `1c-2g` only if T063's 512 MB check fails. Rendering is paid too: fal.ai with klein (2026-10-11). *Superseded:* the 2026-10-08 budget of $0 (only the $25 of Token Factory credit), which chose Render Free and ruled out a Nebius GPU for T003.
+- **API host: Render, plan `1c-2g` (paid, ~$25/month; `0.5c-512mb` until 2026-10-16, Katlego, after the memory check)** (deploy.md §8, §9, §11; T063). Render over Railway decided 2026-10-08 by Katlego (nothing was deployed to Railway, so it's a config + docs change); the paid plan over Free decided 2026-10-11 by Katlego: the team will pay for hosting, and Free sleeps after 15 idle minutes, restarts at any time and has 0.1 CPU. Migrations run in the image's start command (one instance, so nothing races them); the GitHub Actions keep-alive is the uptime alert and keeps a free Supabase project from pausing. Rendering is paid too: fal.ai with klein (2026-10-11). *Superseded:* the 2026-10-08 budget of $0 (only the $25 of Token Factory credit), which chose Render Free and ruled out a Nebius GPU for T003.
 - **Stack changed 2026-09-29** (Katlego): web on Vercel, API on Render (Railway until 2026-10-08, never deployed), Supabase for Postgres/Storage/Auth, Redis removed — the Hackathon kit's stack. [docs/design/deploy.md](docs/design/deploy.md). Needs Katlego's Vercel, Render and Supabase accounts (T037).
 
 ## 🔄 Retrospectives (one per phase boundary)
@@ -236,6 +257,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
+- 2026-10-16 — Katlego (via Claude) — **Web on Vercel:** https://panelwise.vercel.app (`/` → `/sign-in`, functions in `fra1`, `/api/health` 502 until the API); the first build failed until "Include files outside the root directory" was turned off (corepack read a root `package.json` we don't have; docs/deploy.md step 3). **T063's memory check:** the-red-kite storyboard (22 of 22) and comic at 512 MB / 0.5 CPU: never OOM-killed, but 506 MiB at peak and ~415 MiB between jobs → **`1c-2g`** (Katlego); 44 drawings, 339,000 tokens. **Token cap 2,800,000/month** (30% of $18). **Next:** Tumo sets the fal cap; the API on Render ~24 Oct, when `1c-2g` is paid for, then `API_URL` on Vercel and `API_HEALTH_URL` on GitHub. **Blocked on:** paying for the Render plan (~24 Oct).
 - 2026-10-15 — Tumo (via Claude) — Katlego: no GitHub activity since #170 (14 Oct 11:30 UTC), no notes; no deploy yet (the keep-alive's `API_HEALTH_URL` is blank). Upload watcher re-armed (cutoff 21:26:08 UTC) for rooftop-tomatoes. T101 (L022) design `docs/fold-t101`, measured free first: `ground` replayed on all 30 stored extractions; the model named only the bare FORTUIN and NAIDOO, the titled two were CUE backfills; a prototype fold changed 1 extraction (the lighthouse: one MR. FORTUIN, one MS. NAIDOO, female; recall 2/4 → 4/4), 29 identical. Next: review, then the code.
 - 2026-10-15 — Tumo (via Claude) — Merged #173 (lighthouse + bicycle runs, L022, L023), #174/#175 (T100: a Her or His opening the sentence after an introduction gives the character's sex; free on 10 labelled scripts: NALEDI right, 0 wrong). Re-planned: the hosted demo is the critical path, 1 day behind: Katlego does T063 (512 MB check, Vercel, Render), Tumo (Claude) T030 (expand it, `AUDIT_WITHHOLD_CHECKS` into `render.yaml`, caps, judge seed, the Devpost login rule) and the hosted run (T037). **Next:** one held-out run with T100; T030. **Blocked:** none.
 - 2026-10-14 — Tumo (via Claude) — Held-out run on **the-borrowed-bicycle** (same settings): **18 of 18** shown in 19 drawings, every one looked at: NALEDI (12) drawn as a boy in about 11 frames (the script's only signs in its action lines are "Her little brother" and "her waist", read by no rule: L023), and 4.2 a naked adult man for "They sit up" (`unscripted_person` off the ladder). **Next:** a Her/His-after-the-introduction rule (free: 1 right, 0 wrong on 10 labelled scripts), L022's fold, a plural They. **Blocked:** none.

@@ -35,13 +35,13 @@ kill %1
 ## 2. Render — the API
 
 The service is defined in `render.yaml` at the repository root (a Render Blueprint: a Docker web
-service on plan **`0.5c-512mb`** (0.5 CPU, 512 MB, about $7 a month; Render called it Starter before
-26 Aug 2026), Frankfurt; design: [deploy.md §6](design/deploy.md)). Change settings there, in a
+service on plan **`1c-2g`** (1 CPU, 2 GB, about $25 a month; Render called it Standard before
+26 Aug 2026; chosen over `0.5c-512mb` by the memory check, design §9), Frankfurt; design: [deploy.md §6](design/deploy.md)). Change settings there, in a
 PR, not in the dashboard: a dashboard edit to a field the Blueprint sets may be overwritten the next time it syncs.
 
 1. render.com → sign in with GitHub → give Render access to `Katlego-tech/Panelwise`.
 2. **New → Blueprint** → pick the repo, branch `main`, Blueprint path `render.yaml`. Render lists
-   one service, `panelwise-api`, and asks for the five secrets (`sync: false`):
+   one service, `panelwise-api`, and asks for the seven values marked `sync: false`:
 
    | Variable | Value |
    |---|---|
@@ -49,6 +49,10 @@ PR, not in the dashboard: a dashboard edit to a field the Blueprint sets may be 
    | `NEBIUS_API_KEY` | your Token Factory key |
    | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | step 1 (the token check and uploads from T053, frames from T026) |
    | `FAL_KEY` | your fal.ai key (the renderer, T026). Without it the API starts with no renderer: uploads stop at planning |
+   | `LLM_MONTHLY_TOKEN_CAP`, `IMAGE_MONTHLY_GENERATION_CAP` | the figures recorded in [design §6](design/deploy.md) (limits.md §10). **Never blank:** blank is off, an uncapped bill |
+
+   `AUDIT_WITHHOLD_CHECKS`, `UPLOADS_PER_DAY` and `UPLOAD_MAX_PAGES` come with their values from
+   `render.yaml` (T030).
 
    Everything else has a default in `app/core/config.py` (`NEBIUS_MODEL_*`, `LLM_*`,
    `SUPABASE_STORAGE_BUCKET=panelwise`, `FAL_MODEL`, `RENDER_MAX_ATTEMPTS=3`). `PORT` is set by Render (10000), and the container listens
@@ -78,7 +82,15 @@ From then on, a push to `main` that touches `services/api/**` deploys after its 
 
 1. vercel.com → Add New → Project → import `Katlego-tech/Panelwise`.
 2. **Root directory** `apps/web`. The framework (Next.js), install and build commands, and the
-   functions' region (`fra1`, Frankfurt, beside the API) come from `apps/web/vercel.json`.
+   functions' region (`fra1`, Frankfurt, beside the API) come from `apps/web/vercel.json`. Leave
+   **Optional Integrations → Supabase** alone: it would put the secret key and Postgres strings on
+   Vercel (design §4: the web gets the publishable key only), or make a second Supabase project.
+   After the project exists: Settings → Build and Deployment → Root Directory → turn **off**
+   "Include files outside the root directory in the Build Step". While it is on, Vercel looks for
+   `packageManager` in a `package.json` at the repository root (we have none), so corepack stays
+   off, an older pnpm refuses our pnpm 11 lockfile and the install fails ("Ignoring not compatible
+   lockfile … Headless installation requires a pnpm-lock.yaml file"; 2026-10-16). Nothing in
+   `apps/web` reads a file outside it.
 3. Environment variables:
 
    | Variable | Value |
@@ -102,7 +114,8 @@ proxy.
    `NEXT_PUBLIC_SUPABASE_*` values (the publishable key, never the secret one).
    `NEXT_PUBLIC_*` values are built into the pages, so set them **before** the first deploy, or
    redeploy after setting them.
-2. Project Settings → Node.js version: **24.x** (`apps/web/package.json` asks for `>=24.18 <25`).
+2. Node.js: nothing to set. `"engines"` in `apps/web/package.json` (`>=24.18 <25`) overrides the
+   project's Node.js setting (Settings → Build and Deployment, shown only once the project exists).
 3. **Check, without the API:**
    - `https://<vercel-domain>/` sends you to `/sign-in`.
    - You can sign in with your own Supabase user. Sign-up is off (web.md §10), so the dashboard
