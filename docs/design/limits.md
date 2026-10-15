@@ -83,6 +83,11 @@ sequenceDiagram
     alt at or over LLM_MONTHLY_TOKEN_CAP
         A-->>B: 429 {"error": "llm_budget_spent"} (nothing written)
     end
+    A->>L: images_spent(request, session) (T030)
+    L->>D: SELECT count(*) FROM frame_audits WHERE created_at >= the 1st of this month (UTC)
+    alt at or over IMAGE_MONTHLY_GENERATION_CAP
+        A-->>B: 429 {"error": "image_budget_spent"} (nothing written)
+    end
     A->>L: uploads_today(session, owner) (upload only)
     alt at UPLOADS_PER_DAY
         A-->>B: 429 {"error": "upload_limit", "per_day": 3}
@@ -121,7 +126,8 @@ and no counter to keep in step: the log is the count. It is checked where the to
 the same rule (refuse new work at the start; a job already running finishes): `POST /projects`,
 `…/attempts` and `…/comic`, each right after the token budget, answering 429
 `{"error": "image_budget_spent"}`. **What it misses, knowingly:** a draw fal blacked out for safety
-and drew again (`REDRAWS`, up to 3 requests for one drawing, storyboard.md §3.5) is one row, and a
+and drew again (`REDRAWS`, up to 3 requests for one drawing, storyboard.md §3.5) is one row; a
+process that dies between the drawing and its log (a restart mid-job) leaves no row; and a
 request fal failed costs nothing; so the count is a floor, and the cap is set with room for that and
 for one job finishing over it. **Measured** (2026-10-15, the stored runs of 11 scripts on the local
 stack): a storyboard under today's ladder (`drawn_sex,no_character`) is **17–26 drawings** (the
@@ -176,6 +182,10 @@ async def check_images(request: Request, session: AsyncSession) -> None: ...   #
 # app/comic/job.py: the comic's refusals stay in start_comic, in comic.md §4a's order
 start_comic(..., budget_spent: bool = False)   # → ComicRefused("llm_budget_spent") after comic_running, before the 503s
 start_comic(..., images_spent: bool = False)   # T030: → ComicRefused("image_budget_spent") right after llm_budget_spent
+RefusalCode: ... | Literal["image_budget_spent"]   # app/comic/job.py, T030
+_COMIC_STATUS["image_budget_spent"] = 429        # app/api/v1/projects.py, T030: without it the route answers 500
+# app/demo/seed.py, T030: each copied frame_audits row keeps its source's created_at, as the project
+#   row already does: a copy made this month must not count as this month's drawings
 
 # app/llm/client.py
 NebiusChatModel(..., on_usage: Callable[[ChatResult], Awaitable[None]] | None = None)
@@ -194,9 +204,8 @@ async def main(argv: list[str]) -> int: ...
 
 | Route | New answers |
 |---|---|
-| `POST /projects` | 429 `{"error": "llm_budget_spent"}` · 429 `{"error": "upload_limit", "per_day": n}` · 413 `{"error": "too_many_pages", "max_pages": n}` |
-| `POST …/attempts`, `POST …/comic` | 429 `{"error": "llm_budget_spent"}` |
-| `POST /projects`, `POST …/attempts`, `POST …/comic` (T030) | 429 `{"error": "image_budget_spent"}`, after the token budget's 429 |
+| `POST /projects` | 429 `{"error": "llm_budget_spent"}` · 429 `{"error": "image_budget_spent"}` (T030) · 429 `{"error": "upload_limit", "per_day": n}` · 413 `{"error": "too_many_pages", "max_pages": n}` |
+| `POST …/attempts`, `POST …/comic` | 429 `{"error": "llm_budget_spent"}` · 429 `{"error": "image_budget_spent"}` (T030), in that order |
 
 **Copy** (web.md §6 Copy):
 
@@ -260,7 +269,9 @@ now read (`.env.example`'s "read by no code yet" goes), off when unset or blank 
   last month's; `POST /projects`, `…/attempts` and `…/comic` at the image cap → 429
   `image_budget_spent`, nothing stored, no job, the frame untouched; the token budget's 429 wins when
   both are spent; off when `IMAGE_MONTHLY_GENERATION_CAP` is unset, blank or 0; `image_budget_spent`
-  maps to its copy in the web.
+  maps to its copy in the web; the comic route answers 429, not 500 (`_COMIC_STATUS`); after the judge
+  seed copies a project, `drawings_this_month` is unchanged (the copied audits keep their
+  `created_at`).
 - **Live** (Tumo's go-ahead, no spend): the seed against the dev Supabase with a throwaway judge
   email, signing in as it in the browser and opening the copied storyboard and comic.
 
