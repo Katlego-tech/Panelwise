@@ -68,8 +68,16 @@ class Settings(BaseSettings):
     llm_monthly_token_cap: int | None = None
     uploads_per_day: int | None = None
     upload_max_pages: int | None = None
+    # Drawings a month, counted from frame_audits (limits.md §4, T030); unset or 0: off.
+    image_monthly_generation_cap: int | None = None
 
-    @field_validator("llm_monthly_token_cap", "uploads_per_day", "upload_max_pages", mode="before")
+    @field_validator(
+        "llm_monthly_token_cap",
+        "uploads_per_day",
+        "upload_max_pages",
+        "image_monthly_generation_cap",
+        mode="before",
+    )
     @classmethod
     def _blank_is_off(cls, value: object) -> object:
         # `.env.example` lists the caps with no value: an empty one means off, not an error.

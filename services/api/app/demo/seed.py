@@ -199,6 +199,8 @@ async def copy_sample(
                     models=a.models,
                     prompt_tokens=a.prompt_tokens,
                     completion_tokens=a.completion_tokens,
+                    # T030: the source's time, so a copy never counts as this month's drawings.
+                    created_at=a.created_at,
                 )
             )
         if comic is not None and comic_job is not None:

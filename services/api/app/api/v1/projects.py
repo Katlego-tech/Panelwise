@@ -31,7 +31,14 @@ from app.core.config import withholding
 from app.frames import ACCEPTED, FrameRow, audits_of, frame_view, frames_of
 from app.frames.attempt import RendererFactory, run_attempt
 from app.jobs import JobKind, JobRow, JobState
-from app.limits.checks import budget_spent, check_budget, check_pages, check_uploads
+from app.limits.checks import (
+    budget_spent,
+    check_budget,
+    check_images,
+    check_pages,
+    check_uploads,
+    images_spent,
+)
 from app.llm import NebiusChatModel
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.job import fail_job, run_job
@@ -104,6 +111,7 @@ async def upload(
     # The hosted demo's limits (limits.md §4, T069): nothing read or stored past a refusal.
     async with request.app.state.sessions() as session:
         await check_budget(request, session)
+        await check_images(request, session)  # T030: right after the token budget
         await check_uploads(request, session, caller.user_id)
     length = request.headers.get("content-length")
     if length is None or not length.isdigit():
@@ -298,6 +306,7 @@ async def try_another_render(
         ):
             raise ApiError(409, "not_ready")
         await check_budget(request, session)  # T069: after the 409s, before the 503s
+        await check_images(request, session)  # T030
         if state.renderer_factory is None or state.model is None:
             raise ApiError(503, "renderer_unavailable")
         if state.store is None:
@@ -345,6 +354,7 @@ _COMIC_STATUS = {
     "not_ready": 409,
     "comic_running": 409,
     "llm_budget_spent": 429,
+    "image_budget_spent": 429,  # T030
     "renderer_unavailable": 503,
     "storage_unavailable": 503,
 }
@@ -373,6 +383,7 @@ async def make_comic(
                 renderer=factory is not None and model is not None,
                 store=store is not None,
                 budget_spent=await budget_spent(request, session),
+                images_spent=await images_spent(request, session),
             )
     except ComicRefused as refused:
         raise ApiError(_COMIC_STATUS[refused.code], refused.code) from refused

@@ -70,6 +70,11 @@ describe("uploadOutcome (by status and error code, never the message)", () => {
       message:
         "The demo has used this month's model budget. Your existing storyboards still open; new uploads start again next month.",
     });
+    expect(uploadOutcome(429, { error: "image_budget_spent" })).toEqual({
+      kind: "error",
+      message:
+        "The demo has drawn this month's budget of frames. Your existing storyboards still open; new uploads start again next month.",
+    });
     // A limit without its figure still says something true, never "undefined".
     expect(uploadOutcome(429, { error: "upload_limit" })).toEqual({ kind: "error", message: UPLOAD_COPY.unavailable });
   });
