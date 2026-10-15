@@ -297,10 +297,11 @@ sequenceDiagram
   transaction that selects the project `FOR UPDATE` **filtered by owner**, so two clicks make one
   job: no such project, or not the caller's → `not_found`; no plan, or the latest `storyboard` job
   not `DONE` → `not_ready`; a `comic` job `queued` or `running` for the project → `comic_running`;
-  `renderer` false (the route passes `app.state.renderer_factory is not None and app.state.model is
+  the month's token budget spent → `llm_budget_spent` (T069, limits.md §6); the month's drawings
+  spent → `image_budget_spent` (T030); `renderer` false (the route passes `app.state.renderer_factory is not None and app.state.model is
   not None`) → `renderer_unavailable`; `store` false → `storage_unavailable`. It raises
-  `ComicRefused(code)` (app/comic, no API import); the route maps the codes to 404, 409, 409, 503,
-  503 and `ApiError`.
+  `ComicRefused(code)` (app/comic, no API import); the route maps the codes to 404, 409, 409, 429,
+  429, 503, 503 (`_COMIC_STATUS`) and `ApiError`.
 - **Per panel**, in plan order, for the panel's shot `key` and its rect `w × h`:
   1. **Reuse.** The project's `frame_audits` rows with `target = 'comic'` for `key` are read. If the
      one with the greatest `attempt` among those with verdict `pass` or `warn` exists, its
