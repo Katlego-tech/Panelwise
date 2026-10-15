@@ -273,13 +273,76 @@ classDiagram
   - The filter now imports `name_tokens` / `NAME_STOP_WORDS` from `app/characters/redact.py`
     (a pure module that imports only `app.script`); `app/characters/__init__.py` must never import
     `labels.py`, which imports `app.grounding` (storyboard.md §6).
-  - None of these affects faithfulness or recall (they are about the entity, not whether it exists), and
+  - None of these (T051, T082) affects faithfulness or recall (they are about the entity, not whether it exists), and
     a species or other name that fails its test is simply not kept.
 - **`Entity.scenes`**: 0-based scene indexes, derived from where its quotes and (for characters)
   its matched cues sit. Never taken from the model's say-so.
 - **Speaking characters the model missed** are added with `Source.CUE`, quoting their first
   speech, so the cast is complete. They don't count toward the model's recall — that measures
   the model.
+- **A bare name folds into its titled spelling (T101).** Found on 2026-10-14 (L022): the model named
+  `FORTUIN` and `NAIDOO`, the script cues them only as `MR. FORTUIN` and `MS. NAIDOO`, and
+  `match_speaker` binds a cue only to a name holding all its words, so each cue was backfilled as a
+  second, sexless `Source.CUE` character. `FORTUIN` was cast in 2 shots as "a person in their 70s",
+  and 7.5 drew him as a woman. So, right after the merge across chunks (before the name test and
+  before any quote is located), a `CHARACTER` group is **folded** when all of these hold. A *title
+  word* is one of `TITLE_WORDS` (characters' redact.py: MR, MRS, MS, MISS, DR, SIR, LADY, OFFICER,
+  NURSE, DOCTOR), forms of address only: never `SEX_TITLES`' kinship words (MAMA, GOGO, AUNTIE,
+  UNCLE, SISTER …), because "Mama Thembi" can be Thembi's mother, while a form of address adds no
+  person.
+  - its name's words (`normalise`) are non-empty and hold no title word (the *bare name*);
+  - no Dialogue cue normalises to the bare name itself: a script that cues both `DUBE` and
+    `MR. DUBE` writes two speakers, and `match_speaker` already tells them apart;
+  - among the *titled spellings*, **exactly one** has words that, less its title words, equal the
+    bare name's words (`FORTUIN` ↔ `MR. FORTUIN`; `VAN DER MERWE` ↔ `MR. VAN DER MERWE`). A titled
+    spelling is a name with at least one title word and at least one other word, taken from every
+    Dialogue cue, and from every other `CHARACTER` group's name that the script mentions (the name
+    test, `_mentions`: a model name the script never writes would be dropped, and the bare group's
+    quotes with it), deduplicated by `normalise`, groups before cues, first spelling kept;
+  - no other name holds the bare name's words with more words than titles: no `CHARACTER` group's
+    name and no Dialogue cue, titled or not, other than the one titled spelling, whose words are a
+    strict superset of the bare name's (`THABO DUBE` beside `MR. DUBE` for a bare `DUBE`: the
+    surname is shared, so the bare one could be either). This test reads every group's name, the
+    script's mention or not: an unmentioned superset only blocks a fold, the safe direction.
+
+  A fold makes the bare group part of the titled one:
+  - **Merge**, when a `CHARACTER` group of that spelling exists: it keeps its place and name; the
+    bare group's quotes not already among its own (`normalize_for_grounding`, as the merge loop
+    compares them) are appended after its own; then the bare group's species, then sex words, after
+    its own; its other names become its own, then the bare name, then the bare group's; the bare
+    group is removed.
+  - **Rename**, when none exists: the bare group keeps its place, its name becomes the titled
+    spelling (a cue's, so `match_speaker` finds every one of its speeches exactly), its other names
+    the bare name first, then its own; quotes, species and sex words unchanged.
+  - Either way the result is keyed `(kind, normalise(titled spelling))`, and `ground` rebinds its
+    groups to it before anything else reads them (the not-species names, the sex words keyed by
+    name, `entities_proposed`).
+  - The folded character's own sentences: a sentence opening with the bare name ("Fortuin taps his
+    pipe.") is the folded character's, as it was the bare group's before the fold, so
+    `_pronoun_pieces` takes each folded bare name as a second opener beside the name (§6). Only a
+    folded bare name, never any other name: an other name ("Kazi") stays out of the evidence, as
+    T088 measured it.
+
+  Two titled spellings (`MR. DUBE` and `MRS. DUBE` for a bare `DUBE`), none, a bare cue, or a
+  superset name: no fold, as before. Only the bare-against-form-of-address case folds: a first name
+  against a full name (`THABO`, `THABO MOLEFE`) is the alias row of §8, unchanged.
+  - Everything after works on the folded groups:
+    - **The name test**: the titled spelling, which the script writes.
+    - **Faithfulness**: proposed and grounded count folded groups, so a model proposing both
+      `FORTUIN` and `MR. FORTUIN` counts 1, and one unlocated quote of either fails that one
+      group. Faithfulness before and after T101 isn't comparable on scripts with a fold.
+    - **The cue backfill**: the titled cue now has a model owner, so recall counts it. That is
+      right: the model found that character.
+    - **The sex rules**: a renamed group is `Source.MODEL`, so T082/T088/T091 read its sex words
+      and pronouns. Sex words from both groups that disagree are two claims, so `_claimed_sex`
+      keeps nothing, as for two chunks. A form of address that is also a sex title (MR, MRS, MS,
+      MISS, SIR, LADY) gives the prompt its sex (storyboard.md §6 `title_sex`).
+    - **Redaction**: the bare name, now an other name, is redacted with the name.
+  - Measured free (2026-10-15) by replaying `ground` on the model entities of all 30 stored
+    extractions, with and without a prototype fold: **1 changed**, the-lighthouse-inspector:
+    `FORTUIN` → `MR. FORTUIN` and `NAIDOO` → `MS. NAIDOO`, each now `Source.MODEL` with its three
+    quotes, recall 2/4 → 4/4, `MS. NAIDOO` female (from her pronouns, which a CUE backfill never
+    gets); the other 29 identical. No ambiguous pair was seen.
 
 ## 4. Flow
 
@@ -296,9 +359,10 @@ sequenceDiagram
         M-->>X: proposed entities + ChatResult
     end
     X->>G: all proposals + Screenplay
+    G->>G: merge by (kind, normalise(name)); T101: fold a bare CHARACTER name into its one titled spelling (§3)
     G->>G: per quote: locate in one element, else strip its speech's own header → Quote(text, span) or unlocated
     G->>G: per entity: name found in script AND ≥1 quote located → keep (bad quotes dropped); else Dropped
-    G->>G: merge by (kind, normalise(name)); add HEADING locations; add CUE characters the model missed
+    G->>G: add HEADING locations; add CUE characters the model missed
     G-->>X: entities + GroundingReport
     X-->>C: Extraction
 ```
@@ -406,6 +470,16 @@ class ProposedEntity(BaseModel): name: str; kind: Literal["character", "prop"]; 
 #   next-sentence He/She. _pronoun_evidence returns [(sex, quote) for sex, quote, _ in _pronoun_pieces(...)]
 # def _script_names(screenplay: Screenplay) -> frozenset[str]   # cue and `NAME (` words, less NAME_STOP_WORDS
 # ground passes _claimed_sex's result to _with_sex, which adds it after the sex_word's pieces (rule 3)
+# T101, filter.py, pure:
+# def _fold_titled(groups: dict[tuple[str, str], _Group], screenplay: Screenplay,
+#                  script: str) -> tuple[dict[tuple[str, str], _Group], dict[str, tuple[str, ...]]]
+#   §3's fold, called by ground right after the merge loop (script: normalize_for_grounding(screenplay.text),
+#   for _mentions); returns the new groups (a new dict re-keyed, a renamed group in its place, a merged one
+#   gone; props untouched; title words = TITLE_WORDS) and, per folded character's normalised name, the bare
+#   names folded into it, in fold order
+# _pronoun_pieces(entity, cast, screenplay, names, openers: Sequence[str] = ()) and _pronoun_evidence and
+#   _claimed_sex gain the same keyword: each opener's normalised words are tried after the name's in
+#   _opens_with, for both kinds of piece; ground passes the folded bare names of that character
 # app/characters/sex.py (T082), pure, imports nothing from app.grounding or app.storyboard:
 class Sex(StrEnum): FEMALE = "female"; MALE = "male"
 SEX_WORDS: dict[str, Sex]     # §3: the pronouns and nouns, lower case
@@ -448,7 +522,8 @@ the parser, so a faithful quote is always locatable.
 | Chunk failure | fail the extraction | skip the chunk: a silent gap in the cast |
 | Concurrency | 4 chunks at once | sequential (FrameFlow): Lightning allows 600 RPM / 400K TPM (U4) |
 | Quote ↔ name pairing | not checked: a kept quote is verbatim and located, but nothing proves it is *about* the entity it's paired with | a semantic check: needs another model call and can't be exact. Nothing unscripted can be shown either way; a mis-paired quote is still a real line |
-| Aliases ("THABO" vs "THABO MOLEFE" proposed separately) | kept as two entries | fuzzy merge: risks fusing two people. `match_speaker` still binds cues correctly, so scenes and recall are unaffected |
+| Aliases ("THABO" vs "THABO MOLEFE" proposed separately) | kept as two entries | fuzzy merge: risks fusing two people. `match_speaker` binds a cue to the name holding all its words, so scenes and recall are unaffected for these; not for a bare name against its titled cue, which T101 folds |
+| A bare name and its titled cue (T101; L022, 2026-10-15) | fold the bare name into the one titled spelling whose words are it plus forms of address (`TITLE_WORDS`); none, two, a bare cue or a superset name: no fold | kinship words as titles (`SEX_TITLES`: MAMA, UNCLE): "Mama Thembi" can be Thembi's mother, a second person; change `match_speaker` so a cue finds a name holding its non-title words: it is used by bubbles, the prompt, the planner and the audit, and "MRS. DUBE" would bind to a bare "DUBE" who is Mr. Dube; fold any name whose words are a subset (`FORTUIN` into `JOHN FORTUIN`): a first or last name alone can be a relative's, while a title adds no person; keep both and pass the titled one's sex to the presence agent (L022's other candidate): the duplicate would still be cast and drawn |
 | Animals (T051) | a `species` word, grounded in the entity's own located quote | an `ANIMAL` entity kind: every consumer of `CHARACTER` (planner, cues, audit) would need a second branch, and an animal that speaks or acts is cast like a character; a model `is_animal` flag: an inferred attribute, ungroundable |
 | Other names (T051) | `other_names`, kept when the script mentions them; the label is decided downstream by pairing (storyboard.md §3.1) | merging them as entities: "Gerald" isn't a separate thing; dropping one not inside the entity's own quote: a dropped other name is a name left in a prompt, so it is kept and redacted to the neutral `it` instead. **Cost:** a common capitalised word given as another name ("Mum", "Captain") is redacted wherever the script capitalises it |
 | No claim, the script's own possessive (T091; Tumo, 2026-10-13) | with no claim, the evidence alone, all of it one sex and at least one sentence whose subject owns the pronoun | the evidence of any kind (32 of 37 right, 0 wrong measured, but "Sipho knocks. She opens the door." would make Sipho female with nothing to check it); asking the model harder for a claim (T088's prompt already asks; on load-shedding it still claimed none for six of seven) |
@@ -523,6 +598,22 @@ the parser, so a faithful quote is always locatable.
   chunks; CUE backfills have neither.
 - `ground`: bad quote dropped but entity kept; entity whose name isn't in the script dropped with a
   reason; merge across chunks; HEADING locations; CUE backfill; faithfulness and recall arithmetic.
+- `ground` (T101), tests/grounding/test_t101.py, each case its own script: a model `FORTUIN` with the script
+  cueing only `MR. FORTUIN` → one character `MR. FORTUIN`, `Source.MODEL`, its quotes, `other_names`
+  `("FORTUIN",)`, the cue's scenes, no CUE backfill, recall 1/1, proposed and grounded 1; the model also
+  proposing `MR. FORTUIN` (after `FORTUIN`) → one character in `MR. FORTUIN`'s place, its quotes then the bare
+  one's, its other names then `FORTUIN`, proposed 1; the model proposing `MR. FORTUIN` with an unlocated quote →
+  the merged group not fully grounded (faithfulness 0/1) but kept on the bare quote; a model `MR. FORTUIN` the
+  script never writes (only "Mr Fortuin" without a cue) → not a titled spelling, `FORTUIN` kept as it is;
+  `NAIDOO` with "Ms. Naidoo checks her logbook." → female after the fold; `FORTUIN` with "Fortuin taps his
+  pipe." and a `he` claim → male (a folded bare opener), and the same sentence for an other name that wasn't
+  folded ("Kazi") → nothing; sex words `he` and `she` across the two groups → no sex; a bare `VAN DER MERWE` with
+  a `MR. VAN DER MERWE` cue → folded. No fold for: `THEMBI` with a `MAMA THEMBI` cue (a kinship word); a bare
+  `DUBE` with cues `MR. DUBE` and `MRS. DUBE` (two spellings; both cues backfilled as before); `DUBE` with cues
+  `DUBE` and `MR. DUBE` (a bare cue); `DUBE` with a `MR. DUBE` cue and a character `THABO DUBE` (a superset
+  name); `THABO` with a `THABO MOLEFE` cue (not a title); a bare name with no titled spelling; a cue of title
+  words alone (`NURSE`); a prop `KITE` beside a `MR. KITE` cue. Free: the 30 stored extractions replayed
+  through the real `ground`, only the-lighthouse-inspector changes (§3).
 - `extract`: chunks never split a scene; `max_chunks` refusal makes no call; a failing chunk fails
   the extraction; request uses `Tier.FAST`, thinking off, strict `json_schema`.
 - Checkpoint: `python -m app.grounding.run` on the self-written sample PDF, on the real account.

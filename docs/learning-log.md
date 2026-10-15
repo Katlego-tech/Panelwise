@@ -61,10 +61,17 @@ it before changing the prompt or the audit; add to it after every live run.
   whose words are a proper subset of another's (FORTUIN, MR. FORTUIN) into it. Measured free on every
   stored extraction (newest per script, 10 scripts): only this one has such pairs (2), and the bare
   `FORTUIN` is cast in 2 of its 26 shots.
-- **Action:** none yet. Candidates, to measure first: fold such a name into the one character whose
-  words contain it (grounding); give the presence agent's question the sex of the character a bare
-  name folds into; redact a multi-word role name only whole.
-- **Measured:** not yet.
+- **Action:** T101 (grounding.md §3): the measure found a sharper cause. The model named only the bare
+  `FORTUIN` and `NAIDOO`; the longer two are `Source.CUE` backfills, because `match_speaker` binds a
+  cue only to a name holding all its words. So a bare `CHARACTER` name folds into the one titled
+  spelling (a cue, or a model name the script writes) whose words are it plus forms of address
+  (`TITLE_WORDS`; never a kinship word: Mama Thembi can be Thembi's mother); none, two (`MR. DUBE`,
+  `MRS. DUBE`), a bare cue or a superset name (`THABO DUBE`): no fold. Still open: the presence agent's sex question
+  (a found person gets no `DRAWN_SEX`), and redacting a multi-word role name only whole (8.1).
+- **Measured:** free, 2026-10-15, `ground` replayed on the model entities of all 30 stored
+  extractions with a prototype fold: **1 changed**, this one: `MR. FORTUIN` and `MS. NAIDOO` each one
+  `Source.MODEL` character with their 3 quotes, recall 2/4 → 4/4, `MS. NAIDOO` female from her own
+  pronouns; 29 identical. Live: the next held-out runs.
 - **Sex labels** (eval/sex-labels.json): `character_sex` right for MS. NAIDOO and MR. FORTUIN, a miss
   for both duplicates, 0 wrong, 0 invented. The sex agent asked about 32 matched people, every
   answer the script's sex; nothing withheld.
