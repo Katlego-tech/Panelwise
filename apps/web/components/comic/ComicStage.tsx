@@ -136,6 +136,7 @@ export function ComicStage({
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
       if (res.status === 503 && body?.error === "renderer_unavailable") setCanMake(false);
       else if (res.status === 429 && body?.error === "llm_budget_spent") setError(COMIC_COPY.budgetSpent);
+      else if (res.status === 429 && body?.error === "image_budget_spent") setError(COMIC_COPY.imagesSpent);
       else setError(COMIC_COPY.startFailed);
     } catch {
       setError(COMIC_COPY.startFailed);

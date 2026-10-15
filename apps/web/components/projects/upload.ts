@@ -10,6 +10,8 @@ export const UPLOAD_COPY = {
   // The hosted demo's limits (limits.md §6, T069).
   budgetSpent:
     "The demo has used this month's model budget. Your existing storyboards still open; new uploads start again next month.",
+  imagesSpent:
+    "The demo has drawn this month's budget of frames. Your existing storyboards still open; new uploads start again next month.", // T030
   perDay: (n: number) => `This demo makes ${n} storyboards a day per account. Try again tomorrow.`,
   maxPages: (n: number) => `This demo takes scripts of up to ${n} pages.`,
 } as const;
@@ -52,6 +54,7 @@ export function uploadOutcome(status: number | null, body: unknown): UploadOutco
   if (status === 413) return { kind: "error", message: UPLOAD_COPY.too_large };
   if (status === 411) return { kind: "error", message: UPLOAD_COPY.incomplete };
   if (status === 429 && code === "llm_budget_spent") return { kind: "error", message: UPLOAD_COPY.budgetSpent };
+  if (status === 429 && code === "image_budget_spent") return { kind: "error", message: UPLOAD_COPY.imagesSpent };
   if (status === 429 && code === "upload_limit") {
     const n = figure(body, "per_day");
     return { kind: "error", message: n ? UPLOAD_COPY.perDay(n) : UPLOAD_COPY.unavailable };

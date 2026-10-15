@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.errors import ApiError
 from app.core.config import Settings
-from app.limits.usage import tokens_this_month, uploads_today
+from app.limits.usage import drawings_this_month, tokens_this_month, uploads_today
 
 
 def _settings(request: Request) -> Settings:
@@ -26,6 +26,18 @@ async def budget_spent(request: Request, session: AsyncSession) -> bool:
 async def check_budget(request: Request, session: AsyncSession) -> None:
     if await budget_spent(request, session):
         raise ApiError(429, "llm_budget_spent")
+
+
+async def images_spent(request: Request, session: AsyncSession) -> bool:
+    """This month's drawings at or over IMAGE_MONTHLY_GENERATION_CAP (T030). Work already running
+    finishes, as for tokens."""
+    cap = _settings(request).image_monthly_generation_cap
+    return bool(cap) and await drawings_this_month(session) >= cap  # type: ignore[operator]
+
+
+async def check_images(request: Request, session: AsyncSession) -> None:
+    if await images_spent(request, session):
+        raise ApiError(429, "image_budget_spent")
 
 
 async def check_uploads(request: Request, session: AsyncSession, owner: uuid.UUID) -> None:
