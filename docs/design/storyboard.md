@@ -222,8 +222,8 @@ truncates drops the tail.
 - **A Her or His opening the next sentence (T100; learning-log L023).** `introduced_sex` also
   reads the sentence right after the introducing one, in the same `Action` element, when that
   sentence opens with exactly `Her` or `His` (capitalised, as a sentence opens; `HER` or a later
-  `her` is never read) used as a possessive: `His` always, `Her` only when a word follows it that is
-  not one of grounding's `NOT_POSSESSED` (made public from `_NOT_POSSESSED`, exported by
+  `her` is never read) used as a possessive: `His` always, `Her` only when a word follows it, after whitespace alone
+  ("Her, then silence." owns nothing), that is not one of grounding's `NOT_POSSESSED` (made public from `_NOT_POSSESSED`, exported by
   `app.grounding`; "Her to …", "Her a …" and a bare "Her." own nothing, as in grounding's `_owned`).
   `His` gives male and `Her` female, one more of the introduction's sources under the one-sex rule.
   **Where the sentences are:** the introducing sentence runs from the character's `NAME (…)` to the
@@ -232,17 +232,18 @@ truncates drops the tail.
   the next `SENTENCE_END` or the element's end. No boundary inside the element (the introducing
   sentence is its last) gives nothing.
   **Only when the introducing sentence is about this character alone**, read from just after its
-  parenthesis to that boundary: no other character's name word (`_other_names`), no next
-  introduction (`_NEXT_INTRODUCTION`), no `SEX_WORDS` word (man, woman, boy, girl, he, she, …), no
-  `CONFLICT_WORDS` word (him, her, his, hers), no `them`, and no T096 `_PERSON_NOUNS` word (child,
-  baby, friend, people, person, family, …). This is a positional test on the untruncated text, not
+  parenthesis to that boundary: no other character's name word (`_other_names`), no capitalised
+  word at all (a name the script never introduced or cued: "greets Dr. Dube"; found writing
+  T100's tests), no next introduction (`_NEXT_INTRODUCTION`), no `SEX_WORDS` word (man, woman, boy, girl, he, she, …), no
+  `CONFLICT_WORDS` word (him, her, his, hers), no `them`, no T096 `_PERSON_NOUNS` word (child,
+  baby, friend, people, person, family, …), and no article or determiner (the, a, an, this, that,
+  these, those, another, some: it may bring in anyone no list holds, "hands the clerk a coin",
+  "pats a dog"; code review of T100). Words are read in any script's letters ("greets Émilie"). This is a positional test on the untruncated text, not
   on `introduced_sex`'s cut `rest`: in the NALEDI line the next introduction `TSHEPO (` lies past
   the boundary, so it doesn't count. So "MAMA (60s) hugs SIPHO. His …", "NANDI (60s) waves to
   THABO (9). His …", "SAM (40) kisses the woman. Her eyes close." and "NALEDI (12) hands the man a
   coin. His hand shakes." give nothing (a safe miss), and a `Her`/`His` further on, or after a line
-  of dialogue, is never read. **Residual:** an unnamed person by a noun no list holds ("hands the
-  driver a coin. His …") would still be read; the measurement below saw none.
-  "NALEDI (12), dungarees, scraped knees, stares at it. Her little brother TSHEPO (8) …" gives
+  of dialogue, is never read.   "NALEDI (12), dungarees, scraped knees, stares at it. Her little brother TSHEPO (8) …" gives
   NALEDI female; the next sentence's own introduction (TSHEPO) doesn't matter, since its `Her` opens
   it. **Measured** free on the labelled read scripts (`eval/sex-labels.json`, the 10 with a sample
   file; the held-out ones never opened): **1 candidate** (a sentence opening `Her`/`His` right after
@@ -1290,13 +1291,16 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - **T100** (`tests/storyboard/test_t100.py`): "NALEDI (12), dungarees, scraped knees, stares at
   it. Her little brother TSHEPO (8) …" → NALEDI female; "SAM (40) sits down. His hands shake." →
   male, and the same with `!` or `?` ending the first sentence, or `…` between them; "SAM (40) sits
-  down. Her hands shake." with "SAM (40) waits as he sits down." in its place → None (one-sex rule:
-  he and Her); None for each of: "MAMA (60s) hugs SIPHO. His …" (another name), "NANDI (60s)
+  down. Her hands shake." → female; "A girl, SAM (12), sits down. His hands shake." → None (one-sex
+  rule: the appositive's girl and His); "SAM (40) waits as he sits down. Her hands shake." → male
+  (the he is a possible owner, so the next sentence isn't read); None for each of: "MAMA (60s) hugs SIPHO. His …" (another name), "NANDI (60s)
   waves to THABO (9). His …" (a next introduction), "SAM (40) kisses the woman. Her eyes close."
   (a sex noun), "NALEDI (12) hands the man a coin. His hand shakes." (a sex noun), "SAM (40) holds
   the baby. His …" (a person noun), "SAM (40) greets Dr. Dube. His …" (another name after "Dr.",
   which doesn't end the sentence), "SAM (40) sits. Rain falls. His …" (not the next sentence),
-  "SAM (40) sits. Her to …" and "SAM (40) sits. Her." (not a possessive), "SAM (40) sits. HER …"
+  "SAM (40) sits. Her to …", "SAM (40) sits. Her." and "SAM (40) sits. Her, then silence." (not a
+  possessive), "SAM (40) greets Émilie. His …" (an accented name), "NALEDI (12) hands the clerk a coin.
+  His …" and "SAM (40) pats a dog. Her …" (an article), "SAM (40) sits. HER …"
   and "… sits. his …" (not capitalised as a sentence opens), "SAM (40) sits." as the element's last
   sentence (no next sentence, no error), and "SAM (40) sits." then a line of dialogue, then an Action
   "His …" (another element). TSHEPO, introduced in the `Her` sentence, is male from his own look

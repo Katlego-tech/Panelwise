@@ -272,8 +272,9 @@ def _with_sex(
 _PERSON_PRONOUNS = frozenset({"he", "him", "his", "himself", "she", "her", "hers", "herself"})
 _POSSESSIVES = frozenset({"his", "her", "hers", "their", "theirs", "my", "your", "our"})
 _DETERMINERS = frozenset({"a", "an", "the", "this", "that", "these", "those", "another", "some"})
-# After "her", a word that makes it an object ("hands her the box"), not a possessive.
-_NOT_POSSESSED = frozenset(
+# After "her", a word that makes it an object ("hands her the box"), not a possessive. Public
+# (T100): storyboard's introduced_sex reads a sentence-opening Her the same way.
+NOT_POSSESSED = frozenset(
     {
         "a", "an", "the", "to", "and", "or", "but", "in", "on", "at", "by", "for", "from", "with",
         "of", "into", "onto", "up", "down", "back", "out", "off", "over", "away", "again", "too",
@@ -355,7 +356,7 @@ def _owned(rest: Sequence[str]) -> Sex | None:
         if low == "herself":
             return Sex.FEMALE
         following = rest[k + 1].lower() if k + 1 < len(rest) else ""
-        if low == "her" and following and following not in _NOT_POSSESSED:
+        if low == "her" and following and following not in NOT_POSSESSED:
             return Sex.FEMALE
         return None
     return None
