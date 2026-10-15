@@ -16,7 +16,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 
-from app.characters.redact import NAME_STOP_WORDS, name_tokens
+from app.characters.redact import NAME_STOP_WORDS, TITLE_WORDS, name_tokens
 from app.characters.sex import CONFLICT_WORDS, PRONOUNS, SEX_WORDS, Sex
 from app.grounding.model import Dropped, Entity, EntityKind, GroundingReport, Quote, Source
 from app.grounding.schema import ProposedEntity
@@ -51,6 +51,7 @@ def ground(
         group.other_names.extend(p.other_names)
         if p.sex_word is not None:
             group.sex_words.append(p.sex_word)
+    groups, folded = _fold_titled(groups, screenplay, script)
 
     # What a species may not be: a word for a person, or a word of a different character's name.
     actions = {e.span for sc in screenplay.scenes for e in sc.elements if isinstance(e, Action)}
@@ -100,7 +101,14 @@ def ground(
             sex_words.get(normalise(c.name), []),
             characters,
             actions,
-            _claimed_sex(c, sex_words.get(normalise(c.name), []), characters, screenplay, names),
+            _claimed_sex(
+                c,
+                sex_words.get(normalise(c.name), []),
+                characters,
+                screenplay,
+                names,
+                openers=folded.get(normalise(c.name), ()),
+            ),
         )
         for c in characters
     ]
@@ -175,6 +183,53 @@ class _Kept:
     quotes: list[Quote]
     species: str | None
     other_names: tuple[str, ...]
+
+
+def _fold_titled(
+    groups: dict[tuple[str, str], _Group], screenplay: Screenplay, script: str
+) -> tuple[dict[tuple[str, str], _Group], dict[str, tuple[str, ...]]]:
+    """A bare character name folds into the one titled spelling whose words are it plus forms of
+    address: FORTUIN into MR. FORTUIN (grounding.md §3, T101). The spellings are the cues and the
+    characters' names the script writes. No fold for a bare name the script cues itself, or one
+    another name holds with more words than titles. Merged into an existing group in that group's
+    place, else renamed in its own. Returns the groups and, per folded character, its bare names."""
+    character = EntityKind.CHARACTER.value
+    cues = [e.cue for sc in screenplay.scenes for e in sc.elements if isinstance(e, Dialogue)]
+    names = [g.name for g in groups.values() if g.kind is EntityKind.CHARACTER]
+    spellings: dict[str, str] = {}
+    for name in [n for n in names if _mentions(script, n)] + cues:
+        words = set(normalise(name).split())
+        if words & TITLE_WORDS and words - TITLE_WORDS:
+            spellings.setdefault(normalise(name), name.strip())
+    cue_keys = {normalise(c) for c in cues}
+    every = {normalise(n) for n in names + cues}
+    folded = dict(groups)
+    bare: dict[str, list[str]] = {}
+    for key, group in groups.items():
+        words = set(key[1].split())
+        if key[0] != character or not words or words & TITLE_WORDS or key[1] in cue_keys:
+            continue
+        targets = [k for k in spellings if set(k.split()) - TITLE_WORDS == words]
+        if len(targets) != 1 or any(words < set(n.split()) for n in every if n != targets[0]):
+            continue
+        target = (character, targets[0])
+        if target in folded:
+            del folded[key]
+            into = folded[target]
+            seen = {normalize_for_grounding(q) for q in into.quotes}
+            into.quotes.extend(q for q in group.quotes if normalize_for_grounding(q) not in seen)
+            into.species.extend(group.species)
+            into.sex_words.extend(group.sex_words)
+            into.other_names.extend([group.name, *group.other_names])
+        else:
+            renamed = replace(
+                group, name=spellings[targets[0]], other_names=[group.name, *group.other_names]
+            )
+            folded = {
+                (target if k == key else k): (renamed if k == key else g) for k, g in folded.items()
+            }
+        bare.setdefault(targets[0], []).append(group.name)
+    return folded, {k: tuple(v) for k, v in bare.items()}
 
 
 def _words(text: str) -> str:
@@ -325,6 +380,11 @@ def _opens_with(words: Sequence[str], name: Sequence[str]) -> int | None:
     )
 
 
+def _first_opening(words: Sequence[str], starts: Sequence[Sequence[str]]) -> int | None:
+    """`_opens_with` for the first of the names a sentence opens with (T101), or None."""
+    return next((end for name in starts if (end := _opens_with(words, name)) is not None), None)
+
+
 def _clear(words: Sequence[str], own: frozenset[str], others: frozenset[str]) -> bool:
     """No other possible owner of a pronoun among `words` (T088): another name (the cast's, the
     script's, or any Title-case word), a possessive, a determiner or a sex noun."""
@@ -363,14 +423,24 @@ def _owned(rest: Sequence[str]) -> Sex | None:
 
 
 def _pronoun_evidence(
-    entity: Entity, cast: Sequence[Entity], screenplay: Screenplay, names: frozenset[str]
+    entity: Entity,
+    cast: Sequence[Entity],
+    screenplay: Screenplay,
+    names: frozenset[str],
+    openers: Sequence[str] = (),
 ) -> list[tuple[Sex, Quote]]:
     """`_pronoun_pieces` without the flag (T088's evidence; grounding.md §6)."""
-    return [(sex, quote) for sex, quote, _ in _pronoun_pieces(entity, cast, screenplay, names)]
+    return [
+        (sex, quote) for sex, quote, _ in _pronoun_pieces(entity, cast, screenplay, names, openers)
+    ]
 
 
 def _pronoun_pieces(
-    entity: Entity, cast: Sequence[Entity], screenplay: Screenplay, names: frozenset[str]
+    entity: Entity,
+    cast: Sequence[Entity],
+    screenplay: Screenplay,
+    names: frozenset[str],
+    openers: Sequence[str] = (),
 ) -> list[tuple[Sex, Quote, bool]]:
     """Every place an Action sentence's pronoun is plainly this character's (grounding.md §3,
     T088): a sentence opening with the name whose first pronoun after it is the subject's own
@@ -379,8 +449,9 @@ def _pronoun_pieces(
     before) that opens with the name and holds no other possible owner ("Siphokazi nods. She
     cannot stop the smile."). A speech between breaks the chain: a pronoun after one is often the
     listener's. Each piece says whether its sentence's subject owns the pronoun (T091): True for
-    the first kind, False for a He or She opening the next sentence."""
-    name = normalise(entity.name).split()
+    the first kind, False for a He or She opening the next sentence. T101: a sentence may also
+    open with one of `openers`, the bare names folded into this character."""
+    starts = [normalise(n).split() for n in (entity.name, *openers)]
     own = _tokens(entity)
     others = (names | {t for c in cast if c is not entity for t in _tokens(c)}) - own
     found: list[tuple[Sex, Quote, bool]] = []
@@ -394,7 +465,7 @@ def _pronoun_pieces(
             # introduction's description left out.
             for sentence in (s for s in SENTENCE_END.split(element.text) if _WORD.search(s)):
                 words = _WORD.findall(_INTRODUCTION.sub(r"\1", sentence))
-                end = _opens_with(words, name)
+                end = _first_opening(words, starts)
                 quote = Quote(sentence.strip(), scene_index, element.span)
                 if end is not None and (sex := _owned(words[end:])) is not None:
                     pronoun = next(
@@ -403,7 +474,7 @@ def _pronoun_pieces(
                     if _clear(words[end : end + pronoun], own, others):
                         found.append((sex, quote, True))
                 if words[:1] in (["He"], ["She"]) and previous is not None:
-                    before = _opens_with(previous, name)
+                    before = _first_opening(previous, starts)
                     if before is not None and _clear(previous[before:], own, others):
                         found.append((Sex.MALE if words[0] == "He" else Sex.FEMALE, quote, False))
                 previous = words
@@ -416,6 +487,7 @@ def _claimed_sex(
     cast: Sequence[Entity],
     screenplay: Screenplay,
     names: frozenset[str],
+    openers: Sequence[str] = (),
 ) -> list[tuple[Sex, Quote]]:
     """The sex the model claims with its sex_word, kept when the script's own pronouns support it
     and none contradicts it (grounding.md §3, T088), with the first supporting sentence as the
@@ -429,13 +501,13 @@ def _claimed_sex(
     if len(claims) > 1:
         return []
     if not claims:  # T091: a next-sentence He/She alone keeps nothing without a claim
-        pieces = _pronoun_pieces(entity, cast, screenplay, names)
+        pieces = _pronoun_pieces(entity, cast, screenplay, names, openers)
         sexes = {sex for sex, _, _ in pieces}
         owning = [quote for _, quote, owns in pieces if owns]
         return [(sexes.pop(), owning[0])] if len(sexes) == 1 and owning else []
     claim = next(iter(claims))
     assert claim is not None
-    evidence = _pronoun_evidence(entity, cast, screenplay, names)
+    evidence = _pronoun_evidence(entity, cast, screenplay, names, openers)
     support = [quote for sex, quote in evidence if sex is claim]
     if not support or any(sex is not claim for sex, _ in evidence):
         return []
