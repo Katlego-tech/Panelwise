@@ -51,7 +51,7 @@ def ground(
         group.other_names.extend(p.other_names)
         if p.sex_word is not None:
             group.sex_words.append(p.sex_word)
-    groups, folded = _fold_titled(groups, screenplay, script)
+    groups, bare_names = _fold_titled(groups, screenplay, script)
 
     # What a species may not be: a word for a person, or a word of a different character's name.
     actions = {e.span for sc in screenplay.scenes for e in sc.elements if isinstance(e, Action)}
@@ -107,7 +107,7 @@ def ground(
                 characters,
                 screenplay,
                 names,
-                openers=folded.get(normalise(c.name), ()),
+                openers=bare_names.get(normalise(c.name), ()),
             ),
         )
         for c in characters

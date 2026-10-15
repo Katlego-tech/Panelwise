@@ -4,9 +4,13 @@ own self-written script, so no cue is another case's titled spelling; no model."
 
 from app.characters.sex import Sex
 from app.grounding import Entity, EntityKind, ProposedEntity, Source, ground
+from app.grounding.filter import (  # pyright: ignore[reportPrivateUsage]
+    _fold_titled,  # pyright: ignore[reportPrivateUsage]
+    _Group,  # pyright: ignore[reportPrivateUsage]
+)
 from app.grounding.model import GroundingReport
 from app.grounding.text import normalize_for_grounding
-from app.script import Screenplay, parse_text
+from app.script import Screenplay, normalise, parse_text
 from tests.script.conftest import ACTION, CUE, DIALOGUE, Row, heading, layout
 
 
@@ -63,6 +67,7 @@ def test_a_bare_name_merges_into_the_models_own_titled_name() -> None:
     assert [q.text for q in fortuin.quotes] == [LAMP, CLIMBS]
     assert fortuin.other_names == ("FORTUIN",)
     assert (report.entities_proposed, report.entities_grounded) == (1, 1)
+    assert report.quotes_proposed == 2  # the bare group's CLIMBS is already the titled one's
 
 
 def test_one_unlocated_quote_fails_the_merged_group_but_keeps_it() -> None:
@@ -133,9 +138,10 @@ def test_an_other_name_that_was_not_folded_opens_nothing() -> None:
 def test_sex_words_that_disagree_across_the_two_groups_give_no_sex() -> None:
     characters, _ = grounded(
         PIPE,
-        person("FORTUIN", "MR. FORTUIN (70s) waits.", word="he"),
-        person("MR. FORTUIN", "Evening.", word="she"),
+        person("FORTUIN", "MR. FORTUIN (70s) waits.", word="she"),
+        person("MR. FORTUIN", "Evening.", word="he"),
     )
+    # Without the bare group's "she", the "he" claim and "Fortuin taps his pipe." give male.
     assert characters["MR. FORTUIN"].sex is None
 
 
@@ -203,6 +209,59 @@ def test_a_superset_name_folds_nothing() -> None:
     )
     assert characters["DUBE"].source is Source.MODEL
     assert characters["MR. DUBE"].source is Source.CUE
+
+
+def test_a_superset_cue_folds_nothing() -> None:
+    shared = script(
+        (ACTION, "MR. DUBE (60s) waits. Dube checks the clock."),
+        (CUE, "MR. DUBE"),
+        (DIALOGUE, "Late."),
+        (CUE, "THABO DUBE"),
+        (DIALOGUE, "Sorry, Pa."),
+    )
+    characters, _ = grounded(shared, person("DUBE", "Dube checks the clock."))
+    assert characters["DUBE"].source is Source.MODEL
+    assert characters["MR. DUBE"].source is Source.CUE
+
+
+def test_two_folds_in_one_script_keep_their_places() -> None:
+    two = script(
+        (ACTION, "MS. NAIDOO (50s) and MR. FORTUIN (70s) climb the stairs. ZOLA (9) waits."),
+        (CUE, "MS. NAIDOO"),
+        (DIALOGUE, "Mind the step."),
+        (CUE, "MR. FORTUIN"),
+        (DIALOGUE, "I know the step."),
+    )
+    entities, report = ground(
+        [
+            person("NAIDOO", "MS. NAIDOO (50s) and MR. FORTUIN (70s) climb the stairs."),
+            person("ZOLA", "ZOLA (9) waits."),
+            person("FORTUIN", "MS. NAIDOO (50s) and MR. FORTUIN (70s) climb the stairs."),
+            person("MR. FORTUIN", "I know the step."),
+        ],
+        two,
+    )
+    characters = [e for e in entities if e.kind is EntityKind.CHARACTER]
+    assert [(c.name, c.source) for c in characters] == [
+        ("MR. FORTUIN", Source.MODEL),
+        ("MS. NAIDOO", Source.MODEL),
+        ("ZOLA", Source.MODEL),
+    ]
+    assert report.entities_proposed == 3
+    assert (report.cues_found_by_model, report.cues_total) == (2, 2)
+    # ground sorts its output, so the places are read from the fold itself.
+    groups = {
+        ("character", normalise(n)): _Group(n, EntityKind.CHARACTER)
+        for n in ("NAIDOO", "ZOLA", "FORTUIN", "MR. FORTUIN")
+    }
+    folded, bare = _fold_titled(groups, two, normalize_for_grounding(two.text))
+    assert [g.name for g in folded.values()] == ["MS. NAIDOO", "ZOLA", "MR. FORTUIN"]
+    assert list(folded) == [
+        ("character", "MS NAIDOO"),
+        ("character", "ZOLA"),
+        ("character", "MR FORTUIN"),
+    ]
+    assert bare == {"MS NAIDOO": ("NAIDOO",), "MR FORTUIN": ("FORTUIN",)}
 
 
 def test_a_first_name_against_a_full_name_folds_nothing() -> None:
