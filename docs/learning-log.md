@@ -64,8 +64,9 @@ it before changing the prompt or the audit; add to it after every live run.
 - **Action:** T101 (grounding.md §3): the measure found a sharper cause. The model named only the bare
   `FORTUIN` and `NAIDOO`; the longer two are `Source.CUE` backfills, because `match_speaker` binds a
   cue only to a name holding all its words. So a bare `CHARACTER` name folds into the one titled
-  spelling (a model name or a cue) whose words are it plus title words (`TITLE_WORDS`, `SEX_TITLES`);
-  none or two (`MR. DUBE`, `MRS. DUBE`): no fold. Still open: the presence agent's sex question
+  spelling (a cue, or a model name the script writes) whose words are it plus forms of address
+  (`TITLE_WORDS`; never a kinship word: Mama Thembi can be Thembi's mother); none, two (`MR. DUBE`,
+  `MRS. DUBE`), a bare cue or a superset name (`THABO DUBE`): no fold. Still open: the presence agent's sex question
   (a found person gets no `DRAWN_SEX`), and redacting a multi-word role name only whole (8.1).
 - **Measured:** free, 2026-10-15, `ground` replayed on the model entities of all 30 stored
   extractions with a prototype fold: **1 changed**, this one: `MR. FORTUIN` and `MS. NAIDOO` each one
