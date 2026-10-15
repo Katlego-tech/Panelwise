@@ -302,7 +302,8 @@ classDiagram
   - no other name holds the bare name's words with more words than titles: no `CHARACTER` group's
     name and no Dialogue cue, titled or not, other than the one titled spelling, whose words are a
     strict superset of the bare name's (`THABO DUBE` beside `MR. DUBE` for a bare `DUBE`: the
-    surname is shared, so the bare one could be either).
+    surname is shared, so the bare one could be either). This test reads every group's name, the
+    script's mention or not: an unmentioned superset only blocks a fold, the safe direction.
 
   A fold makes the bare group part of the titled one:
   - **Merge**, when a `CHARACTER` group of that spelling exists: it keeps its place and name; the
