@@ -140,6 +140,9 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `FAL_KEY` | API only, secret | fal.ai's key; unset, no renderer (storyboard.md §3.5, T026) |
 | `FAL_MODEL`, `FAL_TIMEOUT_S`, `FAL_CONCURRENCY` | API | default `fal-ai/flux-2/klein/4b` (2026-10-11), 60 s, 2 (storyboard.md §3.5) |
 | `LLM_MONTHLY_TOKEN_CAP`, `UPLOADS_PER_DAY`, `UPLOAD_MAX_PAGES` | API only | the hosted demo's limits (limits.md, T069); unset or blank: off |
+| `IMAGE_MONTHLY_GENERATION_CAP` | API only | drawings a month (limits.md §4, T030); unset or blank: off |
+| `AUDIT_WITHHOLD_CHECKS` | API | which failed hard checks withhold a frame (verify.md §3, T094): `all` (the code default), empty, or a comma list; **hosted: `drawn_sex,no_character`** (Tumo, 2026-10-15; T030) |
+| `RENDER_MAX_ATTEMPTS`, `UPLOAD_MAX_BYTES` | API | drawings per frame, 1–3 (default 3); the upload size in bytes (default 4,000,000) |
 | `JUDGE_EMAIL`, `JUDGE_PASSWORD` | local only | the judge seed (`python -m app.demo.seed`, limits.md §4); never the hosted API's environment |
 | `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget, default 55 (storyboard.md §3.1, T008) |
 | `PANELWISE_PRIVATE_STYLES` | API, optional | a directory of private style TOMLs outside the repo; **never set on the hosted demo** (storyboard.md §3.2, T008) |
@@ -182,6 +185,18 @@ services:
         sync: false
       - key: FAL_KEY
         sync: false
+      # The hosted demo's settings (T030): decided, so written here.
+      - key: AUDIT_WITHHOLD_CHECKS
+        value: drawn_sex,no_character
+      - key: UPLOADS_PER_DAY
+        value: "3"
+      - key: UPLOAD_MAX_PAGES
+        value: "15"
+      # The two money caps (limits.md §10): figures entered in the dashboard, recorded below.
+      - key: LLM_MONTHLY_TOKEN_CAP
+        sync: false
+      - key: IMAGE_MONTHLY_GENERATION_CAP
+        sync: false
 ```
 
 Validated against render.com/schema/render.yaml.json on 2026-10-08 (`0.5c-512mb` is in its `serverPlan` enum, checked 2026-10-11). What each line holds us to:
@@ -202,7 +217,11 @@ Validated against render.com/schema/render.yaml.json on 2026-10-08 (`0.5c-512mb`
   ignores the Dockerfile's `HEALTHCHECK` (compose still uses it).
 - Every other setting has a default in `app/core/config.py` (`NEBIUS_MODEL_*`, `LLM_*`,
   `SUPABASE_STORAGE_BUCKET=panelwise`, `UPLOAD_MAX_BYTES`, `FAL_MODEL`, `RENDER_MAX_ATTEMPTS`), so
-  only the five secrets are listed. T030 adds the cap figures here (limits.md's settings, T069).
+  only the five secrets and T030's settings are listed. **T030:** `AUDIT_WITHHOLD_CHECKS`,
+  `UPLOADS_PER_DAY` and `UPLOAD_MAX_PAGES` carry their decided values; the two money caps are
+  `sync: false`, entered when the Blueprint is applied, and their figures go here once decided
+  (limits.md §10): `LLM_MONTHLY_TOKEN_CAP` = _not yet decided_, `IMAGE_MONTHLY_GENERATION_CAP` =
+  _not yet decided_. **Never deploy with either blank:** blank is off, an uncapped bill.
 
 **Keep-alive** (`.github/workflows/keepalive.yml`, T063), exactly:
 
@@ -395,11 +414,19 @@ message broker, as before.
   public styles. **Memory, before paying for a plan:** `docker compose` with the API limited to
   `--memory=512m --cpus=0.5`, the-red-kite uploaded and run to its storyboard and its comic, the
   container never OOM-killed (`docker inspect … .State.OOMKilled` false) and its peak in
-  `docker stats` recorded here; over 512 MB → `1c-2g`.
+  `docker stats` recorded here; over 512 MB → `1c-2g`. (Evidence so far, 2026-10-15: the local
+  stack has run every live storyboard since 2026-10-13 with the API at `mem_limit: 512m`, 11
+  scripts, none OOM-killed; the comic at 512 MB and the 0.5 CPU limit are still unchecked.)
 - T037 done means deployed: the Render URL answers `/api/v1/health` `ok` against Supabase, the
   service log shows `alembic upgrade head` before uvicorn starts, the Vercel URL's `/api/health`
   answers 200 through it, and with `API_HEALTH_URL` set a manual run of `keep-alive` passes. That needs Katlego's Render and Vercel accounts, so the task is **blocked on accounts** until
   they exist, and says so.
+- **T030:** `render.yaml` still validates with the new `envVars`; before the first hosted upload,
+  Render's dashboard shows both money caps set to the figures recorded in §6 (nothing checks this in
+  code: a blank cap is off, so it is a step in the deploy, read back by eye);
+  the judge seed run once against the hosted Supabase (Tumo's go-ahead), the judge signed in on
+  the Vercel URL, the copied storyboard open; one upload as the judge runs to its storyboard on the
+  hosted stack with `drawn_sex,no_character`; `event.toml`'s `demo` set to the Vercel URL.
 
 ## 10. Open questions
 
