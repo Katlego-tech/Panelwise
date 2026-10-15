@@ -543,7 +543,13 @@ KAMO), 26 agreeing, 6 failed questions (the vision model spent its 1,024 tokens 
 checking nothing); **0 false alarms**: 2 of 36, a small sample, the rule generic. the-lighthouse-
 inspector 7.5 isn't among them: its stored extraction gives the bare `FORTUIN` no sex; since T101
 the character is `MR. FORTUIN`, whose title gives the prompt and `character_sex` male, so 7.5 would
-be asked; the code's measurement replays 7.5 with T101's names. About 1,000 tokens a question, on
+be asked. **The real code** (2026-10-16, `real_t102.py`, the branch's `app/` on the same 77 frames, the
+lighthouse re-grounded with T101 and its shots' names folded): 37 pairs asked, 36 answered (**1 failed**
+at 4,096 tokens, against 6 at 1,024), `DRAWN_SEX` fails on **4 frames**, every one looked at: lighthouse
+7.5 (an old woman for MR. FORTUIN: the L022 case, now caught), sipho-and-siphokazi 2.1 and the
+borrowed-bicycle 4.1 (as above), and the-night-taxi 2.3's second attempt (THABO, the child leaning
+out of the window, bobbed hair and a sleeveless top: arguable, and the frame is wrong anyway, a
+child at the taxi's wheel); 0 plainly false. About 1,000 tokens a question, on
 the frames the presence agent runs on (36 questions on 33 of the 77 frames here).
 
 ## 4. Flow

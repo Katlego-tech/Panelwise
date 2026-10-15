@@ -77,7 +77,9 @@ it before changing the prompt or the audit; add to it after every live run.
   the 77 stored frames it would run on found 36 people the script sexes; asked, 2 the other sex,
   both real (sipho-and-siphokazi 2.1, MAMA THEMBI drawn as a man; the-borrowed-bicycle 4.1,
   NALEDI as a boy), 0 false alarms, 6 questions failed (the model's thinking used its tokens).
-  Live: the next held-out runs.
+  The real code (sex question at 4,096 tokens, 1 of 37 failed): `DRAWN_SEX` fails 4 frames, lighthouse
+  7.5 among them (MR. FORTUIN drawn as an old woman, with T101's names), one arguable (the-night-taxi
+  2.3, a child who reads as a girl, in a frame wrong anyway).  Live: the next held-out runs.
 - **Sex labels** (eval/sex-labels.json): `character_sex` right for MS. NAIDOO and MR. FORTUIN, a miss
   for both duplicates, 0 wrong, 0 invented. The sex agent asked about 32 matched people, every
   answer the script's sex; nothing withheld.
