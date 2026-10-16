@@ -134,7 +134,7 @@ classDiagram
         +str title
         +str span_label
         +str|None audit_line
-        +tuple~str~ source_lines
+        +tuple~SourceLine~ source_lines
         +bool continued
     }
     StyleRegistry --> Style
@@ -574,12 +574,24 @@ default = true        # exactly one PUBLIC style sets this
     (typography, not wording: every word, in order, as comic.md §4 step 5 letters).
     **Never truncated, never folded to ASCII** (FrameFlow folded em dashes and curly quotes for its
     base-14 fonts; with a TrueType font nothing needs folding).
+    **Speakers (T103):** the PDF printed a speech with no name ("…glow blue." then "Load shedding.
+    Thank you, Lord.", whose?), while the web's frame sheet shows each dialogue part under its
+    speaker (web.md §4.4 step 3, `SourceBlock`). So the lines come from the shot's covered elements
+    (`Shot.elements` in its scene: their texts, joined by `\n`, are `source`, shots.md), and a
+    `Dialogue` element is printed as a **speaker line**, its `cue`, or `cue (extension)` when it has
+    one (exactly the web's label), in **Bold 22 px** at the same 30 px pitch, then its text wrapped as
+    above; an `Action` element as before. The parenthetical is left out, as on the web (it is not in
+    `source`). The speaker line is the script's own text (the cue line inside the speech's span), so
+    nothing is invented (Non-negotiable I). Each line is a `SourceLine(text, speaker)`; a speaker
+    line counts in the height like any line.
   - Heights: frame 495, 12, title line 34, audit line 30 when present, 8, then 30 per source line
     (a continuation has no frame and no 12).
     `y` is the block's top, in px from the page top.
 - **Fitting**: a block goes on the current page if it fits between the header and the footer; else a
   new page (same scene header). A block taller than an empty page puts its frame and as many source
   lines as fit on that page and continues the rest at the top of the next, `continued = True`.
+  T103: a speaker line is never the last line on a page: when the lines that fit end on one, it
+  moves to the next page with its speech (one line fewer fits; never fewer than one).
 - **Withheld card** (verify.md §4), in the frame box: white, 4 px `#808080` border, centred text in
   Regular 26 px, wrapped to 800 px (the 880 px box less 40 px a side, so no line crosses the
   border; 1000 px did, in the live run of 2026-10-10): `Frame withheld: failed audit (<checks>)` (the `noted_checks`
@@ -1007,7 +1019,11 @@ class SupabaseStore:                                    # Supabase Storage REST 
 type Rect = tuple[int, int, int, int]
 @dataclass(frozen=True) class StoryboardFrame: shot: tuple[int, int]; state: FrameState; asset: str | None; prompt: str | None; seed: int | None; attempts: int; verdict: Verdict; noted_checks: tuple[Check, ...]; failure: str | None = None   # T027: "render" or "restart" for FAILED, from the row
 @dataclass(frozen=True) class Storyboard: style: str; width: int; height: int; frames: tuple[StoryboardFrame, ...]; renders: int; cached: int
-@dataclass(frozen=True) class Block: shot: tuple[int, int]; y: int; frame_rect: Rect | None; title: str; span_label: str; audit_line: str | None; source_lines: tuple[str, ...]; continued: bool
+@dataclass(frozen=True) class SourceLine: text: str; speaker: bool = False   # T103: a speaker line prints Bold
+@dataclass(frozen=True) class Block: shot: tuple[int, int]; y: int; frame_rect: Rect | None; title: str; span_label: str; audit_line: str | None; source_lines: tuple[SourceLine, ...]; continued: bool   # T103: SourceLine, not str
+# T103, app/storyboard/document.py: _source_lines(shot: Shot, scene: Scene) -> tuple[SourceLine, ...] (from the
+#   covered elements; a Dialogue's speaker line, then its text wrapped; an Action's text wrapped);
+#   DOCUMENT_VERSION 2 -> 3, so every cached PDF is drawn again with its speakers
 @dataclass(frozen=True) class StoryboardPage: number: int; scene_index: int; blocks: tuple[Block, ...]
 class StoryboardError(RuntimeError): ...
 
@@ -1253,6 +1269,13 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   audit at its own attempt (not a later or earlier one) and gives `ERROR` with no audit;
   `document_key` changes with any frame field, the style and the version, not with row order;
   `export_pdf` builds and stores once, then answers the stored path without reading a frame.
+- **Speakers (T103)**, `tests/storyboard/test_document.py`: a shot covering an action and a speech
+  gives the action's lines, then a speaker line (`speaker=True`) with the cue, then the speech's lines;
+  a cue with an extension prints `CUE (V.O.)`; a parenthetical is not printed; the non-speaker lines
+  joined (modulo wrapping) equal the shot's `source`; on a page that fits exactly up to a speaker
+  line, it moves to the next page with its speech; `render_pdf` draws a speaker line Bold (its pixels
+  differ from the same text Regular); `DOCUMENT_VERSION` is 3. The PDF of a stored run, exported
+  locally and looked at.
 - **Live** (T026/T027; needs `FAL_KEY`, T021): an upload of the self-written sample on the local stack, in the default
   public style: every shot ends `PASSED`, `WARNED` or `WITHHELD`; the PDF and frames are in Storage;
   seconds per frame, renders per frame and fal's cost are recorded in `docs/rendering.md` (render cost; T049 uses the same renders); the
