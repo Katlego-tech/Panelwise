@@ -610,6 +610,6 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Files:   services/api/app/storyboard/{model,document,__init__}.py; services/api/tests/storyboard/test_document.py
       Contract:storyboard.md §6: `SourceLine(text, speaker)`; `Block.source_lines: tuple[SourceLine, ...]`; `layout_document`'s and `render_pdf`'s signatures unchanged
       Verify:  bash scripts/gate.sh (test_document: a dialogue element gives its cue line, with its extension, Bold, then its speech; an action element no speaker line; the speeches and actions joined are the shot's `source`; a speaker line never ends a page; the document key changes with the version); the PDF of a stored run exported and looked at
-      Done:    every speech in an exported storyboard PDF sits under its speaker's name as the web shows it, the words unchanged, and a PDF cached before T103 is drawn again
+      Done:    every speech in an exported storyboard PDF sits under its speaker's name, shown when the speaker changes as the web shows it, repeated above a speech continued on the next page, the words unchanged; a heading-only shot prints as before; and a PDF cached before T103 is drawn again
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

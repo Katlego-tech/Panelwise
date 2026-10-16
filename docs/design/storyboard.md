@@ -576,22 +576,39 @@ default = true        # exactly one PUBLIC style sets this
     base-14 fonts; with a TrueType font nothing needs folding).
     **Speakers (T103):** the PDF printed a speech with no name ("…glow blue." then "Load shedding.
     Thank you, Lord.", whose?), while the web's frame sheet shows each dialogue part under its
-    speaker (web.md §4.4 step 3, `SourceBlock`). So the lines come from the shot's covered elements
-    (`Shot.elements` in its scene: their texts, joined by `\n`, are `source`, shots.md), and a
-    `Dialogue` element is printed as a **speaker line**, its `cue`, or `cue (extension)` when it has
-    one (exactly the web's label), in **Bold 22 px** at the same 30 px pitch, then its text wrapped as
-    above; an `Action` element as before. The parenthetical is left out, as on the web (it is not in
-    `source`). The speaker line is the script's own text (the cue line inside the speech's span), so
-    nothing is invented (Non-negotiable I). Each line is a `SourceLine(text, speaker)`; a speaker
-    line counts in the height like any line.
+    speaker (web.md §4.4 step 3, `SourceBlock`, `sourceBlocks` in sheet.ts). So the lines come from
+    the shot's covered elements (`Shot.elements` in its scene), in order:
+    - an `Action` element: its text, each of its `\n`-separated lines wrapped as above, no speaker;
+    - a `Dialogue` element: a **speaker line** when its label differs from the previous element's
+      label (the web's rule: the label is `cue`, or `cue (extension)` when it has one, the extension
+      stored without brackets; an `Action` element's label is none, so an action between two
+      speeches of one cue prints the cue again), then its text, each `\n`-separated line wrapped as
+      above. The speaker line is the label wrapped with the **Bold 22 px** font (a cue wider than the
+      content width wraps to several speaker lines, a *speaker run*), drawn Bold at the same 30 px
+      pitch. The parenthetical is left out, as on the web (it is not in `source`). An empty speech
+      text wraps to one empty line (`wrap`'s `[""]`), so a speaker line is never a block's last.
+    - **Fallback:** when the shot has no elements (a heading-only shot: shots.md gives it
+      `source = scene.heading`) or the covered elements' texts joined by `\n` are not exactly
+      `source` (a plan stored before a parser change), the lines are `source`'s, as before T103, with
+      no speaker lines. An export never fails over speakers.
+
+    The speaker line is the script's own text (the cue line inside the speech's span); writing the
+    extension as `(V.O.)` is typography, not new words, so nothing is invented (Non-negotiable I).
+    Each line is a `SourceLine(text, speaker, of)`: `speaker` True for a speaker line, `of` the
+    speech's label on its speech lines (None on action and fallback lines). Every line counts 30 px
+    in the height.
   - Heights: frame 495, 12, title line 34, audit line 30 when present, 8, then 30 per source line
     (a continuation has no frame and no 12).
     `y` is the block's top, in px from the page top.
 - **Fitting**: a block goes on the current page if it fits between the header and the footer; else a
   new page (same scene header). A block taller than an empty page puts its frame and as many source
   lines as fit on that page and continues the rest at the top of the next, `continued = True`.
-  T103: a speaker line is never the last line on a page: when the lines that fit end on one, it
-  moves to the next page with its speech (one line fewer fits; never fewer than one).
+  T103, when a block continues: the lines placed are the `room` that fit (at least one: on an
+  empty page `room` is `max(1, …)`, so the loop always advances), less any speaker run they end
+  on, which moves to the next page with its speech; when the lines that fit are all one speaker
+  run, they stay (the one case a speaker line ends a page). When the continuation's first line is
+  a speech line (`of` set), the speaker run for `of` is repeated above it, Bold, counted in the
+  height: the continued speech is never left without its speaker.
 - **Withheld card** (verify.md §4), in the frame box: white, 4 px `#808080` border, centred text in
   Regular 26 px, wrapped to 800 px (the 880 px box less 40 px a side, so no line crosses the
   border; 1000 px did, in the live run of 2026-10-10): `Frame withheld: failed audit (<checks>)` (the `noted_checks`
@@ -1019,10 +1036,11 @@ class SupabaseStore:                                    # Supabase Storage REST 
 type Rect = tuple[int, int, int, int]
 @dataclass(frozen=True) class StoryboardFrame: shot: tuple[int, int]; state: FrameState; asset: str | None; prompt: str | None; seed: int | None; attempts: int; verdict: Verdict; noted_checks: tuple[Check, ...]; failure: str | None = None   # T027: "render" or "restart" for FAILED, from the row
 @dataclass(frozen=True) class Storyboard: style: str; width: int; height: int; frames: tuple[StoryboardFrame, ...]; renders: int; cached: int
-@dataclass(frozen=True) class SourceLine: text: str; speaker: bool = False   # T103: a speaker line prints Bold
+@dataclass(frozen=True) class SourceLine: text: str; speaker: bool = False; of: str | None = None   # T103: a speaker line prints Bold; `of` a speech line's label
 @dataclass(frozen=True) class Block: shot: tuple[int, int]; y: int; frame_rect: Rect | None; title: str; span_label: str; audit_line: str | None; source_lines: tuple[SourceLine, ...]; continued: bool   # T103: SourceLine, not str
 # T103, app/storyboard/document.py: _source_lines(shot: Shot, scene: Scene) -> tuple[SourceLine, ...] (from the
-#   covered elements; a Dialogue's speaker line, then its text wrapped; an Action's text wrapped);
+#   covered elements; a Dialogue's speaker run when its label differs from the previous element's,
+#   then its text's lines wrapped; an Action's lines wrapped; the fallback to source's lines);
 #   DOCUMENT_VERSION 2 -> 3, so every cached PDF is drawn again with its speakers
 @dataclass(frozen=True) class StoryboardPage: number: int; scene_index: int; blocks: tuple[Block, ...]
 class StoryboardError(RuntimeError): ...
@@ -1270,12 +1288,19 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   `document_key` changes with any frame field, the style and the version, not with row order;
   `export_pdf` builds and stores once, then answers the stored path without reading a frame.
 - **Speakers (T103)**, `tests/storyboard/test_document.py`: a shot covering an action and a speech
-  gives the action's lines, then a speaker line (`speaker=True`) with the cue, then the speech's lines;
-  a cue with an extension prints `CUE (V.O.)`; a parenthetical is not printed; the non-speaker lines
-  joined (modulo wrapping) equal the shot's `source`; on a page that fits exactly up to a speaker
-  line, it moves to the next page with its speech; `render_pdf` draws a speaker line Bold (its pixels
-  differ from the same text Regular); `DOCUMENT_VERSION` is 3. The PDF of a stored run, exported
-  locally and looked at.
+  gives the action's lines, then a speaker line (`speaker=True`) with the cue, then the speech's lines
+  (`of` the label); a cue with an extension prints `CUE (V.O.)`; a parenthetical is not printed; two
+  speeches of one cue in a row print the cue once, and with an action between them twice (the web's
+  `sourceBlocks` rule); a speech whose text holds a `\n` keeps it as a line break; a cue too wide for
+  the line wraps to a speaker run in the Bold font; the non-speaker lines joined (modulo wrapping)
+  equal the shot's `source`; a heading-only shot (no elements) and a shot whose `source` differs from
+  its elements print `source`'s lines with no speaker; a block that continues where the fitting lines
+  end on a speaker run moves the run to the next page, keeps a run that is all that fits, and repeats
+  the speaker above a speech cut across pages; `render_pdf` draws a speaker line Bold (its pixels
+  differ from the same text Regular); `DOCUMENT_VERSION` is 3 and `document_key` differs between 2
+  and 3. The two tests that set a long `source` on the sample's shot (a continuation with every line;
+  element breaks kept, never cut or folded) give that shot no elements, so they test the fallback
+  as before, comparing the lines' `text`. The PDF of a stored run, exported locally and looked at.
 - **Live** (T026/T027; needs `FAL_KEY`, T021): an upload of the self-written sample on the local stack, in the default
   public style: every shot ends `PASSED`, `WARNED` or `WITHHELD`; the PDF and frames are in Storage;
   seconds per frame, renders per frame and fal's cost are recorded in `docs/rendering.md` (render cost; T049 uses the same renders); the
