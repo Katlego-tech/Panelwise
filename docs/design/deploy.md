@@ -8,7 +8,8 @@ Railway (T037's deploy check was still blocked on accounts), so the change is co
 docs only: no data, domain or running service moves. **Render plan changed 2026-10-11 by Katlego:
 Free → `0.5c-512mb`** (paid, called Starter before Render's 26 Aug 2026 rename; §8, §11). **Plan
 changed 2026-10-16 by Katlego: `0.5c-512mb` → `1c-2g`** (the memory check, §9: 506 MiB at its peak);
-the API is created on Render around 24 Oct, when the plan is paid for
+the API is created on Render as soon as both money caps have figures (§6); Render bills at the end
+of the month for the seconds a service ran (~$13 for the rest of October)
 
 ---
 
