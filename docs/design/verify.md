@@ -396,7 +396,7 @@ classDiagram
 | `BACKGROUND_OBJECT` (T083; T086: and unheld food) | judge + code | soft | an object of category `other`, `nature`, `furniture` or `screen_or_sign`, not `held`, not a named prop, called `unscripted`, or `set_dressing` whose `support` isn't in the heading (§3, Background objects warn): the place's everyday things the script didn't mention. Its detail is `object N (name, category): not in the script`. **T089:** also every object failure that isn't an animal's or a weapon's, with that failure's own detail (`held, so not set dressing`, `prop without support`, `unscripted`, `the script names it`, `never set dressing`, `not in the heading`) |
 | `DRAWN_SEX` (T095) | sex agent (VISION) + code | **hard** | a person the judge matched to a character whose sex the script gives (`character_sex`) is drawn as the other sex: the sex agent, asked about that one person on the image, answers `male` or `female` and it isn't the script's. `unclear` passes, and so does a person matched to no character or to one with no sex from the script. Detail: `person N (position, appearance): drawn male, but REFILWE is female`. **T102:** also a person the presence agent finds for a character the script sexes (`found_people`), asked the same question |
 | `SPLIT_PANELS` (T104) | layout agent (VISION) + code | **hard** | the layout agent, asked on a frame with two or more described people, answers `panels` > 1: the frame is a strip or grid of pictures, not one (L015). No answer (not asked, or a failed question) passes. Detail: `drawn as 2 panels` |
-| `DRAWN_TWICE` (T104) | layout agent (VISION) + code | **hard** | on a frame of one picture (`panels` 1), a `copies` pair of two described people in range whom `matched_people` doesn't accept as two different characters: one person drawn twice. In a split frame the copies are the split's own (`SPLIT_PANELS` names it). Detail: `person 0 (left, …) and person 1 (right, …): the same person drawn twice` |
+| `DRAWN_TWICE` (T104) | layout agent (VISION) + code | **hard** | on a frame of one picture (`panels` 1), a `copies` pair of two described people in range who are not both known as characters (accepted by `matched_people`, or found by the presence agent: `found_people`), and so not two different characters: one person drawn twice. In a split frame the copies are the split's own (`SPLIT_PANELS` names it). Detail: `person 0 (left, …) and person 1 (right, …): the same person drawn twice` |
 | `SIGNATURE` (T077) | code | soft | `signature` is true: a signature, initials or an artist's mark, readable or not. Words the describer reads in it are still `text`, so a legible signature that isn't the script's (`@hutley`) still fails `TEXT_IN_FRAME` (soft since T089) |
 
 **Verdict:** `FAIL` if any hard check fails; `WARN` if only soft checks fail; `PASS` otherwise. Hard
@@ -568,17 +568,38 @@ described people (a split or a copy needs two figures), after the T095, T099 and
 as `[a, b]` pairs, `reason`). **Kept:** `Audit.layout` (`FrameLayout`: panels, copies as sorted
 pairs, reason), written by `FrameWriter.log` to the `frame_audits.layout` column (migration 0009;
 Katlego's T097 design, #170, moves its migration to 0010), so `recheck` decides both checks again
-for free; its tokens count in the audit's usage and models. **Fails:** `run_checks(..., layout=)`:
-`SPLIT_PANELS` when `panels > 1`; `DRAWN_TWICE` when `panels == 1` and a pair `(a, b)`, `a != b`,
-both in range, is not two people `matched_people` accepts as two different characters. That veto is
-the measured fix for the one kind of false alarm: two cast characters who look alike (final-whistle
-6.1, PALESA and LINDI, matched to each). It uses the accepted matches, not the judge's raw ones: on
-lost-property 7.3 the judge called a young man KOOS (the 70s night cleaner), refused for his age, so
-the copy of TEBOGO still fails. Both are **hard**, so they withhold only when on the ladder
+for free; its tokens count in the audit's usage and models. **The answer, cleaned** (`frame_layout`,
+pure): `panels` below 1 is 1 (a model's 0 or -1 is no split); `copies` keeps each pair of exactly two
+indexes `a != b` with `0 <= a, b < len(description.people)` once, as the sorted `(a, b)`, the pairs in
+sorted order; anything else is dropped. **Fails:** `run_checks(..., layout=)`: `SPLIT_PANELS` when
+`panels > 1`; `DRAWN_TWICE` when `panels == 1`, for each kept pair on its own (a frame may have
+several: the same boy three times is `(0, 1)`, `(0, 2)`, `(1, 2)`; the details are joined by `; ` as
+every check's are), unless **both** people are known as characters: in `accepted` (`matched_people`)
+or found by the presence agent (`found_people`, T099/T102), as person → character. Both known means
+two different characters, since neither map gives one character two people (`matched_people` keeps
+the first person per name; `found_people` one person per character, and a person it finds is never
+in `accepted`). One known and one not is still a copy (fails); neither known fails. That veto is the
+measured fix for the one kind of false alarm: two cast characters who look alike (final-whistle 6.1,
+PALESA and LINDI, matched to each); with `found_people` in it, the same two found by the presence
+agent pass too. It uses the accepted matches, not the judge's raw ones: on lost-property 7.3 the
+judge called a young man KOOS (the 70s night cleaner), refused for his age, so the copy of TEBOGO
+still fails. **Known risk, generic:** look-alike extras the script doesn't cast (pupils in uniform,
+guards) are never vetoed (they are no character); only the prompt's "people who merely look alike
+… are not copies" guards them, one more reason the ladder entry is Tumo's call. **Every target:**
+`audit_frame` audits storyboard frames and comic panels alike (`loop.py`, and `reaudit.py` and
+`run.py` for measuring), so comic panels get the question and both checks too. Both are **hard**, so they withhold only when on the ladder
 (`AUDIT_WITHHOLD_CHECKS`, T094); whether the demo's ladder takes them is Tumo's call (suggested:
 `drawn_sex,no_character,split_panels,drawn_twice`). A withheld frame is redrawn: a new seed, a new
 layout. **Never an ERROR:** a failed question (an `LLMError` or `ValidationError`) leaves `layout`
-None, is logged, and both checks pass. **Measured** (2026-10-16, Token Factory, DeepSeek-V4.1-Flash,
+None, is logged, and both checks pass. **Cost:** about 1,400 tokens a question, asked on about
+two thirds of attempts (332 of 511 had two or more people): about 15,000–24,000 tokens a storyboard
+of 17–26 attempts (limits.md §3: its audit is 130,000–175,000, so about +12–14%), the same again
+for its comic, against `LLM_MONTHLY_TOKEN_CAP`; and, when on the ladder, each withheld frame is one
+more attempt, a drawing (the image budget, T030) and its audit. **Old rows:** a row from before T104
+has no `layout`, so `recheck` can't measure the new checks on it (both pass), as for a sex found
+later. **Migration:** 0009, unless Katlego's T097 (#170, design only, which was to take 0009) lands
+first: whichever of the two merges second renumbers its migration (revision and down_revision).
+**Measured** (2026-10-16, Token Factory, DeepSeek-V4.1-Flash,
 `proto_twice.py`, the prompt verbatim; no fal): every stored storyboard attempt of the newest run of
 11 scripts with two or more described people, **332** of 511; 330 answered. **Splits: 23 flagged,
 every one looked at, all 23 real** (lost-property 11.5's three attempts, a 2×2 grid among them;
@@ -589,9 +610,12 @@ removed by the veto) and stormwater 3.1's second attempt (two boys for SIBUSISO 
 matched to no one: a wrong frame anyway, Refilwe drawn as a boy). The veto, computed on the stored
 judgements, removes final-whistle 6.1 and one real copy, lost-property 9.1's third attempt, where
 the judge accepted the two look-alike girls as TEBOGO and PRIYA (a girl for Tebogo, a young man:
-`DRAWN_SEX`'s to catch). So, with the veto, **29 flags: 28 real, the 29th a wrong frame**. **Missed:** lighthouse 4.2 and 7.3 (two women in suits on the
-stairs for MS. NAIDOO alone: the agent saw short against shoulder-length hair and called them two
-people). About 1,400 tokens a question (456,411 for 332).
+`DRAWN_SEX`'s to catch). So, with the veto, **29 flags: 28 real, the 29th a wrong frame**. These are in-sample (the
+prompt's look-alike sentence was written on these frames) and precision only: recall isn't
+measured beyond the misses below, and the 179 attempts with fewer than two people were never asked
+(a split among them is unmeasured). The held-out runs are the real check. **Missed:** lighthouse
+4.2 and 7.3 (two women in suits on the stairs for MS. NAIDOO alone: the agent saw short against
+shoulder-length hair and called them two people). About 1,400 tokens a question (456,411 for 332).
 
 ## 4. Flow
 
@@ -1038,11 +1062,14 @@ LAYOUT_AGENT_PROMPT = (
 async def check_layout(model: NebiusChatModel, image: str,
                        description: FrameDescription) -> tuple[Layout, ChatResult]: ...
 #   Tier.VISION, max_tokens=4096; user text "People in the drawing:" then "[i] position: appearance" per person
-def frame_layout(layout: Layout) -> FrameLayout: ...
-#   pure: panels as given; copies as sorted (a, b) pairs, each pair of two ints once, pairs of one int
-#   or of a != 2 length dropped, in sorted order
-def run_checks(..., layout: FrameLayout | None = None) -> ...   # T104: SPLIT_PANELS and DRAWN_TWICE
-#   (§3); both pass with layout None
+def frame_layout(layout: Layout, people: int) -> FrameLayout: ...
+#   pure (§3, the answer cleaned): panels max(1, panels); copies: each pair of exactly two ints, a != b,
+#   both 0 <= i < people, as sorted (a, b), once, in sorted order; [i, i], out-of-range, short or long
+#   pairs dropped
+_SEVERITY[Check.SPLIT_PANELS] = Severity.HARD; _SEVERITY[Check.DRAWN_TWICE] = Severity.HARD   # T104
+def run_checks(..., layout: FrameLayout | None = None) -> ...   # T104: SPLIT_PANELS when panels > 1;
+#   DRAWN_TWICE when panels == 1, per pair, unless both people are in accepted ∪ invert(found_people(...))
+#   (person -> character); details joined by "; "; both pass with layout None
 #   audit_frame: after the T102 questions, when the judgement is well formed and
 #   len(description.people) >= 2, check_layout once; a failed one (LLMError or ValidationError) is
 #   logged and leaves layout None; Audit.layout; tokens and model count
@@ -1261,16 +1288,19 @@ it against the script."*
   hard; migration 0007 upgrades and downgrades (the schema test). Live: one script with
   `AUDIT_WITHHOLD_CHECKS=drawn_sex`, where the real code meets `character_sex` (the prototype used
   the labels).
-- **T104** (`tests/verify/test_t104.py`, tests first): `frame_layout` sorts and de-duplicates pairs and
-  drops malformed ones; `run_checks` fails `SPLIT_PANELS` for `panels` 2 with its detail and passes
-  1; fails `DRAWN_TWICE` for a pair in one picture with its detail, and passes a pair accepted as two
-  different characters, a pair one of whose people is accepted (one matched, one not: still a
-  copy, fails), a pair out of range, a pair in a split frame, and `layout` None; the severity table
-  names both hard and the ladder warns them when off it; `audit_frame` (a MockTransport counting
+- **T104** (`tests/verify/test_t104.py`, tests first): `frame_layout` sorts and de-duplicates pairs,
+  drops `[i, i]`, negative, out-of-range, short and long pairs, and makes `panels` 0 and -1 into 1;
+  `run_checks` fails `SPLIT_PANELS` for `panels` 2 with its detail and passes 1; fails `DRAWN_TWICE`
+  for a pair in one picture with its detail, three pairs (the same person three times) with three
+  details joined by `; `, a pair with neither person known, and a pair with one accepted and one not;
+  passes a pair accepted as two different characters, a pair found by the presence agent as two
+  characters (`found=`), a pair one accepted and one found as another character, a pair in a split
+  frame, and `layout` None; the severity table names both hard (`tests/verify/test_checks.py`'s hard
+  set changes), the default `all` ladder withholds them and a ladder without them warns; `audit_frame` (a MockTransport counting
   questions) asks once for two or more described people, after the other agents, none for one
   person, none for a malformed judgement, sends the prompt and the numbered people with the image at
   4,096 tokens, stores `layout`, counts the tokens, and a failed question leaves `layout` None and
-  the verdict no `ERROR`; `FrameWriter.log` writes `layout`; `recheck` passes the row's `layout` (NULL
+  the verdict no `ERROR`; a comic panel's audit (target comic) asks it too; `FrameWriter.log` writes `layout`; `recheck` passes the row's `layout` (NULL
   as None); migration 0009 upgrades and downgrades (`test_the_models_match_the_migrations`). Token
   Factory: the real code on the 332 stored frames gives about §3's numbers. Live: the next held-out
   runs.
