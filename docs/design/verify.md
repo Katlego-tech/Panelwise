@@ -566,8 +566,8 @@ described people (a split or a copy needs two figures), after the T095, T099 and
 `People in the drawing:` then `[i] position: appearance` per person, then the image (the data URL
 `audit_frame` already encoded), at `max_tokens=4096`; the answer is a `Layout` (`panels`, `copies`
 as `[a, b]` pairs, `reason`). **Kept:** `Audit.layout` (`FrameLayout`: panels, copies as sorted
-pairs, reason), written by `FrameWriter.log` to the `frame_audits.layout` column (migration 0009;
-Katlego's T097 design, #170, moves its migration to 0010), so `recheck` decides both checks again
+pairs, reason), written by `FrameWriter.log` to the `frame_audits.layout` column (migration 0009: see
+**Migration** below), so `recheck` decides both checks again
 for free; its tokens count in the audit's usage and models. **The answer, cleaned** (`frame_layout`,
 pure): `panels` below 1 is 1 (a model's 0 or -1 is no split); `copies` keeps each pair of exactly two
 indexes `a != b` with `0 <= a, b < len(description.people)` once, as the sorted `(a, b)`, the pairs in
