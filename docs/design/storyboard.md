@@ -589,7 +589,7 @@ default = true        # exactly one PUBLIC style sets this
       text wraps to one empty line (`wrap`'s `[""]`), so a speaker line is never a block's last.
     - **Fallback:** when the shot has no elements (a heading-only shot: shots.md gives it
       `source = scene.heading`) or the covered elements' texts joined by `\n` are not exactly
-      `source` (a plan stored before a parser change), the lines are `source`'s, as before T103, with
+      `source` (a plan stored before a parser change), or an element index is out of range, the lines are `source`'s, as before T103, with
       no speaker lines. An export never fails over speakers.
 
     The speaker line is the script's own text (the cue line inside the speech's span); writing the
@@ -608,7 +608,8 @@ default = true        # exactly one PUBLIC style sets this
   on, which moves to the next page with its speech; when the lines that fit are all one speaker
   run, they stay (the one case a speaker line ends a page). When the continuation's first line is
   a speech line (`of` set), the speaker run for `of` is repeated above it, Bold, counted in the
-  height: the continued speech is never left without its speaker.
+  height: the continued speech is never left without its speaker. (A repeated run is one cue's
+  few lines and a page holds about fifty, so a continuation always places a speech line.)
 - **Withheld card** (verify.md §4), in the frame box: white, 4 px `#808080` border, centred text in
   Regular 26 px, wrapped to 800 px (the 880 px box less 40 px a side, so no line crosses the
   border; 1000 px did, in the live run of 2026-10-10): `Frame withheld: failed audit (<checks>)` (the `noted_checks`
