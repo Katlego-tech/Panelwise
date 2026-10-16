@@ -22,15 +22,15 @@ from PIL import Image, ImageDraw, ImageFont
 
 from app.comic.layout import wrap
 from app.frames.model import FrameAuditRow, FrameRow
-from app.script import Screenplay, Span
+from app.script import Dialogue, Scene, Screenplay, Span
 from app.shots import Shot, ShotPlan
 from app.storage import AssetStore
-from app.storyboard.model import Block, Rect, StoryboardFrame, StoryboardPage
+from app.storyboard.model import Block, Rect, SourceLine, StoryboardFrame, StoryboardPage
 from app.storyboard.prompt import heading_span
 from app.storyboard.styles import Style
 from app.verify.model import Check, FrameState, Severity, Verdict
 
-DOCUMENT_VERSION = 2  # bump whenever the layout or the drawing changes (§3.4 Document key)
+DOCUMENT_VERSION = 3  # bump whenever the layout or the drawing changes (§3.4 Document key); 3: T103
 
 PAGE_W, PAGE_H = 1240, 1754  # A4 portrait at 150 dpi
 DPI = 150
@@ -164,7 +164,7 @@ def layout_document(
             title=f"{number}.{shot.number}  {_camera(shot)}",
             span_label=span_text(span),
             audit_line=_audit_line(found),
-            source_lines=_source_lines(shot.source),
+            source_lines=_source_lines(shot, screenplay.scenes[shot.scene_index]),
             continued=False,
         )
         if not pages or pages[-1][0] != shot.scene_index:
@@ -180,13 +180,21 @@ def layout_document(
                 open_page(shot.scene_index)
                 continue
             # Taller than an empty page: as many lines as fit, the rest continued on the next.
-            pages[-1][1].append(_at(replace(block, source_lines=block.source_lines[:room]), cursor))
+            # T103: never ending on a speaker run unless that is all that fits; a speech continued
+            # on the next page gets its speaker again, unless this page held speaker lines alone
+            # (repeating them then could lay out the same page forever).
+            cut = _cut(block.source_lines, max(1, room))
+            placed, rest = block.source_lines[:cut], block.source_lines[cut:]
+            spoken = any(not line.speaker for line in placed)
+            if spoken and not rest[0].speaker and rest[0].of is not None:
+                rest = (*_speaker_run(rest[0].of), *rest)
+            pages[-1][1].append(_at(replace(block, source_lines=placed), cursor))
             block = replace(
                 block,
                 frame_rect=None,
                 title=f"{number}.{shot.number} (cont.)",
                 audit_line=None,
-                source_lines=block.source_lines[room:],
+                source_lines=rest,
                 continued=True,
             )
             open_page(shot.scene_index)
@@ -219,10 +227,52 @@ def _names(checks: Sequence[Check]) -> str:
     return ", ".join(c.value.replace("_", " ") for c in checks)
 
 
-def _source_lines(source: str) -> tuple[str, ...]:
-    """Each element's line wrapped on its own, so element breaks are kept; never cut or folded."""
+def _source_lines(shot: Shot, scene: Scene) -> tuple[SourceLine, ...]:
+    """The shot's source, each element's lines wrapped on their own, so element breaks are kept;
+    never cut or folded. T103: from the covered elements, a speech under its speaker's label when
+    the label differs from the previous element's (the web's rule); `source`'s own lines, with no
+    speaker, for a heading-only shot or elements that no longer join to `source`."""
+    covered = [scene.elements[i] for i in shot.elements if 0 <= i < len(scene.elements)]
+    if (
+        len(covered) != len(shot.elements)
+        or not covered
+        or ("\n".join(e.text for e in covered) != shot.source)
+    ):
+        return tuple(SourceLine(line) for line in _wrapped(shot.source))
+    lines: list[SourceLine] = []
+    last: str | None = None
+    for element in covered:
+        label = _label(element) if isinstance(element, Dialogue) and element.cue else None
+        if label is not None and label != last:
+            lines += _speaker_run(label)
+        last = label
+        lines += [SourceLine(line, of=label) for line in _wrapped(element.text)]
+    return tuple(lines)
+
+
+def _wrapped(text: str) -> list[str]:
+    """Each of the text's lines wrapped to the content width on its own (Regular 22 px)."""
     font = _font(False, 22)
-    return tuple(line for element in source.split("\n") for line in wrap(element, CONTENT_W, font))
+    return [line for part in text.split("\n") for line in wrap(part, CONTENT_W, font)]
+
+
+def _label(dialogue: Dialogue) -> str:
+    """`CUE`, or `CUE (EXT)`: exactly the web's speaker label (sheet.ts `sourceBlocks`)."""
+    return f"{dialogue.cue} ({dialogue.extension})" if dialogue.extension else dialogue.cue
+
+
+def _speaker_run(label: str) -> tuple[SourceLine, ...]:
+    """The label wrapped in the Bold font it is drawn in: one speaker line, or a run of them."""
+    return tuple(SourceLine(line, speaker=True) for line in wrap(label, CONTENT_W, _font(True, 22)))
+
+
+def _cut(lines: Sequence[SourceLine], room: int) -> int:
+    """How many lines go on this page (T103): `room`, less a speaker run they would end on, unless
+    that run is all that fits."""
+    cut = room
+    while cut > 0 and lines[cut - 1].speaker:
+        cut -= 1
+    return cut or room
 
 
 def _heading_lines(screenplay: Screenplay, scene_index: int) -> list[str]:
@@ -361,7 +411,7 @@ def _block(
         y += 30
     y += 8
     for line in block.source_lines:
-        draw.text((MARGIN, y), line, font=_font(False, 22), fill="black")
+        draw.text((MARGIN, y), line.text, font=_font(line.speaker, 22), fill="black")
         y += 30
 
 
