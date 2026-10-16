@@ -277,11 +277,11 @@ now read (`.env.example`'s "read by no code yet" goes), off when unset or blank 
 
 ## 10. Open questions
 
-- [ ] **The two money caps' figures** (Katlego and Tumo, 2026-10-15: Katlego brings the remaining
+- [x] **The two money caps' figures** (Katlego and Tumo, 2026-10-15: Katlego brings the remaining
   Token Factory credit and the fal spend allowed a month). **Tokens decided 2026-10-16 by Katlego:
   `LLM_MONTHLY_TOKEN_CAP` = 2,800,000** (30% of the $18 left; the arithmetic in deploy.md §6).
-  **Drawings: Tumo's**, since the fal account is his and he has watched its spend; he records the
-  figure in deploy.md §6. A storyboard is about 130,000–175,000
+  **Drawings decided 2026-10-16 by Katlego, from Tumo's fal balance and top-up plan:
+  `IMAGE_MONTHLY_GENERATION_CAP` = 800** (the arithmetic in deploy.md §6). A storyboard is about 130,000–175,000
   audit tokens and 17–26 drawings today (§4, measured); `LLM_MONTHLY_TOKEN_CAP` leaves one job's
   room under the credit, `IMAGE_MONTHLY_GENERATION_CAP` one job's (about 150 drawings) under the fal
   allowance. They are entered in Render's dashboard (deploy.md §6, `sync: false`), so the code

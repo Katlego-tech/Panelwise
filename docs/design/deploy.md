@@ -228,7 +228,12 @@ Validated against render.com/schema/render.yaml.json on 2026-10-08 (`1c-2g` is i
   on Token Factory, $5.40, over the three months the cap counts, Oct to Dec, is $1.80 a month; a
   storyboard and its comic measured 339,000 tokens, at most $0.19 at DeepSeek-V4.1-Flash's
   $0.30/$1.20 per million, the dearest model the API calls; less one job's room),
-  `IMAGE_MONTHLY_GENERATION_CAP` = _not yet decided_ (Tumo: the fal account is his). **Never deploy
+  `IMAGE_MONTHLY_GENERATION_CAP` = **800** (Katlego, 2026-10-16, from Tumo's fal balance: $5.35
+  left, $10 loaded at the end of October for November and $5 at the end of November for December;
+  about $8 of a month's money for the demo, 1,000 drawings at $0.004, less one job with re-renders,
+  ~150, rounded down. The token cap binds first in an ordinary run: ~8 storyboards and comics,
+  ~350 drawings at 44 each. Each top-up lands before its month starts: at $0 on fal, drawing stops
+  whatever the cap says). **Never deploy
   with either blank:** blank is off, an uncapped bill.
 
 **Keep-alive** (`.github/workflows/keepalive.yml`, T063), exactly:

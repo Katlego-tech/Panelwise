@@ -45,7 +45,7 @@ PR, not in the dashboard: a dashboard edit to a field the Blueprint sets may be 
 
    | Variable | Value |
    |---|---|
-   | `DATABASE_URL` | step 1's session-pooler string, as copied. `postgresql://…` is fine (the API adds `+asyncpg`), and so is `?sslmode=require` (the API turns it into asyncpg's `?ssl=require`) |
+   | `DATABASE_URL` | step 1's session-pooler string, as copied: **not** the local `.env`'s `DATABASE_URL`, which is the compose Postgres on `localhost` (the first deploy failed on exactly that, 2026-10-16: `Connect call failed ('127.0.0.1', 5432)` and the container exits). `postgresql://…` is fine (the API adds `+asyncpg`), and so is `?sslmode=require` (the API turns it into asyncpg's `?ssl=require`) |
    | `NEBIUS_API_KEY` | your Token Factory key |
    | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | step 1 (the token check and uploads from T053, frames from T026) |
    | `FAL_KEY` | your fal.ai key (the renderer, T026). Without it the API starts with no renderer: uploads stop at planning |
