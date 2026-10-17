@@ -2,6 +2,11 @@
 
 **Status:** draft · **Owner:** Katlego (Claude) · **Tasks:** T105 · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 · **Raised:** 2026-10-17 by Katlego, after NVIDIA's 15 Oct release ([nebius-findings.md § U8](../nebius-findings.md#u8--an-nvidia-vision-model-2026-10-17))
+· **Decided 2026-10-17 by Katlego: Super VL is the target vision model.** Nemotron is the sponsor's
+technology; DeepSeek-V4.1-Flash, another vendor's model, was only ever the stand-in option A had to
+settle for. So T105 doesn't ask whether Super VL beats DeepSeek on a pipeline tuned to DeepSeek; it
+asks whether Super VL **fits** (§8) and **how much of the audit translates** to it, and the parts
+that don't are adapted to Super VL
 
 ---
 
@@ -13,7 +18,8 @@ uses one model, `NEBIUS_MODEL_VISION`: the describer (`FrameDescription`), the s
 (T102's questions, T104's layout, T097's heads) and for any later one (limbs, bubbles). Today that
 model is `deepseek-ai/DeepSeek-V4.1-Flash`, because until 12 Oct Token Factory served no NVIDIA
 model that takes images (findings § U7). T105 measures `nvidia/Nemotron-3.5-Super-VL` on drawings
-we already have, and makes it the default **only if** the measurement clears §8's bar.
+we already have: whether it fits, and which parts of the audit (prompts, schemas, checks, agents)
+carry over as they are and which need adapting to it (§8).
 
 **Not covered:** the judge (`Tier.REASONING`, Nemotron Super, unchanged); the prompts, schemas,
 checks and the rule ladder (verify.md, unchanged: a model swap that needs a prompt change is a
@@ -128,7 +134,7 @@ nothing: the hosted API takes the code defaults.
 | Decision | Chosen | Rejected, and why |
 | --- | --- | --- |
 | How to decide | measure first, on stored drawings with `reaudit` (no drawings, a few cents) | swap the default and watch: the hosted demo's frames would be the experiment, and a worse describer shows a judge wrong frames; trust NVIDIA's benchmark (a vendor claim, and not our task) |
-| The bar to adopt Super VL | **all four:** (1) among the attempts whose verdict differs between the two models, looked at by a person, Super VL is right at least as often as DeepSeek, and it shows no frame DeepSeek withheld that is truly wrong; (2) `ERROR`s (schema or empty) at most 2% of attempts; (3) tokens per attempt at most 1.2× DeepSeek's (the 2.8M monthly cap, deploy.md §6); (4) seconds per attempt at most 1.5× DeepSeek's (a judge waits on the storyboard) | "better on average": the audit's failure that matters is showing a wrong frame (Non-negotiable I), so the bar is asymmetric |
+| What decides (Katlego, 2026-10-17) | **Super VL is the target; the measurement shows fit and translation.** **Fit:** (1) `ERROR`s (schema or empty) at most 2% of attempts; (2) tokens per attempt at most 1.2× DeepSeek's (the 2.8M monthly cap, deploy.md §6); (3) seconds per attempt at most 1.5× DeepSeek's (a judge waits on the storyboard); (4) every attempt whose hard checks differ is looked at, and no wrong frame is shown that DeepSeek withheld. **Translation:** per part of the audit (structured output, the description's fields, the judge's matches, each agent, each check), the share that agrees with today's, and for each part that doesn't, a follow-up task that adapts it to Super VL | "adopt only if it beats DeepSeek" (the first draft of this row): the pipeline's prompts and checks were tuned on DeepSeek since 2026-09-30, so a comparison flatters it; and the sponsor alignment, an NVIDIA model for every model call, is the reason for the change, so tuning to Super VL is expected work, not a cost against it |
 | Thinking on the vision tier | a setting, measured both ways | hard-code on or off: measured only on Nemotron's text models (U2); the probe shows Super VL thinks by default (367 of 395 tokens), which may cost more than it helps for description |
 | One model for every vision call | yes: the describer and every agent share `Tier.VISION` | a model per agent: more settings and more measurement, for agents whose prompts were tuned on DeepSeek anyway; can come later, per agent, if the measurement shows one agent worse |
 | Bolt 74B-A9B / Bolt E4B | not considered | not on Token Factory; our runtime calls must be Token Factory's (the hackathon rule, deploy.md §1) |
@@ -153,7 +159,8 @@ Katlego's go-ahead before each batch):
 - recorded in nebius-findings.md § U8 as one table per project: attempts, verdicts per model,
   attempts that differ, and, for each that differs, which model was right (looked at, with the frame
   named); `ERROR`s; prompt, completion and reasoning tokens per attempt; seconds per attempt;
-- the verdict against §8's bar, and the decision (Katlego and Tumo).
+- the fit against §8, the translation table, and a follow-up task for each part that needs
+  adapting; then the defaults change (Katlego and Tumo).
 
 ## 10. Open questions
 

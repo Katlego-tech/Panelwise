@@ -104,6 +104,15 @@ scripts it wasn't designed on. Our three samples are used up for that, so we nee
 T063's 512 MB check and the first deploy on the Render account come next; Tumo owns T030 and
 T037's hosted run, so agree with him who does which before spending.
 
+### 👋 For Tumo (from Katlego, 2026-10-17): the audit's vision model moves to Nemotron 3.5 Super VL
+
+**Decided (Katlego).** Pitch and plan: [docs/super-vl-migration.md](docs/super-vl-migration.md).
+Every model call becomes NVIDIA's; measured on the-red-kite with thinking off, Super VL fits (0
+errors, 0.95× tokens, 1.43× median time, right on 7 of 10 disputed hard checks like DeepSeek) and
+most of the audit carries over unchanged. **Yours:** the held-out translation run (18–19 Oct, the
+commands are in #192's comment) and T108, the look match (20–22 Oct); re-measure T102/T104 on Super
+VL as they land. Rollback is two Render dashboard variables (the plan's § Rollback).
+
 ### 👋 For Tumo (from Katlego, 2026-10-16): the caps are set; the fal top-ups
 
 - **`IMAGE_MONTHLY_GENERATION_CAP` = 800** (Katlego, from your fal balance of $5.35 and the plan to
