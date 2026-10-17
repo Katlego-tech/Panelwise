@@ -1,7 +1,7 @@
 # Design — `comic` (page layout, panels, speech bubbles, export)
 
 **Status:** agreed; §4a, the comic job, proposed (T064) · **Owner:** Katlego (Claude); §4a Tumo (Claude) · **Tasks:** T022 (layout), T023 (bubbles, lettering,
-export), T064 (the comic job, storage, the API), T098 (bubbles placed by the speaker's head; Katlego), T024 consumes it (reader) · **Spec:** [SPEC.md](../../SPEC.md) US3 (script →
+export), T064 (the comic job, storage, the API), T098 (bubbles placed by the speaker's head; Katlego), T112 (tails never cross; Katlego), T024 consumes it (reader) · **Spec:** [SPEC.md](../../SPEC.md) US3 (script →
 comic)
 
 ---
@@ -216,7 +216,11 @@ the comic's **withheld card** instead, and its lettering is still placed:
 font size (to 40% of the panel width) plus 16 px padding, as in step 5. **Hard constraints** (a
 candidate that breaks one is never chosen): the box lies inside the inner rect; it overlaps no earlier box; **reading order**: its
 grid cell `(row, col)` is after the previous box's in row-major order (`row > prev_row`, or `row ==
-prev_row` and `col > prev_col`). **Cost** among the admissible: `detail + 2.0 × covers_head + 2.0 ×
+prev_row` and `col > prev_col`); **tails never cross** (T112): the box's tail (step 8, computed
+from this box and its tip) shares no point with the tail of any box already placed, unless the two
+tails end at the same tip (two lines of one speaker meeting at their head reads as one speaker, not
+a crossing). Two tails are the two triangles step 8 draws (`tail_triangle`), so a crossing is
+judged on exactly what is drawn. **Cost** among the admissible: `detail + 2.0 × covers_head + 2.0 ×
 covers_speaker`, where `detail` is the mean of Pillow `FIND_EDGES` over the box on the grayscale
 frame, divided by 255 (0–1); `covers_head` (T098) is 1 when the box overlaps any **head rect** of
 the panel, the speaker's or anyone else's; and `covers_speaker` is 1 when the box overlaps the
@@ -244,6 +248,13 @@ changes: on a detailed frame whose quietest area is low in the panel, the first 
 late cell and corner the second. The search tries at most **10,000** candidate placements per panel
 (`SEARCH_LIMIT`). If it runs out of candidates, or reaches the limit, `ComicError` names the shot and
 the text that found no room. (The budget in step 5 makes this rare, not impossible.)
+**Crossing tails as the last resort (T112):** when the search finds no placement that keeps every
+tail apart (no candidates left, or the limit reached), it runs once more **without** the tail rule,
+exactly as before T112, with its own 10,000 tries, and logs one warning naming the shot ("tails
+cross on scene s, shot n: no placement keeps them apart"). A panel is never failed for its tails:
+a crossing is worse to read than a clean page but far better than a lost comic. So a panel whose
+first placement has no crossing letters exactly as before T112, and only a panel whose tails crossed
+changes.
 
 **Drawing.** A bubble is a white rounded rectangle filling its box (corner radius `min(48, h/2,
 w/2)`) with a 3 px black outline: an ellipse inscribed in a box with 16 px padding would cut the
@@ -262,7 +273,9 @@ centre is `x + ⌊w/6⌋`, `x + ⌊w/2⌋` or `x + ⌊5w/6⌋`, at `y + ⌊0.45 
 `(x + ⌊w/2⌋, y + h − 1)`; an `OFF_PANEL` tip is on the left (`x`) or right (`x + w − 1`) edge at
 the bubble's vertical centre (a speaker in the `centre` third has no side: right edge). The tail is
 a triangle, 28 px wide at its base, from the point of the box shrunk by the corner radius nearest
-the tip to the tip; a tip inside the box draws no tail.
+the tip to the tip; a tip inside the box draws no tail. **One triangle (T112):** `tail_triangle` in
+bubbles.py computes it; placement tests crossings with it and render.py draws it, so the two never
+disagree.
 
 **Failure paths:** layout over budget after the passes → `ComicError` (shot named); no admissible
 spot for a box → `ComicError` (shot named); the renderer failing → the frame job fails (verify.md);
@@ -433,6 +446,9 @@ def scene_caption(scene: Scene) -> str: ...   # the SCENE caption text (§3); we
 # app/comic/bubbles.py (T023)
 def place_lettering(book: ComicBook, screenplay: Screenplay, plan: ShotPlan,
                     frames: Mapping[tuple[int, int], PanelFrame]) -> ComicBook: ...
+# T112: moved here from render.py (`_tail_polygon`, `_radius`, `TAIL_BASE` = 28), unchanged in shape
+def tail_triangle(box: Rect, tip: Point) -> tuple[tuple[float, float], ...] | None: ...   # step 8's triangle; None when the tip is inside the box
+def tails_cross(a: Sequence[tuple[float, float]], b: Sequence[tuple[float, float]]) -> bool: ...   # pure: the two triangles share a point (touching counts); the caller exempts two tails with one tip
 
 # app/comic/render.py (T023)
 def withheld_checks(audit: Audit) -> str: ...   # the card's <checks>: "audit error", or the failed hard checks in Check order, "_" as spaces, ", "-joined
@@ -559,6 +575,7 @@ Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, mult
 | Reading order | a hard constraint | a cost term: the cheapest spot could still break reading order |
 | A panel's boxes | placed as a set: depth-first in each box's preference order, at most 10,000 tries | one box at a time, cheapest first, never revisited: on a detailed frame the first bubble could take a late cell and leave the next none, and the comic stopped (PR #92, real FLUX frames). The lowest total cost over all boxes: a different layout for panels that letter fine today, for no gain the reader sees |
 | Bubble position | image detail + every head (T098) + the speaker's third when their head is unknown | a vision model placing bubbles: another call per panel, not deterministic. (T098 keeps this: placement stays code over stored boxes; the one vision question is the audit's, asked once when the panel is accepted) |
+| Tails that cross (T112) | a hard rule in the set search, on the drawn triangles; tails ending at one tip exempt; if no placement keeps them apart, the search runs again without the rule and logs | a cost term (a crossing would still win whenever the uncrossed spot is busier, which is the case that matters); redrawing a tail as a curve around the other (a new shape to draw and test, and a curved tail still crosses); failing the panel (a lost comic for a readability fault) |
 | Speaker position | the speaker's head box from the audit (T097, T098), else the audit's `positions` third | face detection: another model and dependency for a box the vision model already gives (measured: verify.md §3, the head agent). Before T098 the third alone, with the tail at a fixed 45% of the height: it missed a head high or low in the frame, and the third's whole height was kept clear for one head |
 | Page flow | a scene starts a new tier, not a new page | a page per scene: short scenes waste pages |
 | PDF | Pillow `save_all` | reportlab / img2pdf: a second library for what Pillow does |
@@ -591,6 +608,15 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   the 45% tip; an `OFF_PANEL` tail and a withheld card are unchanged; a frame with no heads letters
   exactly as before (the reference pages compare unchanged); `panel_frame` carries the accepted
   audit's heads, the comic job's reused panel its row's (`None` → `()`), a card `()`.
+- **T112** (`tests/comic/test_t112.py`, tests first): `tails_cross` on triangles that cross, touch
+  at a point, and stay apart; two speakers whose cheapest placement crosses (the left bubble's
+  speaker on the right, the right bubble's on the left, both with head rects) are placed so no two
+  tails cross, every box still in reading order and inside the panel; two lines of one speaker
+  ending at the same tip may meet; a panel where every placement crosses still letters, through the
+  second search, with the warning logged; a panel whose first placement has no crossing letters
+  exactly as before (the reference pages compare unchanged, or any page that changes is looked at
+  and its crossing named in the PR); render.py draws `tail_triangle`'s points (the drawn tail and
+  the tested tail are one); an `OFF_PANEL` tail counts like any other.
 - **Frames:** each panel's render request is exactly its `rect` size; a withheld frame yields the
   card (its two lines, the failed hard checks in enum order, `audit error` for an ERROR audit, no
   source text) plus its lettering, placed in grid order, `OFF_PANEL` tails to the right edge and no `SPEECH` tail.
@@ -633,3 +659,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - [ ] Dual dialogue isn't parsed (script.md §10), so two simultaneous speeches read as sequential
   bubbles.
 - [ ] Right-to-left reading order: not planned.
+- [ ] **A tail hidden under another bubble** (T112 leaves it): the 2026-10-17 live comic's "All of
+  it. But listen to me." has its tail entirely under "Can I have all of it?" (step 7 draws every
+  outline, then every fill, so a tail never covers words, but it can vanish). A second rule, "a
+  tail crosses no other box", would fix it. Katlego's call whether it joins T112 or waits.
