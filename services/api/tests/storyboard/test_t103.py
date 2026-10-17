@@ -252,3 +252,19 @@ def test_an_empty_cue_prints_no_speaker() -> None:
     sp = with_element(sp, 0, replace(sp.scenes[0].elements[0], cue=""))
     got = only(one_shot(sp, [0]), sp)
     assert got == [SourceLine("Wait.")]
+
+
+def test_a_page_with_no_room_for_a_line_still_lays_the_block_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # room 0 on an empty page (only a heading taller than the page does it): placed whole, no loop.
+    sp = custom((ACTION, "Rain."))
+    p = one_shot(sp, [0])
+    bottom = content_bottom(STYLE)
+
+    def low(*_: object) -> int:
+        return bottom - 590  # the frame, title and audit (579 px) fit; no 30 px line does
+
+    monkeypatch.setattr(document, "_content_top", low)
+    parts = blocks(layout_document([frame(s) for s in p.shots], p, sp, STYLE))
+    assert [line.text for b in parts for line in b.source_lines] == ["Rain."]

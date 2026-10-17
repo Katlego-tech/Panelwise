@@ -185,6 +185,10 @@ def layout_document(
             # (repeating them then could lay out the same page forever).
             cut = _cut(block.source_lines, max(1, room))
             placed, rest = block.source_lines[:cut], block.source_lines[cut:]
+            if not rest:  # every line fits at the cut (room 0 under a page-tall heading): done
+                pages[-1][1].append(_at(block, cursor))
+                cursor += _height(block) + GAP
+                break
             spoken = any(not line.speaker for line in placed)
             if spoken and not rest[0].speaker and rest[0].of is not None:
                 rest = (*_speaker_run(rest[0].of), *rest)
