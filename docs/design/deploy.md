@@ -145,7 +145,7 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `FAL_MODEL`, `FAL_TIMEOUT_S`, `FAL_CONCURRENCY` | API | default `fal-ai/flux-2/klein/4b` (2026-10-11), 60 s, 2 (storyboard.md §3.5) |
 | `LLM_MONTHLY_TOKEN_CAP`, `UPLOADS_PER_DAY`, `UPLOAD_MAX_PAGES` | API only | the hosted demo's limits (limits.md, T069); unset or blank: off |
 | `IMAGE_MONTHLY_GENERATION_CAP` | API only | drawings a month (limits.md §4, T030); unset or blank: off |
-| `AUDIT_WITHHOLD_CHECKS` | API | which failed hard checks withhold a frame (verify.md §3, T094): `all` (the code default), empty, or a comma list; **hosted: `drawn_sex,no_character`** (Tumo, 2026-10-15; T030) |
+| `AUDIT_WITHHOLD_CHECKS` | API | which failed hard checks withhold a frame (verify.md §3, T094): `all` (the code default), empty, or a comma list; **hosted: `drawn_sex,no_character`** (Tumo, 2026-10-15; T030); **`split_panels` joins it with T104's code** (Katlego, 2026-10-17: `drawn_sex,no_character,split_panels`), and `drawn_twice` stays off the list, so it warns. Not before T104 is on `main`: a name the code doesn't know stops the API starting (`withholding`, config.py) |
 | `RENDER_MAX_ATTEMPTS`, `UPLOAD_MAX_BYTES` | API | drawings per frame, 1–3 (default 3); the upload size in bytes (default 4,000,000) |
 | `JUDGE_EMAIL`, `JUDGE_PASSWORD` | local only | the judge seed (`python -m app.demo.seed`, limits.md §4); never the hosted API's environment |
 | `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget, default 55 (storyboard.md §3.1, T008) |

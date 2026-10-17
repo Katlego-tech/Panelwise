@@ -104,6 +104,24 @@ scripts it wasn't designed on. Our three samples are used up for that, so we nee
 T063's 512 MB check and the first deploy on the Render account come next; Tumo owns T030 and
 T037's hosted run, so agree with him who does which before spending.
 
+### 👋 For Tumo (from Katlego, 2026-10-17): T104 on the hosted ladder, and the reviews
+
+- **Decision: `split_panels` withholds on the hosted demo, `drawn_twice` warns** (Katlego). The data
+  backs `split_panels` (23 of 23 flags real) more than `drawn_twice` (5 real plus 1 wrong-anyway after
+  the veto, recall unmeasured). **Please add it in #187**, in the same PR as the code:
+  `render.yaml` `AUDIT_WITHHOLD_CHECKS: drawn_sex,no_character,split_panels`, and deploy.md §6's
+  `render.yaml` block to match. **Not before the code is on `main`**: `withholding` (config.py)
+  refuses a name it doesn't know, so the API wouldn't start. Expect about 5.7% of attempts flagged
+  (+1–1.5 drawings and +7–10k tokens a storyboard), and some shots withheld after 3 attempts
+  (lost-property 11.5 split on all 3 stored attempts). TASKS T104's Done then holds on the hosted
+  demo for `split_panels`; reword it for `drawn_twice`, which is seen there only as a warning.
+- **Reviews are on your six PRs** (#181, #183–#187; comment reviews, nothing blocking), each with
+  what was run. The stacked ones (#183, #185, #186, #187) have had no CI gate: retarget each to
+  `main` once its base merges.
+- **T102's 4,096 ceiling:** not blocking; the caps are provisional and more agents are coming
+  (limbs, bubbles), so measure tokens a job once the agent set settles.
+- **Migrations:** #187 takes `0009_audit_layout`; Katlego's #170 (T097) moved to `0010_audit_heads`.
+
 ### 👋 For Tumo (from Katlego, 2026-10-16): the caps are set; the fal top-ups
 
 - **`IMAGE_MONTHLY_GENERATION_CAP` = 800** (Katlego, from your fal balance of $5.35 and the plan to
@@ -260,6 +278,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
+- 2026-10-17 — Katlego (via Claude) — Reviewed Tumo's T102–T104 (#181, #183–#187: approve with nits each, posted as comment reviews; the T104 full gate on a merge with main passed, 11 checks). **Decided:** `split_panels` withholds on the hosted demo with T104's code, `drawn_twice` warns (deploy.md §6; Tumo adds it in #187). #170 brought up to main, T097's migration now `0010` (after T104's `0009`). **Next:** the README draft (#36) refreshed; Nemotron 3.5 Super VL as the describer (T105, measured first). **Blocked on:** nothing.
 - 2026-10-16 — Katlego (via Claude) — **Devpost allows a judge login** (confirmed by Katlego): limits.md §10's last open question closed; the shared judge account and sign-up off stand. **Next:** T030's judge seed and hosted run (Tumo). **Blocked on:** nothing.
 - 2026-10-16 — Katlego (via Claude) — **The hosted demo is up:** API https://panelwise-api.onrender.com (`1c-2g`, Frankfurt; hosted Supabase 0002 → 0008 on deploy; health ok), web https://panelwise.vercel.app with `API_URL` set (`/api/health` 200 through it); `API_HEALTH_URL` set, keep-alive passed. The first deploy failed on a localhost `DATABASE_URL` (fixed in the dashboard). T037: all but a storyboard drawn on the hosted stack. **Next:** Tumo's T030 (judge seed, the hosted run). **Blocked on:** nothing.
 - 2026-10-16 — Katlego (via Claude) — **Caps decided:** `IMAGE_MONTHLY_GENERATION_CAP` = 800 (Tumo's fal balance $5.35; $10 loaded by 31 Oct, $5 by 30 Nov; deploy.md §6), so limits.md §10's money caps are closed. **API on Render:** Blueprint applied from `main` (`panelwise-api`, `1c-2g`, Frankfurt, both caps entered); the first deploy is running (`no-deploy` from the likely URL while it builds). **Next:** the deploy live and healthy (the migrations to 0008 in its log), `API_URL` on Vercel, `API_HEALTH_URL` and the keep-alive. **Blocked on:** nothing.
