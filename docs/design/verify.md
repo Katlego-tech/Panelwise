@@ -910,7 +910,10 @@ temperature 0 until it hits `max_tokens=4096`: the same object again and again (
 "ceiling light", "streetlight": up to 40 times with 3 names), or one string that never ends
 ("B. B. B. …" for a boat's lettering, "1000…" on a bicycle). The answer is cut off mid-JSON, the
 repair turn resends it and loops the same way, and the attempt is an `ERROR`: withheld, and on the
-hosted demo a redraw. 7 of the 109 labelled frames (findings § U8) and rooftop-tomatoes' comic 6.1.
+hosted demo a redraw. Seen on 7 of the 109 labelled frames (findings § U8) and on rooftop-tomatoes'
+comic 6.1; 6 of those 7 and comic 6.1 loop again when asked (§9 T109). The seventh,
+sipho-and-siphokazi 2.1, answered in 422 tokens on all three asks: its stored `ERROR` was not
+reproduced, its cause is unknown, and T109 is not claimed to remove it.
 
 **The change:** the describer's call sends its schema with length limits in `response_format` only.
 Token Factory's strict decoding obeys `maxItems` and `maxLength`, so a looping list or string stops
@@ -935,12 +938,27 @@ def description_grammar(limits: DescriptionLimits = DESCRIPTION_LIMITS) -> dict[
 async def describe_frame(model, png) -> tuple[FrameDescription, ChatResult]: ...
 #   T109: structured_chat(..., FrameDescription, Tier.VISION, max_tokens=4096,
 #   grammar=description_grammar()); everything else as before
+def run_checks(...) -> ...   # T109: a list that reaches its limit may have been cut, so what lay past
+#   it was never checked. len(description.people) >= DESCRIPTION_LIMITS.people adds the
+#   UNSCRIPTED_PERSON detail f"{n} people described, the limit: any more were not checked";
+#   len(description.objects) >= DESCRIPTION_LIMITS.objects adds the BACKGROUND_OBJECT detail
+#   f"{n} objects described, the limit: any more were not checked". Each joins that check's other
+#   details as today; the text list's limit adds nothing (TEXT_IN_FRAME is soft, and what was read stays)
 ```
+
+**A list at its limit is never passed silently** (Non-negotiable I): the describer can't say whether
+it stopped at 24 people because there were 24 or because the grammar cut it, and a 25th person the
+judge never sees could be unscripted. So a frame described at the limit fails `UNSCRIPTED_PERSON`
+(hard; on the hosted ladder it warns, and the card names it), whatever the judge called the 24.
+No stored answer reaches either limit (DeepSeek: at most 21 people and 32 objects in 1,352), so the
+rule only meets a loop or a real crowd of 24 or more, which the audit can't check person by person
+anyway. Objects at 40 fail `BACKGROUND_OBJECT` (soft) the same way.
 
 The judge and the agents are unchanged: none of them was seen to loop (their answers are short,
 and a failed agent question is logged, never an `ERROR`). A looping list now arrives cut to its
-limit (40 "ceiling light" objects): the judge calls each, as it would any description. A looping
-string arrives cut to 100 characters, which is lettering (`TEXT_IN_FRAME`, soft).
+limit (40 "ceiling light" objects): the judge calls each, as it would any description, and the
+limit rule above names it. A looping string arrives cut to 100 characters, which is lettering
+(`TEXT_IN_FRAME`, soft).
 
 ## 7. Structure
 
@@ -1167,7 +1185,7 @@ it against the script."*
   frames (market-day 2.1, 3.2, 5.2; sipho-and-siphokazi 2.1; the-borrowed-bicycle 5.5;
   the-lighthouse-inspector 8.1; the-night-taxi 1.1) and rooftop-tomatoes' comic 6.1, asked the
   describer's exact call three times. **Every failure was `finish_reason=length` at 4,096 tokens**,
-  cut mid-JSON at the same character on every run (temperature 0); sipho 2.1 answered in 422 tokens
+  cut mid-JSON at the limit on every run, the text nearly the same each time (temperature 0); sipho 2.1 answered in 422 tokens
   all three times, and market-day 5.2 failed once in four runs: it loops sometimes, the other six every time. The raw answers loop: a repeated object or
   person, or a string that never ends. Then each candidate on the 7 that loop and on 10 control
   frames (today's two held-out runs, the most objects first), against the stored answer:
@@ -1175,8 +1193,8 @@ it against the script."*
   | Candidate | Looping frames valid | Controls: the same answer |
   |---|---|---|
   | none (the call as it is, a 4th run) | 1 of 7 (market-day 5.2; the other 6 failed all 4 runs) | 9 of 10 |
-  | limits in the schema and the prompt | 7 of 7 | 3 of 10 |
-  | **limits in the grammar only** | **7 of 7** (378–1,597 tokens) | **10 of 10** |
+  | limits in the schema and the prompt (first, smaller limits) | 7 of 7 | 3 of 10 |
+  | **limits in the grammar only** (the final limits) | **7 of 7** (351–1,597 tokens) | **10 of 10** |
   | `frequency_penalty` 0.5 | 6 of 7 | 0 of 10 (fewer objects on every one) |
   | a prompt sentence: each object once | 2 of 7 | not run |
   | temperature 0.3 | 2 of 7 | not run |
@@ -1187,7 +1205,10 @@ it against the script."*
   first): `description_grammar()` sets exactly the six limits and leaves the rest of
   `FrameDescription.model_json_schema()` equal; `describe_frame` sends the capped schema as
   `response_format` and the uncapped one in the system message (a MockTransport reads the body);
-  `structured_chat` without `grammar` sends today's body (llm.md §9). **After the code:**
+  `structured_chat` without `grammar` sends today's body (llm.md §9); `run_checks` on a description
+  of 24 people, every one judged a shot character or supported, fails `UNSCRIPTED_PERSON` with the
+  limit detail, and on 23 passes it; 40 objects all scripted fail `BACKGROUND_OBJECT` (soft) with
+  its detail, and 39 pass; 40 text entries add nothing. **After the code:**
   `eval/tools/score_labels.py` on the 109 labelled frames with Super VL (about $0.25, Tumo's
   go-ahead): 0 describer `ERROR`s, and every frame whose verdict moves looked at.
 
