@@ -48,8 +48,11 @@ panelwise/
 
 ## Run it
 
-Not runnable yet. Target: `cp .env.example .env && docker compose up`.
+See [README.md § Run it](../README.md#run-it).
 
 ## Status
 
-Scaffold only: module folders hold a README describing their responsibility and no code yet.
+What is built and what is waiting: [README.md § What works today](../README.md#what-works-today) and
+[STATUS.md](../STATUS.md). Some folders hold only a README describing their responsibility:
+`infra/` (ComfyUI on a Nebius GPU, optional since fal.ai renders, T003), `packages/shared/`, and
+`app/images/` (the renderer lives in `app/storyboard/`, storyboard.md §3.5).
