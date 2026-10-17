@@ -18,6 +18,7 @@ Questions U1–U6 come from the FrameFlow Nebius plan (§3); U7 is Panelwise's o
 | U5 | Is an image-generation model served? | **No.** No model in either host's catalog has an image output modality | Rendering stays on ComfyUI on a Nebius GPU (T003). FrameFlow plan item N8 is dropped |
 | U6 | Sampling for grounded extraction | **Not settled by this probe** — 3 runs at each setting on one short scene all grounded their evidence verbatim | Decide on the full-script baseline in T006. The one failure seen was a *shape* failure under `json_object` (see U1), not a sampling one |
 | U7 | Is a vision model served, and does it take an image in a chat message? | **Yes — but none is NVIDIA.** Every Nemotron model is `text->text` and rejects images. Five non-NVIDIA models accept images and all five read our test image correctly on 2026-09-28; **on 2026-09-30 GLM-5.3-Flash no longer received images** ([re-check](#u7-re-check-2026-09-30)), so the describer is DeepSeek-V4.1-Flash | **Decided 2026-09-28: option A now, B as a stretch** — see [§ The vision decision](#the-vision-decision) |
+| U8 | Is there an NVIDIA vision model now? (2026-10-17) | **Yes: `nvidia/Nemotron-3.5-Super-VL`** (`text+image->text`, listed 12 Oct, released 15 Oct). One probe read a comic page correctly | Not adopted yet: T105 measures it against DeepSeek-V4.1-Flash on stored drawings before it can become the describer ([§ U8](#u8--an-nvidia-vision-model-2026-10-17)) |
 
 ## Settled configuration
 
@@ -255,6 +256,39 @@ as-is. Options, for the team to decide before T010 (`docs/design/verify.md`):
 T003's GPU has headroom once US1 works. A keeps the claim honest in a narrower form — *"a vision
 model describes each frame; Nemotron audits it against the script"* — needs no new infrastructure,
 and makes the audit's reasoning inspectable, since the description is logged next to the verdict.
+
+## U8 — An NVIDIA vision model (2026-10-17)
+
+_Checked 2026-10-17 by Katlego (via Claude): the catalog (`GET /v1/models?verbose=true`, 28 models)
+and one call._ NVIDIA released three Nemotron 3.5 models on 15 Oct: **Super VL** (120B, about 12B
+active, text and images, 1M context), **Bolt 74B-A9B** and **Bolt E4B** (due 23 Oct). Only Super VL
+is on Token Factory; the two Bolts are for local and edge hardware, so they don't fit a project
+whose model calls must be Token Factory's.
+
+| | `nvidia/Nemotron-3.5-Super-VL` | `deepseek-ai/DeepSeek-V4.1-Flash` (today's describer) |
+|---|---|---|
+| Modality | `text+image->text` | `text+image->text` |
+| Context | 1,048,576 | 1,048,000 |
+| Price per 1M tokens (in / out) | $0.30 / $0.90 | $0.30 / $1.20 |
+| `supported_features` | `tools`, `reasoning` | none listed |
+| Listed on Token Factory | 2026-10-12 | 2026-09-15 |
+
+Neither lists `structured_outputs`, and DeepSeek has honoured our strict `json_schema` all the same
+(T010 onwards), so Super VL's must be measured, not assumed.
+
+**The probe** (one call, no `response_format`, thinking left to the model's default):
+`docs/design/comic/the-red-kite-page-1.png`, "How many panels are on it, and what text is lettered
+in the first speech bubble?" It answered **4 panels** and **"Come on. Come on, wind."**, which is
+line 17 of `samples/the-red-kite.fountain` verbatim, in 3.6 s: 3,361 prompt tokens (3,314 of them the
+image) and 395 completion tokens, **367 of them reasoning** (about $0.0014). So it receives images
+on this host (GLM-5.3-Flash stopped doing so in September: § U7 re-check) and reads lettering, and
+it thinks by default.
+
+**What this changes:** option B of [§ The vision decision](#the-vision-decision) (an NVIDIA model
+that sees the frame) no longer needs a GPU of our own. **What it doesn't change yet:** the describer
+stays DeepSeek-V4.1-Flash until T105 ([docs/design/vision-model.md](design/vision-model.md))
+measures Super VL on stored drawings with `python -m app.verify.reaudit`: the verdicts it changes,
+looked at; schema failures; tokens and seconds an attempt, with thinking on and off.
 
 ## Follow-ups this creates
 
