@@ -67,6 +67,15 @@ class PersonCheck(BaseModel):
     sex: Literal["male", "female", "unclear"]
 
 
+class Layout(BaseModel):
+    """The layout agent's answer (T104): the frame's panels, the [a, b] pairs of numbered people
+    who are one person drawn twice, and a short reason."""
+
+    panels: int
+    copies: list[list[int]]
+    reason: str
+
+
 class Presence(BaseModel):
     """The presence agent's answer (T099): which numbered described person is the character,
     or None, and a short reason."""

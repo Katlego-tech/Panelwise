@@ -73,6 +73,8 @@ class Check(StrEnum):
     NO_CHARACTER = auto()  # T080: hard
     BACKGROUND_OBJECT = auto()  # T083: soft
     DRAWN_SEX = auto()  # T095: hard
+    SPLIT_PANELS = auto()  # T104: hard
+    DRAWN_TWICE = auto()  # T104: hard
 
 
 class Severity(StrEnum):
@@ -148,6 +150,17 @@ class Audit:
     usage: Usage
     seen: tuple[PersonSeen, ...] = ()  # T095: the sex agent's answers
     found: tuple[PersonFound, ...] = ()  # T099: the presence agent's answers
+    layout: FrameLayout | None = None  # T104: the layout agent's answer, cleaned
+
+
+@dataclass(frozen=True)
+class FrameLayout:
+    """The layout agent's answer, cleaned (T104): how many panels the frame is drawn as, and the
+    pairs of described people who are the same person drawn twice, as sorted (a, b)."""
+
+    panels: int
+    copies: tuple[tuple[int, int], ...]
+    reason: str
 
 
 @dataclass(frozen=True)
