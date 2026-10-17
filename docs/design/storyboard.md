@@ -609,7 +609,11 @@ default = true        # exactly one PUBLIC style sets this
   run, they stay (the one case a speaker line ends a page). When the continuation's first line is
   a speech line (`of` set), the speaker run for `of` is repeated above it, Bold, counted in the
   height: the continued speech is never left without its speaker. (A repeated run is one cue's
-  few lines and a page holds about fifty, so a continuation always places a speech line.)
+  few lines and a page holds about fifty, so a continuation always places a speech line.) Two
+  guards make the loop finish whatever the input: the run is repeated only when the page just
+  placed held a speech line (a cue taller than a page would otherwise lay out the same page
+  forever), and a block whose lines all fit at the cut (only possible with `room` 0, under a
+  heading taller than the page) is placed whole rather than continued with nothing.
 - **Withheld card** (verify.md §4), in the frame box: white, 4 px `#808080` border, centred text in
   Regular 26 px, wrapped to 800 px (the 880 px box less 40 px a side, so no line crosses the
   border; 1000 px did, in the live run of 2026-10-10): `Frame withheld: failed audit (<checks>)` (the `noted_checks`
@@ -1056,7 +1060,7 @@ async def build_storyboard(model: NebiusChatModel, renderer: RenderRecorder, pla
                            max_renders: int = 3) -> Storyboard: ...
 
 # app/storyboard/document.py (T027)
-DOCUMENT_VERSION: int = 2
+DOCUMENT_VERSION: int = 3   # T103
 def frames_from_rows(rows: Sequence[FrameRow], audits: Sequence[FrameAuditRow]) -> tuple[StoryboardFrame, ...]: ...   # pure, §3.4 From the rows; audits are the project's storyboard-target rows, any order
 def layout_document(frames: Sequence[StoryboardFrame], plan: ShotPlan, screenplay: Screenplay,
                     style: Style) -> tuple[StoryboardPage, ...]: ...   # pure; measures with Courier Prime (the style's label sizes the footer); one block per plan shot (a shot with no frame is a ValueError)
@@ -1288,7 +1292,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   audit at its own attempt (not a later or earlier one) and gives `ERROR` with no audit;
   `document_key` changes with any frame field, the style and the version, not with row order;
   `export_pdf` builds and stores once, then answers the stored path without reading a frame.
-- **Speakers (T103)**, `tests/storyboard/test_document.py`: a shot covering an action and a speech
+- **Speakers (T103)**, `tests/storyboard/test_t103.py`: a shot covering an action and a speech
   gives the action's lines, then a speaker line (`speaker=True`) with the cue, then the speech's lines
   (`of` the label); a cue with an extension prints `CUE (V.O.)`; a parenthetical is not printed; two
   speeches of one cue in a row print the cue once, and with an action between them twice (the web's
@@ -1297,8 +1301,8 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   equal the shot's `source`; a heading-only shot (no elements) and a shot whose `source` differs from
   its elements print `source`'s lines with no speaker; a block that continues where the fitting lines
   end on a speaker run moves the run to the next page, keeps a run that is all that fits, and repeats
-  the speaker above a speech cut across pages; `render_pdf` draws a speaker line Bold (its pixels
-  differ from the same text Regular); `DOCUMENT_VERSION` is 3 and `document_key` differs between 2
+  the speaker above a speech cut across pages; `render_pdf` draws a speaker line Bold (a spy on
+  the font counts one Bold 22 px per speaker line and page header); `DOCUMENT_VERSION` is 3 and `document_key` differs between 2
   and 3. The two tests that set a long `source` on the sample's shot (a continuation with every line;
   element breaks kept, never cut or folded) give that shot no elements, so they test the fallback
   as before, comparing the lines' `text`. The PDF of a stored run, exported locally and looked at.
