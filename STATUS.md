@@ -3,11 +3,11 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-17 — by Katlego (via Claude)_
+_Last updated: 2026-10-17 — by Tumo (via Claude)_
 
 ---
 
-## ⇄ HANDOFF: none
+## ⇄ HANDOFF: ACTIVE
 
 > Leave this block here even when dormant — it is the first thing every AI reads, and it only
 > works as a signal if it always lives in the same spot. Set it to `ACTIVE` and fill the rows
@@ -16,13 +16,13 @@ _Last updated: 2026-10-17 — by Katlego (via Claude)_
 
 | Field | Value |
 |---|---|
-| Status | 🟢 none: picked up 2026-10-11 by Tumo (via Claude) in person; its step 1 (the T079 + T080 live run) done |
-| Raised | 2026-10-11, Tumo (via Claude), for Katlego (last before: 2026-10-03, Katlego → Tumo) |
-| Reason | — |
-| Document | [docs/HANDOFF.md](docs/HANDOFF.md) (the record; its §6 steps 2–7 are in the plan below) |
-| Branch | — |
-| Resume at | — |
-| Blocking | — |
+| Status | 🟡 ACTIVE: Tumo is taking a break; Katlego may take over (or Tumo resumes) |
+| Raised | 2026-10-17, Tumo (via Claude), for Katlego (last before: 2026-10-11, Tumo → Katlego, picked up by Tumo) |
+| Reason | Tumo's break. Today's work is pushed: § U8's lighthouse rows (#194), two held-out runs looked at, T109 designed (#199), T110 measured |
+| Document | [docs/HANDOFF.md](docs/HANDOFF.md) |
+| Branch | `docs/describer-caps-t109` (#199, T109 design) is the next code's contract; this note is on `docs/handoff-1017` |
+| Resume at | HANDOFF.md §4 (Tumo's open decisions), then §5 step 2: T109's code to #199's contract, tests first |
+| Blocking | Tumo's go-ahead for any merge and any paid run (Token Factory re-scores, fal drawings) |
 
 ---
 
@@ -40,7 +40,7 @@ _Last updated: 2026-10-17 — by Katlego (via Claude)_
 | `shots` | Shot planner | T007, T092 | Tumo (T092) | Claude | ✅ T007 done · ✅ T092 a character the shot's own action names joins its cast; "van der" stays whole (#161 design, #163 code; Tumo, Claude) |
 | `storyboard` | Frames, style registry (public/private split), image chain, PDF | T008, T026, T027, T082, T093 | Katlego (Tumo for T082, T093) | Claude | ✅ T008 done (PR #27) · ✅ T050 title redaction done (PR #37 design, PR #38 code) · ✅ T052 labels + figure count (PR #42 signatures, PR #43 code) · ✅ T026 the renderer on fal.ai (now FLUX.2 [klein] 4B) and T027 the PDF (merged 2026-10-11, #90–#132) · 🟡 T082 a character's sex from the script (#139 design, #141 code, merged 2026-10-12; Tumo, Claude): its Token Factory measurement to go · 🔵 T093 a He or She with no one drawn, or against everyone drawn (#162 design merged; code `feat/pronouns-t093`; Tumo, Claude) · ✅ T096 a sex noun in the introduction's appositive (#166 design, #168 code; Tumo, Claude) · ✅ T100 a Her or His opening the next sentence (#174 design, #175 code; Tumo, Claude) |
 | `web` | Next.js app: upload → shots → storyboard → comic reader | T009, T053, T043, T046, T044, T047, T040–T042, T045, T024 | Tumo | Claude | ✅ design (docs/design/web.md, PR #24) · ✅ T043 pipeline core (no database, PR #26) · ✅ T044 schemas and view builders (PR #28) · ✅ T009 database foundation (PR #51) · ✅ T053 sign-in, storage, upload (PR #52) · ✅ T046 pipeline as a job (PR #53) · ✅ T047 read endpoints + frames table (PR #55) · ✅ T040 sign-in, projects, upload (PR #64) · ✅ T041 script page (PR #66; design commits from #65, T042 Files fix here) · ✅ compose gives web the publishable pair (PR #67) · ✅ T042 storyboard (PR #69 design, PR #70 code) · ✅ T045 frame sheet (PR #74 design, PR #75 code) · ✅ T061 audit log + "Try another render" (PR #78) · ✅ T024 the comic reader (PR #87; Tumo, Claude) |
-| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021, T083 | Katlego (Tumo for T083) | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · ✅ T062 the architecture check code (PR #82 design, #83 code; Tumo, Claude) · ✅ its live run on the-red-kite (2026-10-09) · 🟡 the browser check of the copy (Tumo) · 🟡 T089 objects, but animals and weapons, and lettering warn (Tumo, Claude: design `docs/objects-warn-t089`) · 🟡 T087 the judge and clothing (Tumo, Claude: measuring) · ✅ T086 age, vehicle parts, unheld food (#147, #148) · 🟡 T083 things the scene names; background objects warn; `recheck` (#137 design, #138 code, merged 2026-10-12; Tumo, Claude): measured on the two runs it was designed on; a held-out script to go · ✅ T094 the rule ladder, T095 the sex agent (#166 design, #167, #168 code; Tumo, Claude) · ✅ T099 the presence agent (#171 design, #172 code; Tumo, Claude) · ✅ T105 Nemotron 3.5 Super VL is every vision call, thinking off (Katlego, Claude: #191 design, #192 code, live 2026-10-17) · 🟡 T097 the head agent: head boxes on a comic panel's accepted frame, no anatomy rule (Katlego, Claude: design `docs/heads-t097`, #170; builds on T095, #168; its migration is 0010, after T104's 0009) · 🟡 T111 the limb agent: a body drawn wrong, labels by eye then measured on Super VL (Katlego, Claude: design `docs/limbs-t111`; claimed 2026-10-17 and told Tumo on #194) |
+| `verify` | Frame audit (vision model describes, Nemotron judges), re-render loop, audit log | T010, T020, T021, T083 | Katlego (Tumo for T083) | Claude | ✅ T010 design done · ✅ T020 done (PR #22) · ✅ T052's audit part (animals as objects, PR #43) · ✅ T021 the API (PR #76 design, #77 code; Tumo, Claude) · ✅ T062 the architecture check code (PR #82 design, #83 code; Tumo, Claude) · ✅ its live run on the-red-kite (2026-10-09) · 🟡 the browser check of the copy (Tumo) · 🟡 T089 objects, but animals and weapons, and lettering warn (Tumo, Claude: design `docs/objects-warn-t089`) · 🟡 T087 the judge and clothing (Tumo, Claude: measuring) · ✅ T086 age, vehicle parts, unheld food (#147, #148) · 🟡 T083 things the scene names; background objects warn; `recheck` (#137 design, #138 code, merged 2026-10-12; Tumo, Claude): measured on the two runs it was designed on; a held-out script to go · ✅ T094 the rule ladder, T095 the sex agent (#166 design, #167, #168 code; Tumo, Claude) · ✅ T099 the presence agent (#171 design, #172 code; Tumo, Claude) · ✅ T105 Nemotron 3.5 Super VL is every vision call, thinking off (Katlego, Claude: #191 design, #192 code, live 2026-10-17) · 🟡 T097 the head agent: head boxes on a comic panel's accepted frame, no anatomy rule (Katlego, Claude: design `docs/heads-t097`, #170; builds on T095, #168; its migration is 0010, after T104's 0009) · 🟡 T111 the limb agent: a body drawn wrong, labels by eye then measured on Super VL (Katlego, Claude: design `docs/limbs-t111`; claimed 2026-10-17 and told Tumo on #194) · ⏸️ T109 the describer's answer capped in its grammar (Tumo, Claude: design #199, reviewed; code not started) — paused, handed off 2026-10-17 · ⏸️ T110 absent characters on Super VL (Tumo, Claude): measured, no change proposed (`eval/measurements/t110/`) — paused, handed off 2026-10-17 |
 | `comic` | Page layout, panel sizing, speech bubbles, comic export | T011, T022, T023 | Katlego | Claude | ✅ T022 done · ✅ T023 done (PR #29; on `PanelFrame` bytes; seeing it on real renders waits on T026, GPU) · ✅ T064/T024 design (PR #85) · ✅ T064 the comic job, store and API (PR #86; Tumo, Claude) · 🟡 T098 bubbles placed by the speaker's head (Katlego, Claude: design `docs/heads-t097`, #170; code after T097) |
 | `characters` | Reference portraits for consistent characters | T012, T025 | | | ✅ T012 design done · T025 waits on T003 |
 | `narration` | Stretch (US5): the comic read aloud by ElevenLabs | T113 | Katlego (the reader's control with Tumo) | Claude | ⬜ T113 designed (`docs/narration-t113`); stretch: after the submission path is safe |
@@ -269,6 +269,8 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
+
+- 2026-10-17 — Tumo (via Claude) — **Handoff raised** (Tumo's break; docs/HANDOFF.md). Done today: § U8's lighthouse rows (#194, Katlego's ask); held-out **rooftop-tomatoes** (main, Super VL) 21 of 21 shown, 11 right / 6 weak / 4 wrong, and **gogos-recipe** (Katlego's `feat/bubbles-t098`) 17 of 17 shown, 8 / 4 / 5, every wrong frame one person drawn twice or an extra person (reports in eval/runs/); **T109 designed** (#199: every Super VL describer `ERROR` is a loop cut off at 4,096 tokens; grammar-only limits end 7 of 7, 10 of 10 others unchanged; reviewed, gate passed); **T110 measured**, no change proposed. **Next:** Tumo's open decisions (HANDOFF.md §4), T109's code. **Blocked on:** Tumo's go-ahead for merges and paid runs.
 
 - 2026-10-17 — Katlego (via Claude) — **T113 designed (stretch, US5):** the comic read aloud by ElevenLabs (Katlego; the team has a subscription): every lettered line byte for byte, voices from the script's sex and age, one call per line cached by text and voice, off without `ELEVENLABS_API_KEY`, capped by `NARRATION_MONTHLY_CHARACTER_CAP`. New lane `narration` (Katlego; the reader's control with Tumo). **Next:** after the submission path. **Blocked on:** nothing.
 - 2026-10-17 — Katlego (via Claude) — **Claimed:** lanes `comic` and `verify` for T097, T098 and T111 (told Tumo on #194, with T109/T110 proposed for his two new items). T111 written: the limb agent, labels by eye first, then measured on Super VL against a bar written before the run (docs/design/limb-agent.md). A double paid run with Tumo's scorer today (about $0.6, discarded): proposed on #194 that every paid run is announced on its PR first. **Next:** T098's live comic (running), then T111's labels. **Blocked on:** nothing.
