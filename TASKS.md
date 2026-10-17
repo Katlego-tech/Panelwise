@@ -653,5 +653,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:Non-negotiable I holds: a different hairstyle (short hair for braids) is still refused; only words for the same style are accepted
       Verify:  bash scripts/gate.sh; `recheck`/`reaudit` on the-red-kite's and one held-out project's stored attempts with Super VL
       Done:    storyboard 4.1 matches LERATO on Super VL, comic 1.1 (short hair) is still refused, recorded in findings § U8
+- [ ] T112 [US3] **Speech tails never cross each other.** Asked by Katlego on 2026-10-17, after T098's live comic: with tails now ending at heads, two speakers whose bubbles sit on the "wrong" sides draw tails that cross. Lane `comic` (Claude for Katlego). Needs T098.
+      Design:  docs/design/comic.md §4 step 7 (the tail rule, the last-resort search), step 8 (one triangle), §6 (`tail_triangle`, `tails_cross`), §8, §9 (T112), §10 (a tail hidden under another bubble: open)
+      Files:   services/api/app/comic/{bubbles,render}.py; services/api/tests/comic/test_t112.py
+      Contract:comic.md §6 verbatim: `tail_triangle(box, tip)` and `tails_cross(a, b)` in bubbles.py (render.py's `_tail_polygon`, `_radius` and `TAIL_BASE` moved there, unchanged); `place_lettering`'s signature and the layout JSON unchanged
+      Verify:  bash scripts/gate.sh (§9's T112 list; the reference pages unchanged, or every changed page looked at); the 2026-10-17 live comic re-lettered from its stored frames (no drawing, no model call: free), its pages looked at
+      Done:    on the live comic's pages no two tails cross except two lines of one speaker meeting at their head; a panel no placement can keep apart still letters (warned in the log); a panel without crossings letters exactly as before
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
