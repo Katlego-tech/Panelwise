@@ -18,7 +18,7 @@ Questions U1–U6 come from the FrameFlow Nebius plan (§3); U7 is Panelwise's o
 | U5 | Is an image-generation model served? | **No.** No model in either host's catalog has an image output modality | Rendering stays on ComfyUI on a Nebius GPU (T003). FrameFlow plan item N8 is dropped |
 | U6 | Sampling for grounded extraction | **Not settled by this probe** — 3 runs at each setting on one short scene all grounded their evidence verbatim | Decide on the full-script baseline in T006. The one failure seen was a *shape* failure under `json_object` (see U1), not a sampling one |
 | U7 | Is a vision model served, and does it take an image in a chat message? | **Yes — but none is NVIDIA.** Every Nemotron model is `text->text` and rejects images. Five non-NVIDIA models accept images and all five read our test image correctly on 2026-09-28; **on 2026-09-30 GLM-5.3-Flash no longer received images** ([re-check](#u7-re-check-2026-09-30)), so the describer is DeepSeek-V4.1-Flash | **Decided 2026-09-28: option A now, B as a stretch** — see [§ The vision decision](#the-vision-decision) |
-| U8 | Is there an NVIDIA vision model now? (2026-10-17) | **Yes: `nvidia/Nemotron-3.5-Super-VL`** (`text+image->text`, listed 12 Oct, released 15 Oct). One probe read a comic page correctly | Not adopted yet: T105 measures it against DeepSeek-V4.1-Flash on stored drawings before it can become the describer ([§ U8](#u8--an-nvidia-vision-model-2026-10-17)) |
+| U8 | Is there an NVIDIA vision model now? (2026-10-17) | **Yes: `nvidia/Nemotron-3.5-Super-VL`** (`text+image->text`, listed 12 Oct, released 15 Oct). One probe read a comic page correctly | **Adopted 2026-10-17 (Katlego):** every vision call is Super VL with thinking off (T105). Measured on the-red-kite: it fits (0 errors, 0.95× tokens, 1.43× median time) and most of the audit carries over; T106–T108 adapt the rest ([§ U8](#u8--an-nvidia-vision-model-2026-10-17)) |
 
 ## Settled configuration
 
@@ -29,7 +29,7 @@ These are the values in [`.env.example`](../.env.example).
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` | U3: every Nemotron model answers here |
 | `NEBIUS_MODEL_FAST` | `nvidia/Nemotron-3_5-Lightning` | 1M context, $0.06 / $0.24 per 1M tokens, 600 RPM; `json_schema` enforced (U1) |
 | `NEBIUS_MODEL_REASONING` | `nvidia/nemotron-3-super-120b-a12b` | 262K context, $0.30 / $0.90, 300 RPM |
-| `NEBIUS_MODEL_VISION` | `deepseek-ai/DeepSeek-V4.1-Flash` | Was `zai-org/GLM-5.3-Flash` (cheapest correct VLM on 2026-09-28) until the [U7 re-check](#u7-re-check-2026-09-30) found it no longer receives images. DeepSeek read real storyboard frames correctly, 3000 RPM. It *describes* frames; Nemotron judges |
+| `NEBIUS_MODEL_VISION` | `nvidia/Nemotron-3.5-Super-VL`, with `NEBIUS_VISION_THINKING=false` | Since 2026-10-17 (T105, § U8; [super-vl-migration.md](super-vl-migration.md)): the first NVIDIA model on Token Factory that takes an image. Before it, `deepseek-ai/DeepSeek-V4.1-Flash`, which was `zai-org/GLM-5.3-Flash` (cheapest correct VLM on 2026-09-28) until the [U7 re-check](#u7-re-check-2026-09-30) found it no longer receives images. DeepSeek read real storyboard frames correctly, 3000 RPM. It *describes* frames; Nemotron judges |
 | `NEBIUS_REASONING_BASE_URL` | removed | U3 |
 
 Other Nemotron models, both served on the default host: `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`
@@ -283,6 +283,72 @@ line 17 of `samples/the-red-kite.fountain` verbatim, in 3.6 s: 3,361 prompt toke
 image) and 395 completion tokens, **367 of them reasoning** (about $0.0014). So it receives images
 on this host (GLM-5.3-Flash stopped doing so in September: § U7 re-check) and reads lettering, and
 it thinks by default.
+
+### U8 measured (2026-10-17, T105)
+
+_Run by Katlego (via Claude) on Katlego's machine: today's `audit_frame` (as `python -m
+app.verify.reaudit` runs it, nothing written, nothing drawn) on every stored attempt of the-red-kite
+project `28a0476c` (2026-10-16, klein, 22 storyboard frames and 22 comic panels, all attempt 1).
+The vision model and its thinking toggle are the only change between runs; the judge is the same
+Nemotron Super. Four attempts at a time. About $0.5 of Token Factory for the three runs._
+
+| | DeepSeek-V4.1-Flash (today) | Super VL, thinking default | Super VL, `NEBIUS_VISION_THINKING=false` |
+|---|---|---|---|
+| Attempts, `ERROR`s | 44, 0 | 44, 0 (one schema answer repaired) | 44, 0 |
+| Raw verdicts (pass / warn / fail) | 4 / 34 / 6 | 3 / 30 / 11 | 8 / 28 / 8 |
+| Hosted verdicts (`drawn_sex,no_character`) | 4 / 40 / 0 | 3 / 41 / 0 | 8 / 36 / 0 |
+| Hard checks failed | `unscripted_person` 5, `unscripted_object` 2 | `unscripted_person` 9, `setting` 1, `unscripted_object` 1 | `unscripted_person` 5, `setting` 2, `unscripted_object` 1 |
+| `text_in_frame` warnings | 6 | 17 | 22 |
+| Tokens (prompt + completion, judge included) | 333,931 (7,589 an attempt) | 399,137 (9,071): **1.20×** | 317,055 (7,206): **0.95×** |
+| Reasoning tokens in that | 82,635 | 147,740 | 62,344 |
+| Seconds an attempt, median / mean | 22.6 / 32.7 | 24.7 / 36.5 | 32.4 / 36.2: **1.43× / 1.11×** |
+
+**Every attempt whose hard checks differ, looked at** (10 of 44; 5 more differ only between pass
+and warn). The drawing first, then who was right:
+
+| Attempt (shot) | The drawing | DeepSeek | VL default | VL thinking off |
+|---|---|---|---|---|
+| comic 1.1 (LERATO on the roof with the kite) | a short-haired child at street level, no kite: **wrong** | warns ✗ | `unscripted_person` ✓ | `unscripted_person` ✓ |
+| comic 1.4 (roof) | Lerato at a roof parapet | ✓ | `setting` "interior" ✗ | `setting` "interior" ✗ |
+| comic 2.2 (workshop) | Mokgosi and Lerato, right | `unscripted_person` ✗ | ✓ | ✓ |
+| comic 4.1 (night street, torch) | Lerato with a torch, right | ✓ | `unscripted_person` ✗ | ✓ |
+| storyboard 1.3 (roof) | Lerato, right | ✓ | `unscripted_person` ✗ | ✓ |
+| storyboard 1.4 (roof, close-up) | Lerato under the eaves, likely exterior | ✓ | ✓ | `setting` "interior" ✗ |
+| storyboard 2.5 (workshop) | Lerato, right | `unscripted_person`, `unscripted_object` ✗ | ✓ | ✓ |
+| storyboard 3.1 (the kite high) | Lerato flying it, right | ✓ | `unscripted_person` ✗ | ✓ |
+| storyboard 4.1 (night street) | Lerato with a torch, right | ✓ | `unscripted_person` ✗ | `unscripted_person` ✗ |
+| storyboard 4.2 (night street) | Lerato, right | ✓ | `unscripted_person` ✗ | ✓ |
+| **Right** | | **7 of 10** | **4 of 10** | **7 of 10** |
+
+**Why they differ:** both models see the same child. Super VL often writes **"pigtails"** where the
+script says "braids tied back", and the judge then refuses the match (`unscripted_person`); with
+thinking off it writes "braided hair" more often. It also reads the scrawled signatures as text
+(`text_in_frame`, a warning: 6 → 22) and twice called a rooftop "interior".
+
+**Fit and translation** ([vision-model.md](design/vision-model.md) §8; Super VL is the target,
+decided by Katlego on 2026-10-17, so the question is fit and how much carries over, not whether it
+beats DeepSeek):
+- **It fits, with thinking off:** 0 `ERROR`s; 0.95× the tokens; 1.43× the median seconds and 1.11×
+  the mean (four at a time from South Africa, where uploads timed out and were retried for both
+  models); and it shows no wrong frame DeepSeek withheld (the two DeepSeek withheld, comic 2.2 and
+  storyboard 2.5, are right frames). **Thinking on doesn't fit:** 4 of 10 disputed checks right,
+  1.20× the tokens.
+- **What carries over**, Super VL with thinking off against DeepSeek, the same 44 attempts:
+
+| Part of the audit | Agrees | What differs |
+|---|---|---|
+| Structured output (strict `json_schema`) | 44 of 44, 0 repairs | — |
+| People described (how many) | 44 of 44 | — |
+| The sex agent (T095) | 51 questions each; 48 of 48 answers on the same people the same | — |
+| The presence agent (T099) | ran on 3 attempts against 2 | — |
+| The judge's matches (person → character) | 36 of 44 the same | 4 real: Super VL right on 3 (comic 1.1, 2.2, storyboard 2.5), DeepSeek on 1 (storyboard 4.1: "pigtails", T108) |
+| Setting | 42 of 44 | a flat roof read `interior` twice (T106) |
+| Light, shot size | 37 of 44 each | soft checks only |
+| Lettering against signature | `has_text` 33 of 44 | text entries 9 → 25, `text_in_frame` 6 → 22: signatures read as text (T107) |
+
+- **Decision (Katlego, 2026-10-17): migrate.** The defaults are Super VL with thinking off (#192);
+  T106, T107 and T108 adapt the three parts that differ; a held-out project (Tumo) checks that
+  there is nothing else. Pitch and plan: [super-vl-migration.md](super-vl-migration.md).
 
 **What this changes:** option B of [§ The vision decision](#the-vision-decision) (an NVIDIA model
 that sees the frame) no longer needs a GPU of our own. **What it doesn't change yet:** the describer
