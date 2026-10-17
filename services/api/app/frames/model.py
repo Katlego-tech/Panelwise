@@ -99,6 +99,9 @@ class FrameAuditRow(Base):
     found: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, default=None)
     # T104: the layout agent's answer, {panels, copies, reason}; None if not asked or before 0009.
     layout: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)
+    # T097: the head agent's kept boxes, [{person, character, box: [x0, y0, x1, y1]}]; None when
+    # not asked (storyboard frames, thrown-away attempts) or before 0010.
+    heads: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, default=None)
     verdict: Mapped[str]
     models: Mapped[list[str]] = mapped_column(JSONB)
     prompt_tokens: Mapped[int]
