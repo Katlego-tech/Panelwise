@@ -544,7 +544,8 @@ checking nothing); **0 false alarms**: 2 of 36, a small sample, the rule generic
 inspector 7.5 isn't among them: its stored extraction gives the bare `FORTUIN` no sex; since T101
 the character is `MR. FORTUIN`, whose title gives the prompt and `character_sex` male, so 7.5 would
 be asked. **The real code** (2026-10-16, `real_t102.py`, the branch's `app/` on the same 77 frames, the
-lighthouse re-grounded with T101 and its shots' names folded): 37 pairs asked, 36 answered (**1 failed**
+lighthouse re-grounded with T101 and its shots' names folded, so 7.5's MR. FORTUIN pair joins the
+prototype's 36): 37 pairs asked, 36 answered (**1 failed**
 at 4,096 tokens, against 6 at 1,024), `DRAWN_SEX` fails on **4 frames**, every one looked at: lighthouse
 7.5 (an old woman for MR. FORTUIN: the L022 case, now caught), sipho-and-siphokazi 2.1 and the
 borrowed-bicycle 4.1 (as above), and the-night-taxi 2.3's second attempt (THABO, the child leaning
@@ -930,8 +931,8 @@ async def find_character(model: NebiusChatModel, image: str, character: str, sho
 #   shot.source, "", "People in the drawing:", "[i] position: appearance" per person or "none";
 #   then the image (a data URL, encoded once per attempt)
 async def _ask_sexes(model, image: str, description, matched, sexes, chats) -> ...   # T099: takes the
-#   (T102 replaces this signature and the order below: see T102 contracts)
 #   data URL audit_frame encoded, not the PNG bytes
+#   (T102 replaces this signature and the order below: see T102 contracts)
 def present_characters(on_screen: Sequence[str], found: Sequence[PersonFound], accepted: Mapping[int, str],
                        description: FrameDescription, ages: Mapping[str, int] | None) -> frozenset[str]: ...
 #   pure: the on_screen characters an answer finds: 0 <= person < len(description.people), not a key of `accepted`
@@ -1199,7 +1200,8 @@ it against the script."*
   off-screen character's name beside a found on-screen character (T099's shape): T095's question, the
   presence agent, T102's question, and `seen` in that order; a malformed judgement asks nothing;
   `check_person` asks with `max_tokens` 4,096; with `drawn_sex` off the ladder the frame is `WARN`
-  (`apply_ladder`); `recheck` on a row with such `seen` and `found` fails `DRAWN_SEX`, and on a row with
+  (`apply_ladder`); `recheck` passes a row's `seen` and `found` to `run_checks` (whose failing is the `run_checks` cases
+  above), and on a row with
   T095's `seen` alone and `found` decides as before. Token Factory: the real code on the 77 stored
   frames gives about §3's numbers, and lighthouse 7.5 replayed with T101's names is asked and
   flagged. Live: the next held-out runs with `AUDIT_WITHHOLD_CHECKS=drawn_sex,no_character`.
