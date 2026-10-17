@@ -62,7 +62,7 @@ def panel_frame(outcome: FrameOutcome, shot: Shot) -> PanelFrame:
             raise ComicError(
                 f"{panel_name(key)} is {outcome.state} without its frame and audit", shot=key
             )
-        return PanelFrame(outcome.frame.png, dict(last.positions), False)
+        return PanelFrame(outcome.frame.png, dict(last.positions), False, heads=last.heads)
     if outcome.state is FrameState.WITHHELD:
         checks = "" if last is None else withheld_checks(last)
         if not checks:

@@ -33,11 +33,13 @@ from app.comic.model import (
 )
 from app.script import Dialogue, Scene, Screenplay, Span, match_speaker
 from app.shots import Shot, ShotPlan
-from app.verify.model import Position
+from app.verify.model import HeadSeen, Position
 
 GRID_COLS, GRID_ROWS = 12, 8
 FONT_SIZES = (32, 28)  # nominal, then the one smaller size; never lower
 SPEAKER_COST = 2.0
+HEAD_COST = 2.0  # T098: a box over anyone's head
+HEAD_MARGIN = 12  # T098: px a head rect grows by, so a tail's tip stops short of the face
 SPEAKER_HEIGHT = Fraction(9, 20)  # a speaker's point is at 45% of the panel height
 SEARCH_LIMIT = 10_000  # candidate placements tried per panel before it fails (comic.md §4 step 7)
 
@@ -140,6 +142,7 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
     if not frame.withheld:
         edges = frame_image(frame.png, (w, h), key).convert("L").filter(ImageFilter.FIND_EDGES)
     positions: Mapping[str, Position] = {} if frame.withheld else frame.positions
+    heads = [] if frame.withheld else [_head_rect(head, w, h) for head in frame.heads]
     ix, iy, iw, ih = x + PADDING, y + PADDING, w - 2 * PADDING, h - 2 * PADDING
     corners = [
         ((row, col), ix + col * iw // GRID_COLS, iy + row * ih // GRID_ROWS)
@@ -161,7 +164,9 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         """Every in-panel spot for a box at a size, cheapest first (ties to the earlier cell);
         order and overlap depend on the boxes before it, so the search checks those."""
         text = texts[index]
-        third = _third(text.speaker, positions, w)
+        # T098: a known head replaces the third
+        known = not frame.withheld and _speaker_head(text.speaker, frame.heads) is not None
+        third = None if known else _third(text.speaker, positions, w)
         bw, bh = box_size(text.text, limit, font_at(layout.FONT_PATH, size))
         costed: list[tuple[float, _Placed]] = []
         for cell, cx, cy in corners:
@@ -169,9 +174,7 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
                 continue  # the heading caption sits at the top-left
             if cx + bw > ix + iw or cy + bh > iy + ih:
                 continue
-            cost = _detail(edges, (cx - x, cy - y, bw, bh))
-            if third is not None and cx - x < third[1] and cx - x + bw > third[0]:
-                cost += SPEAKER_COST
+            cost = _cost(edges, (cx - x, cy - y, bw, bh), third, heads)
             costed.append((cost, _Placed(text, (cx, cy, bw, bh), cell, size)))
         costed.sort(key=lambda pair: pair[0])  # stable: row-major among equal costs
         return [placed for _, placed in costed]
@@ -230,7 +233,13 @@ def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame) -> Pan
         assert text.speaker is not None and text.element is not None
         tail = None  # on a card no one is in the panel, and a tail would cross its lines
         if not (frame.withheld and text.kind is BubbleKind.SPEECH):
-            tail = _tail(text.kind, _position(text.speaker, positions), panel.rect, item.rect)
+            head = None if frame.withheld else _speaker_head(text.speaker, frame.heads)
+            if head is not None and text.kind is BubbleKind.SPEECH:
+                tail = _to_head(
+                    _head_rect(head, panel.rect[2], panel.rect[3]), panel.rect, item.rect
+                )
+            else:
+                tail = _tail(text.kind, _position(text.speaker, positions), panel.rect, item.rect)
         bubbles.append(
             Bubble(
                 text.kind,
@@ -256,6 +265,47 @@ def _tail(kind: BubbleKind, position: Position | None, panel: Rect, box: Rect) -
         return x + w // 2, y + h - 1
     centre = {Position.LEFT: w // 6, Position.CENTRE: w // 2, Position.RIGHT: 5 * w // 6}
     return x + centre[position], y + math.floor(h * SPEAKER_HEIGHT)
+
+
+def _cost(
+    edges: Image.Image | None, box: Rect, third: tuple[int, int] | None, heads: Sequence[Rect]
+) -> float:
+    """comic.md §4 step 7: a panel-relative box's cost: its detail, plus HEAD_COST when it covers
+    any head rect (T098), plus SPEAKER_COST when it overlaps the speaker's third (None: no cost)."""
+    cost = _detail(edges, box)
+    if any(_overlap(box, head) for head in heads):
+        cost += HEAD_COST
+    if third is not None and box[0] < third[1] and box[0] + box[2] > third[0]:
+        cost += SPEAKER_COST
+    return cost
+
+
+def _head_rect(head: HeadSeen, w: int, h: int) -> Rect:
+    """A head's box in panel pixels (T098), grown by HEAD_MARGIN and clipped to the panel."""
+    x0, y0, x1, y1 = head.box
+    left = max(0, math.floor(x0 * w) - HEAD_MARGIN)
+    top = max(0, math.floor(y0 * h) - HEAD_MARGIN)
+    right = min(w, math.ceil(x1 * w) + HEAD_MARGIN)
+    bottom = min(h, math.ceil(y1 * h) + HEAD_MARGIN)
+    return left, top, right - left, bottom - top
+
+
+def _speaker_head(speaker: str | None, heads: Sequence[HeadSeen]) -> HeadSeen | None:
+    """The speaker's head (T098): the head whose character `match_speaker` finds for them."""
+    named = [head for head in heads if head.character is not None]
+    if speaker is None or not named:
+        return None
+    name = match_speaker(speaker, [head.character for head in named if head.character])
+    return next((head for head in named if head.character == name), None)
+
+
+def _to_head(head: Rect, panel: Rect, box: Rect) -> Point:
+    """comic.md §4 step 8 (T098): the point of the speaker's head rect nearest the bubble's
+    centre, in page pixels; inside the panel, as the rect is clipped to it."""
+    x, y, _, _ = panel
+    hx, hy, hw, hh = head
+    cx, cy = box[0] + box[2] // 2, box[1] + box[3] // 2
+    return min(max(cx, x + hx), x + hx + hw - 1), min(max(cy, y + hy), y + hy + hh - 1)
 
 
 def _position(speaker: str | None, positions: Mapping[str, Position]) -> Position | None:

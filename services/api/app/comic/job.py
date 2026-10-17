@@ -37,7 +37,7 @@ from app.script import Screenplay
 from app.shots import Shot
 from app.storage import AssetStore
 from app.verify.loop import MAX_RENDERS, render_until_accepted
-from app.verify.model import Audit, Check, FrameState, Position, RecordingRenderer
+from app.verify.model import Audit, Check, FrameState, HeadSeen, Position, RecordingRenderer
 
 log = logging.getLogger(__name__)
 
@@ -194,7 +194,10 @@ async def _reused(
     if _size(png) != size:
         return None
     positions = {name: Position(value) for name, value in row.positions.items()}
-    return PanelFrame(png, positions, False), row.frame_asset
+    heads = tuple(  # T098: the row's head boxes (T097); None before 0010 or when not asked
+        HeadSeen(item["person"], item["character"], tuple(item["box"])) for item in row.heads or ()
+    )
+    return PanelFrame(png, positions, False, heads=heads), row.frame_asset
 
 
 def _hooks(
