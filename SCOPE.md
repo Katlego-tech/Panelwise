@@ -33,7 +33,7 @@ what was actually shown in [MILESTONES.md](MILESTONES.md).
 | Week 1: foundations | A sample script parses and extracts on Nemotron with faithfulness and recall (T001, T002, T004–T006: done). ComfyUI renders a frame on a Nebius GPU, with its cost per hour and seconds per frame (T003) |
 | Week 2: US1 storyboard | Upload a script in the web app and get a grounded storyboard: one frame per shot in a public style, and a PDF (T007–T009). Design docs for verify and comic merged (T010, T011) |
 | Week 3: US2 audit + US4 portraits | Each frame audited against its shot spec, re-rendered on mismatch within a retry cap, every verdict in a log visible in the app (T020, T021). The same character looks the same across panels (T012, T025) |
-| Week 4: US3 comic + hosted demo | Comic pages with speech bubbles from the script's dialogue, in the reader and as a PDF (T022–T024). The hosted demo is live on Vercel + Railway + Supabase with a seeded judge account and spend caps (T030) |
+| Week 4: US3 comic + hosted demo | Comic pages with speech bubbles from the script's dialogue, in the reader and as a PDF (T022–T024). The hosted demo is live on Vercel + Render + Supabase with a seeded judge account and spend caps (T030) |
 
 After week 4: hardening and eval (T031, T032, T033, T036), then the freeze with the video and the
 submission (T034, T035), by 29 Oct.

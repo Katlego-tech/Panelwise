@@ -18,8 +18,9 @@ that the table below matches what the parser reads.
 
 ## The samples
 
-All three are original, written for this repository by Katlego (via Claude) on 2026-09-30, and
-licensed under Apache-2.0 like the rest of the repo ([LICENSE](../LICENSE)). Place names
+All thirteen are original and licensed under Apache-2.0 like the rest of the repo
+([LICENSE](../LICENSE)): the first three written for this repository by Katlego (via Claude) on
+2026-09-30, the other ten on 2026-10-13 (T090; see [The second set](#the-second-set-t090)). Place names
 (Park Station, Pretoria, Mngazana, Hole in the Wall) are real places; every character and event is
 invented.
 
@@ -28,6 +29,16 @@ invented.
 | [`the-red-kite`](the-red-kite.fountain) | Demo script: a girl, her grandfather and a kite | 5 | 5 | 3 |
 | [`lost-property`](lost-property.fountain) | Larger cast, for recall: one night in a station's lost-property office | 10 | 12 | 11 |
 | [`sipho-and-siphokazi`](sipho-and-siphokazi.fountain) | Deliberately awkward formatting | 6 | 11 | 4 |
+| [`the-night-taxi`](the-night-taxi.fountain) | A taxi driver gets a boy home at night; moving-vehicle headings | 4 | 6 | 4 |
+| [`market-day`](market-day.fountain) | Two rival spice sellers and a flood; dawn to dusk, no scene numbers | 4 | 5 | 3 |
+| [`the-lighthouse-inspector`](the-lighthouse-inspector.fountain) | An inspector, a keeper and a boat adrift; radio V.O., `(CONTINUED)` | 4 | 9 | 4 |
+| [`the-borrowed-bicycle`](the-borrowed-bicycle.fountain) | Two children, a borrowed bicycle with no brakes | 4 | 5 | 4 |
+| [`rooftop-tomatoes`](rooftop-tomatoes.fountain) | A pensioner and a skater share a roof; a two-hander | 4 | 7 | 2 |
+| [`load-shedding`](load-shedding.fountain) | An exam by candlelight; seven speakers in one room | 4 | 5 | 7 |
+| [`gogos-recipe`](gogos-recipe.fountain) | A mother and son learn a grandmother's recipe; a phone V.O. | 4 | 5 | 4 |
+| [`stormwater`](stormwater.fountain) | A dog lost in a storm drain; sequential scene numbers from the source | 4 | 6 | 3 |
+| [`the-choir`](the-choir.fountain) | A new singer learns to blend in; a monologue split with (MORE) / (CONT'D) | 5 | 6 | 5 |
+| [`final-whistle`](final-whistle.fountain) | A girls' soccer final; `SMASH CUT TO:`, `CUT TO:`, a group cue (CROWD) | 4 | 6 | 5 |
 
 Pages include the title page. Scenes and speaking characters are what `parse_pdf` reads, which is
 not always what the source says: see [Parser findings](#parser-findings).
@@ -70,6 +81,32 @@ book. Built to find the parser's edges:
 - `(CONTINUED)` / `CONTINUED:` page furniture, two parentheticals that wrap (three and four lines), a
   shouted all-caps line of dialogue (`NO! THE ROPE!`), a cue typed with `(CONT'D)`, and
   `SMASH CUT TO:`, `MATCH CUT TO:`, `CUT TO BLACK.`
+
+### The second set (T090)
+
+Ten short scripts (three script pages each, four for `the-choir`) written to the conventions of a
+spec screenplay, so the pipeline sees the shape it will see from real writers, not only edge cases:
+
+- **Scene headings** as `INT.` / `EXT.` / `INT./EXT.` + location + a time the parser knows
+  (`DAY`, `NIGHT`, `DAWN`, `DUSK`, `MORNING`, `AFTERNOON`, `EVENING`, `SUNSET`, `CONTINUOUS`,
+  `LATER`, `MOMENTS LATER`); a sub-location after a second dash (`BLOCK OF FLATS - ROOF - DAY`);
+  a new heading for every change of place or time, never a bare `LATER` line.
+- **Action** in the present tense, in paragraphs of at most four lines; a speaking character's
+  name in capitals with an age the first time they appear (`THABO (9)`), and key props in
+  capitals on first sight (`TROPHY`, `MANHOLE COVER`), which is what extraction and the frame
+  prompts lean on.
+- **Dialogue** with short lowercase parentheticals, the standard extensions `(V.O.)` (a radio, a
+  phone) and `(O.S.)`, and one long speech the builder splits across a page (`the-choir`).
+- **Transitions** used sparingly: `FADE IN:` / `FADE OUT.` or `FADE TO BLACK.`, with `SMASH CUT TO:`
+  and `CUT TO:` once each in `final-whistle`.
+- **Page furniture** varied over the set: scene numbers at both edges, none, numbers from the
+  source (`#1#` … in `stormwater`), and `(CONTINUED)` / `CONTINUED:` (`the-lighthouse-inspector`,
+  `load-shedding`).
+
+Every place name (Bree Street, Orlando East, Hillbrow) is a real place; every character and event
+is invented. Each script is one location-light story with clear, drawable props and at most seven
+speakers, so a full storyboard run costs about what `the-red-kite` does. None has had a live run
+yet; their faithfulness and recall numbers belong here once one has.
 
 ## Parser findings
 

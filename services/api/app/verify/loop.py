@@ -10,8 +10,16 @@ from app.grounding import Extraction
 from app.llm import NebiusChatModel
 from app.script import Screenplay
 from app.shots import Shot
-from app.verify.audit import audit_frame, seed_for
-from app.verify.model import Audit, FrameOutcome, FrameState, RenderedFrame, Renderer, Verdict
+from app.verify.audit import apply_ladder, audit_frame, seed_for
+from app.verify.model import (
+    Audit,
+    Check,
+    FrameOutcome,
+    FrameState,
+    RenderedFrame,
+    Renderer,
+    Verdict,
+)
 
 MAX_RENDERS = 3  # the first render and two re-renders (verify.md §4, k = 2)
 
@@ -31,6 +39,7 @@ async def render_until_accepted(
     first_attempt: int = 1,
     log: Callable[[Audit], Awaitable[None]],
     on_state: Callable[[FrameState, int], Awaitable[None]] | None = None,
+    withholding: frozenset[Check] | None = None,
 ) -> FrameOutcome:
     """Attempts `first_attempt` .. `first_attempt + max_renders - 1`, each seeded `seed_for(shot,
     attempt)`. `on_state` is awaited on every §5 transition, before the new state's work. A renderer
@@ -56,6 +65,7 @@ async def render_until_accepted(
             raise
         await enter(FrameState.AUDITING, attempt)
         audit = await audit_frame(model, frame, shot, screenplay, extraction)
+        audit = apply_ladder(audit, withholding)  # T094: off the ladder, a hard check warns
         await log(audit)
         audits.append(audit)
         if (accepted := _ACCEPTED.get(audit.verdict)) is not None:

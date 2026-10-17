@@ -14,6 +14,12 @@
 #   bash scripts/gate.sh --changed-files <path>   # sweep only the paths listed in <path>
 #   bash scripts/gate.sh --list                   # print what it would run, run nothing
 #   bash scripts/gate.sh --install-deps           # install every project's deps (CI uses this)
+#   bash scripts/gate.sh --stage python|node|repo  # one stage only (CI runs the three at once)
+#
+# Stages: python (each Python project's ruff, pyright and pytest, with the test Postgres), node
+# (each Node project's lint, test and build), repo (the placeholder and secret sweeps, the
+# vulnerability scan, the duplication check and the image builds). With no --stage, all three,
+# one after the other -- the pre-push hook. A stage that runs zero checks fails, as the gate does.
 #
 # Exit codes: 0 = every applicable check ran and passed. 1 = something failed, or a
 # check that should have run could not run. There is deliberately no third state --
@@ -47,13 +53,18 @@ cd "$root"
 changed_files_list=""
 list_only=0
 install_only=0
+stage=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --changed-files) changed_files_list="${2:-}"; shift 2 ;;
     --list)          list_only=1; shift ;;
     --install-deps)  install_only=1; shift ;;
-    -h|--help)       sed -n '2,36p' "$0"; exit 0 ;;
+    --stage)
+      stage="${2:-}"; shift 2
+      case "$stage" in python|node|repo) ;; *) echo "gate.sh: --stage is python, node or repo, not '$stage'" >&2; exit 2 ;; esac
+      ;;
+    -h|--help)       sed -n '2,42p' "$0"; exit 0 ;;
     *) echo "gate.sh: unknown argument '$1'" >&2; exit 2 ;;
   esac
 done
@@ -631,6 +642,56 @@ duplication_check() {
   rm -f "$out"
 }
 
+# ------------------------------------------------------------------ image ---
+# The API is deployed from its Dockerfile, built by the host from main (docs/design/deploy.md
+# §6, *The image*, T068). A Dockerfile that no longer builds, or an image missing a module the
+# app imports, would otherwise be found only there, after the merge. So each project directory
+# with a Dockerfile is built here, with that directory as the context (as compose builds it), and
+# the image is started once to import the app. One check per Dockerfile; Docker is required.
+image_dirs() {
+  # Python projects only: the web's Dockerfile serves compose, and Vercel builds the web itself.
+  while IFS= read -r dir; do
+    [ -f "$dir/Dockerfile" ] && is_python_project "$dir" && printf '%s
+' "$dir"
+  done < <(project_dirs)
+}
+
+# Run in the image (deploy.md §6, *The image*): the app imports, and the files it reads at run time
+# are there, the public styles included (T063).
+IMAGE_PROBE='import pathlib, app.main
+from app.comic.layout import FONT_PATH
+from app.storyboard.styles import PUBLIC_STYLES, load_styles
+for need in (FONT_PATH, pathlib.Path("alembic.ini"), pathlib.Path("migrations/env.py")):
+    assert need.is_file(), f"missing in the image: {need}"
+load_styles(PUBLIC_STYLES, None)'
+
+image_check() {
+  local dir="$1" rel="$2" tag err
+  step "image build ($rel)"
+  ran=$((ran + 1))
+  if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+    bad "Docker is needed to build the API's image ($rel/Dockerfile): start Docker."
+    bad "   A check that did not run is a failed check."
+    fail=1
+    return 0
+  fi
+  tag="panelwise-gate/$(basename "$dir" | tr '[:upper:]' '[:lower:]'):check"
+  err="$(mktemp)"
+  if ! docker build -q -t "$tag" "$dir" >/dev/null 2>"$err"; then
+    bad "$rel/Dockerfile doesn't build:"
+    tail -n 25 "$err" | sed 's/^/     /'
+    fail=1
+  elif ! docker run --rm --entrypoint .venv/bin/python "$tag" -c "$IMAGE_PROBE" >/dev/null 2>"$err"; then
+    bad "$rel's image builds, but the app doesn't import or a file it reads is missing:"
+    tail -n 25 "$err" | sed 's/^/     /'
+    fail=1
+  else
+    say "   built $tag; app.main imports; the font, alembic.ini, migrations and the public styles are in it"
+  fi
+  docker image rm -f "$tag" >/dev/null 2>&1 || true
+  rm -f "$err"
+}
+
 # ---------------------------------------------------------------- install ---
 # CI installs dependencies by calling `gate.sh --install-deps`, so the installer walks
 # exactly the directories project_dirs() lists and uses exactly the package manager
@@ -728,11 +789,14 @@ start_test_postgres() {
 }
 
 # ------------------------------------------------------------------ run -----
-say "== gate: $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD) =="
+# Whether this run includes a stage: every stage when --stage is not given.
+want() { [ -z "$stage" ] || [ "$stage" = "$1" ]; }
+
+say "== gate: $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD)${stage:+ (stage $stage)} =="
 
 # Once, before the per-project checks, so every pyrun subshell inherits TEST_DATABASE_URL; never
 # for --list or --install-deps.
-if [ "$install_only" -eq 0 ] && [ "$list_only" -eq 0 ]; then
+if [ "$install_only" -eq 0 ] && [ "$list_only" -eq 0 ] && want python; then
   while IFS= read -r dir; do
     if is_python_project "$dir"; then
       step "test Postgres"
@@ -748,8 +812,10 @@ while IFS= read -r dir; do
   if [ "$install_only" -eq 1 ]; then
     install_deps "$dir" "$rel"
   else
-    check_python      "$dir" "$rel"
-    check_node        "$dir" "$rel"
+    # A stage skips another stage's checks but still counts its manifests, so "no project
+    # manifest" and "zero checks ran" mean the same in a stage as in the whole gate.
+    if want python; then check_python "$dir" "$rel"; elif is_python_project "$dir"; then manifests=$((manifests + 1)); fi
+    if want node; then check_node "$dir" "$rel"; elif [ -f "$dir/package.json" ]; then manifests=$((manifests + 1)); fi
     collect_lockfiles "$dir" "$rel"
   fi
 done < <(project_dirs)
@@ -771,20 +837,29 @@ if [ "$list_only" -eq 1 ]; then
     command -v osv-scanner >/dev/null 2>&1 || say "   (osv-scanner not on PATH -- would FAIL)"
     say "-> would run: duplication check (jscpd $JSCPD_VERSION, threshold $DUPLICATION_THRESHOLD%)"
     command -v npx >/dev/null 2>&1 || say "   (npx not on PATH -- would FAIL)"
+    while IFS= read -r dir; do
+      say "-> would run: image build (${dir#"$root"/})"
+      command -v docker >/dev/null 2>&1 || say "   (docker not on PATH -- would FAIL)"
+    done < <(image_dirs)
   fi
   say ""
   say "(--list: no checks were run. $manifests project manifest(s) found.)"
   exit 0
 fi
 
+if want repo; then
 placeholder_sweep
 secret_sweep
+fi
 
 # Both look at the whole repo rather than one project, so they run once, and only once
 # there is a project to look at.
-if [ "$manifests" -gt 0 ]; then
+if [ "$manifests" -gt 0 ] && want repo; then
   [ "${#LOCKFILES[@]}" -gt 0 ] && vuln_scan
   duplication_check
+  while IFS= read -r dir; do
+    image_check "$dir" "${dir#"$root"/}"
+  done < <(image_dirs)
 fi
 
 # --- the two ways a gate lies about being green ----------------------------
@@ -821,5 +896,5 @@ if [ "$fail" -ne 0 ]; then
 fi
 
 say ""
-say "== gate passed ($ran check(s) run across $manifests project(s)) =="
+say "== gate passed ($ran check(s) run across $manifests project(s))${stage:+ in stage $stage} =="
 exit 0

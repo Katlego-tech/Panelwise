@@ -4,6 +4,8 @@ The describer's schema has no field for a name: it can only say what it sees. Th
 nothing but index calls and verbatim support, which code checks (verify.md §8).
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.verify.model import Light, ObjectCategory, ObjectKind, Position, Setting, ShotSize
@@ -27,6 +29,14 @@ class FrameDescription(BaseModel):
     shot_size: ShotSize
     objects: list[SeenObject]
     has_text: bool = Field(description="Whether any text, letters or numbers appear in the image")
+    text: list[str] = Field(
+        description=(
+            "Each piece of writing you can read, word for word; none for marks you can't read"
+        )
+    )
+    signature: bool = Field(
+        description="Whether a signature, initials or an artist's mark appears, readable or not"
+    )
 
 
 class PersonCall(BaseModel):
@@ -49,3 +59,17 @@ class ObjectCall(BaseModel):
 class Judgement(BaseModel):
     people: list[PersonCall]
     objects: list[ObjectCall]
+
+
+class PersonCheck(BaseModel):
+    """The sex agent's answer (T095): how one person is drawn, from the drawing alone."""
+
+    sex: Literal["male", "female", "unclear"]
+
+
+class Presence(BaseModel):
+    """The presence agent's answer (T099): which numbered described person is the character,
+    or None, and a short reason."""
+
+    person: int | None
+    reason: str

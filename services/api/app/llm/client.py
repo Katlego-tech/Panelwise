@@ -23,6 +23,9 @@ type Message = dict[str, Any]
 
 _RETRYABLE = frozenset({429, 500, 502, 503, 504})
 _MAX_RETRY_AFTER_S = 30.0
+_FIRST_BACKOFF_S = 2.0
+# A hung model is not an outage that passes: the second read timeout ends the call (T075).
+_MAX_READ_TIMEOUTS = 2
 _THINK_BLOCK = re.compile(r"^\s*<think>.*?</think>", re.DOTALL)
 
 
@@ -85,17 +88,21 @@ class NebiusChatModel:
         base_url: str,
         models: Mapping[Tier, str],
         timeout_s: float = 120.0,
-        max_attempts: int = 3,
+        connect_timeout_s: float = 10.0,
+        max_attempts: int = 5,
         transport: httpx2.AsyncBaseTransport | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        on_usage: Callable[[ChatResult], Awaitable[None]] | None = None,
     ) -> None:
         self._models = dict(models)
+        # T069 (limits.md §6): awaited after each answer, to count the month's tokens.
+        self.on_usage = on_usage
         self._max_attempts = max_attempts
         self._sleep = sleep
         self._client = httpx2.AsyncClient(
             base_url=base_url.rstrip("/"),
             headers={"Authorization": f"Bearer {api_key}"},
-            timeout=timeout_s,
+            timeout=httpx2.Timeout(timeout_s, connect=connect_timeout_s),
             transport=transport,
         )
 
@@ -112,6 +119,7 @@ class NebiusChatModel:
                 Tier.VISION: settings.nebius_model_vision,
             },
             timeout_s=settings.llm_request_timeout_s,
+            connect_timeout_s=settings.llm_connect_timeout_s,
             max_attempts=settings.llm_max_attempts,
         )
 
@@ -146,14 +154,25 @@ class NebiusChatModel:
             body["chat_template_kwargs"] = {"enable_thinking": think}
 
         data = await self._post(body, model)
-        return _to_result(data, model, tier)
+        try:
+            result = _to_result(data, model, tier)
+        except LLMEmptyResponse:
+            # Billed all the same (a reasoning call can spend max_tokens thinking): count it.
+            if self.on_usage is not None:
+                answered = str(data.get("model") or model)
+                await self.on_usage(ChatResult("", answered, tier, _usage(data), None))
+            raise
+        if self.on_usage is not None:
+            await self.on_usage(result)
+        return result
 
     async def aclose(self) -> None:
         await self._client.aclose()
 
     async def _post(self, body: dict[str, Any], model: str) -> dict[str, Any]:
-        backoff = 1.0
+        backoff = _FIRST_BACKOFF_S
         status: int | None = None
+        read_timeouts = 0
         for attempt in range(1, self._max_attempts + 1):
             delay = backoff
             try:
@@ -161,6 +180,12 @@ class NebiusChatModel:
             except httpx2.TransportError as exc:
                 status = None
                 logger.warning("%s: %s (attempt %d)", model, type(exc).__name__, attempt)
+                if isinstance(exc, httpx2.ReadTimeout):
+                    read_timeouts += 1
+                    if read_timeouts >= _MAX_READ_TIMEOUTS:
+                        raise LLMRequestError(
+                            f"{model}: gave up after {read_timeouts} read timeouts", None
+                        ) from None
             else:
                 status = response.status_code
                 if status == 200:
@@ -177,7 +202,7 @@ class NebiusChatModel:
                 logger.warning("%s: HTTP %d (attempt %d)", model, status, attempt)
 
             if attempt < self._max_attempts:
-                await self._sleep(delay)
+                await self._sleep(min(delay, _MAX_RETRY_AFTER_S))
                 backoff *= 2
         reason = f"HTTP {status}" if status is not None else "network error"
         raise LLMRequestError(
@@ -224,16 +249,16 @@ def _to_result(data: dict[str, Any], requested: str, tier: Tier) -> ChatResult:
             )
         raise LLMEmptyResponse(f"{model} returned no content (finish_reason={finish_reason}).")
 
+    return ChatResult(
+        content=content, model=model, tier=tier, usage=_usage(data), finish_reason=finish_reason
+    )
+
+
+def _usage(data: dict[str, Any]) -> Usage:
     usage: dict[str, Any] = data.get("usage") or {}
     details: dict[str, Any] = usage.get("completion_tokens_details") or {}
-    return ChatResult(
-        content=content,
-        model=model,
-        tier=tier,
-        usage=Usage(
-            prompt_tokens=usage.get("prompt_tokens") or 0,
-            completion_tokens=usage.get("completion_tokens") or 0,
-            reasoning_tokens=details.get("reasoning_tokens") or 0,
-        ),
-        finish_reason=finish_reason,
+    return Usage(
+        prompt_tokens=usage.get("prompt_tokens") or 0,
+        completion_tokens=usage.get("completion_tokens") or 0,
+        reasoning_tokens=details.get("reasoning_tokens") or 0,
     )

@@ -30,7 +30,7 @@ WEB_MD = Path(__file__).resolve().parents[4] / "docs" / "design" / "web.md"
 
 @dataclass(frozen=True)
 class Shape:
-    kind: Literal["object", "list", "dict", "enum", "prim"]
+    kind: Literal["object", "list", "dict", "enum", "prim", "tuple"]
     nullable: bool = False
     fields: tuple[tuple[str, Shape], ...] = ()
     item: Shape | None = None
@@ -98,6 +98,13 @@ class TypeScript:
         (only,) = alternatives
         if only.endswith("[]"):
             return Shape("list", nullable, item=self.shape(only[:-2]))
+        if only.startswith("[") and only.endswith("]"):  # a fixed-length tuple: [number, number]
+            items = split_top(only[1:-1], ",")
+            return Shape(
+                "tuple",
+                nullable,
+                fields=tuple((str(i), self.shape(t)) for i, t in enumerate(items)),
+            )
         if only.startswith("{"):
             return Shape("object", nullable, fields=self.fields(only[1:-1]))
         if only in self.interfaces:
@@ -135,6 +142,14 @@ def compare(annotation: Any, shape: Shape, where: str) -> None:
         assert list(inner.model_fields) == doc_names, f"{where}: {list(inner.model_fields)}"
         for name, field_shape in shape.fields:
             compare(inner.model_fields[name].annotation, field_shape, f"{where}.{name}")
+    elif shape.kind == "tuple":
+        assert get_origin(inner) is tuple, f"{where}: {inner} for a TypeScript tuple"
+        items = get_args(inner)
+        assert len(items) == len(shape.fields), (
+            f"{where}: {len(items)} items, doc {len(shape.fields)}"
+        )
+        for item, (i, item_shape) in zip(items, shape.fields, strict=True):
+            compare(item, item_shape, f"{where}[{i}]")
     elif shape.kind == "list":
         assert get_origin(inner) is list, where
         assert shape.item is not None
@@ -177,6 +192,10 @@ def test_the_doc_s_typescript_was_read() -> None:
         "CheckView",
         "AuditView",
         "FrameView",
+        "LetteringView",
+        "ComicPanelView",
+        "ComicPageView",
+        "ComicView",
     }
 
 
@@ -204,6 +223,17 @@ def test_the_comparison_catches_a_primitive_type_difference() -> None:
 
     with pytest.raises(AssertionError):
         compare(Wrong, TS.interface("SpanRef"), "SpanRef")
+
+
+def test_the_comparison_reads_a_tuple_item_by_item() -> None:
+    rect = dict(TS.interface("LetteringView").fields)["rect"]
+    assert (rect.kind, len(rect.fields)) == ("tuple", 4)
+
+    class Short(BaseModel):
+        rect: tuple[int, int, int]
+
+    with pytest.raises(AssertionError, match="3 items, doc 4"):
+        compare(Short.model_fields["rect"].annotation, rect, "rect")
 
 
 def test_the_comparison_reads_a_record_s_value_union() -> None:

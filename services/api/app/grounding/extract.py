@@ -33,7 +33,12 @@ SYSTEM_PROMPT = (
     "copied from one of its quotes; otherwise species is null. Whenever the screenplay gives a "
     "character or a prop a name of its own besides the one you list it under -- a nickname, or "
     "a name someone gives a pet, a toy or a vehicle, even if only in dialogue -- put that name "
-    "in the entity's other_names, copied exactly; otherwise leave other_names empty."
+    "in the entity's other_names, copied exactly; otherwise leave other_names empty. "
+    "For a character who is a person, give in sex_word one word the screenplay writes about this "
+    "character that shows whether they are female or male -- she, he, her, his, or a noun such as "
+    "woman, girl, man, boy or fisherman -- copied exactly, best from one of its quotes from an "
+    "action paragraph that names this character and no one else; null only when the screenplay "
+    "never shows it. Never guess: copy only a word the screenplay writes about them."
 )
 
 

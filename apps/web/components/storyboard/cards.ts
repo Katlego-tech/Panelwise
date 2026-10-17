@@ -33,6 +33,9 @@ const CHECKS: Record<string, string> = {
   missing_character: "missing character",
   light: "light",
   framing: "framing",
+  signature: "artist's signature",
+  no_character: "no character in frame",
+  background_object: "unscripted background",
   audit_error: "the audit couldn't run",
 };
 
@@ -99,11 +102,12 @@ export function cardState(frame: FrameView | undefined): CardState {
         };
       }
       const audit = frame.audits.at(-1);
-      const soft = (audit?.checks ?? []).filter((c) => c.severity === "soft" && !c.ok);
+      // Every failed check: with the rule ladder (T094) a hard one off it is shown, not withheld.
+      const failed = (audit?.checks ?? []).filter((c) => !c.ok);
       return {
         media,
         verdict: { tone: "warn", label: "Passed with a warning" },
-        notes: soft.map((c) => `${sentence(checkWords(c.check))}: ${c.detail}`),
+        notes: failed.map((c) => `${sentence(checkWords(c.check))}: ${c.detail}`),
       };
     }
   }

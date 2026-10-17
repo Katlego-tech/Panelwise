@@ -3,9 +3,10 @@ reads it, T021 writes it). The only source of `FrameView`."""
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, UniqueConstraint, func
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,6 +14,13 @@ from app.db import Base
 
 FRAME_STATES = ("rendering", "auditing", "passed", "warned", "withheld", "failed")
 ACCEPTED = ("passed", "warned")  # the only states that may reference an image
+
+
+class AuditTarget(StrEnum):
+    """Which frame an audit row is about (verify.md §6): the storyboard's, or a comic panel."""
+
+    STORYBOARD = "storyboard"
+    COMIC = "comic"
 
 
 class FrameRow(Base):
@@ -58,15 +66,24 @@ class FrameAuditRow(Base):
             "verdict IN ('pass', 'warn', 'fail', 'error')", name="frame_audits_verdict"
         ),
         CheckConstraint("attempt >= 1", name="frame_audits_attempt"),
+        CheckConstraint("target IN ('storyboard', 'comic')", name="frame_audits_target"),
         # one row per attempt of a frame; also the index a frame's attempts are read by
         UniqueConstraint(
-            "project_id", "scene_index", "shot_number", "attempt", name="frame_audits_frame"
+            "project_id",
+            "target",
+            "scene_index",
+            "shot_number",
+            "attempt",
+            name="frame_audits_frame",
         ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
+    target: Mapped[str] = mapped_column(
+        default=AuditTarget.STORYBOARD.value, server_default=text("'storyboard'")
+    )
     scene_index: Mapped[int]
     shot_number: Mapped[int]
     attempt: Mapped[int]
@@ -76,6 +93,10 @@ class FrameAuditRow(Base):
     judgement: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     checks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
     positions: Mapped[dict[str, str]] = mapped_column(JSONB)
+    # T095: the sex agent's answers, [{person, character, sex}]; None on rows before 0007.
+    seen: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, default=None)
+    # T099: the presence agent's answers, [{character, person, reason}]; None before 0008.
+    found: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, default=None)
     verdict: Mapped[str]
     models: Mapped[list[str]] = mapped_column(JSONB)
     prompt_tokens: Mapped[int]

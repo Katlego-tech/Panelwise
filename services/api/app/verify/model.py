@@ -69,6 +69,10 @@ class Check(StrEnum):
     MISSING_CHARACTER = auto()
     LIGHT = auto()
     FRAMING = auto()
+    SIGNATURE = auto()  # T077: soft
+    NO_CHARACTER = auto()  # T080: hard
+    BACKGROUND_OBJECT = auto()  # T083: soft
+    DRAWN_SEX = auto()  # T095: hard
 
 
 class Severity(StrEnum):
@@ -142,6 +146,28 @@ class Audit:
     positions: dict[str, Position]
     models: tuple[str, ...]
     usage: Usage
+    seen: tuple[PersonSeen, ...] = ()  # T095: the sex agent's answers
+    found: tuple[PersonFound, ...] = ()  # T099: the presence agent's answers
+
+
+@dataclass(frozen=True)
+class PersonSeen:
+    """The sex agent's answer about one matched person (T095): the described person's index,
+    the character they were accepted as, and male, female or unclear."""
+
+    person: int
+    character: str
+    sex: str
+
+
+@dataclass(frozen=True)
+class PersonFound:
+    """The presence agent's answer about one drawn character (T099): the described person
+    it is, or None, and why."""
+
+    character: str
+    person: int | None
+    reason: str
 
 
 @dataclass(frozen=True)

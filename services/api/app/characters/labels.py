@@ -20,6 +20,19 @@ _PERSON, _ANIMAL, _PROP, _IT = range(4)
 def animals(extraction: Extraction) -> dict[str, str]:
     """Character name -> species, for every animal: its own species, or a species-less entry
     (a cue backfill, a second spelling) that `match_speaker` binds to an animal's name."""
+    # Asked per shot and per character; held by identity like _scene_words, a copy returned.
+    entry = _animals_cache[0] if _animals_cache else None
+    if entry is not None and entry[0] is extraction:
+        return dict(entry[1])
+    found = _find_animals(extraction)
+    _animals_cache[:] = [(extraction, found)]
+    return dict(found)
+
+
+_animals_cache: list[tuple[Extraction, dict[str, str]]] = []
+
+
+def _find_animals(extraction: Extraction) -> dict[str, str]:
     characters = [e for e in extraction.entities if e.kind is EntityKind.CHARACTER]
     own = {e.name: e.species for e in characters if e.species}
     out: dict[str, str] = {}
