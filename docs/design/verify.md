@@ -546,7 +546,8 @@ checking nothing); **0 false alarms**: 2 of 36, a small sample, the rule generic
 inspector 7.5 isn't among them: its stored extraction gives the bare `FORTUIN` no sex; since T101
 the character is `MR. FORTUIN`, whose title gives the prompt and `character_sex` male, so 7.5 would
 be asked. **The real code** (2026-10-16, `real_t102.py`, the branch's `app/` on the same 77 frames, the
-lighthouse re-grounded with T101 and its shots' names folded): 37 pairs asked, 36 answered (**1 failed**
+lighthouse re-grounded with T101 and its shots' names folded, so 7.5's MR. FORTUIN pair joins the
+prototype's 36): 37 pairs asked, 36 answered (**1 failed**
 at 4,096 tokens, against 6 at 1,024), `DRAWN_SEX` fails on **4 frames**, every one looked at: lighthouse
 7.5 (an old woman for MR. FORTUIN: the L022 case, now caught), sipho-and-siphokazi 2.1 and the
 borrowed-bicycle 4.1 (as above), and the-night-taxi 2.3's second attempt (THABO, the child leaning
@@ -588,13 +589,17 @@ guards) are never vetoed (they are no character); only the prompt's "people who 
 … are not copies" guards them, one more reason the ladder entry is Tumo's call. **Every target:**
 `audit_frame` audits storyboard frames and comic panels alike (`loop.py`, and `reaudit.py` and
 `run.py` for measuring), so comic panels get the question and both checks too. Both are **hard**, so they withhold only when on the ladder
-(`AUDIT_WITHHOLD_CHECKS`, T094); whether the demo's ladder takes them is Tumo's call (suggested:
-`drawn_sex,no_character,split_panels,drawn_twice`). A withheld frame is redrawn: a new seed, a new
-layout. **Never an ERROR:** a failed question (an `LLMError` or `ValidationError`) leaves `layout`
+(`AUDIT_WITHHOLD_CHECKS`, T094). **The hosted ladder** (Katlego, 2026-10-17, #190):
+`drawn_sex,no_character,split_panels`: a split withholds (23 of 23 flags real), a copy warns (5
+real and 1 wrong anyway after the veto, recall unmeasured); `render.yaml` takes it with T104's code,
+since `withholding` refuses a check name the running code doesn't know. A withheld frame is
+redrawn: a new seed, a new layout; on the hosted ladder about 5.7% of attempts are split, some
+shots on every attempt (lost-property 11.5 split on all three), so they end withheld. **Never an ERROR:** a failed question (an `LLMError` or `ValidationError`) leaves `layout`
 None, is logged, and both checks pass. **Cost:** about 1,400 tokens a question, asked on about
 two thirds of attempts (332 of 511 had two or more people): about 15,000–24,000 tokens a storyboard
 of 17–26 attempts (limits.md §3: its audit is 130,000–175,000, so about +12–14%), the same again
-for its comic, against `LLM_MONTHLY_TOKEN_CAP`; and, when on the ladder, each withheld frame is one
+for its comic: about 30,000–48,000 a storyboard and comic, +9–14% on the 339,000 deploy.md §6
+sizes `LLM_MONTHLY_TOKEN_CAP` by (about 370,000–387,000 each, about 7 a month instead of 8); and, when on the ladder, each withheld frame is one
 more attempt, a drawing (the image budget, T030) and its audit. **Old rows:** a row from before T104
 has no `layout`, so `recheck` can't measure the new checks on it (both pass), as for a sex found
 later. **Migration:** 0009, unless Katlego's T097 (#170, design only, which was to take 0009) lands
@@ -996,8 +1001,8 @@ async def find_character(model: NebiusChatModel, image: str, character: str, sho
 #   shot.source, "", "People in the drawing:", "[i] position: appearance" per person or "none";
 #   then the image (a data URL, encoded once per attempt)
 async def _ask_sexes(model, image: str, description, matched, sexes, chats) -> ...   # T099: takes the
-#   (T102 replaces this signature and the order below: see T102 contracts)
 #   data URL audit_frame encoded, not the PNG bytes
+#   (T102 replaces this signature and the order below: see T102 contracts)
 def present_characters(on_screen: Sequence[str], found: Sequence[PersonFound], accepted: Mapping[int, str],
                        description: FrameDescription, ages: Mapping[str, int] | None) -> frozenset[str]: ...
 #   pure: the on_screen characters an answer finds: 0 <= person < len(description.people), not a key of `accepted`
@@ -1300,7 +1305,8 @@ it against the script."*
   questions) asks once for two or more described people, after the other agents, none for one
   person, none for a malformed judgement, sends the prompt and the numbered people with the image at
   4,096 tokens, stores `layout`, counts the tokens, and a failed question leaves `layout` None and
-  the verdict no `ERROR`; a comic panel's audit (target comic) asks it too; `FrameWriter.log` writes `layout`; `recheck` passes the row's `layout` (NULL
+  the verdict no `ERROR`; a comic panel's audit asks it too (comic panels share `audit_frame` through
+  `loop.py`, pinned by `audit_frame` taking no target); `FrameWriter.log` writes `layout`; `recheck` passes the row's `layout` (NULL
   as None); migration 0009 upgrades and downgrades (`test_the_models_match_the_migrations`). Token
   Factory: the real code on the 332 stored frames gives about §3's numbers. Live: the next held-out
   runs.
@@ -1321,7 +1327,8 @@ it against the script."*
   off-screen character's name beside a found on-screen character (T099's shape): T095's question, the
   presence agent, T102's question, and `seen` in that order; a malformed judgement asks nothing;
   `check_person` asks with `max_tokens` 4,096; with `drawn_sex` off the ladder the frame is `WARN`
-  (`apply_ladder`); `recheck` on a row with such `seen` and `found` fails `DRAWN_SEX`, and on a row with
+  (`apply_ladder`); `recheck` passes a row's `seen` and `found` to `run_checks` (whose failing is the `run_checks` cases
+  above), and on a row with
   T095's `seen` alone and `found` decides as before. Token Factory: the real code on the 77 stored
   frames gives about §3's numbers, and lighthouse 7.5 replayed with T101's names is asked and
   flagged. Live: the next held-out runs with `AUDIT_WITHHOLD_CHECKS=drawn_sex,no_character`.
