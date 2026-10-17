@@ -2,6 +2,20 @@
 
 **Script → storyboard → comic, grounded in the screenplay at every step.**
 
+## Problem
+
+A storyboard is how a director shows everyone what the film will look like before a single day
+is shot, and on a small production it is often the first thing cut, because it takes an artist,
+time and money. Image models could draw it, but they invent: ask for "a kitchen at night" and you
+get a third person or a window that isn't in the scene, and a storyboard that shows the crew
+something the writer never wrote is worse than none. So the cost Panelwise measures is that
+invention: every panel must trace to a verbatim span of the script
+([PLAN.md](PLAN.md) Non-negotiable I), and faithfulness, recall and the audit's results are
+reported as numbers ([§ Measured results](#measured-results)). The persona and scope:
+[SCOPE.md](SCOPE.md).
+
+## Solution
+
 Panelwise turns a screenplay into a shot-by-shot storyboard and then into a comic book. Every panel
 traces back to a verbatim span of the script. NVIDIA Nemotron on Nebius Token Factory extracts the
 characters, props and locations and plans the shots. Code then checks every quote the model gives
@@ -10,19 +24,45 @@ on fal.ai, a vision model describes it, and Nemotron audits that description aga
 frame that fails a check that withholds is re-rendered, and after the last try it is withheld,
 never shown. Which checks withhold is a setting; on the hosted demo it is two of the five hard
 checks, and a frame that fails one of the other three is shown with a warning naming it
-([§ How it works](#how-it-works)).
+([§ How it works](#architecture)).
 
 Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/)
 (Best Apps and Agents track). Panelwise builds on FrameFlow, an earlier private project by the same
 team: [CHANGES-FROM-FRAMEFLOW.md](CHANGES-FROM-FRAMEFLOW.md) says what was ported and what is new.
 
-## What works today
+## Demo
+
+The 3-minute video is linked here once it is recorded (T034). The live demo:
+
+| Piece | Where |
+| --- | --- |
+| Web app | https://panelwise.vercel.app (Vercel, functions in `fra1`) |
+| API | https://panelwise-api.onrender.com (Render, plan `1c-2g`, Frankfurt, from the [`render.yaml`](render.yaml) Blueprint) |
+| Data | Supabase: Postgres via the session pooler, a private Storage bucket, Auth |
+
+- **Sign-up is off.** Judges get a shared login in Devpost's testing instructions, never in the
+  repo. The account and a ready-made copy of the sample project are made by
+  `python -m app.demo.seed` (T069); seeding it on the hosted stack is T030, still to do.
+- **Limits** ([docs/design/limits.md](docs/design/limits.md), deploy.md §6): 3 uploads a day per
+  account, 15 pages a script, 2,800,000 Token Factory tokens a month (`LLM_MONTHLY_TOKEN_CAP`) and
+  800 drawings a month (`IMAGE_MONTHLY_GENERATION_CAP`). At a cap, new work is refused with a
+  message; a job already running finishes.
+- **Migrations** run in the API image's start command before uvicorn, on Render and in compose
+  alike; an API that can't reach its database exits instead of serving.
+- **Keep-alive:** [`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml) pings the
+  API's health check every 10 minutes; a failed run is our uptime alert.
+
+Setup, step by step: [docs/deploy.md](docs/deploy.md); the design:
+[docs/design/deploy.md](docs/design/deploy.md).
+
+## What's real and what's mocked
+
 
 As of 2026-10-17, on `main`:
 
 | Stage | State | Try it |
 | --- | --- | --- |
-| Parse a screenplay PDF into scenes, action and dialogue, each with its page and line span | built | [§ Run it](#run-it) |
+| Parse a screenplay PDF into scenes, action and dialogue, each with its page and line span | built | [§ Run it](#how-to-run-it) |
 | Grounded extraction on Nemotron: characters, props, locations, every quote located in the script | built, measured | `app.grounding.run` |
 | Shot planning on Nemotron: every action paragraph and speech in exactly one shot | built, measured | `app.shots.run` |
 | Frame prompts from the shot's own script words, names redacted | built | `app.storyboard.prompts` |
@@ -31,13 +71,19 @@ As of 2026-10-17, on `main`:
 | The re-render loop: up to 3 drawings a frame, withheld after the last; every attempt and its audit kept (T021) | built, run live | the storyboard's frame sheet |
 | The storyboard PDF (T027) | built | *Export PDF* on the storyboard |
 | The comic: panels drawn and audited at their own size, laid out by shot, dialogue lettered verbatim, a reader and a PDF (T022, T023, T064, T024) | built, run live on real renders | *Make the comic* on a project's comic tab |
-| Web app: sign-in, the projects list with upload and each job's live state, the script page (every entity with its quotes and spans, faithfulness and recall), the storyboard (the script with a line over each shot's span beside a board of frame cards), the frame sheet with the audit log of every attempt and "Try another render", the comic reader | built, run live on Supabase (T040–T042, T045, T061, T024) | `docker compose up --build --wait`, then `localhost:3000` ([§ Run it](#run-it)) |
-| The hosted demo: web on Vercel, API on Render, Supabase for Postgres, Storage and Auth | up since 2026-10-16, health checks green; still to do: the judge account and the first storyboard drawn on the hosted stack (T030, T037) | [§ The hosted demo](#the-hosted-demo) |
+| Web app: sign-in, the projects list with upload and each job's live state, the script page (every entity with its quotes and spans, faithfulness and recall), the storyboard (the script with a line over each shot's span beside a board of frame cards), the frame sheet with the audit log of every attempt and "Try another render", the comic reader | built, run live on Supabase (T040–T042, T045, T061, T024) | `docker compose up --build --wait`, then `localhost:3000` ([§ Run it](#how-to-run-it)) |
+| The hosted demo: web on Vercel, API on Render, Supabase for Postgres, Storage and Auth | up since 2026-10-16, health checks green; still to do: the judge account and the first storyboard drawn on the hosted stack (T030, T037) | [§ The hosted demo](#demo) |
 | Not built: reference portraits for consistent characters (T025); ComfyUI on a Nebius GPU (T003, optional since fal.ai); the audit's precision and recall on a labelled set (T049) | — | — |
 
 [STATUS.md](STATUS.md) is the live board. The order of what's left is in its *Next action* section.
 
-## How it works
+**Mocked:** nothing on the demo's path. Every stage above calls the real service: Token Factory,
+fal.ai, Supabase. Stand-ins exist only in tests (a fake renderer, an in-memory store, scripted model
+answers, so the gate needs no network) and in one developer check, `python -m app.comic.check`,
+which lays out a comic with a sketch renderer instead of fal.ai.
+
+## Architecture
+
 
 ```mermaid
 flowchart LR
@@ -100,7 +146,8 @@ a verbatim source span.** It is enforced in code after each model call, not aske
   frames are test fixtures, labelled as such, so the gate can compare the page pixel for pixel. In the app the frames are klein's drawings.</sub>
 </p>
 
-## How Nemotron and Token Factory are used
+## Sponsor Technologies Deployed
+
 
 Every model call goes to **Nebius Token Factory**'s OpenAI-compatible API, through one client
 (`services/api/app/llm`). Before writing any code we measured what the service actually does, with
@@ -136,6 +183,7 @@ Details that came out of measuring rather than reading the docs:
   comic of the-red-kite took 339,000 tokens and 44 drawings (2026-10-16, [STATUS.md](STATUS.md)).
 
 ## Measured results
+
 
 ### Extraction and shot planning
 
@@ -181,30 +229,8 @@ Not measured: the audit's precision and recall on a labelled set (T049). Its lab
 on a renderer we dropped; the run reports and `python -m app.verify.recheck` (today's checks re-run
 on stored audits, free) measure it for now.
 
-## The hosted demo
+## How to run it
 
-| Piece | Where |
-| --- | --- |
-| Web app | https://panelwise.vercel.app (Vercel, functions in `fra1`) |
-| API | https://panelwise-api.onrender.com (Render, plan `1c-2g`, Frankfurt, from the [`render.yaml`](render.yaml) Blueprint) |
-| Data | Supabase: Postgres via the session pooler, a private Storage bucket, Auth |
-
-- **Sign-up is off.** Judges get a shared login in Devpost's testing instructions, never in the
-  repo. The account and a ready-made copy of the sample project are made by
-  `python -m app.demo.seed` (T069); seeding it on the hosted stack is T030, still to do.
-- **Limits** ([docs/design/limits.md](docs/design/limits.md), deploy.md §6): 3 uploads a day per
-  account, 15 pages a script, 2,800,000 Token Factory tokens a month (`LLM_MONTHLY_TOKEN_CAP`) and
-  800 drawings a month (`IMAGE_MONTHLY_GENERATION_CAP`). At a cap, new work is refused with a
-  message; a job already running finishes.
-- **Migrations** run in the API image's start command before uvicorn, on Render and in compose
-  alike; an API that can't reach its database exits instead of serving.
-- **Keep-alive:** [`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml) pings the
-  API's health check every 10 minutes; a failed run is our uptime alert.
-
-Setup, step by step: [docs/deploy.md](docs/deploy.md); the design:
-[docs/design/deploy.md](docs/design/deploy.md).
-
-## Run it
 
 You need Python 3.14 with [uv](https://docs.astral.sh/uv/), and a Nebius Token Factory API key.
 Docker is needed for the local stack and the full gate (its database tests start their own
@@ -261,11 +287,41 @@ The samples: thirteen self-written screenplays in [`samples/`](samples/README.md
 and PDF. `the-red-kite` is the demo script; the ten of the second set (T090) are ordinary spec
 scripts, used as held-out scripts for the audit.
 
+## Baseline and dependencies
+
+**Baseline:** the repository was created inside the event from the Cultivation-kit scaffold,
+template only: commit `7d5277d` (2026-09-27), recorded in [event.toml](event.toml) `[provenance]`.
+Everything after it was built during the event. Code ported from FrameFlow, the team's earlier
+private project, is disclosed file by file in [CHANGES-FROM-FRAMEFLOW.md](CHANGES-FROM-FRAMEFLOW.md).
+
+**Dependencies** (pinned; the full list in [PLAN.md](PLAN.md) § Technical Context):
+
+| Piece | Version / service |
+| --- | --- |
+| API | Python 3.14 (`python:3.14.7-slim-trixie`), FastAPI, SQLAlchemy 2 async, Alembic, Pillow; uv 0.11.32 |
+| Web | Node 24.21.0 LTS, Next.js 16.3.8, shadcn/ui; pnpm 11.10.0 |
+| Database | Postgres 17.11 (Supabase in production, `postgres:17.11-trixie` locally and in the gate) |
+| Models | NVIDIA Nemotron and a vision model on Nebius Token Factory ([§ Sponsor Technologies Deployed](#sponsor-technologies-deployed)) |
+| Images | FLUX.2 [klein] 4B on fal.ai |
+| Hosting | Vercel (web), Render (API), Supabase (Postgres, Storage, Auth) |
+
 ## Feedback on Nebius Token Factory and NVIDIA Nemotron
+
 
 ⟨TBD: written by the team.⟩
 
+## Team
+
+| Member | Role |
+| --- | --- |
+| Katlego Thapelo Tlhapiso ([@Katlego-tech](https://github.com/Katlego-tech)) | project leader |
+| Tumo Olorato Mogame ([@TUMO-MOGAME](https://github.com/TUMO-MOGAME)) | co-builder |
+
+Both work with AI coding assistants (Claude; Gemini too for Katlego), coordinated through
+[STATUS.md](STATUS.md) and [AGENTS.md](AGENTS.md) ([§ How we work](#how-we-work)).
+
 ## Repository layout
+
 
 | Path | What |
 | --- | --- |
@@ -282,6 +338,7 @@ Full tree: [docs/project-structure.md](docs/project-structure.md).
 
 ## How we work
 
+
 This repo uses the Cultivation kit. [AGENTS.md](AGENTS.md) holds the rules,
 [STATUS.md](STATUS.md) the live board and [TASKS.md](TASKS.md) the backlog. Every push runs
 `scripts/gate.sh`: ruff, pyright, pytest (database tests on a throwaway Postgres 17.11), eslint and
@@ -289,5 +346,6 @@ tsc, vitest, next build, the API image build, and placeholder, secret, vulnerabi
 scans.
 
 ## License
+
 
 [Apache 2.0](LICENSE). The sample screenplays are original and under the same licence.
