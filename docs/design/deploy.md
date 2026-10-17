@@ -6,7 +6,10 @@
 **API host changed 2026-10-08 by Katlego: Railway → Render** (§8, §11). Nothing had been deployed to
 Railway (T037's deploy check was still blocked on accounts), so the change is configuration and
 docs only: no data, domain or running service moves. **Render plan changed 2026-10-11 by Katlego:
-Free → `0.5c-512mb`** (paid, called Starter before Render's 26 Aug 2026 rename; §8, §11)
+Free → `0.5c-512mb`** (paid, called Starter before Render's 26 Aug 2026 rename; §8, §11). **Plan
+changed 2026-10-16 by Katlego: `0.5c-512mb` → `1c-2g`** (the memory check, §9: 506 MiB at its peak);
+the API is created on Render as soon as both money caps have figures (§6); Render bills at the end
+of the month for the seconds a service ran (~$13 for the rest of October)
 
 ---
 
@@ -20,7 +23,7 @@ ComfyUI on a Nebius GPU kept as an optional backend (T003).
 | Piece | Runs on | Why |
 |---|---|---|
 | Web app (`apps/web`, Next.js 16) | **Vercel** | Next.js's native host; preview deploy per PR |
-| API (`services/api`, FastAPI) | **Render** (a Docker web service, plan `0.5c-512mb`, Frankfurt), from `services/api/Dockerfile` | extraction runs for minutes; it needs a real container, not a serverless function |
+| API (`services/api`, FastAPI) | **Render** (a Docker web service, plan `1c-2g`, Frankfurt), from `services/api/Dockerfile` | extraction runs for minutes; it needs a real container, not a serverless function |
 | Database | **Supabase Postgres** | hosted Postgres; the SQLAlchemy + asyncpg code is unchanged |
 | Images (frames, portraits, comic pages) | **Supabase Storage** | PLAN's "content-addressed file store", hosted |
 | Sign-in, seeded judge account | **Supabase Auth** | T030 needs a judge login in the testing instructions |
@@ -103,9 +106,10 @@ healthy on `/api/v1/health` within 15 minutes → Render cancels it and keeps th
 running; a failed migration exits the container before uvicorn starts, so it is never healthy and
 the deploy is cancelled the same way (§6 *Who runs migrations*). The paid plan never spins down
 (Free's 15-minute idle sleep and its restarts "at any time" were why it was dropped, §8). **Out of
-memory:** `0.5c-512mb` has 512 MB; a job that needs more gets the process killed and restarted, and
-the restart sweep (web.md §4.1) fails the jobs that were running. T063's Verify measures this
-before the first deploy (§9), and `1c-2g` is the step up. **New with Render:** it keeps checking a running instance,
+memory:** `1c-2g` has 2 GB; a job that needs more gets the process killed and restarted, and
+the restart sweep (web.md §4.1) fails the jobs that were running. T063's check (§9) measured the API
+at 413–422 MiB between jobs once it has made a comic and 506 MiB at its peak, so `0.5c-512mb` had no
+room for a storyboard and a comic at once; 2 GB has room for both. **New with Render:** it keeps checking a running instance,
 stops routing to it after 15 s of failed checks and restarts it after 60 s. Because our health
 check includes Postgres, a Supabase outage over a minute restarts the API, and the restart sweep
 (web.md §4.1) fails the jobs that were running. Accepted (§8): those jobs can't write their
@@ -140,6 +144,9 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `FAL_KEY` | API only, secret | fal.ai's key; unset, no renderer (storyboard.md §3.5, T026) |
 | `FAL_MODEL`, `FAL_TIMEOUT_S`, `FAL_CONCURRENCY` | API | default `fal-ai/flux-2/klein/4b` (2026-10-11), 60 s, 2 (storyboard.md §3.5) |
 | `LLM_MONTHLY_TOKEN_CAP`, `UPLOADS_PER_DAY`, `UPLOAD_MAX_PAGES` | API only | the hosted demo's limits (limits.md, T069); unset or blank: off |
+| `IMAGE_MONTHLY_GENERATION_CAP` | API only | drawings a month (limits.md §4, T030); unset or blank: off |
+| `AUDIT_WITHHOLD_CHECKS` | API | which failed hard checks withhold a frame (verify.md §3, T094): `all` (the code default), empty, or a comma list; **hosted: `drawn_sex,no_character`** (Tumo, 2026-10-15; T030) |
+| `RENDER_MAX_ATTEMPTS`, `UPLOAD_MAX_BYTES` | API | drawings per frame, 1–3 (default 3); the upload size in bytes (default 4,000,000) |
 | `JUDGE_EMAIL`, `JUDGE_PASSWORD` | local only | the judge seed (`python -m app.demo.seed`, limits.md §4); never the hosted API's environment |
 | `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget, default 55 (storyboard.md §3.1, T008) |
 | `PANELWISE_PRIVATE_STYLES` | API, optional | a directory of private style TOMLs outside the repo; **never set on the hosted demo** (storyboard.md §3.2, T008) |
@@ -158,7 +165,7 @@ services:
   - type: web
     name: panelwise-api
     runtime: docker
-    plan: 0.5c-512mb
+    plan: 1c-2g
     region: frankfurt
     rootDir: services/api
     dockerfilePath: ./Dockerfile
@@ -182,9 +189,21 @@ services:
         sync: false
       - key: FAL_KEY
         sync: false
+      # The hosted demo's settings (T030): decided, so written here.
+      - key: AUDIT_WITHHOLD_CHECKS
+        value: drawn_sex,no_character
+      - key: UPLOADS_PER_DAY
+        value: "3"
+      - key: UPLOAD_MAX_PAGES
+        value: "15"
+      # The two money caps (limits.md §10): figures entered in the dashboard, recorded below.
+      - key: LLM_MONTHLY_TOKEN_CAP
+        sync: false
+      - key: IMAGE_MONTHLY_GENERATION_CAP
+        sync: false
 ```
 
-Validated against render.com/schema/render.yaml.json on 2026-10-08 (`0.5c-512mb` is in its `serverPlan` enum, checked 2026-10-11). What each line holds us to:
+Validated against render.com/schema/render.yaml.json on 2026-10-08 (`1c-2g` is in its `serverPlan` enum, checked 2026-10-16). What each line holds us to:
 - `region: frankfurt` — the nearest Render region to the Supabase project (eu-west-1, Ireland), so
   the API keeps the 2 s health timeout.
 - `rootDir` + `dockerContext: .` — the build context is `services/api`, as the Dockerfile's `COPY`
@@ -192,8 +211,8 @@ Validated against render.com/schema/render.yaml.json on 2026-10-08 (`0.5c-512mb`
 - `autoDeployTrigger: checksPass` — a push to `main` deploys only after its GitHub checks (the gate,
   `ci.yml`) pass; `buildFilter` paths are relative to the repository root, so a web-only or docs-only
   change doesn't redeploy the API.
-- `plan: 0.5c-512mb` — paid, always on (§8); the new ID rather than the legacy `starter`, so the
-  file reads like the dashboard. The image's own start command runs the migration before uvicorn
+- `plan: 1c-2g` — paid, always on, 1 CPU and 2 GB (§8, the memory check in §9); the new ID rather
+  than the legacy `standard`, so the file reads like the dashboard. The image's own start command runs the migration before uvicorn
   (*Who runs migrations*); no `dockerCommand`, so Render, compose and a plain `docker run` start the
   API the same way.
 - `numInstances: 1` — jobs run in the API process (web.md §3), so one instance owns them, and no
@@ -202,7 +221,20 @@ Validated against render.com/schema/render.yaml.json on 2026-10-08 (`0.5c-512mb`
   ignores the Dockerfile's `HEALTHCHECK` (compose still uses it).
 - Every other setting has a default in `app/core/config.py` (`NEBIUS_MODEL_*`, `LLM_*`,
   `SUPABASE_STORAGE_BUCKET=panelwise`, `UPLOAD_MAX_BYTES`, `FAL_MODEL`, `RENDER_MAX_ATTEMPTS`), so
-  only the five secrets are listed. T030 adds the cap figures here (limits.md's settings, T069).
+  only the five secrets and T030's settings are listed. **T030:** `AUDIT_WITHHOLD_CHECKS`,
+  `UPLOADS_PER_DAY` and `UPLOAD_MAX_PAGES` carry their decided values; the two money caps are
+  `sync: false`, entered when the Blueprint is applied, and their figures go here once decided
+  (limits.md §10): `LLM_MONTHLY_TOKEN_CAP` = **2,800,000** (Katlego, 2026-10-16: 30% of the $18 left
+  on Token Factory, $5.40, over the three months the cap counts, Oct to Dec, is $1.80 a month; a
+  storyboard and its comic measured 339,000 tokens, at most $0.19 at DeepSeek-V4.1-Flash's
+  $0.30/$1.20 per million, the dearest model the API calls; less one job's room),
+  `IMAGE_MONTHLY_GENERATION_CAP` = **800** (Katlego, 2026-10-16, from Tumo's fal balance: $5.35
+  left, $10 loaded at the end of October for November and $5 at the end of November for December;
+  about $8 of a month's money for the demo, 1,000 drawings at $0.004, less one job with re-renders,
+  ~150, rounded down. The token cap binds first in an ordinary run: ~8 storyboards and comics,
+  ~350 drawings at 44 each. Each top-up lands before its month starts: at $0 on fal, drawing stops
+  whatever the cap says). **Never deploy
+  with either blank:** blank is off, an uncapped bill.
 
 **Keep-alive** (`.github/workflows/keepalive.yml`, T063), exactly:
 
@@ -366,7 +398,7 @@ too:
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
 | API host | **Render**, Docker web service (Katlego, 2026-10-08) | Railway (chosen 2026-09-29, never deployed): its config-as-code is deprecated and dies 2026-12-01, inside the demo's life, so its settings would live only in a dashboard, and its price is usage-based; Nebius VM: more setup, not covered by credit; the GPU box: couples API uptime to the GPU (Katlego, 2026-09-29) |
-| Render plan | **`0.5c-512mb`**, paid, ~$7/month (Katlego, 2026-10-11: the team will pay for hosting) | Free (chosen 2026-10-08 under a $0 budget): spins down after 15 idle minutes (~1 minute to wake, a judge's first sight a 502), "might restart a Free web service at any time", 0.1 CPU for Pillow's page work, and 744 of a workspace's 750 free hours; `1c-2g` (~$25/month, 2 GB): only if the memory check (§9) fails at 512 MB |
+| Render plan | **`1c-2g`**, paid, ~$25/month (Katlego, 2026-10-16, after the memory check, §9; paid plans since 2026-10-11: the team will pay for hosting) | `0.5c-512mb` (~$7/month, chosen 2026-10-11): the check put the API at 506 MiB of 512 at its peak and ~415 MiB between jobs, so a storyboard (~150 MiB) beside a comic would be killed, failing every running job. Free (chosen 2026-10-08 under a $0 budget): spins down after 15 idle minutes (~1 minute to wake, a judge's first sight a 502), "might restart a Free web service at any time", 0.1 CPU for Pillow's page work, and 744 of a workspace's 750 free hours |
 | Migrations on Render | in the Dockerfile's `CMD`, before uvicorn (compose uses the same `CMD`) | a pre-deploy command (possible on the paid plan): with one instance it buys nothing (a failed migration already leaves the new deploy unhealthy and Render keeps the old one, §4), and it would take the local stack's start out of step with Render's; by hand from a laptop: easy to forget, and a deploy could start against an old schema |
 | Keep-alive ping | kept on the paid plan, every 10 minutes | dropped with Free: it is our only uptime alert, and the activity that keeps a free Supabase project from pausing; an external uptime service: another account, outside the repo |
 | Vercel function region | `fra1`, beside the API (Hobby allows one) | `iad1`, the default: every server-side call to the API crosses the Atlantic and back; `dub1` (beside Supabase): the web's server talks to the API far more than to Supabase Auth |
@@ -395,11 +427,28 @@ message broker, as before.
   public styles. **Memory, before paying for a plan:** `docker compose` with the API limited to
   `--memory=512m --cpus=0.5`, the-red-kite uploaded and run to its storyboard and its comic, the
   container never OOM-killed (`docker inspect … .State.OOMKilled` false) and its peak in
-  `docker stats` recorded here; over 512 MB → `1c-2g`.
+  `docker stats` recorded here; over 512 MB → `1c-2g`. (Evidence so far, 2026-10-15: the local
+  stack has run every live storyboard since 2026-10-13 with the API at `mem_limit: 512m`, 11
+  scripts, none OOM-killed; the comic at 512 MB and the 0.5 CPU limit are still unchecked.)
+  **Run 2026-10-16** (Katlego, Claude; compose on `3b9fc99` with the API at `mem_limit: 512m`, no
+  swap, `cpus: 0.5`, `AUDIT_WITHHOLD_CHECKS=drawn_sex,no_character`; the-red-kite, klein, 3 attempts;
+  memory from the cgroup's `memory.peak` and the process's `VmRSS`/`VmHWM`): the storyboard 22 of 22
+  accepted in 4½ min, peak 153 MiB; the comic (22 panels drawn) 7 min, peak 403 MiB; four comic
+  re-runs (no drawings, no tokens) 95–177 s each, the process at **413–422 MiB between jobs and
+  506 MiB at its peak**, the container at its 512 MiB limit 61 times during the second, never
+  OOM-killed. CPU sat at the 0.5 cap; jobs still finished in minutes. Spend: 44 drawings, 339,000
+  tokens (229,761 prompt, 100,506 completion in the audits). **Verdict: `1c-2g`** (Katlego): 512 MB
+  held one job at a time, but a storyboard beside a comic would not fit.
 - T037 done means deployed: the Render URL answers `/api/v1/health` `ok` against Supabase, the
   service log shows `alembic upgrade head` before uvicorn starts, the Vercel URL's `/api/health`
   answers 200 through it, and with `API_HEALTH_URL` set a manual run of `keep-alive` passes. That needs Katlego's Render and Vercel accounts, so the task is **blocked on accounts** until
   they exist, and says so.
+- **T030:** `render.yaml` still validates with the new `envVars`; before the first hosted upload,
+  Render's dashboard shows both money caps set to the figures recorded in §6 (nothing checks this in
+  code: a blank cap is off, so it is a step in the deploy, read back by eye);
+  the judge seed run once against the hosted Supabase (Tumo's go-ahead), the judge signed in on
+  the Vercel URL, the copied storyboard open; one upload as the judge runs to its storyboard on the
+  hosted stack with `drawn_sex,no_character`; `event.toml`'s `demo` set to the Vercel URL.
 
 ## 10. Open questions
 
@@ -424,7 +473,7 @@ message broker, as before.
 | Region | EU (to be picked) | `frankfurt` |
 | Deploy trigger | every push to `main` | a push to `main` that touches `services/api/**`, after its checks pass |
 | `PORT` | set by Railway | 10000, set by Render; the Dockerfile reads it either way |
-| Price | trial credit, then usage-based | `0.5c-512mb`, ~$7/month (Free until 2026-10-11) |
+| Price | trial credit, then usage-based | `1c-2g`, ~$25/month (Free until 2026-10-11, `0.5c-512mb` until 2026-10-16) |
 
 Unchanged: the Dockerfile's build, every environment variable's name and meaning, Vercel, Supabase,
 the web app's `API_URL` contract (only its value's domain changes). Nothing ran on Railway, so there

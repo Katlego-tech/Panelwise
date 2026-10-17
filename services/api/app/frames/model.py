@@ -95,6 +95,8 @@ class FrameAuditRow(Base):
     positions: Mapped[dict[str, str]] = mapped_column(JSONB)
     # T095: the sex agent's answers, [{person, character, sex}]; None on rows before 0007.
     seen: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, default=None)
+    # T099: the presence agent's answers, [{character, person, reason}]; None before 0008.
+    found: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, default=None)
     verdict: Mapped[str]
     models: Mapped[list[str]] = mapped_column(JSONB)
     prompt_tokens: Mapped[int]

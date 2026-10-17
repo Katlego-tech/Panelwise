@@ -15,6 +15,7 @@ export const RETRY_COPY = {
   unavailable: "Rendering isn't available right now.",
   failed: "That didn't start. Try again in a minute.",
   budgetSpent: "The demo has used this month's model budget.", // T069
+  imagesSpent: "The demo has drawn this month's budget of frames.", // T030
 } as const;
 
 export function RetryButton({
@@ -59,6 +60,7 @@ export function RetryButton({
       }
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
       if (res.status === 429 && body?.error === "llm_budget_spent") setError(RETRY_COPY.budgetSpent);
+      else if (res.status === 429 && body?.error === "image_budget_spent") setError(RETRY_COPY.imagesSpent);
       else setError(res.status === 503 && body?.error === "renderer_unavailable" ? RETRY_COPY.unavailable : RETRY_COPY.failed);
     } catch {
       setError(RETRY_COPY.failed);

@@ -28,7 +28,7 @@ from app.llm import Usage
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.model import ProjectRow
 from app.verify.audit import apply_ladder, run_checks, shot_ages, shot_sexes
-from app.verify.model import Audit, Check, PersonSeen, Severity, Verdict
+from app.verify.model import Audit, Check, PersonFound, PersonSeen, Severity, Verdict
 from app.verify.reaudit import Reaudit, line, summary
 from app.verify.schema import FrameDescription, Judgement
 
@@ -101,6 +101,15 @@ async def recheck(
                 for s in row.seen or ()
             ),
             sexes=shot_sexes(shot, screenplay, extraction, character_sex),
+            # T099: the stored answers; a row before 0008 has none, so the judge alone.
+            found=tuple(
+                PersonFound(
+                    str(f["character"]),
+                    None if f["person"] is None else int(f["person"]),
+                    str(f["reason"]),
+                )
+                for f in row.found or ()
+            ),
         )
         laddered = apply_ladder(
             Audit(

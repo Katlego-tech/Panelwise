@@ -26,3 +26,5 @@ Find a project by its id, never by its title: two uploads of one script share a 
 | 2026-10-13 | market-day (held out, T090) | klein, 3 attempts, after T092 + T093 | 0 of 15 | 44 | [report](2026-10-13-market-day.md) |
 | 2026-10-13 | market-day, second run (not held out) | klein, 3 attempts, branch `feat/audit-warn-only`: no rule withholds | 16 of 17 | 17 | [report](2026-10-13-market-day-2.md) |
 | 2026-10-13 | load-shedding, second run (not held out) | klein, 3 attempts, branch `feat/sex-agent`: only `drawn_sex` withholds (T094, T095, T096) | 18 of 18 | 19 | [report](2026-10-13-load-shedding-2.md) |
+| 2026-10-14 | the-lighthouse-inspector (held out, T090) | klein, 3 attempts, main after T099: `drawn_sex,no_character` withhold | 26 of 26 | 26 | [report](2026-10-14-the-lighthouse-inspector.md) |
+| 2026-10-14 | the-borrowed-bicycle (held out, T090) | klein, 3 attempts, main after T099: `drawn_sex,no_character` withhold | 18 of 18 | 19 | [report](2026-10-14-the-borrowed-bicycle.md) |

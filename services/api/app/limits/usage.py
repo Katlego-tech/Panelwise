@@ -1,5 +1,6 @@
 """What the hosted demo has spent (docs/design/limits.md §3, §4, §6; T069): Token Factory tokens per
-calendar month (UTC), and an owner's uploads in the last 24 hours."""
+calendar month (UTC), and an owner's uploads in the last 24 hours; T030: drawings per month, read
+from the audit log."""
 
 import logging
 import uuid
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
+from app.frames.model import FrameAuditRow
 from app.llm import ChatResult
 from app.projects.model import ProjectRow
 
@@ -62,6 +64,18 @@ async def tokens_this_month(session: AsyncSession) -> int:
     month = this_month(datetime.now(UTC))
     found = await session.scalar(select(LlmUsageRow.tokens).where(LlmUsageRow.month == month))
     return found or 0
+
+
+async def drawings_this_month(session: AsyncSession) -> int:
+    """The drawings logged this UTC month, storyboard and comic (T030): every drawing the API pays
+    for is audited and every audit is logged, so the log is the count. A floor: a safety redraw
+    is one row, and a restart between a drawing and its log leaves none (limits.md §4)."""
+    first = this_month(datetime.now(UTC))
+    since = datetime(first.year, first.month, 1, tzinfo=UTC)
+    count = await session.scalar(
+        select(func.count()).select_from(FrameAuditRow).where(FrameAuditRow.created_at >= since)
+    )
+    return count or 0
 
 
 async def uploads_today(session: AsyncSession, owner: uuid.UUID) -> int:

@@ -149,6 +149,14 @@ describe("the comic page's states (comic-states.png)", () => {
     expect(screen.getByRole("button", { name: COMIC_COPY.make })).toBeEnabled();
   });
 
+  it("Make the comic over the demo's drawings says so (T030)", async () => {
+    render(<ComicPage project={done} view={view()} />);
+    fetchMock.mockResolvedValueOnce(Response.json({ error: "image_budget_spent" }, { status: 429 }));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: COMIC_COPY.make })));
+    expect(screen.getByRole("alert")).toHaveTextContent("The demo has drawn this month's budget of frames.");
+    expect(screen.getByRole("button", { name: COMIC_COPY.make })).toBeEnabled();
+  });
+
   it.each([
     [503, { error: "renderer_unavailable" }, "disabled"],
     [500, { error: "boom" }, "failed"],

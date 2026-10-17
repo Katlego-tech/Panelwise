@@ -65,3 +65,11 @@ class PersonCheck(BaseModel):
     """The sex agent's answer (T095): how one person is drawn, from the drawing alone."""
 
     sex: Literal["male", "female", "unclear"]
+
+
+class Presence(BaseModel):
+    """The presence agent's answer (T099): which numbered described person is the character,
+    or None, and a short reason."""
+
+    person: int | None
+    reason: str

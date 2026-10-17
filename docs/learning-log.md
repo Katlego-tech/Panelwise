@@ -16,6 +16,89 @@ it before changing the prompt or the audit; add to it after every live run.
 
 ---
 
+### L023 · A girl the script says is a girl, drawn as a boy all through: her sex was in a "Her" · open
+
+- **Seen:** 2026-10-14, the-borrowed-bicycle (held out), [run report](../eval/runs/2026-10-14-the-borrowed-bicycle.md):
+  **18 of 18** shown in 19 drawings (`no_character` withheld 1.4's first attempt; its redraw was
+  shown). Every drawing looked at: NALEDI (12) is drawn as a boy in about 11 frames (1.1, 1.2, 1.3,
+  2.1, 2.3, 3.1, 3.2, 4.1, 4.3, 5.1, 5.2; 1.4's redraw unclear). The extraction gave her no sex, so
+  every prompt said "a 12-year-old" and klein drew a boy in dungarees; the sex agent had no script
+  sex to check. **4.2** ("They sit up, brown from head to toe") drew a naked muscular adult man
+  beside the bicycle: no figure in the prompt (a plural "They" resolves to no one), klein invented
+  him, the judge called him a stranger, and `unscripted_person` is off the ladder, so it was only
+  warned. Right: 2.2 (the shopkeeper and his newspaper), 3.3 (the puddle), Mr. Kekana in his church
+  suit and feathered hat (5.2), 5.4; 5.1 has extra children; 5.5 an empty yard for a line.
+- **Cause:** every sign of Naledi's sex is a "her": "NALEDI (12), dungarees, scraped knees, stares at
+  it. **Her** little brother TSHEPO (8) …" and "Tshepo sits on the carrier behind **her**, arms
+  around **her** waist". `introduced_sex` reads only the introducing sentence and its look; the
+  evidence code (T088/T091) chains a next sentence only when it opens with He or She, and no sentence
+  opening with "Naledi" holds a pronoun.
+- **Action:** T100 (storyboard.md §3.1): a sentence that opens with a possessive Her or His right
+  after a character's introducing sentence gives that character's sex, only when the introducing
+  sentence holds no other person (named, a sex noun, a person noun, or a him/her/his/them). Measured free on the labels of the 10 labelled scripts with a sample file: **1 candidate (NALEDI), 1 right, 0
+  wrong**. Separately, a plural "They" with the shot's own people in the scene draws no one (4.2).
+- **Measured:** not yet.
+- **Sex labels** (eval/sex-labels.json): `character_sex` right for TSHEPO, SHOPKEEPER and MR. KEKANA,
+  a miss for NALEDI; 0 wrong, 0 invented.
+
+### L022 · A bare surname became a second character, with no sex · open
+
+- **Seen:** 2026-10-14, the-lighthouse-inspector (held out), [run report](../eval/runs/2026-10-14-the-lighthouse-inspector.md):
+  **26 of 26** shown, every one at its first attempt, every frame looked at: **14 right, 11 weak,
+  1 wrong**. The wrong one is **7.5**, Mr. Fortuin drawn as an old woman cranking the lamp. Its cast is
+  `FORTUIN`, a second character the extraction proposed beside `MR. FORTUIN` with the same verbatim
+  lines (and `NAIDOO` beside `MS. NAIDOO`); the script's cues are always `MR. FORTUIN` and `MS. NAIDOO`.
+  `FORTUIN` has no sex, so 7.1 and 7.5 prompted "a person in their 70s". On 7.5 the describer said
+  "woman", the judge matched no one, and the presence agent (T099) found her as FORTUIN ("the
+  describer's guess of 'woman' is uncertain"): with no sex from the script in its question it had
+  nothing to refuse her by, and a found person gets no `DRAWN_SEX` question (by design). Without T099,
+  `no_character` would have withheld 7.5 for a redraw. The weak ones: Ms. Naidoo drawn twice (4.2,
+  7.3), an extra man on the stairs (4.1), the lens room without its lens (5.1), no rescue boat (8.1),
+  props or actions missing (2.2, 6.1, 9.1), empty frames for heard-only speakers (2.3, 7.4), an
+  old person of unclear sex (7.1, the same `FORTUIN`). 8.1's prompt reads "An orange a person BOAT":
+  the RESCUE of RESCUE BOAT redacted as a word of RESCUE OFFICER.
+- **Cause:** grounding keeps every proposed character whose quotes are verbatim; nothing folds a name
+  whose words are a proper subset of another's (FORTUIN, MR. FORTUIN) into it. Measured free on every
+  stored extraction (newest per script, 10 scripts): only this one has such pairs (2), and the bare
+  `FORTUIN` is cast in 2 of its 26 shots.
+- **Action:** T101 (grounding.md §3): the measure found a sharper cause. The model named only the bare
+  `FORTUIN` and `NAIDOO`; the longer two are `Source.CUE` backfills, because `match_speaker` binds a
+  cue only to a name holding all its words. So a bare `CHARACTER` name folds into the one titled
+  spelling (a cue, or a model name the script writes) whose words are it plus forms of address
+  (`TITLE_WORDS`; never a kinship word: Mama Thembi can be Thembi's mother); none, two (`MR. DUBE`,
+  `MRS. DUBE`), a bare cue or a superset name (`THABO DUBE`): no fold. Still open: the presence agent's sex question
+  (a found person gets no `DRAWN_SEX`), and redacting a multi-word role name only whole (8.1).
+- **Measured:** free, 2026-10-15, `ground` replayed on the model entities of all 30 stored
+  extractions with a prototype fold: **1 changed**, this one: `MR. FORTUIN` and `MS. NAIDOO` each one
+  `Source.MODEL` character with their 3 quotes, recall 2/4 → 4/4, `MS. NAIDOO` female from her own
+  pronouns; 29 identical. Live: the next held-out runs.
+- **Sex labels** (eval/sex-labels.json): `character_sex` right for MS. NAIDOO and MR. FORTUIN, a miss
+  for both duplicates, 0 wrong, 0 invented. The sex agent asked about 32 matched people, every
+  answer the script's sex; nothing withheld.
+
+### L021 · The judge leaves a drawn character unmatched, citing their own line · open (T099)
+
+- **Seen:** 2026-10-14, a free what-if (`recheck` with `drawn_sex` plus one rule) on nine stored runs:
+  `NO_CHARACTER` would withhold **30** of the frames shown today; every one looked at, **23 had the
+  character plainly drawn** (22 at first look; final-whistle 3.3's referee does wear the striped shirt) (Lindi in goal with her gloves, Siphokazi smiling, Thabo laughing in the
+  taxi). In nearly all of them the describer saw the person and the judge called them no character,
+  often with the character's own line as the support (the-night-taxi 2.4: support "Thabo laughs.").
+  The other candidate rules measured worse or no better: `setting` 3 real of 8 (EXT bakery scenes
+  drawn inside; the false alarms indoor places that look open: a covered platform, the tunnels, a
+  bait shack), `unscripted_object` 0 of 2 (a police baton on a belt, a knife on a workbench),
+  `unscripted_person` 114 frames (L020).
+- **Cause:** the judge does the matching and the stranger rules in one answer; on a person whose look
+  doesn't spell out the quote's details it leans to "no character", even when it quotes that
+  character's line.
+- **Action:** T099, the presence agent: when the judge matched none of the drawn characters, a vision
+  question per character ("which numbered person, if any, is this character?"); a found person
+  counts for `NO_CHARACTER` only. Design: verify.md §3.
+- **Measured:** prototype on the 30 stored frames (Token Factory, two runs): 18 and 16 of 23 false
+  alarms found, 2 and 3 of 7 real misses wrongly found. The real code on the same frames (#172): 17
+  of 23 and 3 of 7. Live, 2026-10-14, the-lighthouse-inspector (held out, `drawn_sex,no_character`):
+  the agent ran once in 26 shots (7.5) and found a person the describer called a woman for the
+  bare `FORTUIN` (a duplicate of MR. FORTUIN), a wrong frame shown (L022); `no_character` withheld nothing.
+
 ### L020 · Every stranger withheld the frame, so right frames were hidden · open (T094, T095 in review)
 
 - **Seen:** 2026-10-13, market-day (held out), [run report](../eval/runs/2026-10-13-market-day.md): **0 of 15** accepted, 44 drawings.

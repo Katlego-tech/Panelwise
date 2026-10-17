@@ -25,7 +25,7 @@ from typing import Literal
 from app.characters import name_tokens, redact
 from app.characters.labels import animals, redaction_labels
 from app.characters.sex import CONFLICT_WORDS, PRONOUNS, SEX_TITLES, SEX_WORDS, Sex
-from app.grounding import SENTENCE_END, Entity, EntityKind, Extraction
+from app.grounding import NOT_POSSESSED, SENTENCE_END, Entity, EntityKind, Extraction
 from app.script import (
     Action,
     Dialogue,
@@ -350,8 +350,9 @@ def introduced_sex(character: str, screenplay: Screenplay) -> Literal["female", 
     words = set(re.findall(r"[a-z]+", rest.lower()) if rest else [])
     look = set(re.findall(r"[a-z]+", (_look_of(element, m, character, screenplay) or "").lower()))
     noun = _appositive_sex(element.text[: m.start()])  # T096: "A boy in a blazer, THABO (9)"
-    female = "she" in words or "her" in look or noun is Sex.FEMALE
-    male = "he" in words or "his" in look or noun is Sex.MALE
+    after = _next_sentence_sex(character, element, m, screenplay)  # T100: "… Her little brother"
+    female = "she" in words or "her" in look or noun is Sex.FEMALE or after is Sex.FEMALE
+    male = "he" in words or "his" in look or noun is Sex.MALE or after is Sex.MALE
     if female == male:
         return None
     return "female" if female else "male"
@@ -412,6 +413,57 @@ def _appositive_sex(before: str) -> Sex | None:
     ):
         return None
     return SEX_WORDS[m.group(1)]
+
+
+# T100: the introducing sentence ends where grounding's do (never after "Mr." or "Dr."), or at "…".
+_T100_END = re.compile(SENTENCE_END.pattern.replace("(?<=[.!?])", "(?<=[.!?\u2026])", 1))
+# T100: words in the introducing sentence that mean someone else is (or may be) in it, whom a Her
+# or His opening the next sentence could belong to; an article or determiner may bring in anyone
+# no list holds ("hands the clerk a coin", "pats a dog"), so it blocks too.
+_SOMEONE_ELSE = (
+    frozenset(SEX_WORDS)
+    | frozenset(CONFLICT_WORDS)
+    | _PERSON_NOUNS
+    | frozenset({"them", "the", "a", "an", "this", "that", "these", "those", "another", "some"})
+)
+# A word of any script: letters (accented too), then letters, digits or either apostrophe.
+_T100_WORD = r"[^\W\d_][\w'\u2019]*"
+
+
+def _next_sentence_sex(
+    character: str, element: Action, m: re.Match[str], screenplay: Screenplay
+) -> Sex | None:
+    """T100 (storyboard.md §3.1): the sex a possessive Her or His opening the sentence right after
+    the introducing one gives, when the introducing sentence, from just after its parenthesis to
+    its end, holds no one else: no other name (a known one, or any capitalised word: a name the
+    script never introduced), no next introduction, no sex noun or pronoun, no person noun, no
+    them, no article or determiner. None otherwise, and when the introducing sentence is the
+    element's last."""
+    text = element.text
+    close = text.find(")", m.start())
+    if close < 0:
+        return None
+    end = _T100_END.search(text, close)
+    if end is None:
+        return None
+    tail = text[close + 1 : end.start()]
+    if _NEXT_INTRODUCTION.search(tail):
+        return None
+    found = re.findall(_T100_WORD, tail)
+    words = {w.lower() for w in found}
+    if words & _other_names(character, screenplay) or words & _SOMEONE_ELSE:
+        return None
+    if any(w[0].isupper() for w in found):
+        return None
+    nxt = _T100_END.split(text[end.end() :], maxsplit=1)[0]
+    # Only whitespace between Her and the word it owns: "Her, then silence." owns nothing.
+    opening = re.match(rf"(Her|His)\b(?:[ \t]+({_T100_WORD}))?", nxt)
+    if opening is None:
+        return None
+    if opening.group(1) == "His":
+        return Sex.MALE
+    following = (opening.group(2) or "").lower()
+    return Sex.FEMALE if following and following not in NOT_POSSESSED else None
 
 
 def title_sex(character: str) -> Sex | None:

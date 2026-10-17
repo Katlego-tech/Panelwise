@@ -59,6 +59,7 @@ type RefusalCode = Literal[
     "not_ready",
     "comic_running",
     "llm_budget_spent",
+    "image_budget_spent",
     "renderer_unavailable",
     "storage_unavailable",
 ]
@@ -88,6 +89,7 @@ async def start_comic(
     renderer: bool,
     store: bool,
     budget_spent: bool = False,
+    images_spent: bool = False,
 ) -> JobRow:
     """§4a's checks in order, then the RUNNING comic job, in the caller's transaction. The owner's
     project is locked, so two clicks make one job. Raises before writing anything."""
@@ -119,6 +121,8 @@ async def start_comic(
         raise ComicRefused("comic_running")
     if budget_spent:  # the hosted demo's monthly budget (limits.md §4, T069)
         raise ComicRefused("llm_budget_spent")
+    if images_spent:  # the month's drawings (limits.md §4, T030)
+        raise ComicRefused("image_budget_spent")
     if not renderer:
         raise ComicRefused("renderer_unavailable")
     if not store:

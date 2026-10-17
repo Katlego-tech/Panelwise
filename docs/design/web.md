@@ -1137,6 +1137,8 @@ shared (components/shared/): Verdict, SpanRef, Quote (Courier), Meter (T040); Jo
 | Comic (T024) | §4.5, verbatim: the notes, "Make the comic" ("Starting…"), "Make the comic again", "Making the comic · {p}%", "Download PDF", "From the script", "Lettering on this page", the traced line's facts, the page alt text |
 | Upload, the demo's limits (T069, limits.md §6) | `llm_budget_spent` "The demo has used this month's model budget. Your existing storyboards still open; new uploads start again next month." · `upload_limit` "This demo makes {per_day} storyboards a day per account. Try again tomorrow." · `too_many_pages` "This demo takes scripts of up to {max_pages} pages." |
 | Try another render / Make the comic, the budget (T069) | 429 `llm_budget_spent` "The demo has used this month's model budget." |
+| Upload, the image budget (T030, limits.md §6) | 429 `image_budget_spent` "The demo has drawn this month's budget of frames. Your existing storyboards still open; new uploads start again next month." |
+| Try another render / Make the comic, the image budget (T030) | 429 `image_budget_spent` "The demo has drawn this month's budget of frames." |
 | Export tooltip | "Available when every frame has settled" (T027) |
 | Export, while asking | "Making the PDF…" (T027) |
 | Export failed | "The PDF couldn't be made. Try again in a minute." (T027) |
