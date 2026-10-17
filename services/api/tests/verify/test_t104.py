@@ -161,6 +161,24 @@ def test_the_ladder_withholds_or_warns(screenplay: Screenplay, extraction: Extra
     assert apply_ladder(logged, frozenset({Check.DRAWN_SEX})).verdict is Verdict.WARN
 
 
+def test_the_hosted_ladder_withholds_a_split_and_warns_a_copy(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    # render.yaml's ladder (Katlego, 2026-10-17): split_panels withholds, drawn_twice warns.
+    hosted = frozenset({Check.DRAWN_SEX, Check.NO_CHARACTER, Check.SPLIT_PANELS})
+    for layout, want in (
+        (FrameLayout(1, ((0, 1),), "r"), Verdict.WARN),
+        (FrameLayout(2, (), "r"), Verdict.FAIL),
+    ):
+        checks, verdict, _ = run_checks(
+            kitchen_shot(), screenplay.scenes[0], described(people=TWO),
+            judged(people=MATCHED_TWO), extraction, on_screen=("NANDI",), layout=layout,
+        )  # fmt: skip
+        logged = Audit((0, 1), 1, 7, None, None, checks, verdict, {}, (), Usage(0, 0, 0))
+        assert verdict is Verdict.FAIL  # every hard check, before the ladder
+        assert apply_ladder(logged, hosted).verdict is want
+
+
 # --- audit_frame --------------------------------------------------------------------------------
 
 
