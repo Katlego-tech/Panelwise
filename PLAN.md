@@ -60,7 +60,7 @@ constitution and let this section be the single copy (see
 | **Containerization** | `Docker per service + one docker-compose.yml for local dev` |
 | **Runtime/deploy target** | Web on **Vercel**, API on **Render** (`render.yaml`), data/storage/auth on **Supabase**; images by FLUX.2 [klein] 4B on **fal.ai** (FLUX.1 [schnell] before 2026-10-11) (changed 2026-10-09 from ComfyUI on a Nebius GPU, now optional: storyboard.md §3.5). Changed 2026-09-29 from "API + web on Nebius" to the Hackathon kit's stack; API host changed 2026-10-08 by Katlego from Railway (never deployed) to Render: [docs/design/deploy.md](docs/design/deploy.md) §8, §11 |
 | **Data layer** | Supabase Postgres via the session pooler (SQLAlchemy 2 async + Alembic; compose Postgres locally), Supabase Storage for images, Supabase Auth |
-| **Key external services/models** | Nebius Token Factory: Nemotron fast tier, reasoning tier, vision model (IDs in .env.example; confirm on day 1) |
+| **Key external services/models** | Nebius Token Factory: Nemotron fast tier, reasoning tier, vision model (IDs in .env.example; confirm on day 1) · **stretch (US5, T113):** ElevenLabs text-to-speech for narrating the comic, off without `ELEVENLABS_API_KEY`, capped by `NARRATION_MONTHLY_CHARACTER_CAP` ([narration.md](docs/design/narration.md)) |
 | **Testing** | pytest + ruff + pyright; Vitest + Playwright; eval/ benchmarks |
 | **Perf/cost goals** | Full script under ~$0.10 of Token Factory credit; one frame in seconds, not minutes, at $0.003 per frame on fal.ai (≤ 1 MP drawn) |
 | **Constraints** | OSI licence, public repo, 3-minute video, no copyrighted scripts in repo/demo/video |
