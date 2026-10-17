@@ -93,8 +93,11 @@ class NebiusChatModel:
         transport: httpx2.AsyncBaseTransport | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         on_usage: Callable[[ChatResult], Awaitable[None]] | None = None,
+        vision_thinking: bool | None = None,
     ) -> None:
         self._models = dict(models)
+        # T105 (vision-model.md §6): the vision tier's thinking default; None sends nothing.
+        self._vision_thinking = vision_thinking
         # T069 (limits.md §6): awaited after each answer, to count the month's tokens.
         self.on_usage = on_usage
         self._max_attempts = max_attempts
@@ -121,6 +124,7 @@ class NebiusChatModel:
             timeout_s=settings.llm_request_timeout_s,
             connect_timeout_s=settings.llm_connect_timeout_s,
             max_attempts=settings.llm_max_attempts,
+            vision_thinking=settings.nebius_vision_thinking,
         )
 
     def model_for(self, tier: Tier) -> str:
@@ -149,7 +153,8 @@ class NebiusChatModel:
             body["max_tokens"] = max_tokens
         if response_format is not None:
             body["response_format"] = dict(response_format)
-        think = _THINKING_DEFAULT[tier] if thinking is None else thinking
+        default = self._vision_thinking if tier is Tier.VISION else _THINKING_DEFAULT[tier]
+        think = default if thinking is None else thinking
         if think is not None:
             body["chat_template_kwargs"] = {"enable_thinking": think}
 
