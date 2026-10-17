@@ -611,5 +611,23 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:vision-model.md §6 verbatim: `Settings.nebius_vision_thinking: bool | None = None`, `NebiusChatModel(vision_thinking=)`, `from_settings` passing it, `chat()`'s thinking rule; `NEBIUS_VISION_THINKING=` blank is None; with it unset every request body is unchanged
       Verify:  bash scripts/gate.sh (vision-model.md §9's tests); then `python -m app.verify.reaudit` on the-red-kite (and Tumo's held-out projects) three ways: DeepSeek-V4.1-Flash, Super VL thinking unset, Super VL `NEBIUS_VISION_THINKING=false` (Token Factory about $0.15 a run; Katlego's go-ahead), every differing verdict looked at
       Done:    nebius-findings.md § U8 has the measurement's tables: Super VL's fit (vision-model.md §8) and what translates; a follow-up task for each part that needs adapting; the defaults changed to Super VL (Super VL is the target, Katlego, 2026-10-17), and a hosted audit runs on it
+- [ ] T106 [US2] **A rooftop is exterior: the describer's setting on Super VL.** Found on 2026-10-17 (T105, findings § U8): Super VL called the-red-kite's flat roof "interior" on 2 of 44 attempts (comic 1.4, storyboard 1.4), a `setting` hard fail on a right frame. Lane `verify` (Claude for Katlego). After T105's defaults. Plan: docs/super-vl-migration.md.
+      Design:  to write first, in docs/design/verify.md §3 (the describer's setting rule), its own PR
+      Files:   services/api/app/verify/prompts.py (the describer's instruction); services/api/tests/verify/ (the prompt's wording pinned)
+      Contract:the describer's schema unchanged; only its instruction's setting rule
+      Verify:  bash scripts/gate.sh; `reaudit`-style run with Super VL on the-red-kite's stored attempts (Token Factory about $0.15): both rooftops `exterior`, no other `setting` change
+      Done:    the 2 rooftop attempts read `exterior` and no other attempt's setting changes, recorded in findings § U8
+- [ ] T107 [US2] **Signatures against lettering, re-tuned for Super VL.** Found on 2026-10-17 (T105): Super VL reports more lettering (text entries 9 → 25) and calls fewer marks a signature, so `text_in_frame` warnings rose 6 → 22 on the-red-kite (a warning, never a withheld frame). T077's rule was tuned on DeepSeek's wording. Lane `verify` (Claude for Katlego). After T105's defaults. Plan: docs/super-vl-migration.md.
+      Design:  to write first, in docs/design/verify.md §3 (T077's signature rule), its own PR; the stored attempts' `text` entries read first, free
+      Files:   services/api/app/verify/{prompts,audit}.py (the describer's signature wording and/or T077's rule); services/api/tests/verify/
+      Contract:the checks table and severities unchanged (`text_in_frame` and `signature` stay soft)
+      Verify:  bash scripts/gate.sh; the stored attempts' text entries classified by hand; a Super VL run on the-red-kite: `text_in_frame` back near DeepSeek's 6, no real lettering lost
+      Done:    a scrawled corner signature is a `signature` again on Super VL, and lettering that is really in the drawing still warns, recorded in findings § U8
+- [ ] T108 [US2] **The look match accepts the script's hairstyle under another word.** Found on 2026-10-17 (T105): Super VL describes Lerato's "braids tied back" as "pigtails", and the judge refuses the match (`unscripted_person`): once with thinking off (storyboard 4.1), six times with it on. The look rule is T080's. Lane `verify` (Tumo, proposed). After T105's defaults. Plan: docs/super-vl-migration.md.
+      Design:  to write first, in docs/design/verify.md (T080's look rule: what counts as the same hairstyle), its own PR
+      Files:   services/api/app/verify/prompts.py (the judge's look instruction) and/or the look rule's code; services/api/tests/verify/
+      Contract:Non-negotiable I holds: a different hairstyle (short hair for braids) is still refused; only words for the same style are accepted
+      Verify:  bash scripts/gate.sh; `recheck`/`reaudit` on the-red-kite's and one held-out project's stored attempts with Super VL
+      Done:    storyboard 4.1 matches LERATO on Super VL, comic 1.1 (short hair) is still refused, recorded in findings § U8
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
