@@ -494,3 +494,14 @@ async def test_an_empty_answer_is_billed_so_it_is_counted_before_it_raises() -> 
     with pytest.raises(LLMEmptyResponse):
         await model.chat(HI)
     assert seen == [(50, 4000)]
+
+
+def test_the_vision_defaults_are_super_vl_with_thinking_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """T105 (vision-model.md §6, Katlego 2026-10-17): every vision call is Nemotron 3.5 Super VL."""
+    monkeypatch.delenv("NEBIUS_MODEL_VISION", raising=False)
+    monkeypatch.delenv("NEBIUS_VISION_THINKING", raising=False)
+    settings = Settings(_env_file=None)  # pyright: ignore[reportCallIssue]
+    assert settings.nebius_model_vision == "nvidia/Nemotron-3.5-Super-VL"
+    assert settings.nebius_vision_thinking is False

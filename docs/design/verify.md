@@ -19,7 +19,7 @@ the audit's speaker positions), portraits (characters.md).
 
 | Kind | Where |
 | --- | --- |
-| The vision decision | docs/nebius-findings.md § The vision decision: **option A**: no Nemotron model on Token Factory accepts images (U7), so a vision model (`NEBIUS_MODEL_VISION`, DeepSeek-V4.1-Flash since 2026-09-30: GLM-5.3-Flash stopped receiving images, findings § U7 re-check) *describes* the frame and Nemotron *judges* it. Option B, a self-hosted NVIDIA VLM on the ComfyUI GPU, is a stretch |
+| The vision decision | docs/nebius-findings.md § The vision decision: **option A**: no Nemotron model on Token Factory accepts images (U7), so a vision model (`NEBIUS_MODEL_VISION`) *describes* the frame and Nemotron *judges* it. **Since 2026-10-17 that model is NVIDIA's: Nemotron 3.5 Super VL, thinking off** (T105, [vision-model.md](vision-model.md), findings § U8); DeepSeek-V4.1-Flash from 2026-09-30, GLM-5.3-Flash before (findings § U7 re-check). Option B's self-hosted GPU is no longer needed |
 | Prior art in FrameFlow | **none**: FrameFlow had no image audit, no verdicts and no automatic re-render; "regenerate" was a user button with a random seed |
 | Inputs | `Shot` (shots.md §6: framing, characters, props, time_of_day, source, span); `Entity` quotes (grounding.md §6); `Scene.int_ext`, `location` (script.md §6); the rendered frame (T026) |
 | LLM seam | `structured_chat`, `Tier.VISION` and `Tier.REASONING` (llm.md §6). Image content parts are OpenAI-style (`image_url` data URLs), as probed in U7 |

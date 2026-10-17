@@ -27,10 +27,12 @@ class Settings(BaseSettings):
     nebius_base_url: str = "https://api.tokenfactory.nebius.com/v1"
     nebius_model_fast: str = "nvidia/Nemotron-3_5-Lightning"
     nebius_model_reasoning: str = "nvidia/nemotron-3-super-120b-a12b"
-    nebius_model_vision: str = "deepseek-ai/DeepSeek-V4.1-Flash"
-    # The vision tier's thinking toggle (docs/design/vision-model.md, T105): unset or blank sends
-    # nothing, as before; true or false sends it on every vision call.
-    nebius_vision_thinking: bool | None = None
+    # Every vision call (the describer and the agents): Nemotron 3.5 Super VL since T105 (Katlego,
+    # 2026-10-17; docs/super-vl-migration.md); DeepSeek-V4.1-Flash before.
+    nebius_model_vision: str = "nvidia/Nemotron-3.5-Super-VL"
+    # The vision tier's thinking toggle (docs/design/vision-model.md, T105): off, measured (findings
+    # § U8); blank sends nothing, as DeepSeek's calls did.
+    nebius_vision_thinking: bool | None = False
     llm_request_timeout_s: float = 120.0
     # T075: a dead connection fails in 10 s, and 5 attempts ride out about 80 s of drops.
     llm_connect_timeout_s: float = 10.0
