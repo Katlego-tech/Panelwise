@@ -1,7 +1,7 @@
 # Design — `comic` (page layout, panels, speech bubbles, export)
 
 **Status:** agreed; §4a, the comic job, proposed (T064) · **Owner:** Katlego (Claude); §4a Tumo (Claude) · **Tasks:** T022 (layout), T023 (bubbles, lettering,
-export), T064 (the comic job, storage, the API), T024 consumes it (reader) · **Spec:** [SPEC.md](../../SPEC.md) US3 (script →
+export), T064 (the comic job, storage, the API), T098 (bubbles placed by the speaker's head; Katlego), T024 consumes it (reader) · **Spec:** [SPEC.md](../../SPEC.md) US3 (script →
 comic)
 
 ---
@@ -26,7 +26,7 @@ invented sound effects.
 | Kind | Where |
 | --- | --- |
 | Visual reference | [`docs/design/comic/the-red-kite-page-*.png`](comic/): the self-written sample `samples/the-red-kite.pdf` rendered by T023's `render_pages`, built by `services/api/tools/build_comic_reference.py` from the real parser, a hand-planned shot list (every element in one shot) and **fixture frames** drawn with Pillow, each marked `TEST FIXTURE - not a render` (the real frames wait on T026). Six pages, 20 panels; one panel (scene 3, shot 3) is withheld, to show the card. The gate re-renders it and compares pixels (`tests/comic/test_reference.py`). T022's geometry test pins the rects |
-| Inputs | `ShotPlan`, `Shot` (shots.md §6); `Screenplay`, `Scene`, `Dialogue`, `Span` (script.md §6); the frame renderer and audit (verify.md §6: `Renderer`, `render_until_accepted`, `Audit.positions`). **Depends on verify.md's `Renderer.render` and `render_until_accepted` taking `width`/`height`** (added in PR #17, T010), so this doc lands after it |
+| Inputs | `ShotPlan`, `Shot` (shots.md §6); `Screenplay`, `Scene`, `Dialogue`, `Span` (script.md §6); the frame renderer and audit (verify.md §6: `Renderer`, `render_until_accepted`, `Audit.positions`, and from T097 `Audit.heads`: each described person's head box on a comic panel's accepted frame). **Depends on verify.md's `Renderer.render` and `render_until_accepted` taking `width`/`height`** (added in PR #17, T010), so this doc lands after it |
 | Prior art in FrameFlow | none: FrameFlow made storyboard PDFs, never comics (its `storyboard_document.py` hand-wrote a PDF with base-14 fonts, two 16:9 panels per A4 page) |
 | Font | **Comic Neue Regular** (`ComicNeue-Regular.ttf`, SIL Open Font License 1.1), committed with its licence under `services/api/assets/fonts/` by T022, because step 5's budget measures text with the same file the renderer letters with |
 | Page size | US comic trim, 6.625 × 10.25 in, rendered at 300 dpi = **1988 × 3075 px**; margins **120 px** (0.4 in); gutters **36 px** |
@@ -125,9 +125,9 @@ sequenceDiagram
     G-->>C: geometry (rects), or ComicError
     loop each panel
         C->>V: shot, width × height = the panel rect
-        V-->>C: accepted frame + positions, or WITHHELD
+        V-->>C: accepted frame + positions + head boxes (T097), or WITHHELD
     end
-    C->>B: panels + frames + positions
+    C->>B: panels + frames + positions + head boxes
     B-->>C: bubbles and captions placed
     C->>R: ComicBook + frames
     R-->>C: page PNGs, one PDF, layout JSON
@@ -216,10 +216,17 @@ the comic's **withheld card** instead, and its lettering is still placed:
 font size (to 40% of the panel width) plus 16 px padding, as in step 5. **Hard constraints** (a
 candidate that breaks one is never chosen): the box lies inside the inner rect; it overlaps no earlier box; **reading order**: its
 grid cell `(row, col)` is after the previous box's in row-major order (`row > prev_row`, or `row ==
-prev_row` and `col > prev_col`). **Cost** among the admissible: `detail + 2.0 × covers_speaker`,
-where `detail` is the mean of Pillow `FIND_EDGES` over the box on the grayscale frame, divided by 255
-(0–1), and `covers_speaker` is 1 when the box overlaps the speaker's third of the panel (from the
-audit's `positions`, looked up by `match_speaker(speaker, list(positions))`; 0 when unknown). Lowest
+prev_row` and `col > prev_col`). **Cost** among the admissible: `detail + 2.0 × covers_head + 2.0 ×
+covers_speaker`, where `detail` is the mean of Pillow `FIND_EDGES` over the box on the grayscale
+frame, divided by 255 (0–1); `covers_head` (T098) is 1 when the box overlaps any **head rect** of
+the panel, the speaker's or anyone else's; and `covers_speaker` is 1 when the box overlaps the
+speaker's third of the panel (from the audit's `positions`, looked up by `match_speaker(speaker,
+list(positions))`; 0 when unknown), **counted only for a speaker with no head rect**: a known head
+replaces the third. A *head rect* is a `HeadSeen` box of the frame (`PanelFrame.heads`, verify.md
+§6, T097) in panel pixels, `(⌊x0·w⌋, ⌊y0·h⌋, ⌈x1·w⌉, ⌈y1·h⌉)`, grown by `HEAD_MARGIN` = 12 px on
+every side and clipped to the panel; the *speaker's* head rect is the one whose `character` is
+`match_speaker(speaker, [characters with a head])`. A frame with no heads (a storyboard-era
+audit, the agent failing, the fixture frames) costs exactly as before T098. Lowest
 cost wins; ties go to the earlier cell in row-major order. The `SCENE` caption, when present, is
 placed first, at the panel's top-left (cell `(0, 0)`, subject to the same hard constraints). The
 thirds split the panel's width at `⌊w/3⌋` and `⌊2w/3⌋`; a `VOICE_OVER` caption uses its cue as the
@@ -245,8 +252,10 @@ rectangle filling its box with a 3 px black outline, no tail. Lines are centred 
 in the comic font at `font_px`. Outlines of every box on a panel are drawn first, then every fill,
 then every text, so a tail passing under another bubble never covers its words.
 
-**8. Tails.** `SPEECH`: from the bubble's nearest edge to the speaker's point: horizontal centre of
-their third (`left`/`centre`/`right`) at 45% of the panel height; when the position is unknown, the
+**8. Tails.** `SPEECH`: from the bubble's nearest edge to the speaker's point. **With a speaker's head
+rect** (T098): the point of that rect (step 7, already grown by 12 px, so the tip stops short of the
+face) nearest the bubble box's centre, in page pixels. Without one: the horizontal centre of their
+third (`left`/`centre`/`right`) at 45% of the panel height; when the position is unknown, the
 panel's bottom centre (on a withheld card: no tail, step 6). `OFF_PANEL`: to the panel edge on the speaker's side, else the right edge.
 Captions: no tail. `Bubble.tail` is the tip, in page pixels, always inside the panel: a third's
 centre is `x + ⌊w/6⌋`, `x + ⌊w/2⌋` or `x + ⌊5w/6⌋`, at `y + ⌊0.45 h⌋`; the bottom centre is
@@ -411,7 +420,7 @@ class CaptionKind(StrEnum): SCENE = "scene"; VOICE_OVER = "voice_over"
 @dataclass(frozen=True) class ComicBook: pages: tuple[Page, ...]; report: LayoutReport
 @dataclass(frozen=True) class WithheldCard: checks: str; span: Span; failed: bool = False   # the card's variable parts (§4 step 6); lands with T023; failed: the renderer's card (T067)
 def failed_panel(shot: Shot) -> PanelFrame: ...   # app/comic/render.py (T067): no PNG, no positions, WithheldCard("", shot.span, failed=True)
-@dataclass(frozen=True) class PanelFrame: png: bytes; positions: Mapping[str, Position]; withheld: bool; card: WithheldCard | None = None   # Position from verify.md; lands with T023, its first consumer. card is set exactly when withheld (else ComicError); a withheld png is never drawn
+@dataclass(frozen=True) class PanelFrame: png: bytes; positions: Mapping[str, Position]; withheld: bool; card: WithheldCard | None = None; heads: tuple[HeadSeen, ...] = ()   # Position, HeadSeen from verify.md; lands with T023, its first consumer. card is set exactly when withheld (else ComicError); a withheld png is never drawn. heads (T098): the accepted audit's (panel_frame), a reused panel's row's (None → ()), () on a card
 class ComicError(RuntimeError):   # T064: `shot`, set by every raise in layout.py, bubbles.py and render.py that names a shot
     def __init__(self, message: str, *, shot: tuple[int, int] | None = None) -> None: ...
     shot: tuple[int, int] | None    # (scene_index, shot_number)
@@ -549,8 +558,8 @@ Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, mult
 | Too much text | the panel grows; the job fails before text is cut | shrinking below 28 px (illegible) or truncating (drops script) |
 | Reading order | a hard constraint | a cost term: the cheapest spot could still break reading order |
 | A panel's boxes | placed as a set: depth-first in each box's preference order, at most 10,000 tries | one box at a time, cheapest first, never revisited: on a detailed frame the first bubble could take a late cell and leave the next none, and the comic stopped (PR #92, real FLUX frames). The lowest total cost over all boxes: a different layout for panels that letter fine today, for no gain the reader sees |
-| Bubble position | image detail + speaker position | a vision model placing bubbles: another call per panel, not deterministic |
-| Speaker position | from the audit's `positions` | face detection: another model for a tail direction |
+| Bubble position | image detail + every head (T098) + the speaker's third when their head is unknown | a vision model placing bubbles: another call per panel, not deterministic. (T098 keeps this: placement stays code over stored boxes; the one vision question is the audit's, asked once when the panel is accepted) |
+| Speaker position | the speaker's head box from the audit (T097, T098), else the audit's `positions` third | face detection: another model and dependency for a box the vision model already gives (measured: verify.md §3, the head agent). Before T098 the third alone, with the tail at a fixed 45% of the height: it missed a head high or low in the frame, and the third's whole height was kept clear for one head |
 | Page flow | a scene starts a new tier, not a new page | a page per scene: short scenes waste pages |
 | PDF | Pillow `save_all` | reportlab / img2pdf: a second library for what Pillow does |
 
@@ -573,6 +582,15 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   that is busy everywhere but its bottom-right corner (PR #92's repro) letters a two-bubble panel:
   the search moves the first bubble so the second fits. A panel that fits one box at a time letters
   exactly as before.
+- **T098** (`tests/comic/test_t098.py`, tests first): a head rect is `(⌊x0·w⌋, ⌊y0·h⌋, ⌈x1·w⌉,
+  ⌈y1·h⌉)` grown by 12 px and clipped to the panel; on a blank frame with one head, a one-bubble
+  panel's bubble overlaps no head rect when a free spot exists, and a box over a non-speaker's head
+  costs 2.0 more than the same box elsewhere; a speaker with a head rect pays no third cost; a
+  `SPEECH` tail's tip is the point of the speaker's head rect nearest the bubble's centre, inside
+  the panel; a speaker matched to no head (no `character`, or another name) keeps the third and
+  the 45% tip; an `OFF_PANEL` tail and a withheld card are unchanged; a frame with no heads letters
+  exactly as before (the reference pages compare unchanged); `panel_frame` carries the accepted
+  audit's heads, the comic job's reused panel its row's (`None` → `()`), a card `()`.
 - **Frames:** each panel's render request is exactly its `rect` size; a withheld frame yields the
   card (its two lines, the failed hard checks in enum order, `audit error` for an ERROR audit, no
   source text) plus its lettering, placed in grid order, `OFF_PANEL` tails to the right edge and no `SPEECH` tail.
