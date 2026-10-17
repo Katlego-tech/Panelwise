@@ -122,6 +122,67 @@ async def test_vision_tier_sends_no_thinking_toggle_by_default() -> None:
     assert "chat_template_kwargs" not in rec.body()
 
 
+# T105 (vision-model.md §6): the vision tier's thinking toggle is a setting, unset by default.
+
+
+def make_vision(rec: Recorder, vision_thinking: bool | None) -> NebiusChatModel:
+    return NebiusChatModel(
+        api_key=KEY,
+        base_url="https://api.tokenfactory.nebius.com/v1",
+        models=MODELS,
+        transport=httpx2.MockTransport(rec),
+        sleep=Sleeps(),
+        vision_thinking=vision_thinking,
+    )
+
+
+@pytest.mark.parametrize("think", [False, True])
+async def test_vision_thinking_is_sent_on_every_vision_call(think: bool) -> None:
+    rec = Recorder(ok(completion()))
+    await make_vision(rec, think).chat(HI, Tier.VISION)
+    assert rec.body()["chat_template_kwargs"] == {"enable_thinking": think}
+
+
+async def test_vision_thinking_leaves_the_other_tiers_alone() -> None:
+    rec = Recorder(ok(completion()), ok(completion()))
+    model = make_vision(rec, True)
+    await model.chat(HI, Tier.FAST)
+    await model.chat(HI, Tier.REASONING)
+    assert rec.body(0)["chat_template_kwargs"] == {"enable_thinking": False}
+    assert rec.body(1)["chat_template_kwargs"] == {"enable_thinking": True}
+
+
+async def test_unset_vision_thinking_sends_the_body_unchanged() -> None:
+    rec = Recorder(ok(completion()))
+    await make_vision(rec, None).chat(HI, Tier.VISION)
+    assert rec.body() == {"model": MODELS[Tier.VISION], "messages": HI, "temperature": 0.0}
+
+
+async def test_explicit_thinking_overrides_vision_thinking() -> None:
+    rec = Recorder(ok(completion()))
+    await make_vision(rec, False).chat(HI, Tier.VISION, thinking=True)
+    assert rec.body()["chat_template_kwargs"] == {"enable_thinking": True}
+
+
+@pytest.mark.parametrize(
+    ("raw", "want"), [("", None), ("  ", None), ("false", False), ("true", True)]
+)
+async def test_from_settings_passes_nebius_vision_thinking(
+    raw: str, want: bool | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEBIUS_VISION_THINKING", raw)
+    settings = Settings(_env_file=None, nebius_api_key=KEY)  # pyright: ignore[reportCallIssue]
+    assert settings.nebius_vision_thinking is want
+    rec = Recorder(ok(completion()))
+    model = NebiusChatModel.from_settings(settings)
+    model._client = httpx2.AsyncClient(  # pyright: ignore[reportPrivateUsage]
+        base_url="https://api.tokenfactory.nebius.com/v1", transport=httpx2.MockTransport(rec)
+    )
+    await model.chat(HI, Tier.VISION)
+    sent = rec.body().get("chat_template_kwargs")
+    assert sent == (None if want is None else {"enable_thinking": want})
+
+
 async def test_explicit_thinking_overrides_the_tier_default() -> None:
     rec = Recorder(ok(completion()))
     await make(rec).chat(HI, Tier.FAST, thinking=True)
@@ -433,3 +494,14 @@ async def test_an_empty_answer_is_billed_so_it_is_counted_before_it_raises() -> 
     with pytest.raises(LLMEmptyResponse):
         await model.chat(HI)
     assert seen == [(50, 4000)]
+
+
+def test_the_vision_defaults_are_super_vl_with_thinking_off(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """T105 (vision-model.md §6, Katlego 2026-10-17): every vision call is Nemotron 3.5 Super VL."""
+    monkeypatch.delenv("NEBIUS_MODEL_VISION", raising=False)
+    monkeypatch.delenv("NEBIUS_VISION_THINKING", raising=False)
+    settings = Settings(_env_file=None)  # pyright: ignore[reportCallIssue]
+    assert settings.nebius_model_vision == "nvidia/Nemotron-3.5-Super-VL"
+    assert settings.nebius_vision_thinking is False
