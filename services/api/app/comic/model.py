@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from app.script import Span
-from app.verify.model import Position
+from app.verify.model import HeadSeen, Position
 
 type Rect = tuple[int, int, int, int]  # x, y, w, h (page px)
 type Point = tuple[int, int]  # x, y (page px)
@@ -113,6 +113,7 @@ class PanelFrame:
     positions: Mapping[str, Position]
     withheld: bool
     card: WithheldCard | None = None
+    heads: tuple[HeadSeen, ...] = ()  # T098: the accepted audit's head boxes (T097); () on a card
 
     def __post_init__(self) -> None:
         if self.withheld != (self.card is not None):
