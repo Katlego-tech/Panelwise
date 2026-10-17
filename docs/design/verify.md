@@ -19,7 +19,7 @@ the audit's speaker positions), portraits (characters.md).
 
 | Kind | Where |
 | --- | --- |
-| The vision decision | docs/nebius-findings.md § The vision decision: **option A**: no Nemotron model on Token Factory accepts images (U7), so a vision model (`NEBIUS_MODEL_VISION`, DeepSeek-V4.1-Flash since 2026-09-30: GLM-5.3-Flash stopped receiving images, findings § U7 re-check) *describes* the frame and Nemotron *judges* it. Option B, a self-hosted NVIDIA VLM on the ComfyUI GPU, is a stretch |
+| The vision decision | docs/nebius-findings.md § The vision decision: **option A**: no Nemotron model on Token Factory accepts images (U7), so a vision model (`NEBIUS_MODEL_VISION`) *describes* the frame and Nemotron *judges* it. **Since 2026-10-17 that model is NVIDIA's: Nemotron 3.5 Super VL, thinking off** (T105, [vision-model.md](vision-model.md), findings § U8); DeepSeek-V4.1-Flash from 2026-09-30, GLM-5.3-Flash before (findings § U7 re-check). Option B's self-hosted GPU is no longer needed |
 | Prior art in FrameFlow | **none**: FrameFlow had no image audit, no verdicts and no automatic re-render; "regenerate" was a user button with a random seed |
 | Inputs | `Shot` (shots.md §6: framing, characters, props, time_of_day, source, span); `Entity` quotes (grounding.md §6); `Scene.int_ext`, `location` (script.md §6); the rendered frame (T026) |
 | LLM seam | `structured_chat`, `Tier.VISION` and `Tier.REASONING` (llm.md §6). Image content parts are OpenAI-style (`image_url` data URLs), as probed in U7 |
@@ -480,7 +480,8 @@ box of the 8 drawings looked at lies on the head, the small far ones and profile
 generous, never off; the same drawing asked twice gave boxes within 0.02; about 1,900 prompt and
 500 completion tokens a frame; 0 of 30 questions failed (one of a later 15, with a longer prompt,
 spent its budget thinking at `max_tokens=2048`, hence 4096). The prompt here is the head half of
-the prototype's, so T097's Verify measures it again. **No anatomy:** the same prototype was asked
+the prototype's, and the vision model is now Nemotron 3.5 Super VL (T105, 2026-10-17), so T097's
+Verify measures it again, on Super VL. **No anatomy:** the same prototype was asked
 for each person's heads, arms, legs and hands, and called a man drawn with three arms (0.3 a1)
 `normal` twice, even when told to count each limb back to its shoulder; it counted 0 legs on
 standing people and 1 arm on a person with two, and called one drawing's ordinary hands deformed.
@@ -1204,8 +1205,8 @@ it against the script."*
   question leaves `heads` empty and the frame accepted; `FrameWriter.log` writes `heads` (`None`
   when the audit has none); the comic job passes `heads=True` and the storyboard paths don't;
   migration 0010 upgrades and downgrades (the schema test). Token Factory, before the code merges:
-  the real `find_heads` on the 15 drawings of §3's measurement, the boxes drawn on each and looked
-  at, every one on its head.
+  the real `find_heads` on Super VL (T105's default, thinking off) on the 15 drawings of §3's
+  measurement, the boxes drawn on each and looked at, every one on its head.
 
 ## 10. Open questions
 
