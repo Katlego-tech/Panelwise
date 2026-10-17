@@ -629,5 +629,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:Non-negotiable I holds: a different hairstyle (short hair for braids) is still refused; only words for the same style are accepted
       Verify:  bash scripts/gate.sh; `recheck`/`reaudit` on the-red-kite's and one held-out project's stored attempts with Super VL
       Done:    storyboard 4.1 matches LERATO on Super VL, comic 1.1 (short hair) is still refused, recorded in findings § U8
+- [ ] T113 [US5] **Stretch: the comic read aloud by ElevenLabs.** Asked by Katlego on 2026-10-17 (the team has a subscription). Every lettered line spoken byte for byte in its speaker's voice (from the script's sex and age, else neutral), the scene captions by a narrator, the reader highlighting each line. **Stretch:** started only after the submission path is safe (T030's hosted run, the judge sample, T033–T035); not in the submission unless done and tested by 27 Oct. Lane `narration` (Claude for Katlego); the reader's control with Tumo (`web`).
+      Design:  docs/design/narration.md (all); SPEC.md US5
+      Files:   services/api/app/narration/{model,voices,client,job,rows}.py, voices.json; app/core/config.py; app/jobs/model.py (`JobKind.NARRATION`); app/api/v1/projects.py; a migration (numbered at code time, announced); services/api/tests/narration/; apps/web comic reader (web.md first); .env.example; render.yaml; deploy.md §6; limits.md
+      Contract:narration.md §6 verbatim: the three settings, `Line`, `clips_of`, `cast`, `ElevenLabs.speak`, `NarrationClip`, `NarrationRow`, the two routes and their codes
+      Verify:  bash scripts/gate.sh (narration.md §9's tests, ElevenLabs through a MockTransport only); live (announced first): the 2026-10-17 live comic narrated and listened to end to end
+      Done:    on the live comic, Listen plays every line in reading order, each clip's text equal to its lettering, Lerato's and Mokgosi's voices distinct, the narrator on the captions; without the key nothing changes
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
