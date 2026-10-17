@@ -903,6 +903,45 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 `app.verify.prompts`. `app/verify/__init__.py` is unchanged: the new names are imported from
 `app.verify.model`, `app.verify.schema` and `app.verify.audit`, as T095's tests import theirs.
 
+### T109 contracts: the describer's answer capped in its grammar
+
+**Why** (measured 2026-10-17, §9 T109): on Super VL the describer sometimes repeats itself at
+temperature 0 until it hits `max_tokens=4096`: the same object again and again ("picture frame",
+"ceiling light", "streetlight": up to 40 times with 3 names), or one string that never ends
+("B. B. B. …" for a boat's lettering, "1000…" on a bicycle). The answer is cut off mid-JSON, the
+repair turn resends it and loops the same way, and the attempt is an `ERROR`: withheld, and on the
+hosted demo a redraw. 7 of the 109 labelled frames (findings § U8) and rooftop-tomatoes' comic 6.1.
+
+**The change:** the describer's call sends its schema with length limits in `response_format` only.
+Token Factory's strict decoding obeys `maxItems` and `maxLength`, so a looping list or string stops
+at its limit and the JSON closes. The prompt keeps the schema text it has today, so an answer that
+stays inside the limits is the same answer as before (10 of 10 control frames byte for byte). The
+limits sit above every honest answer stored (§9 T109) and keep the whole answer under 4,096 tokens:
+
+```python
+# app/verify/schema.py
+@dataclass(frozen=True) class DescriptionLimits: people: int; objects: int; text: int; text_chars: int;
+                                                 appearance_chars: int; object_name_chars: int
+DESCRIPTION_LIMITS = DescriptionLimits(people=24, objects=40, text=40, text_chars=100,
+                                       appearance_chars=200, object_name_chars=60)
+def description_grammar(limits: DescriptionLimits = DESCRIPTION_LIMITS) -> dict[str, Any]: ...
+#   pure: a deep copy of FrameDescription.model_json_schema() with
+#   properties.people.maxItems, properties.objects.maxItems, properties.text.maxItems,
+#   properties.text.items.maxLength, $defs.SeenPerson.properties.appearance.maxLength,
+#   $defs.SeenObject.properties.name.maxLength set from `limits`; nothing else changes
+#   (FrameDescription itself is unchanged: validation and the prompt's schema text stay as they are)
+
+# app/verify/audit.py
+async def describe_frame(model, png) -> tuple[FrameDescription, ChatResult]: ...
+#   T109: structured_chat(..., FrameDescription, Tier.VISION, max_tokens=4096,
+#   grammar=description_grammar()); everything else as before
+```
+
+The judge and the agents are unchanged: none of them was seen to loop (their answers are short,
+and a failed agent question is logged, never an `ERROR`). A looping list now arrives cut to its
+limit (40 "ceiling light" objects): the judge calls each, as it would any description. A looping
+string arrives cut to 100 characters, which is lettering (`TEXT_IN_FRAME`, soft).
+
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
@@ -921,6 +960,7 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 | `services/api/app/verify/audit.py` | changed | `_STORY_OBJECTS`, `_SEVERITY[TEXT_IN_FRAME]` soft, object failures routed to `BACKGROUND_OBJECT` | T089 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
 | `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0008_audit_found` | changed | `PersonFound`, `Presence`, `PRESENCE_AGENT_PROMPT`, `find_character`, `present_characters`, `run_checks(found=)`, `frame_audits.found` | T099 |
+| `services/api/app/verify/{schema,audit}.py`, `app/llm/structured.py` | changed | `DescriptionLimits`, `DESCRIPTION_LIMITS`, `description_grammar`, `describe_frame` sends it; `structured_chat(grammar=)` (llm.md §6) | T109 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
 ## 8. Decisions & alternatives
@@ -956,6 +996,7 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 | Unheld food (T086; Tumo, 2026-10-12) | soft `BACKGROUND_OBJECT` whatever the judge called it | food as plain set dressing with the heading as support (it would pass silently: a cake at a birthday the script never had); hard as before (bread in a bakery failed 26 times) |
 | Objects and lettering warn (T089; Tumo, 2026-10-12) | every object failure but an animal's or a weapon's, and `TEXT_IN_FRAME`, are soft and named on the card | strict as before (9 of 49 on lost-property, most for a misspelt LOST PROPERTY sign); all objects soft (the same counts, but a knife or a dog the script never gave would pass); asking klein for no lettering (a prompt change, fal money, and the script's own signs would go too); a setting for strict mode (one revert does it, no caller needs both) |
 | A person's support (T084) | code: found in the shot's action text, with no `he`, `him` or `she` | any verbatim quote of the shot or of an in-shot entity, as before (2026-10-12: three strangers accepted on lost-property, excused by dialogue or a pronoun, and an old woman for Siphokazi on sipho-and-siphokazi); a person-noun list the support must contain (a vocabulary that never ends: "commuter", "busker", "courier"); telling the judge only (it can't be measured free, and code would still trust what it cites; a judge sentence is §10's open question) |
+| A describer answer that loops (T109; measured 2026-10-17) | length limits in the decoding grammar only (`response_format`), the prompt's schema unchanged: 7 of 7 looping frames valid, 10 of 10 controls the same answer | the same limits in the schema the prompt shows too (7 of 7 valid, but 7 of 10 controls answered differently with no limit reached: a different prompt); `frequency_penalty` 0.5 (6 of 7, and fewer objects on every control: 15 → 8, 10 → 5, which changes what the judge checks); a prompt sentence asking for each object once (2 of 7); asking again at temperature 0.3 (2 of 7); a larger `max_tokens` (a loop fills any budget, and is billed for it); salvaging the cut-off JSON (it drops the rest of the answer silently: validation fixes shape, never content, llm.md) |
 | Measuring a code-only audit change (T083) | `recheck`: today's checks on stored descriptions and judgements | `reaudit`: two Token Factory calls a drawing for a change that calls no model |
 | Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
 
@@ -1121,6 +1162,34 @@ it against the script."*
   `found` column. Token Factory: the real code on the 30 stored frames gives about
   §3's numbers. Live: one held-out script with `AUDIT_WITHHOLD_CHECKS=drawn_sex,no_character`
   (fal: ask Tumo).
+- **T109, measured first** (2026-10-17, Token Factory only, about $0.3; scripts and results in
+  `eval/measurements/t109/`): every Super VL `ERROR` with a stored drawing, 7 of the labelled
+  frames (market-day 2.1, 3.2, 5.2; sipho-and-siphokazi 2.1; the-borrowed-bicycle 5.5;
+  the-lighthouse-inspector 8.1; the-night-taxi 1.1) and rooftop-tomatoes' comic 6.1, asked the
+  describer's exact call three times. **Every failure was `finish_reason=length` at 4,096 tokens**,
+  cut mid-JSON at the same character on every run (temperature 0); sipho 2.1 answered in 422 tokens
+  all three times, and market-day 5.2 failed once in four runs: it loops sometimes, the other six every time. The raw answers loop: a repeated object or
+  person, or a string that never ends. Then each candidate on the 7 that loop and on 10 control
+  frames (today's two held-out runs, the most objects first), against the stored answer:
+
+  | Candidate | Looping frames valid | Controls: the same answer |
+  |---|---|---|
+  | none (the call as it is, a 4th run) | 1 of 7 (market-day 5.2; the other 6 failed all 4 runs) | 9 of 10 |
+  | limits in the schema and the prompt | 7 of 7 | 3 of 10 |
+  | **limits in the grammar only** | **7 of 7** (378–1,597 tokens) | **10 of 10** |
+  | `frequency_penalty` 0.5 | 6 of 7 | 0 of 10 (fewer objects on every one) |
+  | a prompt sentence: each object once | 2 of 7 | not run |
+  | temperature 0.3 | 2 of 7 | not run |
+
+  **The limits** sit above every stored answer: DeepSeek's 1,352 descriptions reach 21 people,
+  32 objects, 15 pieces of text and 175 characters of appearance; Super VL's 79 reach 33 pieces of
+  text (a calendar's 31 dates, an honest answer). **Tests** (`tests/verify/test_t109.py`, tests
+  first): `description_grammar()` sets exactly the six limits and leaves the rest of
+  `FrameDescription.model_json_schema()` equal; `describe_frame` sends the capped schema as
+  `response_format` and the uncapped one in the system message (a MockTransport reads the body);
+  `structured_chat` without `grammar` sends today's body (llm.md §9). **After the code:**
+  `eval/tools/score_labels.py` on the 109 labelled frames with Super VL (about $0.25, Tumo's
+  go-ahead): 0 describer `ERROR`s, and every frame whose verdict moves looked at.
 
 ## 10. Open questions
 
