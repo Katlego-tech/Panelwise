@@ -286,5 +286,6 @@ now read (`.env.example`'s "read by no code yet" goes), off when unset or blank 
   room under the credit, `IMAGE_MONTHLY_GENERATION_CAP` one job's (about 150 drawings) under the fal
   allowance. They are entered in Render's dashboard (deploy.md §6, `sync: false`), so the code
   doesn't wait on them; the deploy does.
-- [ ] Devpost's rules on a login for judges: the rules page couldn't be read by the assistant
-  (403); Tumo checks it signed in before the testing instructions are written (T030).
+- [x] Devpost's rules on a login for judges: the rules page couldn't be read by the assistant
+  (403); **confirmed 2026-10-16: Devpost allows a judge login** (Katlego), so the shared judge account stands, its credentials in
+  Devpost's testing instructions (T030).
