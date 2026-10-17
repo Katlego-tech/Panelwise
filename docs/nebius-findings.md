@@ -385,6 +385,20 @@ character here. Every attempt has an eye verdict from the held-out run (`eval/fr
 | 7.5 (Mr. Fortuin drawn as an old woman) | **wrong** | the judge matched her as FORTUIN: warn, shown ✗ | the judge refused her (`unscripted_person`), the presence agent found her as FORTUIN: warn, shown ✗ |
 | 8.1 (no rescue boat) | weak | `unscripted_person` (warn) | `ERROR`, withheld: a redraw |
 
+**What carries over**, the rows of the-red-kite's table above, from the same two records (no new
+run; 25 attempts, since 8.1 has no description on Super VL):
+
+| Part of the audit | Agrees | What differs |
+|---|---|---|
+| Structured output (strict `json_schema`) | 25 of 26 | 8.1 failed the schema and its repair (the new item below) |
+| People described (how many) | 25 of 25 | — |
+| The sex agent (T095) | 24 questions each; 23 of 23 answers on the same people the same | — |
+| The presence agent (T099) | found someone on 2 attempts against 0 | 7.3 and 7.5, the two judge differences below |
+| The judge's matches (person → character) | 23 of 25 the same | both a match DeepSeek made and Super VL's judge refused, then the presence agent found: 7.3 (Ms. Naidoo drawn twice, weak; described as "an adult … in a suit jacket", no sex) and 7.5 (Mr. Fortuin as an old woman, wrong; FORTUIN found). The same outcome both ways |
+| Setting | 25 of 25 | — |
+| Light, shot size | 14 and 21 of 25 | soft checks only |
+| Lettering against signature | `has_text` 19 of 25 | text entries more on 10 of 26 (T107) |
+
 **What this adds to the-red-kite's findings:** nothing new among T106–T108's three items, and one
 new item: **the describer's schema on Super VL**: 1 of 26 here (8.1), 7 of 109 on the labelled
 frames below, against 0 of 44 on the-red-kite. Each is an `ERROR`: withheld, redrawn on the hosted
