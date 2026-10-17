@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     nebius_model_fast: str = "nvidia/Nemotron-3_5-Lightning"
     nebius_model_reasoning: str = "nvidia/nemotron-3-super-120b-a12b"
     nebius_model_vision: str = "deepseek-ai/DeepSeek-V4.1-Flash"
+    # The vision tier's thinking toggle (docs/design/vision-model.md, T105): unset or blank sends
+    # nothing, as before; true or false sends it on every vision call.
+    nebius_vision_thinking: bool | None = None
     llm_request_timeout_s: float = 120.0
     # T075: a dead connection fails in 10 s, and 5 attempts ride out about 80 s of drops.
     llm_connect_timeout_s: float = 10.0
@@ -76,6 +79,7 @@ class Settings(BaseSettings):
         "uploads_per_day",
         "upload_max_pages",
         "image_monthly_generation_cap",
+        "nebius_vision_thinking",
         mode="before",
     )
     @classmethod
