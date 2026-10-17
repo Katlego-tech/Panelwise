@@ -133,7 +133,9 @@ for one job finishing over it. **Measured** (2026-10-15, the stored runs of 11 s
 stack): a storyboard under today's ladder (`drawn_sex,no_character`) is **17–26 drawings** (the
 held-out runs of 13–14 Oct), about $0.07–0.10; under the old strict audit up to 134 (lost-property, 49
 shots). Its audit is 130,000–175,000 tokens (up to 390,000 under the old audit; T104's layout
-question adds about 15,000–24,000, verify.md §3); this month's
+question adds about 15,000–24,000 to it and as much to its comic, verify.md §3; T102 lets every sex
+question, T095's too, use up to 4,096 tokens, so measure tokens a job again once the agent set
+settles); this month's
 `llm_usage` on the local stack, all our testing, is 4.4 million tokens in 1,455 calls.
 
 **The judge seed** (`python -m app.demo.seed --from <project id>`, run once against the hosted
