@@ -4,7 +4,8 @@
 nothing more, so the audit runs on any PNG, rendered or not.
 """
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Protocol
 
@@ -151,6 +152,8 @@ class Audit:
     seen: tuple[PersonSeen, ...] = ()  # T095: the sex agent's answers
     found: tuple[PersonFound, ...] = ()  # T099: the presence agent's answers
     layout: FrameLayout | None = None  # T104: the layout agent's answer, cleaned
+    matched: Mapping[int, str] = field(default_factory=dict[int, str])  # T097: matched_people, kept
+    heads: tuple[HeadSeen, ...] = ()  # T097: the head agent's kept answers
 
 
 @dataclass(frozen=True)
@@ -161,6 +164,20 @@ class FrameLayout:
     panels: int
     copies: tuple[tuple[int, int], ...]
     reason: str
+
+
+# x0, y0, x1, y1: fractions of the frame's width and height, from its top-left (T097)
+type HeadBox = tuple[float, float, float, float]
+
+
+@dataclass(frozen=True)
+class HeadSeen:
+    """Where one described person's head is (T097): the person's index, the character they
+    were accepted as (None for a person matched to no one), and the head's box."""
+
+    person: int
+    character: str | None
+    box: HeadBox
 
 
 @dataclass(frozen=True)

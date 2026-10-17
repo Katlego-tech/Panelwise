@@ -89,6 +89,11 @@ class FrameWriter:
                         "copies": [list(pair) for pair in audit.layout.copies],
                         "reason": audit.layout.reason,
                     },
+                    heads=[
+                        {"person": h.person, "character": h.character, "box": list(h.box)}
+                        for h in audit.heads
+                    ]
+                    or None,
                     verdict=audit.verdict.value,
                     models=list(audit.models),
                     prompt_tokens=audit.usage.prompt_tokens,
