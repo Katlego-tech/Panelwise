@@ -449,6 +449,37 @@ over many frames as the measurement.
 Raw: `eval/measurements/2026-10-17/` (both runs' per-frame results and logs, and the
 lighthouse's `measure.py` records).
 
+### U8 follow-ups: T106 and T107 (2026-10-18, Katlego)
+
+The two describer items § U8 left on Super VL, measured on the-red-kite's same 44 stored attempts
+with T105's `measure.py` (Super VL with thinking off, today's full `audit_frame`, writing nothing),
+against 17 Oct's Super VL run:
+
+| | 17 Oct | The wording only (#210, run 1) | Wording and the signature slot (run 2) |
+|---|---|---|---|
+| Rooftop 0.4, comic / storyboard | `interior` / `interior` (hard `SETTING` fail) | `exterior` / `exterior` | `exterior` / `unclear` (both pass) |
+| Other settings changed | | none of 42 | none of 42 |
+| `text` entries | 25 | 24 | **7** |
+| `text_in_frame` frames | 22 | 21 | **5** (DeepSeek: 6) |
+| Errors | 0 | 0 | 0 |
+
+**The hand classification** of 17 Oct's 25 `text` entries, with each drawing looked at: 4 are
+lettering in the scene ("SNAP." twice, "SLAP & NOPE.", a door's "1"), and 21 are the artist's corner
+signature, or a reading of nothing visible ("K. K. K."). All 4 stay in `text` in both runs.
+
+**What did it.** T106's sentence alone fixed the roof. T107's sentence alone moved nothing: Super
+VL wrote the signature under `text` anyway. Giving the signature its own field, `signature_text`,
+written before `text`, moved 22 signatures out of it. The schema's order is the order the model
+writes in, and with `text` first it had already put the scrawl there. Three signatures still land
+in both fields ("J. Eubred", "HATAP", "P-16"); that's a soft warning each.
+
+**Not from these changes:** two new `unscripted_person` fails in run 2. On comic 0.4 the description
+of Lerato is identical in all three runs and the judge refused it once; storyboard 2.1's "pigtails"
+is T108's case. The judge never sees `text` or `signature_text`, only the people and objects lines
+(`prompts.py`). Storyboard 4.2's `split_panels` is T104's layout agent, which 17 Oct's run predates.
+
+Raw: `eval/measurements/2026-10-18-describer/` (both runs' records per attempt).
+
 ## U9 — Does the vision model see a body drawn wrong? (2026-10-18, T111)
 
 **No.** Measured for T111 (limb-agent.md) on `nvidia/Nemotron-3.5-Super-VL`. The question was
