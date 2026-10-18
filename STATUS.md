@@ -210,9 +210,9 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 
 | Week | What | Target window | Status |
 |-------|------|---------------|--------|
-| 1 | Token Factory check; versions + compose; ComfyUI on Nebius GPU; port llm, script, grounding | 28 Sep – 4 Oct | 🟡 all but T003 (GPU) and T037's deploy check (accounts) |
-| 2 | **US1**: script → grounded storyboard on Nemotron, end to end in the web app. Design docs for verify + comic | 5 – 11 Oct | 🟡 designs done (verify, comic, characters, storyboard, web); pipeline core, prompts, schemas built; Supabase ready 2 Oct, T009 next; rendering blocked on GPU |
-| 3 | **US2**: frame audit + re-render + audit log. **US4**: reference portraits | 12 – 18 Oct | 🟡 frame audit (T020) done early |
+| 1 | Token Factory check; versions + compose; ComfyUI on Nebius GPU; port llm, script, grounding | 28 Sep – 4 Oct | ✅ closed 4 Oct (MILESTONES.md): all but T003 (GPU; optional since 9 Oct, fal instead) |
+| 2 | **US1**: script → grounded storyboard on Nemotron, end to end in the web app. Design docs for verify + comic | 5 – 11 Oct | ✅ closed 11 Oct (MILESTONES.md): live on the-red-kite that evening, fal instead of the GPU |
+| 3 | **US2**: frame audit + re-render + audit log. **US4**: reference portraits | 12 – 18 Oct | 🟡 closed 18 Oct (MILESTONES.md): US2 ✅ live and hosted; US4 slipped (T025 not built, cut proposed, Tumo to confirm) |
 | 4 | **US3**: comic pages + reader. Hosted demo live | 19 – 25 Oct | 🟡 comic layout + lettering + PDF (T022, T023) done early; reader (T024) not started |
 | 5 | Hardening, eval numbers, video, README, repo public, **submit by 29 Oct** (one day of buffer) | 26 – 30 Oct | 🟡 eval numbers (T032) done early; README drafted (T033, needs the team's feedback section) |
 
@@ -290,6 +290,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
+- 2026-10-18 — Katlego (via Claude) — **MILESTONES.md caught up** (Katlego noticed it was empty): rows for weeks 1–3 from the merge history and run reports, and the timeline's statuses in the same PR. Weeks 1 and 2 were shown (week 1 without T003's GPU); week 3 showed US2, while US4 slipped (T025, cut proposed, waiting on Tumo). **Next:** week 4's row on 25 Oct. **Blocked on:** Tumo's word on cutting T025.
 - 2026-10-18 — Katlego (via Claude) — **T106 and T107 done** (#209, #210). Re-audited on Super VL, two announced runs on the-red-kite's 44 attempts: both rooftops pass and no other setting changes; `text_in_frame` 22 → 5 frames (DeepSeek: 6), with all 4 pieces of scene lettering kept. The wording alone fixed the roof but not the signatures; a `signature_text` field written before `text` did. **Note for Tumo:** T109's limits should cap `signature_text` like `text`. **Next:** Katlego's merges of #209 then #210. **Blocked on:** nothing.
 - 2026-10-18 — Katlego (via Claude) — **T106 and T107 designed** (verify.md §3): the describer's setting rule (open to the sky is exterior; interior only with walls and a ceiling) and its text rule (the artist's signature never in `text`, readable or not), worded verbatim. From T105's stored runs, free: the only setting changes were the two rooftops; the extra `text` entries are corner signatures Super VL reads. **Next:** the code and one announced `reaudit` on the-red-kite. **Blocked on:** nothing.
 - 2026-10-18 — Katlego (via Claude) — **T111 decided: no limb check.** 175 drawings labelled by Katlego (19 defects in the base 127, 29 of the 48 hunted). Super VL caught 5.3% of base defects with thinking off and 0% with thinking on (bar 60%); it answers "1 head, 2 arms, 2 legs, normal" whatever is drawn. Two announced runs on #208 (tokens in § U9). Findings § U9; labels and hunt kept as a test set. **Next:** T106/T107. **Blocked on:** nothing.
