@@ -576,13 +576,17 @@ def run_checks(
         elif _points_elsewhere(call.support):
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support points at someone else")
 
-    # T095: a matched character the script sexes, drawn as the other sex.
+    # T095: a matched character the script sexes, drawn as the other sex; T102: or a found one.
     accepted = matched_people(shot, description, judgement, extraction, ages)
+    found_at = found_people(on_screen, found, accepted, description, ages)
     for answer in seen:
         want = (sexes or {}).get(answer.character)
         if (
             want is not None
-            and accepted.get(answer.person) == answer.character
+            and (
+                accepted.get(answer.person) == answer.character
+                or found_at.get(answer.character) == answer.person
+            )
             and answer.sex in ("male", "female")
             and answer.sex != want
         ):
@@ -722,7 +726,7 @@ async def check_person(
             ],
         },
     ]
-    result = await structured_chat(model, messages, PersonCheck, Tier.VISION, max_tokens=1024)
+    result = await structured_chat(model, messages, PersonCheck, Tier.VISION, max_tokens=4096)
     return result.value, result.chat
 
 
@@ -730,30 +734,34 @@ async def _ask_sexes(
     model: NebiusChatModel,
     image: str,
     description: FrameDescription,
-    matched: Mapping[int, str],
+    pairs: Sequence[tuple[int, str]],
     sexes: Mapping[str, str],
     chats: list[ChatResult],
 ) -> tuple[PersonSeen, ...]:
-    """The sex agent on every matched person the script sexes, at once (T095). A failed question
-    checks nothing for that person: logged, never an ERROR."""
-    asks = [(i, name) for i, name in sorted(matched.items()) if name in sexes]
-    if not asks:
+    """The sex agent on the (person, character) pairs whose character the script sexes: the
+    matched people (T095), or the found ones (T102). One question per person, all at once, the
+    answer kept for each of that person's pairs in the given order (T102: the question names no
+    character). A failed question checks nothing for that person: logged, never an ERROR."""
+    asks = [(i, name) for i, name in pairs if name in sexes]
+    people = sorted({i for i, _ in asks})
+    if not people:
         return ()
     answers = await asyncio.gather(
-        *(check_person(model, image, description, i) for i, _ in asks), return_exceptions=True
+        *(check_person(model, image, description, i) for i in people), return_exceptions=True
     )
-    seen: list[PersonSeen] = []
-    for (i, name), answer in zip(asks, answers, strict=True):
+    sex: dict[int, str] = {}
+    for i, answer in zip(people, answers, strict=True):
         if isinstance(answer, BaseException):
             if not isinstance(answer, LLMError | ValidationError):
                 raise answer
             detail = str(answer) if isinstance(answer, LLMError) else type(answer).__name__
-            logger.warning("sex agent on person %d (%s) failed: %s", i, name, detail)
+            names = ", ".join(name for p, name in asks if p == i)
+            logger.warning("sex agent on person %d (%s) failed: %s", i, names, detail)
             continue
         check, chat = answer
         chats.append(chat)
-        seen.append(PersonSeen(i, name, check.sex))
-    return tuple(seen)
+        sex[i] = check.sex
+    return tuple(PersonSeen(i, name, sex[i]) for i, name in asks if i in sex)
 
 
 async def _judge(
@@ -835,10 +843,22 @@ def present_characters(
     description: FrameDescription,
     ages: Mapping[str, int] | None,
 ) -> frozenset[str]:
-    """The drawn characters the presence agent finds (T099, pure): an answer naming a person who
-    exists, whom `matched_people` doesn't accept as another character, and whose described age
-    doesn't contradict the character's introduced years."""
-    out: set[str] = set()
+    """The drawn characters the presence agent finds (T099, pure): `found_people`'s characters."""
+    return frozenset(found_people(on_screen, found, accepted, description, ages))
+
+
+def found_people(
+    on_screen: Sequence[str],
+    found: Sequence[PersonFound],
+    accepted: Mapping[int, str],
+    description: FrameDescription,
+    ages: Mapping[str, int] | None,
+) -> dict[str, int]:
+    """Character -> the person the presence agent finds for them (T099, T102; pure): an answer
+    naming a person who exists, whom `matched_people` doesn't accept as another character, and whose
+    described age doesn't contradict the character's introduced years; the first such answer per
+    character."""
+    out: dict[str, int] = {}
     for answer in found:
         i = answer.person
         if answer.character not in on_screen or i is None:
@@ -850,8 +870,8 @@ def present_characters(
             years, described_age(description.people[i].appearance)
         ):
             continue
-        out.add(answer.character)
-    return frozenset(out)
+        out.setdefault(answer.character, i)
+    return out
 
 
 async def _find_characters(
@@ -931,7 +951,7 @@ async def audit_frame(
         sexes = shot_sexes(shot, screenplay, extraction, character_sex)
         matched = matched_people(shot, description, judgement, extraction, ages)
         image = f"data:image/png;base64,{base64.b64encode(frame.png).decode()}"
-        seen = await _ask_sexes(model, image, description, matched, sexes, chats)
+        seen = await _ask_sexes(model, image, description, sorted(matched.items()), sexes, chats)
         # T099: none of the drawn characters matched, on a judgement run_checks will read.
         well_formed = _calls_each_once(
             [c.person for c in judgement.people], len(description.people)
@@ -940,6 +960,10 @@ async def audit_frame(
             found = await _find_characters(
                 model, image, on_screen, shot, screenplay, extraction, description, chats
             )
+            # T102: a found person the script sexes gets T095's question too.
+            found_at = found_people(on_screen, found, matched, description, ages)
+            pairs = sorted((person, character) for character, person in found_at.items())
+            seen += await _ask_sexes(model, image, description, pairs, sexes, chats)
         checks, verdict, positions = run_checks(
             shot,
             scene,
