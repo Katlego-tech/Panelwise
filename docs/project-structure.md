@@ -10,7 +10,7 @@ panelwise/
 ├── .env.example                 # key names only
 ├── docker-compose.yml           # local: postgres, api, web (+ comfyui profile, T003); deployed: docs/design/deploy.md
 ├── infra/
-│   ├── nebius/                  # GPU VM / serverless endpoint for ComfyUI
+│   ├── nebius/                  # GPU VM / serverless endpoint for ComfyUI (not set up: T003 optional)
 │   └── comfyui/workflows/       # public node graphs (JSON)
 ├── services/api/                # FastAPI
 │   ├── app/
@@ -23,7 +23,7 @@ panelwise/
 │   │   ├── verify/              # frame audit (vision model describes, Nemotron judges) + re-render loop
 │   │   ├── comic/               # page layout, panel sizing, bubbles, lettering
 │   │   ├── characters/          # reference portraits for consistent characters
-│   │   ├── images/              # provider chain + cache
+│   │   ├── images/              # provider chain + cache (planned, not built; fal renders)
 │   │   └── api/v1/              # projects, script, shots, storyboard, comic, audit log
 │   └── tests/
 ├── apps/web/                    # Next.js: upload → shots → storyboard → comic reader

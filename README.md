@@ -58,7 +58,7 @@ Setup, step by step: [docs/deploy.md](docs/deploy.md); the design:
 ## What's real and what's mocked
 
 
-As of 2026-10-17, on `main`:
+As of 2026-10-18, on `main`:
 
 | Stage | State | Try it |
 | --- | --- | --- |
@@ -67,13 +67,13 @@ As of 2026-10-17, on `main`:
 | Shot planning on Nemotron: every action paragraph and speech in exactly one shot | built, measured | `app.shots.run` |
 | Frame prompts from the shot's own script words, names redacted | built | `app.storyboard.prompts` |
 | Rendering: FLUX.2 [klein] 4B on fal.ai, at most one megapixel a drawing (T026) | built, run live on the samples | upload a script with `FAL_KEY` set |
-| Frame audit: a vision model describes, Nemotron judges, two one-question vision agents check a character's sex and presence, code runs the checks (T020, T094, T095, T099) | built, run live on every run in [eval/runs/](eval/runs/README.md) | `app.verify.run`, `app.verify.report` |
+| Frame audit: Nemotron 3.5 Super VL describes, Nemotron Super judges, one-question vision agents check a character's sex and presence, a frame drawn in panels or one person drawn twice, and each head's place for the bubbles; code runs the checks (T020, T094, T095, T099, T102, T104, T097, T105–T107) | built, run live on every run in [eval/runs/](eval/runs/README.md) | `app.verify.run`, `app.verify.report` |
 | The re-render loop: up to 3 drawings a frame, withheld after the last; every attempt and its audit kept (T021) | built, run live | the storyboard's frame sheet |
 | The storyboard PDF (T027) | built | *Export PDF* on the storyboard |
-| The comic: panels drawn and audited at their own size, laid out by shot, dialogue lettered verbatim, a reader and a PDF (T022, T023, T064, T024) | built, run live on real renders | *Make the comic* on a project's comic tab |
+| The comic: panels drawn and audited at their own size, laid out by shot, dialogue lettered verbatim, a reader and a PDF (T022, T023, T064, T024); a speech tail aims at the speaker's mouth and never crosses another tail, a bubble or a face; balloons take the script's voice (thought, whisper, shout, distress, radio) and one speaker's lines link (T098, T112, T114–T121) | built, run live on real renders | *Make the comic* on a project's comic tab |
 | Web app: sign-in, the projects list with upload and each job's live state, the script page (every entity with its quotes and spans, faithfulness and recall), the storyboard (the script with a line over each shot's span beside a board of frame cards), the frame sheet with the audit log of every attempt and "Try another render", the comic reader | built, run live on Supabase (T040–T042, T045, T061, T024) | `docker compose up --build --wait`, then `localhost:3000` ([§ Run it](#how-to-run-it)) |
 | The hosted demo: web on Vercel, API on Render, Supabase for Postgres, Storage and Auth | up since 2026-10-16, health checks green; still to do: the judge account and the first storyboard drawn on the hosted stack (T030, T037) | [§ The hosted demo](#demo) |
-| Not built: reference portraits for consistent characters (T025); ComfyUI on a Nebius GPU (T003, optional since fal.ai); the audit's precision and recall on a labelled set (T049) | — | — |
+| Not built: reference portraits for consistent characters (T025, cut proposed; a character's look comes from the script's words, T079); ComfyUI on a Nebius GPU (T003, optional since fal.ai); the audit's precision and recall on a labelled set (T049); a check for bodies drawn wrong (T111: measured on Super VL, not adopted, findings § U9) | — | — |
 
 [STATUS.md](STATUS.md) is the live board. The order of what's left is in its *Next action* section.
 
@@ -158,7 +158,7 @@ the catalog, and the design follows the answers.
 | --- | --- | --- | --- |
 | fast | `nvidia/Nemotron-3_5-Lightning` | extraction, shot planning | Token Factory **enforces** a strict `json_schema` on it (U1), which schema-bound extraction needs. It allows 600 requests and 400K tokens a minute (U4) at $0.06 / $0.24 per million tokens. Thinking is switched off: that took a one-number answer from 271 output tokens to 4 (U2) |
 | reasoning | `nvidia/nemotron-3-super-120b-a12b` | the frame-audit verdict | A judgement call over the shot's grounded spec and the frame's description, with thinking on |
-| vision | `deepseek-ai/DeepSeek-V4.1-Flash` | describing a rendered frame, blind to the shot; the sex and presence agents' one-person questions | **No Nemotron model on Token Factory accepts images** (U7), so this non-NVIDIA model only describes and answers narrow questions. Nemotron judges; code applies the checks |
+| vision | `nvidia/Nemotron-3.5-Super-VL`, thinking off | describing a rendered frame, blind to the shot; the agents' one-question checks (sex, presence, layout, heads) | NVIDIA's vision model, on Token Factory since 12 Oct (U8). Measured on the same stored drawings before the switch on 17 Oct: it tied the previous describer (`deepseek-ai/DeepSeek-V4.1-Flash`) on the disputed checks, with no errors and 0.95× the tokens (T105). It only describes and answers narrow questions; Nemotron Super judges, and code decides |
 
 Images are drawn by FLUX.2 [klein] 4B on **fal.ai**, because Token Factory serves no
 image-generation model (U5, re-checked 2026-10-08). ComfyUI on a Nebius AI Cloud GPU was the first
@@ -176,7 +176,7 @@ Details that came out of measuring rather than reading the docs:
   on 429 instead of backing off blindly (U4).
 - The first vision model we chose silently stopped receiving images between two dates and began
   answering from text alone. A re-check caught it, and the describer moved to DeepSeek
-  (findings § U7 re-check).
+  (findings § U7 re-check), then on 17 Oct to Nemotron 3.5 Super VL (U8).
 - The audit, not the extraction, is where the tokens go: two calls a drawing (the describer, then
   the judge), plus the agents' questions when they run, and up to 3 drawings a shot; a 30-shot
   script at 3 attempts can use about 500,000 tokens (docs/learning-log.md L007). One storyboard and
