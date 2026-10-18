@@ -145,7 +145,7 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `FAL_MODEL`, `FAL_TIMEOUT_S`, `FAL_CONCURRENCY` | API | default `fal-ai/flux-2/klein/4b` (2026-10-11), 60 s, 2 (storyboard.md §3.5) |
 | `LLM_MONTHLY_TOKEN_CAP`, `UPLOADS_PER_DAY`, `UPLOAD_MAX_PAGES` | API only | the hosted demo's limits (limits.md, T069); unset or blank: off |
 | `IMAGE_MONTHLY_GENERATION_CAP` | API only | drawings a month (limits.md §4, T030); unset or blank: off |
-| `AUDIT_WITHHOLD_CHECKS` | API | which failed hard checks withhold a frame (verify.md §3, T094): `all` (the code default), empty, or a comma list; **hosted: `drawn_sex,no_character`** (Tumo, 2026-10-15; T030) |
+| `AUDIT_WITHHOLD_CHECKS` | API | which failed hard checks withhold a frame (verify.md §3, T094): `all` (the code default), empty, or a comma list; **hosted: `drawn_sex,no_character`** (Tumo, 2026-10-15; T030); **`split_panels` joins it with T104's code** (Katlego, 2026-10-17: `drawn_sex,no_character,split_panels`), and `drawn_twice` stays off the list, so it warns. Not before T104 is on `main`: a name the code doesn't know stops the API starting (`withholding`, config.py) |
 | `RENDER_MAX_ATTEMPTS`, `UPLOAD_MAX_BYTES` | API | drawings per frame, 1–3 (default 3); the upload size in bytes (default 4,000,000) |
 | `JUDGE_EMAIL`, `JUDGE_PASSWORD` | local only | the judge seed (`python -m app.demo.seed`, limits.md §4); never the hosted API's environment |
 | `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget, default 55 (storyboard.md §3.1, T008) |
@@ -191,7 +191,7 @@ services:
         sync: false
       # The hosted demo's settings (T030): decided, so written here.
       - key: AUDIT_WITHHOLD_CHECKS
-        value: drawn_sex,no_character
+        value: drawn_sex,no_character,split_panels
       - key: UPLOADS_PER_DAY
         value: "3"
       - key: UPLOAD_MAX_PAGES
@@ -227,7 +227,8 @@ Validated against render.com/schema/render.yaml.json on 2026-10-08 (`1c-2g` is i
   (limits.md §10): `LLM_MONTHLY_TOKEN_CAP` = **2,800,000** (Katlego, 2026-10-16: 30% of the $18 left
   on Token Factory, $5.40, over the three months the cap counts, Oct to Dec, is $1.80 a month; a
   storyboard and its comic measured 339,000 tokens, at most $0.19 at DeepSeek-V4.1-Flash's
-  $0.30/$1.20 per million, the dearest model the API calls; less one job's room),
+  $0.30/$1.20 per million, the dearest model the API calls; less one job's room; with T104's layout
+  question about 370,000–387,000, so about 7 a month instead of 8, verify.md §3),
   `IMAGE_MONTHLY_GENERATION_CAP` = **800** (Katlego, 2026-10-16, from Tumo's fal balance: $5.35
   left, $10 loaded at the end of October for November and $5 at the end of November for December;
   about $8 of a month's money for the demo, 1,000 drawings at $0.004, less one job with re-renders,
