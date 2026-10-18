@@ -25,6 +25,17 @@ class CaptionKind(StrEnum):
     VOICE_OVER = "voice_over"
 
 
+class Voice(StrEnum):
+    """T117: the balloon's shape, from the script's own words (comic.md §3)."""
+
+    PLAIN = "plain"
+    THOUGHT = "thought"
+    WHISPER = "whisper"
+    SHOUT = "shout"
+    DISTRESS = "distress"
+    RADIO = "radio"
+
+
 class ComicError(RuntimeError):
     """The comic can't be laid out or lettered without cutting script text; no partial book.
     `shot` is the (scene_index, shot_number) it names, when it names one: the comic job's failure
@@ -47,6 +58,7 @@ class Bubble:
     rect: Rect
     tail: Point | None
     font_px: int
+    voice: Voice = Voice.PLAIN  # T117
 
 
 @dataclass(frozen=True)
@@ -59,6 +71,7 @@ class Caption:
     span: Span
     rect: Rect
     font_px: int
+    voice: Voice = Voice.PLAIN  # T117: PLAIN, or RADIO for a broadcast voice-over
 
 
 @dataclass(frozen=True)

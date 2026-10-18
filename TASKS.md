@@ -677,5 +677,23 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:comic.md §4 step 8; `place_lettering`'s signature, the layout JSON and step 7's costs unchanged
       Verify:  bash scripts/gate.sh (§9's T114 list; the reference pages unchanged); the 2026-10-17 live comic re-lettered from its stored frames (free), its tails looked at
       Done:    on the live comic every tail with a named head points at the speaker's mouth and chin, its tip short of the face; a frame without heads letters exactly as before
+- [x] T115 [US3] **A lone unnamed head is the speaker's.** Katlego, 2026-10-18, on Tumo's gogos-recipe finding (#200: 3.1 and 5.4 point away). Lane `comic` (Claude for Katlego). Needs T114.
+      Design:  docs/design/comic.md §4 step 7 (the lone unnamed head), §8, §9 (T115)
+      Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/test_t115.py
+      Contract:comic.md §4 step 7; no signature or JSON change
+      Verify:  bash scripts/gate.sh (§9's T115 list)
+      Done:    a panel with one unnamed head and one speaker points that speaker's tail at the head; with two heads nothing is guessed
+- [x] T116 [US3] **Tails stay clear of other bubbles and other faces.** Katlego, 2026-10-18 (comic.md §10's hidden tail; the research: no tail across another face). Lane `comic` (Claude for Katlego). Needs T112.
+      Design:  docs/design/comic.md §4 step 7 (tails stay clear; the searches in order), §8, §9 (T116)
+      Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/{test_t116,test_t112,test_bubbles}.py
+      Contract:comic.md §4 step 7, §6 (`tail_hull`); `place_lettering`'s signature unchanged
+      Verify:  bash scripts/gate.sh (§9's T116 list; every changed reference panel looked at); the 2026-10-17 live comic re-lettered (free): p2's hidden tail is visible
+      Done:    on the live comic no tail runs under a bubble or across another face; a panel where nothing keeps tails clear still letters, warned in the log
+- [x] T117 [US3] **Balloon voices: thought, whisper, shout, distress, radio, and narration boxes.** Katlego, 2026-10-18, from the lettering research (docs/research). Lane `comic` (Claude for Katlego). Needs T116.
+      Design:  docs/design/comic.md §3 (Voice, the two kind exceptions), §4 step 7 (drawing by voice), step 8 (tails by voice), §6, §8, §9 (T117)
+      Files:   services/api/app/comic/{model,bubbles,render,__init__}.py; services/api/tests/comic/test_t117.py; the reference pages
+      Contract:comic.md §6 verbatim (`Voice`, `Bubble.voice`, `Caption.voice`, `voice_of`, `thought_trail`, `radio_zigzag`, `tail_hull`); the layout JSON gains `voice`, nothing else changes
+      Verify:  bash scripts/gate.sh (§9's T117 list); a page of every voice looked at; the live comic re-lettered (free): Lerato's whisper dashed, the radio announcer's broadcast box
+      Done:    each of the six voices is drawn as specified wherever the script's words call for it, and only there; every word lettered byte for byte as before
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
