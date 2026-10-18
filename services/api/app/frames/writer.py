@@ -82,6 +82,13 @@ class FrameWriter:
                         {"character": f.character, "person": f.person, "reason": f.reason}
                         for f in audit.found
                     ],
+                    layout=None
+                    if audit.layout is None
+                    else {
+                        "panels": audit.layout.panels,
+                        "copies": [list(pair) for pair in audit.layout.copies],
+                        "reason": audit.layout.reason,
+                    },
                     verdict=audit.verdict.value,
                     models=list(audit.models),
                     prompt_tokens=audit.usage.prompt_tokens,

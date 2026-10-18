@@ -25,6 +25,7 @@ from app.verify.model import (
     Audit,
     Check,
     CheckResult,
+    FrameLayout,
     Light,
     ObjectCategory,
     ObjectKind,
@@ -44,7 +45,7 @@ from app.verify.prompts import (  # T099: the judge's own character lines, on pu
     _sexed,  # pyright: ignore[reportPrivateUsage]
     render_spec,
 )
-from app.verify.schema import FrameDescription, Judgement, PersonCheck, Presence
+from app.verify.schema import FrameDescription, Judgement, Layout, PersonCheck, Presence
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,9 @@ _SEVERITY = {
     Check.BACKGROUND_OBJECT: Severity.SOFT,
     # A character the script sexes drawn as the other sex, as the sex agent sees it (T095).
     Check.DRAWN_SEX: Severity.HARD,
+    # A frame drawn as a strip of panels, or one person drawn twice in one picture (T104).
+    Check.SPLIT_PANELS: Severity.HARD,
+    Check.DRAWN_TWICE: Severity.HARD,
 }
 # An unscripted animal or weapon is a story choice: it still withholds the frame (T089).
 _STORY_OBJECTS: frozenset[ObjectCategory] = frozenset(
@@ -524,6 +528,7 @@ def run_checks(
     seen: Sequence[PersonSeen] = (),
     sexes: Mapping[str, str] | None = None,
     found: Sequence[PersonFound] = (),
+    layout: FrameLayout | None = None,
 ) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]:
     if not (
         _calls_each_once([c.person for c in judgement.people], len(description.people))
@@ -669,6 +674,20 @@ def run_checks(
     size = _SIZE_STEP.get(description.shot_size)
     if size is not None and abs(size - _FRAMING_STEP[shot.framing]) >= 2:
         failures[Check.FRAMING].append(f"{description.shot_size} for a {shot.framing} shot")
+
+    # T104: a frame in panels; in one picture, a person drawn twice unless both are characters.
+    if layout is not None and layout.panels > 1:
+        failures[Check.SPLIT_PANELS].append(f"drawn as {layout.panels} panels")
+    elif layout is not None:
+        known = dict(accepted) | {person: name for name, person in found_at.items()}
+        for a, b in layout.copies:
+            if a in known and b in known:
+                continue
+            one, two = description.people[a], description.people[b]
+            failures[Check.DRAWN_TWICE].append(
+                f"person {a} ({one.position}, {one.appearance}) and person {b} "
+                f"({two.position}, {two.appearance}): the same person drawn twice"
+            )
 
     checks = tuple(
         CheckResult(check, _SEVERITY[check], not failed, "; ".join(failed))
@@ -907,6 +926,66 @@ async def _find_characters(
     return tuple(found)
 
 
+LAYOUT_AGENT_PROMPT = (
+    "You look at one storyboard drawing and a numbered list of the people a describer saw in it. "
+    "Answer two things from the drawing alone. First, panels: 1 when it is one single picture, "
+    "or the number of separate panels when it is laid out as a strip or grid of pictures side by "
+    "side. Second, copies: the pairs of numbered people who are plainly the same person drawn "
+    "more than once (the same face, hair, build and clothes, for example one person shown at two "
+    "moments, or twice in one room), as [a, b] pairs; an empty list when everyone is a different "
+    "person. People who merely look alike in a sketchy style (two men in suits, two children) are "
+    "not copies unless their face, hair and clothes match. Give a short reason."
+)
+
+
+async def check_layout(
+    model: NebiusChatModel, image: str, description: FrameDescription
+) -> tuple[Layout, ChatResult]:
+    """The layout agent (T104): one vision question, how many panels the frame is and which
+    numbered people are one person drawn twice."""
+    people = [f"[{i}] {p.position}: {p.appearance}" for i, p in enumerate(description.people)]
+    messages = [
+        {"role": "system", "content": LAYOUT_AGENT_PROMPT},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "\n".join(["People in the drawing:", *people])},
+                {"type": "image_url", "image_url": {"url": image}},
+            ],
+        },
+    ]
+    result = await structured_chat(model, messages, Layout, Tier.VISION, max_tokens=4096)
+    return result.value, result.chat
+
+
+def frame_layout(layout: Layout, people: int) -> FrameLayout:
+    """The answer cleaned (T104, pure): panels at least 1; each pair of two different people in
+    range once, as sorted (a, b), in sorted order; anything else dropped."""
+    pairs = {
+        (min(pair), max(pair))
+        for pair in layout.copies
+        if len(pair) == 2 and pair[0] != pair[1] and all(0 <= i < people for i in pair)
+    }
+    return FrameLayout(max(1, layout.panels), tuple(sorted(pairs)), layout.reason)
+
+
+async def _ask_layout(
+    model: NebiusChatModel, image: str, description: FrameDescription, chats: list[ChatResult]
+) -> FrameLayout | None:
+    """The layout agent on a frame of two or more people (T104). A failed question asks nothing:
+    logged, never an ERROR."""
+    if len(description.people) < 2:
+        return None
+    try:
+        layout, chat = await check_layout(model, image, description)
+    except (LLMError, ValidationError) as exc:
+        detail = str(exc) if isinstance(exc, LLMError) else type(exc).__name__
+        logger.warning("layout agent failed: %s", detail)
+        return None
+    chats.append(chat)
+    return frame_layout(layout, len(description.people))
+
+
 async def audit_frame(
     model: NebiusChatModel,
     frame: RenderedFrame,
@@ -920,6 +999,7 @@ async def audit_frame(
     judgement: Judgement | None = None
     seen: tuple[PersonSeen, ...] = ()
     found: tuple[PersonFound, ...] = ()
+    layout: FrameLayout | None = None
     step = "describe"
     try:
         description, chat = await describe_frame(model, frame.png)
@@ -964,6 +1044,8 @@ async def audit_frame(
             found_at = found_people(on_screen, found, matched, description, ages)
             pairs = sorted((person, character) for character, person in found_at.items())
             seen += await _ask_sexes(model, image, description, pairs, sexes, chats)
+        if well_formed:  # T104: a split frame, or one person drawn twice
+            layout = await _ask_layout(model, image, description, chats)
         checks, verdict, positions = run_checks(
             shot,
             scene,
@@ -975,6 +1057,7 @@ async def audit_frame(
             seen=seen,
             sexes=sexes,
             found=found,
+            layout=layout,
         )
 
     return Audit(
@@ -994,4 +1077,5 @@ async def audit_frame(
         ),
         seen=seen,
         found=found,
+        layout=layout,
     )
