@@ -59,6 +59,7 @@ class Bubble:
     tail: Point | None
     font_px: int
     voice: Voice = Voice.PLAIN  # T117
+    linked: bool = False  # T118: joined to the bubble before it by a connector; tail None
 
 
 @dataclass(frozen=True)

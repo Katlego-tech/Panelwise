@@ -683,7 +683,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:comic.md §6 verbatim (`Voice`, `Bubble.voice`, `Caption.voice`, `voice_of`, `thought_trail`, `radio_zigzag`, `tail_hull`); the layout JSON gains `voice`, nothing else changes
       Verify:  bash scripts/gate.sh (§9's T117 list); a page of every voice looked at; the live comic re-lettered (free): Lerato's whisper dashed, the radio announcer's broadcast box
       Done:    each of the six voices is drawn as specified wherever the script's words call for it, and only there; every word lettered byte for byte as before
-- [ ] T118 [US3] **One speaker's consecutive lines are linked.** Katlego, 2026-10-18: "the bubble splitting into two or more with the linking part stretched out" (the research's connector). Lane `comic` (Claude for Katlego). Needs T117.
+- [x] T118 [US3] **One speaker's consecutive lines are linked.** Katlego, 2026-10-18: "the bubble splitting into two or more with the linking part stretched out" (the research's connector). Lane `comic` (Claude for Katlego). Needs T117.
       Design:  docs/design/comic.md §3 (linked lines), §4 step 7 (connectors under the tail rules, LINK_GAP), step 8 (connectors), §6, §8, §9 (T118)
       Files:   services/api/app/comic/{model,bubbles,render}.py; services/api/tests/comic/test_t118.py; the reference pages
       Contract:comic.md §6 (`Bubble.linked`, `connector`); the layout JSON gains `linked`
