@@ -350,6 +350,7 @@ async def run_comic_job(
                             height=size[1],
                             max_renders=max_renders,
                             withholding=withholding,
+                            heads=True,  # T097: where each head is, for the bubbles (T098)
                             first_attempt=1 + (prior.last_attempt if prior else 0),
                             log=log_audit,
                             on_state=on_state,

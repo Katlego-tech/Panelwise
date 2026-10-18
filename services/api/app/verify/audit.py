@@ -26,6 +26,7 @@ from app.verify.model import (
     Check,
     CheckResult,
     FrameLayout,
+    HeadSeen,
     Light,
     ObjectCategory,
     ObjectKind,
@@ -45,7 +46,14 @@ from app.verify.prompts import (  # T099: the judge's own character lines, on pu
     _sexed,  # pyright: ignore[reportPrivateUsage]
     render_spec,
 )
-from app.verify.schema import FrameDescription, Judgement, Layout, PersonCheck, Presence
+from app.verify.schema import (
+    FrameDescription,
+    HeadCheck,
+    Judgement,
+    Layout,
+    PersonCheck,
+    Presence,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1000,6 +1008,7 @@ async def audit_frame(
     seen: tuple[PersonSeen, ...] = ()
     found: tuple[PersonFound, ...] = ()
     layout: FrameLayout | None = None
+    matched: dict[int, str] = {}
     step = "describe"
     try:
         description, chat = await describe_frame(model, frame.png)
@@ -1078,4 +1087,76 @@ async def audit_frame(
         seen=seen,
         found=found,
         layout=layout,
+        matched=matched,
     )
+
+
+HEAD_AGENT_PROMPT = (
+    "You look at the people in a storyboard drawing and say where each listed person's head is: "
+    "the box around the head, from the top of the hair to the chin, as fractions of the image's "
+    "width and height from its top-left corner (0 to 1). Set visible to false when the head is out "
+    "of frame or hidden. Answer for every person listed, by their number, and only for them."
+)
+
+
+def heads_seen(answer: HeadCheck, people: int, matched: Mapping[int, str]) -> tuple[HeadSeen, ...]:
+    """The head agent's answer kept (T097, pure): an answer for a described person, the first
+    for that person, visible, with 0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1; anything else
+    dropped. Each kept box carries the character the person was accepted as, in person order."""
+    answered: set[int] = set()
+    kept: list[HeadSeen] = []
+    for head in answer.heads:
+        if not 0 <= head.person < people or head.person in answered:
+            continue
+        answered.add(head.person)
+        if head.visible and 0 <= head.x0 < head.x1 <= 1 and 0 <= head.y0 < head.y1 <= 1:
+            box = (head.x0, head.y0, head.x1, head.y1)
+            kept.append(HeadSeen(head.person, matched.get(head.person), box))
+    return tuple(sorted(kept, key=lambda h: h.person))
+
+
+async def find_heads(model: NebiusChatModel, frame: RenderedFrame, audit: Audit) -> Audit:
+    """The head agent (T097): one vision question on an accepted comic panel, where each
+    described person's head is. It is no check: the audit comes back with `heads` and the
+    question's usage and model added, its verdict and checks untouched. No described person asks
+    nothing; a failed question is logged and changes nothing."""
+    if audit.description is None or not audit.description.people:
+        return audit
+    people = audit.description.people
+    lines = [f"{i}: {p.position} third, {p.appearance}" for i, p in enumerate(people)]
+    image = f"data:image/png;base64,{base64.b64encode(frame.png).decode()}"
+    messages = [
+        {"role": "system", "content": HEAD_AGENT_PROMPT},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "\n".join(["People in the drawing:", *lines])},
+                {"type": "image_url", "image_url": {"url": image}},
+            ],
+        },
+    ]
+    try:
+        result = await structured_chat(model, messages, HeadCheck, Tier.VISION, max_tokens=4096)
+    except (LLMError, ValidationError) as exc:
+        detail = str(exc) if isinstance(exc, LLMError) else type(exc).__name__
+        logger.warning(
+            "head agent on shot %s attempt %d failed: %s", audit.shot, audit.attempt, detail
+        )
+        return audit
+    heads = heads_seen(result.value, len(people), audit.matched)
+    if len(heads) < len(result.value.heads):
+        logger.info(
+            "head agent on shot %s attempt %d kept %d of %d answers",
+            audit.shot,
+            audit.attempt,
+            len(heads),
+            len(result.value.heads),
+        )
+    chat = result.chat
+    usage = Usage(
+        prompt_tokens=audit.usage.prompt_tokens + chat.usage.prompt_tokens,
+        completion_tokens=audit.usage.completion_tokens + chat.usage.completion_tokens,
+        reasoning_tokens=audit.usage.reasoning_tokens + chat.usage.reasoning_tokens,
+    )
+    models = tuple(dict.fromkeys((*audit.models, chat.model)))
+    return replace(audit, heads=heads, usage=usage, models=models)

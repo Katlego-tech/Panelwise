@@ -483,7 +483,10 @@ generous, never off; the same drawing asked twice gave boxes within 0.02; about 
 500 completion tokens a frame; 0 of 30 questions failed (one of a later 15, with a longer prompt,
 spent its budget thinking at `max_tokens=2048`, hence 4096). The prompt here is the head half of
 the prototype's, and the vision model is now Nemotron 3.5 Super VL (T105, 2026-10-17), so T097's
-Verify measures it again, on Super VL. **No anatomy:** the same prototype was asked
+Verify measures it again, on Super VL. **Measured on Super VL** (2026-10-17, T097's code, thinking
+off, `find_heads` itself): the 18 distinct drawings of that probe, 24 described people, 24 boxes,
+every one on its head (the small far ones, profiles and a back of a head too), 0 failed
+questions, about 1,340 prompt and 100 completion tokens a frame. **No anatomy:** the same prototype was asked
 for each person's heads, arms, legs and hands, and called a man drawn with three arms (0.3 a1)
 `normal` twice, even when told to count each limb back to its shoulder; it counted 0 legs on
 standing people and 1 arm on a person with two, and called one drawing's ordinary hands deformed.
