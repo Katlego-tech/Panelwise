@@ -19,7 +19,7 @@ Every step below names the task that makes it real; nothing is shown before that
 | 0:20–0:50 | The problem: a storyboard needs an artist, time and money, and image models invent things the script never says | a raw image-model frame beside the script line it contradicts |
 | 0:50–1:10 | The solution: what it does, before how | the README flow diagram |
 | 1:10–2:20 | Live demo: the golden path below, from upload to the audit log | the hosted app (T030) |
-| 2:20–2:40 | Architecture, in the audio: Nemotron 3.5 Lightning on Token Factory extracts and plans; ComfyUI on a Nebius GPU renders; a vision model describes each frame and Nemotron judges it | the README diagram, corrected for the describe/judge split |
+| 2:20–2:40 | Architecture, in the audio: Nemotron 3.5 Lightning on Token Factory extracts and plans; FLUX.2 [klein] on fal.ai renders; Nemotron 3.5 Super VL describes each frame and Nemotron Super judges it | the README diagram, corrected for the describe/judge split |
 | 2:40–3:00 | Close: the measured faithfulness, recall and audit numbers (T032, T049), the repo link | one slide |
 
 ## Golden path script

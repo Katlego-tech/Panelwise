@@ -1,6 +1,6 @@
 # Design — `verify` the vision model: Nemotron 3.5 Super VL as the describer
 
-**Status:** draft · **Owner:** Katlego (Claude) · **Tasks:** T105 · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+**Status:** built and live (T105: #191 design, #192 code; Super VL with thinking off is every vision call since 2026-10-17; T106 and T107 adapted the describer on 18 Oct) · **Owner:** Katlego (Claude) · **Tasks:** T105 · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 · **Raised:** 2026-10-17 by Katlego, after NVIDIA's 15 Oct release ([nebius-findings.md § U8](../nebius-findings.md#u8--an-nvidia-vision-model-2026-10-17))
 · **Decided 2026-10-17 by Katlego: Super VL is the target vision model.** Nemotron is the sponsor's
 technology; DeepSeek-V4.1-Flash, another vendor's model, was only ever the stand-in option A had to
