@@ -48,12 +48,13 @@ the drawn sex (T095, T102); hairstyle words (T108); the judge (unchanged).
 classDiagram
     class LimbLabel {
         +str asset
-        +str source  "labelled-109 | probe-14oct"
+        +str source  "labelled-109 | probe-14oct | hunt"
         +str verdict  "normal | defect | unclear"
         +list~LimbFault~ faults
+        +str note
     }
     class LimbFault {
-        +int person  "the stored description's index"
+        +str where  "left | centre | right: the third the body is in"
         +str defect  "a Defect value, or deformed_hands"
     }
     class BodyAnswer {
@@ -75,7 +76,16 @@ classDiagram
 - **`LimbLabel`** is one drawing judged by eye (Katlego), stored in
   `docs/design/limb-agent/labels.json`. `defect` means a reader would notice at once; `unclear` is a
   drawing too small or too sketchy to say. Labelled **before** any model answer is seen, so the
-  labels don't lean toward the model.
+  labels don't lean toward the model. A fault names the **third** the broken body is in, not a
+  description index (2026-10-18): the hunted drawings below have no stored description, and an
+  answer's person is matched to a fault through the position the describer gives that person.
+- **The hunted pool** (`source: hunt`, Katlego's ask, 2026-10-18): Tumo's 109 frames have no
+  anatomy fault at all and the probe has one, so recall on them alone would rest on one or two
+  drawings. Claude looks through every drawing in the dev bucket (1,382 on 2026-10-18, every
+  attempt of every run, withheld ones too) and adds those where a body may be drawn wrong. Katlego
+  still labels them, on the same page, with nothing saying why they were picked. **They are
+  scored apart:** a vision model chose them, so they lean toward faults a vision model can see,
+  and recall on them is an upper bound; the 127 stay the honest base for false alarms.
 - **`BodyAnswer`** and **`BodyCheck`** are the prototype's schema, minus the head box (T097 has
   it). `heads`, `arms` and `legs` count what is attached to the body, visible or partly visible.
 - **Only if §8 adopts it:** a `BodySeen` per answered person on `Audit.bodies`, a `LIMBS` check,
@@ -115,7 +125,8 @@ The measurement (T111):
 ```python
 # services/api/tools/measure_limbs.py (writes nothing to the database or Storage)
 #   python tools/measure_limbs.py LABELS_JSON OUT_JSON [--repeat 2]
-#   for each label: the PNG from Storage, the stored description's people, LIMB_AGENT_PROMPT on
+#   for each label: the PNG from Storage, the stored description's people (a hunted drawing has none:
+#   it is described first, one `describe_frame` call on Super VL), LIMB_AGENT_PROMPT on
 #   Tier.VISION (max_tokens=4096) `--repeat` times; prints recall, false alarms, agreement (§8)
 
 LIMB_AGENT_PROMPT = (  # the 14 Oct prototype's anatomy half, as measured on DeepSeek
@@ -197,10 +208,13 @@ audit; the monthly token cap's arithmetic (deploy.md §6) is rechecked in the co
 ## 9. How this is verified
 
 **T111 (the measurement):**
-1. **Labels:** Katlego marks every drawing on an eye-test page: each person normal, defect (which),
-   or unclear. The page exports `labels.json`. Free.
+1. **Labels:** Katlego marks every drawing on an eye-test page (an Artifact whose labels are kept
+   in its own database, read back by Claude into `labels.json`): normal, defect (which, and in
+   which third), or unclear, with the described people shown as a reference where a stored
+   description exists. No model answer and no reason for a pick is shown. Free.
 2. **The run:** `measure_limbs.py` on Super VL, thinking off, `--repeat 2`. About 250 questions,
-   roughly $0.10–0.15 of Token Factory. Announced on the PR before it starts (#194's rule), and
+   roughly $0.10–0.15 of Token Factory, plus one description and two questions per hunted drawing
+   (the total restated in the announcement once the hunt's size is known). Announced on the PR before it starts (#194's rule), and
    **one process at a time**: the 404s of 2026-10-17 came with 22 parallel ones.
 3. **The look:** every disagreement between an answer and a label is looked at, with the drawing.
    A label is corrected only with a reason written beside it.
