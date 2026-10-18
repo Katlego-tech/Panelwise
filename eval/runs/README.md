@@ -28,3 +28,5 @@ Find a project by its id, never by its title: two uploads of one script share a 
 | 2026-10-13 | load-shedding, second run (not held out) | klein, 3 attempts, branch `feat/sex-agent`: only `drawn_sex` withholds (T094, T095, T096) | 18 of 18 | 19 | [report](2026-10-13-load-shedding-2.md) |
 | 2026-10-14 | the-lighthouse-inspector (held out, T090) | klein, 3 attempts, main after T099: `drawn_sex,no_character` withhold | 26 of 26 | 26 | [report](2026-10-14-the-lighthouse-inspector.md) |
 | 2026-10-14 | the-borrowed-bicycle (held out, T090) | klein, 3 attempts, main after T099: `drawn_sex,no_character` withhold | 18 of 18 | 19 | [report](2026-10-14-the-borrowed-bicycle.md) |
+| 2026-10-17 | rooftop-tomatoes (held out, T090) | klein, 3 attempts, main after T105 (Super VL): `drawn_sex,no_character` withhold | 21 of 21 | 21 | [report](2026-10-17-rooftop-tomatoes.md) |
+| 2026-10-17 | gogos-recipe (held out, T090) | klein, 3 attempts, `feat/bubbles-t098` (T102, T104, T097, T098 on Super VL): `drawn_sex,no_character,split_panels` withhold | 17 of 17 | 18 | [report](2026-10-17-gogos-recipe.md) |
