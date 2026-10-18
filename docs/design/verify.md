@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn), T094 (the rule ladder), T095 (the sex agent), T099 (the presence agent) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn), T094 (the rule ladder), T095 (the sex agent), T097 (the head agent: where each person's head is, for the comic's bubbles), T099 (the presence agent), T106 (a rooftop is exterior), T107 (a signature's letters aren't text) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -19,7 +19,7 @@ the audit's speaker positions), portraits (characters.md).
 
 | Kind | Where |
 | --- | --- |
-| The vision decision | docs/nebius-findings.md § The vision decision: **option A**: no Nemotron model on Token Factory accepts images (U7), so a vision model (`NEBIUS_MODEL_VISION`, DeepSeek-V4.1-Flash since 2026-09-30: GLM-5.3-Flash stopped receiving images, findings § U7 re-check) *describes* the frame and Nemotron *judges* it. Option B, a self-hosted NVIDIA VLM on the ComfyUI GPU, is a stretch |
+| The vision decision | docs/nebius-findings.md § The vision decision: **option A**: no Nemotron model on Token Factory accepts images (U7), so a vision model (`NEBIUS_MODEL_VISION`) *describes* the frame and Nemotron *judges* it. **Since 2026-10-17 that model is NVIDIA's: Nemotron 3.5 Super VL, thinking off** (T105, [vision-model.md](vision-model.md), findings § U8); DeepSeek-V4.1-Flash from 2026-09-30, GLM-5.3-Flash before (findings § U7 re-check). Option B's self-hosted GPU is no longer needed |
 | Prior art in FrameFlow | **none**: FrameFlow had no image audit, no verdicts and no automatic re-render; "regenerate" was a user button with a random seed |
 | Inputs | `Shot` (shots.md §6: framing, characters, props, time_of_day, source, span); `Entity` quotes (grounding.md §6); `Scene.int_ext`, `location` (script.md §6); the rendered frame (T026) |
 | LLM seam | `structured_chat`, `Tier.VISION` and `Tier.REASONING` (llm.md §6). Image content parts are OpenAI-style (`image_url` data URLs), as probed in U7 |
@@ -107,7 +107,41 @@ classDiagram
   itself: shading, hatching, outlines, sketch lines, shadows, the frame's border (it listed
   "pencil shading" as an object, which failed a good frame). Under `text` it writes, word for
   word, each piece of writing it can actually **read**; a scribble, an unreadable signature or a
-  mark that isn't letters is left out of `text` (it may still set `has_text`).
+  mark that isn't letters is left out of `text` (it may still set `has_text`). **T107:** the
+  artist's signature or initials are left out of `text` **even when it can read them**: they go
+  only under `signature`. `text` is the scene's lettering (signs, labels, screens, paper,
+  clothing, a drawn sound effect), the writing a script could have asked for. Super VL reads the
+  scrawled corner signatures that DeepSeek left out ("J. Eubred", "Muller", "M. P. P. 2020"), so
+  on the-red-kite's 44 stored attempts its `text` entries rose 9 → 25 and the soft `TEXT_IN_FRAME`
+  6 → 22 (findings § U8), each one a signature reported as unscripted lettering. **The wording
+  alone didn't move it** (measured on #210, 2026-10-18: 24 entries, 21 frames), so **the
+  signature gets its own slot:** `FrameDescription` gains `signature_text` (the letters of the
+  artist's signature or initials, when readable), and `signature` and `signature_text` come
+  **before** `has_text` and `text`. The schema's field order is the order the model writes in,
+  and it wrote `text` first, which put a legible signature there before it had thought of it as a
+  signature. `text`'s own field description becomes "the scene's lettering, word for word: signs,
+  labels, screens, paper, clothing, sound effects; never the artist's signature or initials".
+  `TEXT_IN_FRAME` reads `text` only, as before, so a signature's letters are no lettering.
+  `signature_text` is required in the schema the model is given and defaults to `[]` when a
+  stored description (before T107) is read back. T109's limits cap it like `text` (at most 40
+  entries of 100 characters).
+- **Interior or exterior (T106).** `exterior` when the place is open to the sky (a rooftop, a
+  balcony, a yard, a street), even when the sky is left as blank paper; `interior` only when walls
+  and a ceiling close it in; `unclear` when the drawing doesn't show which. Super VL called
+  the-red-kite's flat roof `interior` on both of its attempts (comic and storyboard 0.4): a
+  parapet, a white sky, and in one some beams. That's a hard `SETTING` fail on a right frame.
+  DeepSeek said `unclear` there, which passes.
+- **The instruction's wording for both (T106, T107), verbatim in `DESCRIBE_PROMPT`:**
+  - the setting: "Say whether the scene is interior or exterior: exterior when the place is
+    open to the sky (a rooftop, a balcony, a yard, a street), even if the sky is left blank;
+    interior only when walls and a ceiling close it in; unclear when you can't tell." It replaces
+    "Say whether the scene is interior or exterior, and", and the light follows as its own
+    sentence ("Give its light: …").
+  - the text: "Under text, write out word for word each piece of writing you can read in the
+    scene, as it is written: signs, labels, screens, paper, clothing, sound effects. Leave out
+    scribbles, marks that aren't letters, and the artist's signature or initials even when you
+    can read them: those go under signature, not text." It replaces the two sentences from "Under
+    text" to "letters.".
 - **Ages and signatures (T072).** Each person's `appearance` starts with how old they look
   (`a child`, `a teenager`, `an adult`, `an old man`, `an old woman`). `signature` is true when
   the image carries a signature, initials or an artist's mark, readable or not: the live run's
@@ -394,8 +428,10 @@ classDiagram
 | `LIGHT` | code | soft | `light` is `day` and the shot's time is night-family (`NIGHT`, `MIDNIGHT`, `EVENING`), or `light` is `night` and the time is day-family (`DAY`, `MORNING`, `AFTERNOON`). Transitional times (`DAWN`, `DUSK`, `SUNRISE`, `SUNSET`, `MAGIC HOUR`), a `None` time, `dawn_or_dusk` and `unclear` always pass |
 | `FRAMING` | code | soft | `shot_size` is two or more steps from the shot's framing on wide → medium → close → extreme_close (`over_shoulder`, `pov` count as medium; `insert` as close); `unclear` passes |
 | `BACKGROUND_OBJECT` (T083; T086: and unheld food) | judge + code | soft | an object of category `other`, `nature`, `furniture` or `screen_or_sign`, not `held`, not a named prop, called `unscripted`, or `set_dressing` whose `support` isn't in the heading (§3, Background objects warn): the place's everyday things the script didn't mention. Its detail is `object N (name, category): not in the script`. **T089:** also every object failure that isn't an animal's or a weapon's, with that failure's own detail (`held, so not set dressing`, `prop without support`, `unscripted`, `the script names it`, `never set dressing`, `not in the heading`) |
-| `DRAWN_SEX` (T095) | sex agent (VISION) + code | **hard** | a person the judge matched to a character whose sex the script gives (`character_sex`) is drawn as the other sex: the sex agent, asked about that one person on the image, answers `male` or `female` and it isn't the script's. `unclear` passes, and so does a person matched to no character or to one with no sex from the script. Detail: `person N (position, appearance): drawn male, but REFILWE is female` |
-| `SIGNATURE` (T077) | code | soft | `signature` is true: a signature, initials or an artist's mark, readable or not. Words the describer reads in it are still `text`, so a legible signature that isn't the script's (`@hutley`) still fails `TEXT_IN_FRAME` (soft since T089) |
+| `DRAWN_SEX` (T095) | sex agent (VISION) + code | **hard** | a person the judge matched to a character whose sex the script gives (`character_sex`) is drawn as the other sex: the sex agent, asked about that one person on the image, answers `male` or `female` and it isn't the script's. `unclear` passes, and so does a person matched to no character or to one with no sex from the script. Detail: `person N (position, appearance): drawn male, but REFILWE is female`. **T102:** also a person the presence agent finds for a character the script sexes (`found_people`), asked the same question |
+| `SPLIT_PANELS` (T104) | layout agent (VISION) + code | **hard** | the layout agent, asked on a frame with two or more described people, answers `panels` > 1: the frame is a strip or grid of pictures, not one (L015). No answer (not asked, or a failed question) passes. Detail: `drawn as 2 panels` |
+| `DRAWN_TWICE` (T104) | layout agent (VISION) + code | **hard** | on a frame of one picture (`panels` 1), a `copies` pair of two described people in range who are not both known as characters (accepted by `matched_people`, or found by the presence agent: `found_people`), and so not two different characters: one person drawn twice. In a split frame the copies are the split's own (`SPLIT_PANELS` names it). Detail: `person 0 (left, …) and person 1 (right, …): the same person drawn twice` |
+| `SIGNATURE` (T077) | code | soft | `signature` is true: a signature, initials or an artist's mark, readable or not. Since T107 the describer keeps a signature's letters out of `text`, readable or not, so a legible signature that isn't the script's (`@hutley`) still fails `TEXT_IN_FRAME` (soft since T089) |
 
 **Verdict:** `FAIL` if any hard check fails; `WARN` if only soft checks fail; `PASS` otherwise. Hard
 checks are the ones that would put something unscripted on screen; soft checks are quality
@@ -455,6 +491,41 @@ runs above, REFILWE, SIBUSISO and FATIMA had none in the extraction, so the agen
 about none of them; T096 and the L018 work widen that. A row's `seen` holds only the characters
 sexed when it was audited: `recheck` can't measure a sex found later (that needs `reaudit`, tokens).
 
+**The head agent (T097; Katlego, 2026-10-14).** Where each described person's head is in a comic
+panel's accepted frame, so the comic can point a bubble's tail at the speaker's head and keep
+bubbles off faces (comic.md §4 steps 7 and 8, T098). **It is no check:** it never fails, warns,
+withholds or changes a verdict; it only measures. **When:** in `render_until_accepted`, only with
+`heads=True` (the comic job; the storyboard has no bubbles), and only on the attempt that is
+accepted, after the ladder: one question per panel, never one on a frame that is thrown away.
+**The question:** the image, every described person numbered with their `position` and
+`appearance` as the describer wrote them (`0: left third, an old man …`), and the fixed
+`HEAD_AGENT_PROMPT`, on `Tier.VISION`, `max_tokens=4096`; the answer is a `HeadCheck`: per person,
+`visible` and a box `x0, y0, x1, y1` as fractions of the frame's width and height from its
+top-left. **Kept:** `heads_seen` (pure) keeps an answer only when its person is a described one,
+the first answer for that person, `visible`, and `0 ≤ x0 < x1 ≤ 1`, `0 ≤ y0 < y1 ≤ 1`; anything
+else is dropped (counted in one log line). Each kept box becomes a `HeadSeen` carrying the
+character that person was accepted as (`Audit.matched`, the same `matched_people` the sex agent
+uses; `None` for a person matched to no one), written by `FrameWriter.log` to
+`frame_audits.heads` (migration 0010; 0008 is T099's `audit_found`, 0009 T104's `audit_layout`); its tokens count in the audit's usage and models. **Never
+an ERROR:** a failed question (`LLMError` or `ValidationError`) leaves `heads` empty and is
+logged; the frame is accepted exactly as it was, and the comic falls back to the third. A frame
+with no described person asks nothing. **Measured** (2026-10-14, Token Factory,
+DeepSeek-V4.1-Flash, a prototype asking head boxes and anatomy in one call, on 15 distinct
+drawings of the 2026-10-10 the-red-kite runs, Workers AI's FLUX.2 [klein] 4B, 21 people): every
+box of the 8 drawings looked at lies on the head, the small far ones and profiles too, sometimes
+generous, never off; the same drawing asked twice gave boxes within 0.02; about 1,900 prompt and
+500 completion tokens a frame; 0 of 30 questions failed (one of a later 15, with a longer prompt,
+spent its budget thinking at `max_tokens=2048`, hence 4096). The prompt here is the head half of
+the prototype's, and the vision model is now Nemotron 3.5 Super VL (T105, 2026-10-17), so T097's
+Verify measures it again, on Super VL. **Measured on Super VL** (2026-10-17, T097's code, thinking
+off, `find_heads` itself): the 18 distinct drawings of that probe, 24 described people, 24 boxes,
+every one on its head (the small far ones, profiles and a back of a head too), 0 failed
+questions, about 1,340 prompt and 100 completion tokens a frame. **No anatomy:** the same prototype was asked
+for each person's heads, arms, legs and hands, and called a man drawn with three arms (0.3 a1)
+`normal` twice, even when told to count each limb back to its shoulder; it counted 0 legs on
+standing people and 1 arm on a person with two, and called one drawing's ordinary hands deformed.
+A rule built on it would withhold right frames and pass wrong ones, so there is none (§8).
+
 **The presence agent (T099).** When the judge has matched none of the people the prompt drew, so
 `NO_CHARACTER` would fail, one more vision call per drawn character asks which described person, if
 any, is that character. **Why:** on nine stored runs (2026-10-14) `NO_CHARACTER` would have withheld
@@ -482,8 +553,9 @@ tokens count in the audit's usage and models. **Passes:** `run_checks(..., found
 character as in the frame for `NO_CHARACTER` when an answer names a person who exists, whom
 `matched_people` doesn't already accept as another character, and whose described age doesn't
 contradict the character's introduced years (`age_contradicts`, T086). That is all it changes: the
-person stays unmatched for every other check (`UNSCRIPTED_PERSON`, `MISSING_CHARACTER`,
-`DRAWN_SEX`), so a found person is no excuse for anything else, and `positions` is unchanged (a
+person stays unmatched for every other check (`UNSCRIPTED_PERSON`, `MISSING_CHARACTER`; and
+`DRAWN_SEX` until T102, which asks a found person's sex: below), so a found person is no excuse for
+anything else, and `positions` is unchanged (a
 speaker shown only through `found` gets the comic bubble's fallback placement). **What the viewer
 sees (Non-negotiable I):** a person the agent finds is still unmatched, so the judge's call stands
 for `UNSCRIPTED_PERSON`: the person passes it only when the judge's support holds for a stranger
@@ -504,6 +576,121 @@ and UNCLE SIZWE, 30s, old: the age refusal), stormwater 6.4 (Mr. Van der Merwe d
 lost-property 3.2 (Priya drawn as a man). About 2,000 tokens a frame it runs on; it would have run on 30 of
 the 218 shots' shown frames above (and on more of the attempts before them).
 
+**A found person is asked the sex question too (T102).** Found on 2026-10-14 (L022): the-lighthouse-
+inspector 7.5 drew Mr. Fortuin as an old woman; the judge matched no one, the presence agent found her
+as him, and a found person was asked nothing, so the frame was shown. T099 left `DRAWN_SEX` out of a
+found person on purpose ("measured only for presence"); this is that measurement. **Who:** after the
+presence agent, each person `found_people` gives (the rule `present_characters` already applies: an
+answer naming a person in range, not accepted by `matched_people` as another character, of no
+contradicted age), for a character the script sexes (`sexes`, as T095). **One question per
+person:** the question names no character, so a person found for two characters (load-shedding
+5.2: JABU and PIETER both person 0) is asked once, and the answer is kept once per character
+(`PersonSeen(person, character, sex)` for each, characters in name order). When those characters'
+script sexes differ, the answer fails `DRAWN_SEX` for the one it contradicts: a decision, because
+one person can't be both, and at most one of them is drawn. **The question:** T095's
+(`check_person`: the image, the person's position and appearance, the others, `SEX_AGENT_PROMPT`),
+all at once, after the presence agent's `gather`. **Its token budget** rises from 1,024 to 4,096 for
+T095's questions too (`check_person` serves both): at 1,024, 6 of the 36 questions below came back
+empty (the vision model spent the budget thinking), as T099's presence questions did at 1,024 (9 of
+about 40; 6 of about 80 at 4,096); the budget is a ceiling, so an answer that ends early costs what
+it did. **Kept:** in
+`Audit.seen` with T095's answers (`PersonSeen`: person, character, sex), so `recheck` reads them from
+`frame_audits.seen` with no migration; a row from before T102 has none for found people and decides
+as before. **Fails:** `run_checks` fails `DRAWN_SEX` for an answer about a person found as that
+character (`found_people(...)[character] == person`) that is the other sex, with T095's detail;
+`unclear` passes. A found person still counts for `NO_CHARACTER` (T099 is unchanged), but the
+frame fails `DRAWN_SEX`: withheld and redrawn when `drawn_sex` is on the ladder
+(`AUDIT_WITHHOLD_CHECKS`, T094; the local runs and render.yaml set `drawn_sex,no_character`), else
+`WARN`, the card naming the check.
+Nothing else changes: the found person stays unmatched for `UNSCRIPTED_PERSON` and
+`MISSING_CHARACTER`. **Never an ERROR:** as T095, a failed question checks nothing for that person
+and is logged. **Measured** (2026-10-16, Token Factory, DeepSeek-V4.1-Flash, `proto_found_sex.py`;
+no fal): every stored storyboard attempt of the newest run of 11 scripts (511 audits) where
+`audit_frame` would run the presence agent: **77 frames**; the presence agent (today's code, run
+afresh) found **36** people for characters the script sexes; asked, **2 the other sex, both looked
+at and both real errors** (sipho-and-siphokazi 2.1's second attempt, MAMA THEMBI drawn as an old
+man; the-borrowed-bicycle 4.1, NALEDI drawn as a boy, L023), 2 `unclear` (LUCKY seen from behind,
+KAMO), 26 agreeing, 6 failed questions (the vision model spent its 1,024 tokens thinking: logged,
+checking nothing); **0 false alarms**: 2 of 36, a small sample, the rule generic. the-lighthouse-
+inspector 7.5 isn't among them: its stored extraction gives the bare `FORTUIN` no sex; since T101
+the character is `MR. FORTUIN`, whose title gives the prompt and `character_sex` male, so 7.5 would
+be asked. **The real code** (2026-10-16, `real_t102.py`, the branch's `app/` on the same 77 frames, the
+lighthouse re-grounded with T101 and its shots' names folded, so 7.5's MR. FORTUIN pair joins the
+prototype's 36): 37 pairs asked, 36 answered (**1 failed**
+at 4,096 tokens, against 6 at 1,024), `DRAWN_SEX` fails on **4 frames**, every one looked at: lighthouse
+7.5 (an old woman for MR. FORTUIN: the L022 case, now caught), sipho-and-siphokazi 2.1 and the
+borrowed-bicycle 4.1 (as above), and the-night-taxi 2.3's second attempt (THABO, the child leaning
+out of the window, bobbed hair and a sleeveless top: arguable, and the frame is wrong anyway, a
+child at the taxi's wheel); 0 plainly false. About 1,000 tokens a question, on
+the frames the presence agent runs on (36 questions on 33 of the 77 frames here).
+
+**The layout agent: several panels, or one person drawn twice (T104).** klein, on a storyboard
+prompt, sometimes draws a strip or grid of panels (L015), and sometimes one character twice in one
+picture (the-night-taxi 1.4, THABO three times; the-red-kite 4.1, LERATO twice in the alley; L022,
+lighthouse 4.2). The describer lists every figure as a person of one frame, so nothing checked
+either: a split frame was shown (market-day 4.2 and 5.2 warned, the-red-kite 5.2 passed), and the
+copy was a stranger at most (`UNSCRIPTED_PERSON`, off the ladder since T094). **When:** after the
+judge succeeds with a well-formed judgement (`_calls_each_once`), on a frame with **two or more**
+described people (a split or a copy needs two figures), after the T095, T099 and T102 questions.
+**The question:** one vision call, the fixed `LAYOUT_AGENT_PROMPT` (§6, verbatim), the user text
+`People in the drawing:` then `[i] position: appearance` per person, then the image (the data URL
+`audit_frame` already encoded), at `max_tokens=4096`; the answer is a `Layout` (`panels`, `copies`
+as `[a, b]` pairs, `reason`). **Kept:** `Audit.layout` (`FrameLayout`: panels, copies as sorted
+pairs, reason), written by `FrameWriter.log` to the `frame_audits.layout` column (migration 0009: see
+**Migration** below), so `recheck` decides both checks again
+for free; its tokens count in the audit's usage and models. **The answer, cleaned** (`frame_layout`,
+pure): `panels` below 1 is 1 (a model's 0 or -1 is no split); `copies` keeps each pair of exactly two
+indexes `a != b` with `0 <= a, b < len(description.people)` once, as the sorted `(a, b)`, the pairs in
+sorted order; anything else is dropped. **Fails:** `run_checks(..., layout=)`: `SPLIT_PANELS` when
+`panels > 1`; `DRAWN_TWICE` when `panels == 1`, for each kept pair on its own (a frame may have
+several: the same boy three times is `(0, 1)`, `(0, 2)`, `(1, 2)`; the details are joined by `; ` as
+every check's are), unless **both** people are known as characters: in `accepted` (`matched_people`)
+or found by the presence agent (`found_people`, T099/T102), as person → character. Both known means
+two different characters, since neither map gives one character two people (`matched_people` keeps
+the first person per name; `found_people` one person per character, and a person it finds is never
+in `accepted`). One known and one not is still a copy (fails); neither known fails. That veto is the
+measured fix for the one kind of false alarm: two cast characters who look alike (final-whistle 6.1,
+PALESA and LINDI, matched to each); with `found_people` in it, the same two found by the presence
+agent pass too. It uses the accepted matches, not the judge's raw ones: on lost-property 7.3 the
+judge called a young man KOOS (the 70s night cleaner), refused for his age, so the copy of TEBOGO
+still fails. **Known risk, generic:** look-alike extras the script doesn't cast (pupils in uniform,
+guards) are never vetoed (they are no character); only the prompt's "people who merely look alike
+… are not copies" guards them, one more reason the ladder entry is Tumo's call. **Every target:**
+`audit_frame` audits storyboard frames and comic panels alike (`loop.py`, and `reaudit.py` and
+`run.py` for measuring), so comic panels get the question and both checks too. Both are **hard**, so they withhold only when on the ladder
+(`AUDIT_WITHHOLD_CHECKS`, T094). **The hosted ladder** (Katlego, 2026-10-17, #190):
+`drawn_sex,no_character,split_panels`: a split withholds (23 of 23 flags real), a copy warns (5
+real and 1 wrong anyway after the veto, recall unmeasured); `render.yaml` takes it with T104's code,
+since `withholding` refuses a check name the running code doesn't know. A withheld frame is
+redrawn: a new seed, a new layout; on the hosted ladder about 5.7% of attempts are split, some
+shots on every attempt (lost-property 11.5 split on all three), so they end withheld. **Never an ERROR:** a failed question (an `LLMError` or `ValidationError`) leaves `layout`
+None, is logged, and both checks pass. **Cost:** about 1,400 tokens a question, asked on about
+two thirds of attempts (332 of 511 had two or more people): about 15,000–24,000 tokens a storyboard
+of 17–26 attempts (limits.md §3: its audit is 130,000–175,000, so about +12–14%), the same again
+for its comic: about 30,000–48,000 a storyboard and comic, +9–14% on the 339,000 deploy.md §6
+sizes `LLM_MONTHLY_TOKEN_CAP` by (about 370,000–387,000 each, about 7 a month instead of 8); and, when on the ladder, each withheld frame is one
+more attempt, a drawing (the image budget, T030) and its audit. **Old rows:** a row from before T104
+has no `layout`, so `recheck` can't measure the new checks on it (both pass), as for a sex found
+later. **Migration:** 0009, unless Katlego's T097 (#170, design only, which was to take 0009) lands
+first: whichever of the two merges second renumbers its migration (revision and down_revision).
+**Measured** (2026-10-16, Token Factory, DeepSeek-V4.1-Flash,
+`proto_twice.py`, the prompt verbatim; no fal): every stored storyboard attempt of the newest run of
+11 scripts with two or more described people, **332** of 511; 330 answered. **Splits: 23 flagged,
+every one looked at, all 23 real** (lost-property 11.5's three attempts, a 2×2 grid among them;
+the-night-taxi 6.3's two; the-bread-van 1.3's two; …). **Copies on one picture: 8 flagged, every
+one looked at with its cast:** 6 real (the-night-taxi 1.4, the-red-kite 4.1, lost-property 7.3
+and 9.1, the-bread-van 4.4, the-borrowed-bicycle 5.2), 2 not: final-whistle 6.1 (PALESA and LINDI,
+removed by the veto) and stormwater 3.1's second attempt (two boys for SIBUSISO and REFILWE,
+matched to no one: a wrong frame anyway, Refilwe drawn as a boy). The veto, computed on the stored
+judgements, removes final-whistle 6.1 and one real copy, lost-property 9.1's third attempt, where
+the judge accepted the two look-alike girls as TEBOGO and PRIYA (a girl for Tebogo, a young man:
+`DRAWN_SEX`'s to catch). So, with the veto, **29 flags: 28 real, the 29th a wrong frame**. These are in-sample (the
+prompt's look-alike sentence was written on these frames) and precision only: recall isn't
+measured beyond the misses below, and the 179 attempts with fewer than two people were never asked
+(a split among them is unmeasured). The held-out runs are the real check. **Missed:** lighthouse
+4.2 and 7.3 (two women in suits on the stairs for MS. NAIDOO alone: the agent saw short against
+shoulder-length hair and called them two people). About 1,400 tokens a question (456,411 for 332).
+
 ## 4. Flow
 
 ```mermaid
@@ -520,7 +707,12 @@ sequenceDiagram
         J->>N: shot spec + description → Judgement
         J->>D: T095: each matched person with a script sex → PersonCheck
         J->>D: T099: none of on_screen matched → each on_screen character → Presence
+        J->>D: T102: each found person with a script sex → PersonCheck
+        J->>D: T104: two or more described people → Layout (panels, copies)
         J->>J: verify supports; run the checks; verdict; T094: a hard failure off the ladder warns
+        opt T097: heads=True (a comic panel) and the attempt is accepted
+            J->>D: every described person → HeadCheck (head boxes; never a verdict)
+        end
         J->>L: Audit (every attempt, pass or fail)
         alt PASS or WARN
             J-->>J: state PASSED / WARNED; stop
@@ -609,7 +801,7 @@ class FrameState(StrEnum): RENDERING; AUDITING; PASSED; WARNED; WITHHELD; FAILED
 # app/verify/schema.py — the two model calls (strict json_schema)
 class SeenPerson(BaseModel): position: Position; appearance: str
 class SeenObject(BaseModel): name: str; category: ObjectCategory; held: bool
-class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[SeenObject]; has_text: bool; text: list[str]; signature: bool
+class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[SeenObject]; signature: bool; signature_text: list[str] = []; has_text: bool; text: list[str]   # T107: the signature first, its letters in their own slot; signature_text required in the model's schema, [] for a stored row before T107
 #   text (T071): each piece of writing the describer can read, verbatim, in reading order; [] for none.
 #   The describer must always return it (strict schema). A row written before T071 has no `text`:
 #   AuditView's description reads it as [] (its old has_text verdict stands in the log)
@@ -858,6 +1050,41 @@ FrameAuditRow.seen: Mapped[list[dict] | None]   # JSONB, nullable: older rows ha
 The card names `drawn sex` like any check (`document.py`'s check names). `report.py` counts it with
 the others; `recheck` reads `seen` from the row.
 
+### T097 contracts
+
+```python
+# app/verify/model.py
+type HeadBox = tuple[float, float, float, float]   # x0, y0, x1, y1: fractions of the frame's width and height, from its top-left
+@dataclass(frozen=True) class HeadSeen: person: int; character: str | None; box: HeadBox   # T097: character None for a person matched to no one
+@dataclass(frozen=True) class Audit: ...; matched: Mapping[int, str] = field(default_factory=dict)   # T097: matched_people's answer, kept (not stored)
+                                       heads: tuple[HeadSeen, ...] = ()                              # T097: the head agent's kept answers
+
+# app/verify/schema.py
+class HeadAnswer(BaseModel): person: int; visible: bool; x0: float; y0: float; x1: float; y1: float
+class HeadCheck(BaseModel): heads: list[HeadAnswer]
+
+# app/verify/audit.py
+HEAD_AGENT_PROMPT = (
+    "You look at the people in a storyboard drawing and say where each listed person's head is: "
+    "the box around the head, from the top of the hair to the chin, as fractions of the image's "
+    "width and height from its top-left corner (0 to 1). Set visible to false when the head is out "
+    "of frame or hidden. Answer for every person listed, by their number, and only for them."
+)
+def heads_seen(answer: HeadCheck, people: int, matched: Mapping[int, str]) -> tuple[HeadSeen, ...]: ...   # pure: the keep rule above, in person order
+async def find_heads(model: NebiusChatModel, frame: RenderedFrame, audit: Audit) -> Audit: ...
+#   one Tier.VISION question (max_tokens=4096) on audit.description's people; returns the audit with heads, usage and models
+#   added, verdict and checks untouched; no description or no people: the audit unchanged, no call; LLMError or
+#   ValidationError: logged ("head agent on shot %s attempt %d failed: %s"), the audit unchanged; anything else raises
+
+# app/verify/loop.py
+async def render_until_accepted(..., heads: bool = False) -> FrameOutcome: ...
+#   T097: after apply_ladder, an accepted audit (PASS or WARN) gets find_heads before log; never on a FAIL or ERROR.
+#   run_comic_job passes heads=True; build_storyboard, run_job and run_attempt keep the default.
+
+# app/frames/model.py, migration 0010_audit_heads (down_revision 0009, T104's audit_layout)
+FrameAuditRow.heads: Mapped[list[dict] | None]   # JSONB, nullable: [{"person": 0, "character": "NANDI" | null, "box": [x0, y0, x1, y1]}]; older rows and storyboard rows have none
+```
+
 ### T099 contracts
 
 ```python
@@ -882,6 +1109,7 @@ async def find_character(model: NebiusChatModel, image: str, character: str, sho
 #   then the image (a data URL, encoded once per attempt)
 async def _ask_sexes(model, image: str, description, matched, sexes, chats) -> ...   # T099: takes the
 #   data URL audit_frame encoded, not the PNG bytes
+#   (T102 replaces this signature and the order below: see T102 contracts)
 def present_characters(on_screen: Sequence[str], found: Sequence[PersonFound], accepted: Mapping[int, str],
                        description: FrameDescription, ages: Mapping[str, int] | None) -> frozenset[str]: ...
 #   pure: the on_screen characters an answer finds: 0 <= person < len(description.people), not a key of `accepted`
@@ -903,6 +1131,126 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 `app.verify.prompts`. `app/verify/__init__.py` is unchanged: the new names are imported from
 `app.verify.model`, `app.verify.schema` and `app.verify.audit`, as T095's tests import theirs.
 
+### T102 contracts
+
+```python
+# app/verify/audit.py
+def found_people(on_screen: Sequence[str], found: Sequence[PersonFound], accepted: Mapping[int, str],
+                 description: FrameDescription, ages: Mapping[str, int] | None) -> dict[str, int]: ...
+#   pure: character -> person for each answer that passes the three tests, the first answer that
+#   passes per character (an earlier null or out-of-range one is skipped); present_characters(...)
+#   returns frozenset(found_people(...)), its signature unchanged
+async def _ask_sexes(model, image: str, description, pairs: Sequence[tuple[int, str]], sexes, chats) -> ...
+#   T102: takes (person, character) pairs instead of `matched`; keeps the pairs whose character is in
+#   `sexes`, asks check_person once per distinct person (in person order), and returns one PersonSeen per
+#   kept pair in the given order, each with its person's answer; a failed question drops that person's
+#   pairs. audit_frame passes sorted(matched.items()) first (T095, as before), then, after the presence
+#   agent, the found_people pairs sorted by person then character
+# check_person: max_tokens 1024 -> 4096 (T095 and T102)
+def run_checks(...) -> ...   # unchanged signature; DRAWN_SEX reads an answer when accepted.get(person)
+#   == character (T095) or found_people(on_screen, found, accepted, description, ages).get(character)
+#   == person (T102); the detail is T095's
+#   audit_frame: Audit.seen = the T095 answers then the T102 answers; tokens and models count
+```
+
+No migration: the answers go in `frame_audits.seen` with T095's. `recheck` already passes the row's
+`seen` and `found` to `run_checks`, so it decides T102 for free on rows written after it.
+
+### T104 contracts
+
+```python
+# app/verify/model.py
+class Check(StrEnum): ...; SPLIT_PANELS = auto(); DRAWN_TWICE = auto()   # T104, hard; appended last
+@dataclass(frozen=True) class FrameLayout: panels: int; copies: tuple[tuple[int, int], ...]; reason: str   # T104
+@dataclass(frozen=True) class Audit: ...; layout: FrameLayout | None = None                           # T104
+
+# app/verify/schema.py
+class Layout(BaseModel): panels: int; copies: list[list[int]]; reason: str
+
+# app/verify/audit.py
+LAYOUT_AGENT_PROMPT = (
+    "You look at one storyboard drawing and a numbered list of the people a describer saw in it. Answer two things from the drawing alone. First, panels: 1 when it is one single picture, or the number of separate panels when it is laid out as a strip or grid of pictures side by side. Second, copies: the pairs of numbered people who are plainly the same person drawn more than once (the same face, hair, build and clothes, for example one person shown at two moments, or twice in one room), as [a, b] pairs; an empty list when everyone is a different person. People who merely look alike in a sketchy style (two men in suits, two children) are not copies unless their face, hair and clothes match. Give a short reason."
+)   # verbatim; split across lines in the code
+async def check_layout(model: NebiusChatModel, image: str,
+                       description: FrameDescription) -> tuple[Layout, ChatResult]: ...
+#   Tier.VISION, max_tokens=4096; user text "People in the drawing:" then "[i] position: appearance" per person
+def frame_layout(layout: Layout, people: int) -> FrameLayout: ...
+#   pure (§3, the answer cleaned): panels max(1, panels); copies: each pair of exactly two ints, a != b,
+#   both 0 <= i < people, as sorted (a, b), once, in sorted order; [i, i], out-of-range, short or long
+#   pairs dropped
+_SEVERITY[Check.SPLIT_PANELS] = Severity.HARD; _SEVERITY[Check.DRAWN_TWICE] = Severity.HARD   # T104
+def run_checks(..., layout: FrameLayout | None = None) -> ...   # T104: SPLIT_PANELS when panels > 1;
+#   DRAWN_TWICE when panels == 1, per pair, unless both people are in accepted ∪ invert(found_people(...))
+#   (person -> character); details joined by "; "; both pass with layout None
+#   audit_frame: after the T102 questions, when the judgement is well formed and
+#   len(description.people) >= 2, check_layout once; a failed one (LLMError or ValidationError) is
+#   logged and leaves layout None; Audit.layout; tokens and model count
+
+# app/frames/model.py; migrations/versions/0009_audit_layout.py: revision "0009", down_revision "0008",
+#   op.add_column("frame_audits", sa.Column("layout", JSONB(), nullable=True)); downgrade drops it
+FrameAuditRow.layout: Mapped[dict | None]   # {"panels", "copies", "reason"}; NULL: not asked or older
+```
+
+`recheck` reads `layout` from the row and passes it on (NULL: both checks pass, as before T104).
+`FrameWriter.log` writes it. The web shows a check's name as it shows every check's (no new copy).
+
+### T109 contracts: the describer's answer capped in its grammar
+
+**Why** (measured 2026-10-17, §9 T109): on Super VL the describer sometimes repeats itself at
+temperature 0 until it hits `max_tokens=4096`: the same object again and again ("picture frame",
+"ceiling light", "streetlight": up to 40 times with 3 names), or one string that never ends
+("B. B. B. …" for a boat's lettering, "1000…" on a bicycle). The answer is cut off mid-JSON, the
+repair turn resends it and loops the same way, and the attempt is an `ERROR`: withheld, and on the
+hosted demo a redraw. Seen on 7 of the 109 labelled frames (findings § U8) and on rooftop-tomatoes'
+comic 6.1; 6 of those 7 and comic 6.1 loop again when asked (§9 T109). The seventh,
+sipho-and-siphokazi 2.1, answered in 422 tokens on all three asks: its stored `ERROR` was not
+reproduced, its cause is unknown, and T109 is not claimed to remove it.
+
+**The change:** the describer's call sends its schema with length limits in `response_format` only.
+Token Factory's strict decoding obeys `maxItems` and `maxLength`, so a looping list or string stops
+at its limit and the JSON closes. The prompt keeps the schema text it has today, so an answer that
+stays inside the limits is the same answer as before (10 of 10 control frames byte for byte). The
+limits sit above every honest answer stored (§9 T109) and keep the whole answer under 4,096 tokens:
+
+```python
+# app/verify/schema.py
+@dataclass(frozen=True) class DescriptionLimits: people: int; objects: int; text: int; text_chars: int;
+                                                 appearance_chars: int; object_name_chars: int
+DESCRIPTION_LIMITS = DescriptionLimits(people=24, objects=40, text=40, text_chars=100,
+                                       appearance_chars=200, object_name_chars=60)
+def description_grammar(limits: DescriptionLimits = DESCRIPTION_LIMITS) -> dict[str, Any]: ...
+#   pure: a deep copy of FrameDescription.model_json_schema() with
+#   properties.people.maxItems, properties.objects.maxItems, properties.text.maxItems,
+#   properties.text.items.maxLength, $defs.SeenPerson.properties.appearance.maxLength,
+#   $defs.SeenObject.properties.name.maxLength set from `limits`; nothing else changes
+#   (FrameDescription itself is unchanged: validation and the prompt's schema text stay as they are)
+
+# app/verify/audit.py
+async def describe_frame(model, png) -> tuple[FrameDescription, ChatResult]: ...
+#   T109: structured_chat(..., FrameDescription, Tier.VISION, max_tokens=4096,
+#   grammar=description_grammar()); everything else as before
+def run_checks(...) -> ...   # T109: a list that reaches its limit may have been cut, so what lay past
+#   it was never checked. len(description.people) >= DESCRIPTION_LIMITS.people adds the
+#   UNSCRIPTED_PERSON detail f"{n} people described, the limit: any more were not checked";
+#   len(description.objects) >= DESCRIPTION_LIMITS.objects adds the BACKGROUND_OBJECT detail
+#   f"{n} objects described, the limit: any more were not checked". Each joins that check's other
+#   details as today; the text list's limit adds nothing (TEXT_IN_FRAME is soft, and what was read stays)
+```
+
+**A list at its limit is never passed silently** (Non-negotiable I): the describer can't say whether
+it stopped at 24 people because there were 24 or because the grammar cut it, and a 25th person the
+judge never sees could be unscripted. So a frame described at the limit fails `UNSCRIPTED_PERSON`
+(hard; on the hosted ladder it warns, and the card names it), whatever the judge called the 24.
+No stored answer reaches either limit (DeepSeek: at most 21 people and 32 objects in 1,352), so the
+rule only meets a loop or a real crowd of 24 or more, which the audit can't check person by person
+anyway. Objects at 40 fail `BACKGROUND_OBJECT` (soft) the same way.
+
+The judge and the agents are unchanged: none of them was seen to loop (their answers are short,
+and a failed agent question is logged, never an `ERROR`). A looping list now arrives cut to its
+limit (40 "ceiling light" objects): the judge calls each, as it would any description, and the
+limit rule above names it. A looping string arrives cut to 100 characters, which is lettering
+(`TEXT_IN_FRAME`, soft).
+
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
@@ -919,8 +1267,12 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 | `services/api/app/verify/audit.py` | changed | `shot_action_text`, `_PERSON_PRONOUNS`, two person-support rules in `run_checks` | T084 |
 | `services/api/app/verify/{audit,recheck}.py`, `app/storyboard/prompt.py` | changed | `described_age`, `age_contradicts`, `inside_vehicle`, `part_of_vehicle`, `shot_ages`, `run_checks(ages=)`, unheld food as `BACKGROUND_OBJECT`; `introduced_years` | T086 |
 | `services/api/app/verify/audit.py` | changed | `_STORY_OBJECTS`, `_SEVERITY[TEXT_IN_FRAME]` soft, object failures routed to `BACKGROUND_OBJECT` | T089 |
+| `services/api/app/verify/{model,schema,audit,loop}.py`, `app/frames/{model,writer}.py`, migration `0010_audit_heads`, `app/comic/job.py` | changed / new | `HeadSeen`, `Audit.matched`, `Audit.heads`, `HeadCheck`, `HEAD_AGENT_PROMPT`, `heads_seen`, `find_heads`, `render_until_accepted(heads=)`, `FrameAuditRow.heads`; the comic job asks for heads | T097 |
 | web: the audit log view (per shot: attempts, verdicts, checks) | new | built to web.md §4.4 step 5 | T061 |
 | `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0008_audit_found` | changed | `PersonFound`, `Presence`, `PRESENCE_AGENT_PROMPT`, `find_character`, `present_characters`, `run_checks(found=)`, `frame_audits.found` | T099 |
+| `services/api/app/verify/audit.py` | changed | `found_people`, `_ask_sexes(pairs)` one question per person, `check_person` at 4,096 tokens, `run_checks`' `DRAWN_SEX` for a found person, `audit_frame` asks after the presence agent | T102 |
+| `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0009_audit_layout` | changed | `Check.SPLIT_PANELS`, `Check.DRAWN_TWICE`, `FrameLayout`, `Layout`, `LAYOUT_AGENT_PROMPT`, `check_layout`, `frame_layout`, `run_checks(layout=)`, `frame_audits.layout` | T104 |
+| `services/api/app/verify/{schema,audit}.py`, `app/llm/structured.py` | changed | `DescriptionLimits`, `DESCRIPTION_LIMITS`, `description_grammar`, `describe_frame` sends it; `structured_chat(grammar=)` (llm.md §6) | T109 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
 ## 8. Decisions & alternatives
@@ -929,7 +1281,10 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 |---|---|---|
 | Which failures withhold (T094; Tumo, 2026-10-13) | a ladder setting, empty on the hosted demo until each rule is measured back in; `all` stays the code default | every hard check (before): market-day 0 of 15 with most drawings right; dropping the audit: the card's notes and `recheck` are how the rules come back |
 | A drawn character's sex (T095) | a vision question about the one matched person, only when the script gives a sex, `unclear` passing | the judge alone (T082 tells it the sex; it still matched the girls drawn as boys); asking the describer for every person's sex (more tokens on people nobody checks, and a describer told to look for sex starts guessing it); age bands from the same answer (15 of 175 called men in their 50s old) |
-| A character the judge didn't match (T099) | a vision question per drawn character, only when the judge matched none of them; it counts for `NO_CHARACTER` alone | a judge sentence (the judge already gets the same lines and cites them while calling the person no one; and it can't be measured free); code taking a stranger's support that names a drawn character as a match (free, but by the stored supports it finds about 8 of the 23, and none where the judge cited nothing); making the found person a full match (it would excuse `UNSCRIPTED_PERSON` and start `DRAWN_SEX` questions on a second opinion's say-so; measured only for presence) |
+| Where a head is (T097) | one vision question per comic panel, on the accepted attempt only, boxes as fractions, never a verdict | face detection (another model and dependency for a box the vision model already gives, measured on the drawings); the describer giving boxes (it is blind and general; a longer schema on every attempt, storyboard frames too); asking on every attempt (tokens on frames thrown away); an anatomy rule from the same question (it missed a three-armed man twice and miscounted limbs: §3) |
+| A character the judge didn't match (T099) | a vision question per drawn character, only when the judge matched none of them; it counts for `NO_CHARACTER` alone | a judge sentence (the judge already gets the same lines and cites them while calling the person no one; and it can't be measured free); code taking a stranger's support that names a drawn character as a match (free, but by the stored supports it finds about 8 of the 23, and none where the judge cited nothing); making the found person a full match (it would excuse `UNSCRIPTED_PERSON` and start `DRAWN_SEX` questions on a second opinion's say-so; measured only for presence). **T102** adds only the `DRAWN_SEX` question, measured: 36 found people asked, 2 flagged, both real, 0 false alarms |
+| A frame in panels, or one person drawn twice (T104; L015, L022, 2026-10-16) | one vision question on a frame with two or more people; `SPLIT_PANELS` on panels > 1; `DRAWN_TWICE` on a copy pair in one picture unless the two are accepted as two different characters | rewording every style's positive words (fal's klein takes no negative prompt; L015 parked it: it changes every drawing); a code test on the describer's text (it describes the copies differently: "short dark hair" against "shoulder-length wavy hair" for lighthouse 4.2's two women); asking the describer (a describer told to look for copies starts finding them, as T095 found for sex); copies in a split frame (the split's own figures; `SPLIT_PANELS` already names it) |
+| A found person's sex (T102; L022, 2026-10-16) | T095's question on each person `found_people` gives for a character the script sexes; `DRAWN_SEX` fails on the other sex | the presence agent's own answer refusing a person of the other sex (its prompt already says "their sex if the script gives it", and it still found an old woman for Mr. Fortuin); a full match (excuses `UNSCRIPTED_PERSON`, T099's reason) |
 | Who sees the image | a vision model, blind to the shot | Nemotron directly: no Token Factory Nemotron accepts images (U7); telling the describer what to expect: it would agree |
 | Who judges | Nemotron (reasoning tier) + code | the vision model judging itself: not NVIDIA, and it already saw the image without the spec, which is the point |
 | Countable checks | code | the judge counting: code is exact and free |
@@ -945,7 +1300,8 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 | A wrong sex or look (T080) | the judge refuses the match, as for a wrong age | a code check on the describer's words ("a boy"): the describer's phrases vary, and matching them to "she" or "braids" is guessing |
 | No one in frame (T080) | the hard `NO_CHARACTER`, against the people the prompt drew | `MISSING_CHARACTER` made hard: a shot of two where one is drawn would be withheld for a framing choice; against `shot.characters`: a planner character no covered line puts on screen was never drawn, so every attempt would fail |
 | A child drawn as an adult (T072) | the judge refuses the match when the apparent age plainly contradicts the character's quoted age, so the person is unscripted | a new `AGE` check in code: the describer's age is a phrase, and matching it to `(10)`, `(70s)` or "old" in code is guessing; leaving it to portraits (T025): T025 waits on the renderer, and 14 of 27 labelled frames (eval.md §6a.2) drew the wrong age |
-| A signature (T072, T077; Tumo, 2026-10-11) | the soft `SIGNATURE` check (T077): logged and shown, the frame `WARN`; words read in it are still `text`. On eval.md §6a's 27 labelled frames this passes 2 that Katlego labelled bad for their signature (one also had a second kite the describer missed): by this decision a signature is no grounding failure, so those labels count the signature as a note | a hard fail (T072): on 2026-10-11, re-judging the same stored drawings, it withheld 4 more of the-red-kite's 22 klein frames (6 accepted with T077, 2 without) and 1 of its 21 schnell frames, each otherwise right, and a mark in a corner is no character, prop, line or event; T071's rule alone (no flag): the flag stays, so a reviewer sees the mark; cropping the border to remove it: halved signatures in a 2026-10-10 experiment, and is renderer post-processing, after the renderer decision |
+| A rooftop (T106) | the describer's rule: open to the sky is `exterior`, even with the sky left blank; `interior` only when walls and a ceiling close it in; else `unclear` | a code exception for `ROOF` in the heading (it would pass a roof drawn indoors); dropping `SETTING` to soft (it catches real INT/EXT swaps: verify.md §8, T071) |
+| A signature (T072, T077, T107; Tumo, 2026-10-11) | the soft `SIGNATURE` check (T077): logged and shown, the frame `WARN`; since T107 its letters are never `text`, readable or not (both checks are soft, so a frame's verdict is the same either way; what changes is that a scrawl isn't reported as unscripted lettering). On eval.md §6a's 27 labelled frames this passes 2 that Katlego labelled bad for their signature (one also had a second kite the describer missed): by this decision a signature is no grounding failure, so those labels count the signature as a note | a hard fail (T072): on 2026-10-11, re-judging the same stored drawings, it withheld 4 more of the-red-kite's 22 klein frames (6 accepted with T077, 2 without) and 1 of its 21 schnell frames, each otherwise right, and a mark in a corner is no character, prop, line or event; T071's rule alone (no flag): the flag stays, so a reviewer sees the mark; cropping the border to remove it: halved signatures in a 2026-10-10 experiment, and is renderer post-processing, after the renderer decision |
 | A part of a prop (T078) | code: the prop's head noun right before the part's own word, a prop of this shot, no copy word, never an animal, vehicle, weapon or food; the judge's call doesn't matter | the judge alone (it called a kite string unscripted 3 times in 27 labelled frames); a shared word (my first draft matched `coil of wire` to `SPOOL OF BLUE STRING` through `of`, and `second kite` to `RED KITE`); a judge prompt saying everyday things are set dressing (2026-10-11: no labelled good frame gained, and a grown man for Lerato passed). Measured on the saved judgements of three runs over the 27 labelled frames: 0, 1 and 2 good frames gained, no labelled-bad frame passing |
 | Drawing marks (T078) | the describer leaves them out | a code list of mark words: the describer's names vary; the judge: it called "pencil shading" unscripted |
 | Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
@@ -956,6 +1312,7 @@ FrameAuditRow.found: Mapped[list[dict] | None]   # JSONB, nullable: older rows h
 | Unheld food (T086; Tumo, 2026-10-12) | soft `BACKGROUND_OBJECT` whatever the judge called it | food as plain set dressing with the heading as support (it would pass silently: a cake at a birthday the script never had); hard as before (bread in a bakery failed 26 times) |
 | Objects and lettering warn (T089; Tumo, 2026-10-12) | every object failure but an animal's or a weapon's, and `TEXT_IN_FRAME`, are soft and named on the card | strict as before (9 of 49 on lost-property, most for a misspelt LOST PROPERTY sign); all objects soft (the same counts, but a knife or a dog the script never gave would pass); asking klein for no lettering (a prompt change, fal money, and the script's own signs would go too); a setting for strict mode (one revert does it, no caller needs both) |
 | A person's support (T084) | code: found in the shot's action text, with no `he`, `him` or `she` | any verbatim quote of the shot or of an in-shot entity, as before (2026-10-12: three strangers accepted on lost-property, excused by dialogue or a pronoun, and an old woman for Siphokazi on sipho-and-siphokazi); a person-noun list the support must contain (a vocabulary that never ends: "commuter", "busker", "courier"); telling the judge only (it can't be measured free, and code would still trust what it cites; a judge sentence is §10's open question) |
+| A describer answer that loops (T109; measured 2026-10-17) | length limits in the decoding grammar only (`response_format`), the prompt's schema unchanged: 7 of 7 looping frames valid, 10 of 10 controls the same answer | the same limits in the schema the prompt shows too (7 of 7 valid, but 7 of 10 controls answered differently with no limit reached: a different prompt); `frequency_penalty` 0.5 (6 of 7, and fewer objects on every control: 15 → 8, 10 → 5, which changes what the judge checks); a prompt sentence asking for each object once (2 of 7); asking again at temperature 0.3 (2 of 7); a larger `max_tokens` (a loop fills any budget, and is billed for it); salvaging the cut-off JSON (it drops the rest of the answer silently: validation fixes shape, never content, llm.md) |
 | Measuring a code-only audit change (T083) | `recheck`: today's checks on stored descriptions and judgements | `reaudit`: two Token Factory calls a drawing for a change that calls no model |
 | Measuring an audit change (T071) | re-audit the drawings already in Storage (`reaudit`) | a new live run per change: the image spend again, and different drawings each time, so before and after aren't comparable |
 
@@ -1004,6 +1361,16 @@ it against the script."*
   heading's words fails against the prop `RED KITE`, a `bucket` doesn't. Live, with Tumo's go-ahead (Token
   Factory only): T071's and T072's audits on eval.md §6a's 27 labelled frames (Katlego's, in the
   dev bucket), scored against his labels, the numbers in the PR; then one upload of the-red-kite.
+- **T106:** `DESCRIBE_PROMPT` carries the setting sentence verbatim (§3), and the schema is
+  unchanged. Live, with `reaudit` on Super VL (announced on the PR): the-red-kite's 44 stored
+  attempts are described again; both rooftop attempts (0.4) read `exterior` or `unclear`, and no
+  other attempt's setting changes.
+- **T107:** `DESCRIBE_PROMPT` carries the text sentences verbatim (§3); `FrameDescription`'s
+  fields run `…, signature, signature_text, has_text, text`, `signature_text` is in the model's
+  schema's `required`, a stored description without it validates with `[]`, and `run_checks`
+  never reads `signature_text`. The same run: the stored attempts' `text` entries are classified by hand first
+  (signature or scene lettering), then `text_in_frame` falls back near DeepSeek's 6, with every
+  piece of scene lettering ("SNAP.", "SLAP & NOPE.") still in `text`.
 - **T077:** `run_checks`: `signature` true with `text` empty fails `SIGNATURE` (soft) and no hard
   check, so the verdict is `WARN`; with an unread word in `text` it also fails `TEXT_IN_FRAME`
   (`FAIL`); `signature` false fails neither. The web names `signature` "artist's signature".
@@ -1105,6 +1472,45 @@ it against the script."*
   hard; migration 0007 upgrades and downgrades (the schema test). Live: one script with
   `AUDIT_WITHHOLD_CHECKS=drawn_sex`, where the real code meets `character_sex` (the prototype used
   the labels).
+- **T104** (`tests/verify/test_t104.py`, tests first): `frame_layout` sorts and de-duplicates pairs,
+  drops `[i, i]`, negative, out-of-range, short and long pairs, and makes `panels` 0 and -1 into 1;
+  `run_checks` fails `SPLIT_PANELS` for `panels` 2 with its detail and passes 1; fails `DRAWN_TWICE`
+  for a pair in one picture with its detail, three pairs (the same person three times) with three
+  details joined by `; `, a pair with neither person known, and a pair with one accepted and one not;
+  passes a pair accepted as two different characters, a pair found by the presence agent as two
+  characters (`found=`), a pair one accepted and one found as another character, a pair in a split
+  frame, and `layout` None; the severity table names both hard (`tests/verify/test_checks.py`'s hard
+  set changes), the default `all` ladder withholds them and a ladder without them warns; `audit_frame` (a MockTransport counting
+  questions) asks once for two or more described people, after the other agents, none for one
+  person, none for a malformed judgement, sends the prompt and the numbered people with the image at
+  4,096 tokens, stores `layout`, counts the tokens, and a failed question leaves `layout` None and
+  the verdict no `ERROR`; a comic panel's audit asks it too (comic panels share `audit_frame` through
+  `loop.py`, pinned by `audit_frame` taking no target); `FrameWriter.log` writes `layout`; `recheck` passes the row's `layout` (NULL
+  as None); migration 0009 upgrades and downgrades (`test_the_models_match_the_migrations`). Token
+  Factory: the real code on the 332 stored frames gives about §3's numbers. Live: the next held-out
+  runs.
+- **T102** (`tests/verify/test_t102.py`, tests first): `found_people` gives character → person for
+  the answers `present_characters` keeps, the first that passes per character (a null first answer
+  skipped), and `present_characters` equals its
+  keys on every T099 case; `run_checks` fails `DRAWN_SEX` for a seen `male` on a found female
+  character with T095's detail, and passes `unclear`, the same sex, a found character with no script
+  sex, an answer about a found person filed under another character, and an answer about a person
+  found but dropped by `found_people` (out of range, accepted as another character, age
+  contradicted); `NO_CHARACTER` still passes on that frame (T099 unchanged), so the verdict is
+  `FAIL` on `DRAWN_SEX` alone; `audit_frame` (a MockTransport counting questions) asks the sex
+  question after the presence agent for a found person with a script sex, once per (person,
+  character) pair, none for a character with no script sex, none when the presence agent didn't run,
+  none for a null answer, and a failing question leaves that answer out of `seen` and the verdict no
+  `ERROR`; a person found for two characters is asked once and kept twice, and with opposite script
+  sexes the answer fails `DRAWN_SEX` for the one it contradicts only; a person matched to an
+  off-screen character's name beside a found on-screen character (T099's shape): T095's question, the
+  presence agent, T102's question, and `seen` in that order; a malformed judgement asks nothing;
+  `check_person` asks with `max_tokens` 4,096; with `drawn_sex` off the ladder the frame is `WARN`
+  (`apply_ladder`); `recheck` passes a row's `seen` and `found` to `run_checks` (whose failing is the `run_checks` cases
+  above), and on a row with
+  T095's `seen` alone and `found` decides as before. Token Factory: the real code on the 77 stored
+  frames gives about §3's numbers, and lighthouse 7.5 replayed with T101's names is asked and
+  flagged. Live: the next held-out runs with `AUDIT_WITHHOLD_CHECKS=drawn_sex,no_character`.
 - **T099** (`tests/verify/test_t099.py`, tests first): `present_characters` finds a character
   whose answer names a person in range, and not one whose answer is null, out of range (past the end, or negative), a person
   `matched_people` accepts as another character, or a person whose described age contradicts the
@@ -1121,6 +1527,51 @@ it against the script."*
   `found` column. Token Factory: the real code on the 30 stored frames gives about
   §3's numbers. Live: one held-out script with `AUDIT_WITHHOLD_CHECKS=drawn_sex,no_character`
   (fal: ask Tumo).
+- **T109, measured first** (2026-10-17, Token Factory only, about $0.3; scripts and results in
+  `eval/measurements/t109/`): every Super VL `ERROR` with a stored drawing, 7 of the labelled
+  frames (market-day 2.1, 3.2, 5.2; sipho-and-siphokazi 2.1; the-borrowed-bicycle 5.5;
+  the-lighthouse-inspector 8.1; the-night-taxi 1.1) and rooftop-tomatoes' comic 6.1, asked the
+  describer's exact call three times. **Every failure was `finish_reason=length` at 4,096 tokens**,
+  cut mid-JSON at the limit on every run, the text nearly the same each time (temperature 0); sipho 2.1 answered in 422 tokens
+  all three times, and market-day 5.2 failed once in four runs: it loops sometimes, the other six every time. The raw answers loop: a repeated object or
+  person, or a string that never ends. Then each candidate on the 7 that loop and on 10 control
+  frames (today's two held-out runs, the most objects first), against the stored answer:
+
+  | Candidate | Looping frames valid | Controls: the same answer |
+  |---|---|---|
+  | none (the call as it is, a 4th run) | 1 of 7 (market-day 5.2; the other 6 failed all 4 runs) | 9 of 10 |
+  | limits in the schema and the prompt (first, smaller limits) | 7 of 7 | 3 of 10 |
+  | **limits in the grammar only** (the final limits) | **7 of 7** (351–1,597 tokens) | **10 of 10** |
+  | `frequency_penalty` 0.5 | 6 of 7 | 0 of 10 (fewer objects on every one) |
+  | a prompt sentence: each object once | 2 of 7 | not run |
+  | temperature 0.3 | 2 of 7 | not run |
+
+  **The limits** sit above every stored answer: DeepSeek's 1,352 descriptions reach 21 people,
+  32 objects, 15 pieces of text and 175 characters of appearance; Super VL's 79 reach 33 pieces of
+  text (a calendar's 31 dates, an honest answer). **Tests** (`tests/verify/test_t109.py`, tests
+  first): `description_grammar()` sets exactly the six limits and leaves the rest of
+  `FrameDescription.model_json_schema()` equal; `describe_frame` sends the capped schema as
+  `response_format` and the uncapped one in the system message (a MockTransport reads the body);
+  `structured_chat` without `grammar` sends today's body (llm.md §9); `run_checks` on a description
+  of 24 people, every one judged a shot character or supported, fails `UNSCRIPTED_PERSON` with the
+  limit detail, and on 23 passes it; 40 objects all scripted fail `BACKGROUND_OBJECT` (soft) with
+  its detail, and 39 pass; 40 text entries add nothing. **After the code:**
+  `eval/tools/score_labels.py` on the 109 labelled frames with Super VL (about $0.25, Tumo's
+  go-ahead): 0 describer `ERROR`s, and every frame whose verdict moves looked at.
+
+- **T097** (`tests/verify/test_t097.py`, tests first): `heads_seen` keeps a visible in-range box
+  with its matched character, `None` for an unmatched person, in person order, and drops an
+  out-of-range person, a second answer for one person, `visible` false, a box with `x0 ≥ x1` or
+  `y0 ≥ y1`, and a coordinate outside 0–1; `render_until_accepted(heads=True)` asks the head agent
+  once, on the accepted attempt only (a MockTransport counts the questions over a FAIL then a
+  PASS), names every described person by number with position and appearance, logs the audit with
+  `heads` and the agent's tokens added, and leaves verdict and checks as they were;
+  `heads=False` (the default) never asks; a frame with no described person asks nothing; a failing
+  question leaves `heads` empty and the frame accepted; `FrameWriter.log` writes `heads` (`None`
+  when the audit has none); the comic job passes `heads=True` and the storyboard paths don't;
+  migration 0010 upgrades and downgrades (the schema test). Token Factory, before the code merges:
+  the real `find_heads` on Super VL (T105's default, thinking off) on the 15 drawings of §3's
+  measurement, the boxes drawn on each and looked at, every one on its head.
 
 ## 10. Open questions
 

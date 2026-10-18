@@ -63,6 +63,7 @@ def described(**kw: Any) -> FrameDescription:
             "has_text": kw.get("has_text", False),
             "text": kw.get("text", []),
             "signature": kw.get("signature", False),
+            "signature_text": kw.get("signature_text", []),
         }
     )
 

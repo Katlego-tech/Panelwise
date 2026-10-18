@@ -32,6 +32,16 @@ class Storyboard:
 
 
 @dataclass(frozen=True)
+class SourceLine:
+    """One printed line of a block's source (T103): a speaker line prints Bold; `of` is the speaker
+    label of a speech's line, so a speech continued on the next page gets its speaker again."""
+
+    text: str
+    speaker: bool = False
+    of: str | None = None
+
+
+@dataclass(frozen=True)
 class Block:
     shot: tuple[int, int]
     y: int
@@ -39,7 +49,7 @@ class Block:
     title: str
     span_label: str
     audit_line: str | None
-    source_lines: tuple[str, ...]
+    source_lines: tuple[SourceLine, ...]
     continued: bool
 
 

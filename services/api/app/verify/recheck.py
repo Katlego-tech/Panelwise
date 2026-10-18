@@ -28,7 +28,15 @@ from app.llm import Usage
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.model import ProjectRow
 from app.verify.audit import apply_ladder, run_checks, shot_ages, shot_sexes
-from app.verify.model import Audit, Check, PersonFound, PersonSeen, Severity, Verdict
+from app.verify.model import (
+    Audit,
+    Check,
+    FrameLayout,
+    PersonFound,
+    PersonSeen,
+    Severity,
+    Verdict,
+)
 from app.verify.reaudit import Reaudit, line, summary
 from app.verify.schema import FrameDescription, Judgement
 
@@ -109,6 +117,14 @@ async def recheck(
                     str(f["reason"]),
                 )
                 for f in row.found or ()
+            ),
+            # T104: the stored answer; a row before 0009, or not asked, has none: both checks pass.
+            layout=None
+            if row.layout is None
+            else FrameLayout(
+                int(row.layout["panels"]),
+                tuple((int(a), int(b)) for a, b in row.layout["copies"]),
+                str(row.layout["reason"]),
             ),
         )
         laddered = apply_ladder(

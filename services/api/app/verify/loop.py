@@ -10,7 +10,7 @@ from app.grounding import Extraction
 from app.llm import NebiusChatModel
 from app.script import Screenplay
 from app.shots import Shot
-from app.verify.audit import apply_ladder, audit_frame, seed_for
+from app.verify.audit import apply_ladder, audit_frame, find_heads, seed_for
 from app.verify.model import (
     Audit,
     Check,
@@ -40,10 +40,12 @@ async def render_until_accepted(
     log: Callable[[Audit], Awaitable[None]],
     on_state: Callable[[FrameState, int], Awaitable[None]] | None = None,
     withholding: frozenset[Check] | None = None,
+    heads: bool = False,
 ) -> FrameOutcome:
     """Attempts `first_attempt` .. `first_attempt + max_renders - 1`, each seeded `seed_for(shot,
     attempt)`. `on_state` is awaited on every §5 transition, before the new state's work. A renderer
-    exception moves the frame to FAILED and is re-raised: the caller fails its job."""
+    exception moves the frame to FAILED and is re-raised: the caller fails its job. `heads` (T097,
+    the comic job): the accepted attempt gets the head agent before it is logged."""
     if max_renders < 1 or first_attempt < 1:
         raise ValueError("max_renders and first_attempt are at least 1")
     key = (shot.scene_index, shot.number)
@@ -66,6 +68,8 @@ async def render_until_accepted(
         await enter(FrameState.AUDITING, attempt)
         audit = await audit_frame(model, frame, shot, screenplay, extraction)
         audit = apply_ladder(audit, withholding)  # T094: off the ladder, a hard check warns
+        if heads and audit.verdict in _ACCEPTED:  # T097: never on a frame thrown away
+            audit = await find_heads(model, frame, audit)
         await log(audit)
         audits.append(audit)
         if (accepted := _ACCEPTED.get(audit.verdict)) is not None:

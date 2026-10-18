@@ -18,6 +18,7 @@ Questions U1–U6 come from the FrameFlow Nebius plan (§3); U7 is Panelwise's o
 | U5 | Is an image-generation model served? | **No.** No model in either host's catalog has an image output modality | Rendering stays on ComfyUI on a Nebius GPU (T003). FrameFlow plan item N8 is dropped |
 | U6 | Sampling for grounded extraction | **Not settled by this probe** — 3 runs at each setting on one short scene all grounded their evidence verbatim | Decide on the full-script baseline in T006. The one failure seen was a *shape* failure under `json_object` (see U1), not a sampling one |
 | U7 | Is a vision model served, and does it take an image in a chat message? | **Yes — but none is NVIDIA.** Every Nemotron model is `text->text` and rejects images. Five non-NVIDIA models accept images and all five read our test image correctly on 2026-09-28; **on 2026-09-30 GLM-5.3-Flash no longer received images** ([re-check](#u7-re-check-2026-09-30)), so the describer is DeepSeek-V4.1-Flash | **Decided 2026-09-28: option A now, B as a stretch** — see [§ The vision decision](#the-vision-decision) |
+| U8 | Is there an NVIDIA vision model now? (2026-10-17) | **Yes: `nvidia/Nemotron-3.5-Super-VL`** (`text+image->text`, listed 12 Oct, released 15 Oct). One probe read a comic page correctly | **Adopted 2026-10-17 (Katlego):** every vision call is Super VL with thinking off (T105). Measured on the-red-kite: it fits (0 errors, 0.95× tokens, 1.43× median time) and most of the audit carries over; T106–T108 adapt the rest ([§ U8](#u8--an-nvidia-vision-model-2026-10-17)) |
 
 ## Settled configuration
 
@@ -28,7 +29,7 @@ These are the values in [`.env.example`](../.env.example).
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` | U3: every Nemotron model answers here |
 | `NEBIUS_MODEL_FAST` | `nvidia/Nemotron-3_5-Lightning` | 1M context, $0.06 / $0.24 per 1M tokens, 600 RPM; `json_schema` enforced (U1) |
 | `NEBIUS_MODEL_REASONING` | `nvidia/nemotron-3-super-120b-a12b` | 262K context, $0.30 / $0.90, 300 RPM |
-| `NEBIUS_MODEL_VISION` | `deepseek-ai/DeepSeek-V4.1-Flash` | Was `zai-org/GLM-5.3-Flash` (cheapest correct VLM on 2026-09-28) until the [U7 re-check](#u7-re-check-2026-09-30) found it no longer receives images. DeepSeek read real storyboard frames correctly, 3000 RPM. It *describes* frames; Nemotron judges |
+| `NEBIUS_MODEL_VISION` | `nvidia/Nemotron-3.5-Super-VL`, with `NEBIUS_VISION_THINKING=false` | Since 2026-10-17 (T105, § U8; [super-vl-migration.md](super-vl-migration.md)): the first NVIDIA model on Token Factory that takes an image. Before it, `deepseek-ai/DeepSeek-V4.1-Flash`, which was `zai-org/GLM-5.3-Flash` (cheapest correct VLM on 2026-09-28) until the [U7 re-check](#u7-re-check-2026-09-30) found it no longer receives images. DeepSeek read real storyboard frames correctly, 3000 RPM. It *describes* frames; Nemotron judges |
 | `NEBIUS_REASONING_BASE_URL` | removed | U3 |
 
 Other Nemotron models, both served on the default host: `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`
@@ -255,6 +256,286 @@ as-is. Options, for the team to decide before T010 (`docs/design/verify.md`):
 T003's GPU has headroom once US1 works. A keeps the claim honest in a narrower form — *"a vision
 model describes each frame; Nemotron audits it against the script"* — needs no new infrastructure,
 and makes the audit's reasoning inspectable, since the description is logged next to the verdict.
+
+## U8 — An NVIDIA vision model (2026-10-17)
+
+_Checked 2026-10-17 by Katlego (via Claude): the catalog (`GET /v1/models?verbose=true`, 28 models)
+and one call._ NVIDIA released three Nemotron 3.5 models on 15 Oct: **Super VL** (120B, about 12B
+active, text and images, 1M context), **Bolt 74B-A9B** and **Bolt E4B** (due 23 Oct). Only Super VL
+is on Token Factory; the two Bolts are for local and edge hardware, so they don't fit a project
+whose model calls must be Token Factory's.
+
+| | `nvidia/Nemotron-3.5-Super-VL` | `deepseek-ai/DeepSeek-V4.1-Flash` (today's describer) |
+|---|---|---|
+| Modality | `text+image->text` | `text+image->text` |
+| Context | 1,048,576 | 1,048,000 |
+| Price per 1M tokens (in / out) | $0.30 / $0.90 | $0.30 / $1.20 |
+| `supported_features` | `tools`, `reasoning` | none listed |
+| Listed on Token Factory | 2026-10-12 | 2026-09-15 |
+
+Neither lists `structured_outputs`, and DeepSeek has honoured our strict `json_schema` all the same
+(T010 onwards), so Super VL's must be measured, not assumed.
+
+**The probe** (one call, no `response_format`, thinking left to the model's default):
+`docs/design/comic/the-red-kite-page-1.png`, "How many panels are on it, and what text is lettered
+in the first speech bubble?" It answered **4 panels** and **"Come on. Come on, wind."**, which is
+line 17 of `samples/the-red-kite.fountain` verbatim, in 3.6 s: 3,361 prompt tokens (3,314 of them the
+image) and 395 completion tokens, **367 of them reasoning** (about $0.0014). So it receives images
+on this host (GLM-5.3-Flash stopped doing so in September: § U7 re-check) and reads lettering, and
+it thinks by default.
+
+### U8 measured (2026-10-17, T105)
+
+_Run by Katlego (via Claude) on Katlego's machine: today's `audit_frame` (as `python -m
+app.verify.reaudit` runs it, nothing written, nothing drawn) on every stored attempt of the-red-kite
+project `28a0476c` (2026-10-16, klein, 22 storyboard frames and 22 comic panels, all attempt 1).
+The vision model and its thinking toggle are the only change between runs; the judge is the same
+Nemotron Super. Four attempts at a time. About $0.5 of Token Factory for the three runs._
+
+| | DeepSeek-V4.1-Flash (today) | Super VL, thinking default | Super VL, `NEBIUS_VISION_THINKING=false` |
+|---|---|---|---|
+| Attempts, `ERROR`s | 44, 0 | 44, 0 (one schema answer repaired) | 44, 0 |
+| Raw verdicts (pass / warn / fail) | 4 / 34 / 6 | 3 / 30 / 11 | 8 / 28 / 8 |
+| Hosted verdicts (`drawn_sex,no_character`) | 4 / 40 / 0 | 3 / 41 / 0 | 8 / 36 / 0 |
+| Hard checks failed | `unscripted_person` 5, `unscripted_object` 2 | `unscripted_person` 9, `setting` 1, `unscripted_object` 1 | `unscripted_person` 5, `setting` 2, `unscripted_object` 1 |
+| `text_in_frame` warnings | 6 | 17 | 22 |
+| Tokens (prompt + completion, judge included) | 333,931 (7,589 an attempt) | 399,137 (9,071): **1.20×** | 317,055 (7,206): **0.95×** |
+| Reasoning tokens in that | 82,635 | 147,740 | 62,344 |
+| Seconds an attempt, median / mean | 22.6 / 32.7 | 24.7 / 36.5 | 32.4 / 36.2: **1.43× / 1.11×** |
+
+**Every attempt whose hard checks differ, looked at** (10 of 44; 5 more differ only between pass
+and warn). The drawing first, then who was right:
+
+| Attempt (shot) | The drawing | DeepSeek | VL default | VL thinking off |
+|---|---|---|---|---|
+| comic 1.1 (LERATO on the roof with the kite) | a short-haired child at street level, no kite: **wrong** | warns ✗ | `unscripted_person` ✓ | `unscripted_person` ✓ |
+| comic 1.4 (roof) | Lerato at a roof parapet | ✓ | `setting` "interior" ✗ | `setting` "interior" ✗ |
+| comic 2.2 (workshop) | Mokgosi and Lerato, right | `unscripted_person` ✗ | ✓ | ✓ |
+| comic 4.1 (night street, torch) | Lerato with a torch, right | ✓ | `unscripted_person` ✗ | ✓ |
+| storyboard 1.3 (roof) | Lerato, right | ✓ | `unscripted_person` ✗ | ✓ |
+| storyboard 1.4 (roof, close-up) | Lerato under the eaves, likely exterior | ✓ | ✓ | `setting` "interior" ✗ |
+| storyboard 2.5 (workshop) | Lerato, right | `unscripted_person`, `unscripted_object` ✗ | ✓ | ✓ |
+| storyboard 3.1 (the kite high) | Lerato flying it, right | ✓ | `unscripted_person` ✗ | ✓ |
+| storyboard 4.1 (night street) | Lerato with a torch, right | ✓ | `unscripted_person` ✗ | `unscripted_person` ✗ |
+| storyboard 4.2 (night street) | Lerato, right | ✓ | `unscripted_person` ✗ | ✓ |
+| **Right** | | **7 of 10** | **4 of 10** | **7 of 10** |
+
+**Why they differ:** both models see the same child. Super VL often writes **"pigtails"** where the
+script says "braids tied back", and the judge then refuses the match (`unscripted_person`); with
+thinking off it writes "braided hair" more often. It also reads the scrawled signatures as text
+(`text_in_frame`, a warning: 6 → 22) and twice called a rooftop "interior".
+
+**Fit and translation** ([vision-model.md](design/vision-model.md) §8; Super VL is the target,
+decided by Katlego on 2026-10-17, so the question is fit and how much carries over, not whether it
+beats DeepSeek):
+- **It fits, with thinking off:** 0 `ERROR`s; 0.95× the tokens; 1.43× the median seconds and 1.11×
+  the mean (four at a time from South Africa, where uploads timed out and were retried for both
+  models); and it shows no wrong frame DeepSeek withheld (the two DeepSeek withheld, comic 2.2 and
+  storyboard 2.5, are right frames). **Thinking on doesn't fit:** 4 of 10 disputed checks right,
+  1.20× the tokens.
+- **What carries over**, Super VL with thinking off against DeepSeek, the same 44 attempts:
+
+| Part of the audit | Agrees | What differs |
+|---|---|---|
+| Structured output (strict `json_schema`) | 44 of 44, 0 repairs | — |
+| People described (how many) | 44 of 44 | — |
+| The sex agent (T095) | 51 questions each; 48 of 48 answers on the same people the same | — |
+| The presence agent (T099) | ran on 3 attempts against 2 | — |
+| The judge's matches (person → character) | 36 of 44 the same | 4 real: Super VL right on 3 (comic 1.1, 2.2, storyboard 2.5), DeepSeek on 1 (storyboard 4.1: "pigtails", T108) |
+| Setting | 42 of 44 | a flat roof read `interior` twice (T106) |
+| Light, shot size | 37 of 44 each | soft checks only |
+| Lettering against signature | `has_text` 33 of 44 | text entries 9 → 25, `text_in_frame` 6 → 22: signatures read as text (T107) |
+
+- **Decision (Katlego, 2026-10-17): migrate.** The defaults are Super VL with thinking off (#192);
+  T106, T107 and T108 adapt the three parts that differ; a held-out project (Tumo) checks that
+  there is nothing else. Pitch and plan: [super-vl-migration.md](super-vl-migration.md).
+
+**What this changes:** option B of [§ The vision decision](#the-vision-decision) (an NVIDIA model
+that sees the frame) no longer needs a GPU of our own. **What it doesn't change yet:** the describer
+stays DeepSeek-V4.1-Flash until T105 ([docs/design/vision-model.md](design/vision-model.md))
+measures Super VL on stored drawings with `python -m app.verify.reaudit`: the verdicts it changes,
+looked at; schema failures; tokens and seconds an attempt, with thinking on and off.
+
+### U8 held out: the-lighthouse-inspector (2026-10-17, T105's translation run)
+
+_Run by Tumo (via Claude) on Tumo's machine, as Katlego asked on #192: `measure.py` (#192's
+comment, unchanged) on every stored attempt of the-lighthouse-inspector, project `78f8735f`
+(held out, 2026-10-14, 26 storyboard frames, all attempt 1), on main @ `abefcd6`. DeepSeek ran with
+`NEBIUS_VISION_THINKING=false` too (main's default since #192; the-red-kite's DeepSeek column above
+had it unset). The stored extraction predates T101, so the bare `FORTUIN` is still a sexless
+character here. Every attempt has an eye verdict from the held-out run (`eval/frame-labels.json`)._
+
+| | DeepSeek-V4.1-Flash | Super VL, `NEBIUS_VISION_THINKING=false` |
+|---|---|---|
+| Attempts, `ERROR`s | 26, 0 | 26, **1** (8.1: the describer's answer failed the schema, then its repair) |
+| Raw verdicts (pass / warn / fail) | 2 / 19 / 5 | 5 / 16 / 4 (+1 error) |
+| Hosted verdicts (`drawn_sex,no_character`) | 2 / 24 / 0 | 5 / 20 / 0 (+1 error, withheld) |
+| Tokens (prompt + completion) | 173,890 | 149,618: **0.86×** |
+| Seconds an attempt, median | 14.8 | 11.7: **0.79×** |
+| Text entries more on Super VL | | 10 of 26 attempts (T107's pattern) |
+| Setting differences | | none besides 8.1's error (no rooftops in this script) |
+
+**Every attempt whose hard checks or hosted verdict differ (5 of 26), against the eye verdict:**
+
+| Attempt | Eye verdict | DeepSeek | Super VL |
+|---|---|---|---|
+| 4.3 | right | warn | pass ✓ |
+| 5.2 | right | warn | pass ✓ |
+| 9.2 | right | `unscripted_object` ✗ (warn on the ladder) | pass ✓ |
+| 7.5 (Mr. Fortuin drawn as an old woman) | **wrong** | the judge matched her as FORTUIN: warn, shown ✗ | the judge refused her (`unscripted_person`), the presence agent found her as FORTUIN: warn, shown ✗ |
+| 8.1 (no rescue boat) | weak | `unscripted_person` (warn) | `ERROR`, withheld: a redraw |
+
+**What carries over**, the rows of the-red-kite's table above, from the same two records (no new
+run; 25 attempts, since 8.1 has no description on Super VL):
+
+| Part of the audit | Agrees | What differs |
+|---|---|---|
+| Structured output (strict `json_schema`) | 25 of 26 | 8.1 failed the schema and its repair (the new item below) |
+| People described (how many) | 25 of 25 | — |
+| The sex agent (T095) | 24 questions each; 23 of 23 answers on the same people the same | — |
+| The presence agent (T099) | found someone on 2 attempts against 0 | 7.3 and 7.5, the two judge differences below |
+| The judge's matches (person → character) | 23 of 25 the same | both a match DeepSeek made and Super VL's judge refused, then the presence agent found: 7.3 (Ms. Naidoo drawn twice, weak; described as "an adult … in a suit jacket", no sex) and 7.5 (Mr. Fortuin as an old woman, wrong; FORTUIN found). The same outcome both ways |
+| Setting | 25 of 25 | — |
+| Light, shot size | 14 and 21 of 25 | soft checks only |
+| Lettering against signature | `has_text` 19 of 25 | text entries more on 10 of 26 (T107) |
+
+**What this adds to the-red-kite's findings:** nothing new among T106–T108's three items, and one
+new item: **the describer's schema on Super VL**: 1 of 26 here (8.1), 7 of 109 on the labelled
+frames below, against 0 of 44 on the-red-kite. Each is an `ERROR`: withheld, redrawn on the hosted
+demo (a drawing and an audit spent). 7.5 is shown by both: with T101 (MR. FORTUIN gets "male" from
+his title) and T102 (a found person is asked its sex), it is caught (T102's real-code measurement,
+verify.md §3).
+
+### U8 on the labelled frames (2026-10-17): 109 drawings judged by eye
+
+_`eval/tools/score_labels.py` on all 109 frames of `eval/frame-labels.json` (11 scripts, judged by
+eye on the days they were drawn: 57 wrong, 12 weak, 40 right), main @ `abefcd6` (so T095 and T099
+run; T101–T104 are not on main yet), both with thinking off, the hosted ladder
+`drawn_sex,no_character`. A frame is withheld when its laddered verdict is FAIL or `ERROR`._
+
+| | DeepSeek-V4.1-Flash | Super VL |
+|---|---|---|
+| Wrong frames withheld (57) | **17** | 14 (one of them an `ERROR`) |
+| Right frames withheld (40) | 3 | 5 (**4 of them `ERROR`s**) |
+| Weak frames withheld (12) | 0 | 2 (both `ERROR`s) |
+| `ERROR`s (the describer's schema, after its repair) | 0 | **7 of 109** (market-day 2.1, 3.2, 5.2; sipho-and-siphokazi 2.1; the-borrowed-bicycle 5.5; the-lighthouse-inspector 8.1; the-night-taxi 1.1) |
+| Leaving the 7 out: wrong withheld (56) / right withheld (36) | 17 / 2 | 13 / 1 |
+| `drawn_sex` faults (15) withheld | 9 | **10** (the sex agent: the-borrowed-bicycle 2.3 and 5.2 caught only by Super VL) |
+| `absent` faults (8) withheld | **4** | 1 |
+
+**Frames only one model withholds** (looked at, by their eye verdicts):
+- **Only DeepSeek** (6 wrong, 1 right): final-whistle 2.3 (no crowd), 4.3 (Lindi, not Palesa),
+  lost-property 7.4 (one man, no Tebogo), 9.6 (a split), the-bread-van 4.4 (three boys for Theo),
+  the-lighthouse-inspector 7.5 (Mr. Fortuin as a woman), all through `no_character`; and
+  final-whistle 1.4 (right, a false alarm). On Super VL the judge matches someone or the presence
+  agent finds them, so the frame is shown.
+- **Only Super VL**: the-borrowed-bicycle 2.3 and 5.2 (NALEDI drawn as a boy: `drawn_sex`), and the
+  7 `ERROR`s.
+
+**What this adds** (beside T106–T108):
+1. **The describer's schema on Super VL:** 7 of 109 (6%) fail even after the repair; 0 on
+   DeepSeek. Each withholds the frame (on the hosted demo, a redraw), and most land on right frames.
+2. **Absent characters let through:** `no_character` withholds 1 of the 8 absent-character frames
+   on Super VL against 4 on DeepSeek. The presence agent (T099) finds people more readily on Super
+   VL, or the judge matches them; worth a look at those six frames' `found` answers before T102
+   and T104 land, since both build on the presence agent.
+3. **The sex agent holds up:** 10 of 15 sex faults withheld against 9.
+
+**One run is noisy at the level of a frame:** lighthouse 7.5 on DeepSeek was shown in the
+`measure.py` run above and withheld (`no_character`) in this one, the same attempt and settings:
+the judge isn't deterministic. Read single-frame differences as leads to look at, and the counts
+over many frames as the measurement.
+
+Raw: `eval/measurements/2026-10-17/` (both runs' per-frame results and logs, and the
+lighthouse's `measure.py` records).
+
+### U8 follow-ups: T106 and T107 (2026-10-18, Katlego)
+
+The two describer items § U8 left on Super VL, measured on the-red-kite's same 44 stored attempts
+with T105's `measure.py` (Super VL with thinking off, today's full `audit_frame`, writing nothing),
+against 17 Oct's Super VL run:
+
+| | 17 Oct | The wording only (#210, run 1) | Wording and the signature slot (run 2) |
+|---|---|---|---|
+| Rooftop 0.4, comic / storyboard | `interior` / `interior` (hard `SETTING` fail) | `exterior` / `exterior` | `exterior` / `unclear` (both pass) |
+| Other settings changed | | none of 42 | none of 42 |
+| `text` entries | 25 | 24 | **7** |
+| `text_in_frame` frames | 22 | 21 | **5** (DeepSeek: 6) |
+| Errors | 0 | 0 | 0 |
+
+**The hand classification** of 17 Oct's 25 `text` entries, with each drawing looked at: 4 are
+lettering in the scene ("SNAP." twice, "SLAP & NOPE.", a door's "1"), and 21 are the artist's corner
+signature, or a reading of nothing visible ("K. K. K."). All 4 stay in `text` in both runs.
+
+**What did it.** T106's sentence alone fixed the roof. T107's sentence alone moved nothing: Super
+VL wrote the signature under `text` anyway. Giving the signature its own field, `signature_text`,
+written before `text`, moved 22 signatures out of it. The schema's order is the order the model
+writes in, and with `text` first it had already put the scrawl there. Three signatures still land
+in both fields ("J. Eubred", "HATAP", "P-16"); that's a soft warning each.
+
+**Not from these changes:** two new `unscripted_person` fails in run 2. On comic 0.4 the description
+of Lerato is identical in all three runs and the judge refused it once; storyboard 2.1's "pigtails"
+is T108's case. The judge never sees `text` or `signature_text`, only the people and objects lines
+(`prompts.py`). Storyboard 4.2's `split_panels` is T104's layout agent, which 17 Oct's run predates.
+
+Raw: `eval/measurements/2026-10-18-describer/` (both runs' records per attempt).
+
+## U9 — Does the vision model see a body drawn wrong? (2026-10-18, T111)
+
+**No.** Measured for T111 (limb-agent.md) on `nvidia/Nemotron-3.5-Super-VL`. The question was
+the 14 Oct prototype's, unchanged (§6): per listed person, count heads, arms and legs, then
+`normal`, `defect` (which) or `unclear`, and the hands. Each drawing was asked twice. The bar was
+written before the run and confirmed by Katlego (§8). Pass or fail is judged on the base set;
+the hunted drawings are reported apart.
+
+**The labels** (`docs/design/limb-agent/labels.json`, Katlego by eye, every drawing shown alone):
+
+| Pool | Normal | Defect | Unclear |
+|---|---|---|---|
+| Tumo's 109 labelled frames | 92 | 16 | 1 |
+| T097's 14 Oct probe, 18 | 14 | 3 | 1 |
+| Hunted: Claude's picks from the 1,382 drawings in the dev bucket | 15 | 29 | 4 |
+
+The base set's 19 defects were named by no earlier label; Tumo's were about the script, not
+anatomy. Extra arms and extra legs are the commonest (24 of the 42 faults named), then fused
+bodies, two heads, missing limbs, twists and one deformed hand.
+
+**The runs** (asks and drawings below count only ones Katlego labelled normal or defect):
+
+| Run | Pool | Catches (bar ≥ 60%) | False alarms (≤ 2.5%) | Agreement (≥ 90%) | Errors (≤ 2%) |
+|---|---|---|---|---|---|
+| thinking off | base | **2/38 = 5.3%** | 0/198 = 0% | 117/117 = 100% | 0/234 = 0% |
+| thinking off | hunted | 0/56 = 0% | 2/28 = 7.1% | 42/42 = 100% | 0/84 = 0% |
+| thinking on | base | **0/26 = 0%** | 0/178 = 0% | 99/99 = 100% | **36/238 = 15.1%** |
+| thinking on | hunted | 0/36 = 0% | 0/23 = 0% | 26/26 = 100% | **29/88 = 33%** |
+
+By framing (base, thinking off): wide 2/16, medium 0/22; the close-up shots had no defects. Six
+base drawings have nobody in their stored description, so they were never asked. Four of the 66
+fresh descriptions (thinking off) looped to the token limit, T109's problem; those drawings got
+no limb question.
+
+**What the model does:** it does not count; it fills in a template. On drawings labelled
+`defect`, 274 of 276 body answers (thinking off) were "1 head, 2 arms, 2 legs, normal". That
+includes the man with three arms on the rooftop, the diving girl with three legs, and both boys
+drawn with two heads. Its one base catch named `misplaced_limb` on a drawing labelled
+`missing_limb`, while still counting 2 arms and 2 legs. Its two hunted false alarms are real
+oddities Katlego didn't count as a body fault: a giraffe's neck that seems to grow out of a
+woman's head ("extra arm"), and a hand floating in the air ("deformed hand"). The perfect
+agreement is the same template answer twice. With thinking on, the answers are about 10 times
+longer (389,894 completion tokens against 38,790), a quarter of asks spend the whole 4,096-token
+budget thinking and return nothing, and not one answer names a defect.
+
+**Decision (limb-agent.md §8): no `LIMBS` check.** This is the same result as DeepSeek-V4.1-Flash
+on 14 Oct (verify.md §3, *The head agent*). Two vision models, three runs: the question doesn't
+work, whatever the model or thinking setting. The labels and the hunt stay as a test set for any
+later try, such as the research's box-per-defect prompt or a dedicated detector (limb-agent.md
+§10).
+
+**Cost:** run 1 used 511,456 + 38,790 tokens for 318 asks, plus 121,538 + 17,818 for 57
+descriptions. Run 2 used 414,384 + 389,894 for 261 asks, plus 129,182 + 29,415 for 61
+descriptions. Both runs were announced on #208 first, one process each.
+
+Raw: `eval/measurements/2026-10-18-limbs/` (both runs' answers per drawing, and their logs).
 
 ## Follow-ups this creates
 
