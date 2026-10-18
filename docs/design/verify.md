@@ -113,7 +113,18 @@ classDiagram
   clothing, a drawn sound effect), the writing a script could have asked for. Super VL reads the
   scrawled corner signatures that DeepSeek left out ("J. Eubred", "Muller", "M. P. P. 2020"), so
   on the-red-kite's 44 stored attempts its `text` entries rose 9 → 25 and the soft `TEXT_IN_FRAME`
-  6 → 22 (findings § U8), each one a signature reported as unscripted lettering.
+  6 → 22 (findings § U8), each one a signature reported as unscripted lettering. **The wording
+  alone didn't move it** (measured on #210, 2026-10-18: 24 entries, 21 frames), so **the
+  signature gets its own slot:** `FrameDescription` gains `signature_text` (the letters of the
+  artist's signature or initials, when readable), and `signature` and `signature_text` come
+  **before** `has_text` and `text`. The schema's field order is the order the model writes in,
+  and it wrote `text` first, which put a legible signature there before it had thought of it as a
+  signature. `text`'s own field description becomes "the scene's lettering, word for word: signs,
+  labels, screens, paper, clothing, sound effects; never the artist's signature or initials".
+  `TEXT_IN_FRAME` reads `text` only, as before, so a signature's letters are no lettering.
+  `signature_text` is required in the schema the model is given and defaults to `[]` when a
+  stored description (before T107) is read back. T109's limits cap it like `text` (at most 40
+  entries of 100 characters).
 - **Interior or exterior (T106).** `exterior` when the place is open to the sky (a rooftop, a
   balcony, a yard, a street), even when the sky is left as blank paper; `interior` only when walls
   and a ceiling close it in; `unclear` when the drawing doesn't show which. Super VL called
@@ -790,7 +801,7 @@ class FrameState(StrEnum): RENDERING; AUDITING; PASSED; WARNED; WITHHELD; FAILED
 # app/verify/schema.py — the two model calls (strict json_schema)
 class SeenPerson(BaseModel): position: Position; appearance: str
 class SeenObject(BaseModel): name: str; category: ObjectCategory; held: bool
-class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[SeenObject]; has_text: bool; text: list[str]; signature: bool
+class FrameDescription(BaseModel): people: list[SeenPerson]; setting: Setting; light: Light; shot_size: ShotSize; objects: list[SeenObject]; signature: bool; signature_text: list[str] = []; has_text: bool; text: list[str]   # T107: the signature first, its letters in their own slot; signature_text required in the model's schema, [] for a stored row before T107
 #   text (T071): each piece of writing the describer can read, verbatim, in reading order; [] for none.
 #   The describer must always return it (strict schema). A row written before T071 has no `text`:
 #   AuditView's description reads it as [] (its old has_text verdict stands in the log)
@@ -1354,8 +1365,10 @@ it against the script."*
   unchanged. Live, with `reaudit` on Super VL (announced on the PR): the-red-kite's 44 stored
   attempts are described again; both rooftop attempts (0.4) read `exterior` or `unclear`, and no
   other attempt's setting changes.
-- **T107:** `DESCRIBE_PROMPT` carries the text sentences verbatim (§3), and the schema is
-  unchanged. The same run: the stored attempts' `text` entries are classified by hand first
+- **T107:** `DESCRIBE_PROMPT` carries the text sentences verbatim (§3); `FrameDescription`'s
+  fields run `…, signature, signature_text, has_text, text`, `signature_text` is in the model's
+  schema's `required`, a stored description without it validates with `[]`, and `run_checks`
+  never reads `signature_text`. The same run: the stored attempts' `text` entries are classified by hand first
   (signature or scene lettering), then `text_in_frame` falls back near DeepSeek's 6, with every
   piece of scene lettering ("SNAP.", "SLAP & NOPE.") still in `text`.
 - **T077:** `run_checks`: `signature` true with `text` empty fails `SIGNATURE` (soft) and no hard

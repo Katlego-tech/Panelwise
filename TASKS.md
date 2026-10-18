@@ -649,7 +649,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Done:    the 2 rooftop attempts read `exterior` and no other attempt's setting changes, recorded in findings § U8
 - [ ] T107 [US2] **Signatures against lettering, re-tuned for Super VL.** Found on 2026-10-17 (T105): Super VL reports more lettering (text entries 9 → 25) and calls fewer marks a signature, so `text_in_frame` warnings rose 6 → 22 on the-red-kite (a warning, never a withheld frame). T077's rule was tuned on DeepSeek's wording. Lane `verify` (Claude for Katlego). After T105's defaults. Plan: docs/super-vl-migration.md.
       Design:  docs/design/verify.md §3 (T107 in the describer's rules; the instruction's wording, verbatim), §8 (a signature), §9 (T107); the stored attempts' `text` entries read first (findings § U8's 44: 25 entries, most of them corner signatures)
-      Files:   services/api/app/verify/{prompts,audit}.py (the describer's signature wording and/or T077's rule); services/api/tests/verify/
+      Files:   services/api/app/verify/{prompts,schema}.py (the describer's wording; `signature_text`, the field order); services/api/tests/verify/
       Contract:the checks table and severities unchanged (`text_in_frame` and `signature` stay soft)
       Verify:  bash scripts/gate.sh; the stored attempts' text entries classified by hand; a Super VL run on the-red-kite: `text_in_frame` back near DeepSeek's 6, no real lettering lost
       Done:    a scrawled corner signature is a `signature` again on Super VL, and lettering that is really in the drawing still warns, recorded in findings § U8
