@@ -4,9 +4,9 @@ The describer's schema has no field for a name: it can only say what it sees. Th
 nothing but index calls and verbatim support, which code checks (verify.md §8).
 """
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.verify.model import Light, ObjectCategory, ObjectKind, Position, Setting, ShotSize
 
@@ -22,21 +22,36 @@ class SeenObject(BaseModel):
     held: bool = Field(description="Whether someone in the frame holds it")
 
 
+def _require_signature_text(schema: dict[str, Any]) -> None:
+    """T107: the model must always fill signature_text ([] when there's none to read), though a
+    description stored before T107 validates without it."""
+    schema["required"] = [*schema.get("required", []), "signature_text"]
+
+
 class FrameDescription(BaseModel):
     people: list[SeenPerson]
     setting: Setting
     light: Light
     shot_size: ShotSize
     objects: list[SeenObject]
-    has_text: bool = Field(description="Whether any text, letters or numbers appear in the image")
-    text: list[str] = Field(
-        description=(
-            "Each piece of writing you can read, word for word; none for marks you can't read"
-        )
-    )
+    # T107: the signature and its letters come before the text: the model writes in this order,
+    # and with text first it put a legible signature there before calling it a signature
     signature: bool = Field(
         description="Whether a signature, initials or an artist's mark appears, readable or not"
     )
+    signature_text: list[str] = Field(
+        default_factory=list,  # a description stored before T107 has none
+        description="The letters of the artist's signature or initials, if you can read them",
+    )
+    has_text: bool = Field(description="Whether any text, letters or numbers appear in the image")
+    text: list[str] = Field(
+        description=(
+            "The scene's lettering, word for word: signs, labels, screens, paper, clothing, sound "
+            "effects; never the artist's signature or initials; none for marks you can't read"
+        )
+    )
+
+    model_config = ConfigDict(json_schema_extra=_require_signature_text)
 
 
 class PersonCall(BaseModel):
