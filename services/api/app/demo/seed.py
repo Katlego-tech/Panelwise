@@ -195,6 +195,11 @@ async def copy_sample(
                     judgement=a.judgement,
                     checks=a.checks,
                     positions=a.positions,
+                    # The agents' answers (T095, T099, T104), so `recheck` decides the copy as the
+                    # source: without them it would read every agent check as not asked.
+                    seen=a.seen,
+                    found=a.found,
+                    layout=a.layout,
                     verdict=a.verdict,
                     models=a.models,
                     prompt_tokens=a.prompt_tokens,
