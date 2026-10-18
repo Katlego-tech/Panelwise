@@ -260,7 +260,12 @@ it before changing the prompt or the audit; add to it after every live run.
   in some 500 stored drawings), so two test runs (about 80 drawings) could not show a change. A
   describer question ("one picture or several panels?") is the measurable route, on the four
   stored splits and as many whole frames, if it comes back.
-- **Measured:** not yet.
+- **Measured:** 2026-10-16, a vision question ("one picture or several panels; anyone drawn twice?")
+  on every stored attempt with two or more people (332, the newest run of 11 scripts; Token Factory
+  only): **23 splits, every one looked at, all real**, far more than the 4 seen by eye. Three
+  were shown (market-day 4.2 and 5.2 warned, the-red-kite 5.2 passed). T104 (verify.md §3): a
+  `SPLIT_PANELS` check and a `DRAWN_TWICE` check from that question, hard, on the ladder by
+  Tumo's call.
 
 ### L014 · Painted lettering and everyday objects hold back most shots · open
 
