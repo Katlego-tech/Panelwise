@@ -82,3 +82,21 @@ class Presence(BaseModel):
 
     person: int | None
     reason: str
+
+
+class HeadAnswer(BaseModel):
+    """One numbered person's head (T097): whether it is in view, and its box as fractions of the
+    image's width and height from its top-left."""
+
+    person: int
+    visible: bool
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+
+
+class HeadCheck(BaseModel):
+    """The head agent's answer (T097): a head for each numbered person."""
+
+    heads: list[HeadAnswer]
