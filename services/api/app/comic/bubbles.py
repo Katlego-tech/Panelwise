@@ -7,6 +7,7 @@ no room even at 28 px fails the comic, naming the shot, rather than lose a word.
 
 import logging
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
@@ -31,6 +32,7 @@ from app.comic.model import (
     PanelFrame,
     Point,
     Rect,
+    Voice,
 )
 from app.script import Dialogue, Scene, Screenplay, Span, match_speaker
 from app.shots import Shot, ShotPlan
@@ -43,12 +45,18 @@ HEAD_COST = 2.0  # T098: a box over anyone's head
 HEAD_MARGIN = 12  # T098: px a head rect grows by, so a tail's tip stops short of the face
 SPEAKER_HEIGHT = Fraction(9, 20)  # a speaker's point is at 45% of the panel height
 SEARCH_LIMIT = 10_000  # candidate placements tried per panel before it fails (comic.md §4 step 7)
+TAIL_RULES = 2  # the first search's tail rules: 2 T112's and T116's, 1 T112's, 0 none
 MAX_RADIUS = 48
 TAIL_BASE = 28  # px: a tail's width at its base (comic.md §4 step 8)
 
 type Kind = BubbleKind | CaptionKind
 type Cell = tuple[int, int]  # (row, col)
 type Triangle = tuple[tuple[float, float], ...]
+type Shape = tuple[tuple[float, float], ...]  # a convex polygon, page px
+type Circle = tuple[float, float, float]  # x, y, r (page px)
+
+STROKE = 6  # px: the radio zigzag's white stroke, inside its black edge (comic.md §4 step 8)
+EDGE = 3  # px: the black outline every balloon and tail is drawn with
 
 log = logging.getLogger(__name__)
 
@@ -62,6 +70,7 @@ class _Text:
     text: str
     element: int | None
     span: Span
+    voice: Voice = Voice.PLAIN
 
 
 @dataclass(frozen=True)
@@ -120,6 +129,75 @@ def kind_of(extension: str | None) -> Kind:
     return BubbleKind.SPEECH
 
 
+def _words(*options: str) -> re.Pattern[str]:
+    return re.compile(r"\b(?:" + "|".join(options) + r")\b", re.IGNORECASE)
+
+
+_PRONOUN = "(?:his|her|their|my)"
+_DEVICE = _words(
+    "radio", "phone", "telephone", "cellphone", "intercom", "speakerphone", "tv", "television",
+    "loudspeaker", "announcer", "presenter", "newsreader", "voicemail", "walkie-talkie",
+    "broadcast",
+)  # fmt: skip
+_DEVICE_EXTENSIONS = (
+    "FILTERED",
+    "ON PHONE",
+    "ON THE PHONE",
+    "ON RADIO",
+    "ON TV",
+    "ON P.A.",
+    "ON SPEAKER",
+)
+_THOUGHT = _words("think", "thinks", "thinking", "thought", "thoughts", rf"in {_PRONOUN} head")
+_SHOUT = _words(
+    "shout(?:s|ing|ed)?", "yell(?:s|ing|ed)?", "scream(?:s|ing|ed)?", "bellow(?:s|ing|ed)?",
+    "roar(?:s|ing|ed)?", rf"at the top of {_PRONOUN} lungs",
+)  # fmt: skip
+_WHISPER = _words(
+    "whisper(?:s|ing|ed)?", "quietly", "softly", "murmur(?:s|ing|ed)?", "mutter(?:s|ing|ed)?",
+    rf"under {_PRONOUN} breath", "barely audible", "hushed", "sotto voce",
+)  # fmt: skip
+_DISTRESS = _words(
+    "crying", "sobbing", "sobs", "weakly", "trembling", "shaking", "shivering", "gasping",
+    "wheezing", "slurring", "slurred", "drunk", "drunkenly", "through tears", "hoarse", "hoarsely",
+    "choking",
+)  # fmt: skip
+
+
+def voice_of(dialogue: Dialogue) -> Voice:
+    """comic.md §3 (T117): the balloon's shape from the element's own words, first that applies.
+    Never from the drawing or the line's punctuation: a shout is drawn where the script says so."""
+    note = dialogue.parenthetical or ""
+    extension = (dialogue.extension or "").upper()
+    away = kind_of(dialogue.extension) is not BubbleKind.SPEECH  # V.O. or off-panel
+    if any(phrase in extension for phrase in _DEVICE_EXTENSIONS) or (
+        away and (_DEVICE.search(dialogue.cue) or _DEVICE.search(note))
+    ):
+        return Voice.RADIO
+    for pattern, voice in (
+        (_THOUGHT, Voice.THOUGHT),
+        (_SHOUT, Voice.SHOUT),
+        (_WHISPER, Voice.WHISPER),
+        (_DISTRESS, Voice.DISTRESS),
+    ):
+        if pattern.search(note) or (pattern is _THOUGHT and pattern.search(extension)):
+            return voice
+    return Voice.PLAIN
+
+
+def _lettering(dialogue: Dialogue) -> tuple[Kind, Voice]:
+    """The kind (§3, with T117's two exceptions) and the voice a dialogue element is lettered in."""
+    voice = voice_of(dialogue)
+    kind = kind_of(dialogue.extension)
+    if dialogue.cue.strip().upper() == "NARRATOR":
+        kind = CaptionKind.VOICE_OVER  # a narration box: no one in the panel says it
+    elif kind is CaptionKind.VOICE_OVER and voice is Voice.THOUGHT:
+        kind = BubbleKind.SPEECH  # a thought is someone's in the panel; its trail points at them
+    if isinstance(kind, CaptionKind) and voice is not Voice.RADIO:
+        voice = Voice.PLAIN  # a caption carries no delivery
+    return kind, voice
+
+
 def _texts(shot: Shot, scene: Scene, first: bool) -> list[_Text]:
     texts: list[_Text] = []
     if first:
@@ -133,8 +211,8 @@ def _texts(shot: Shot, scene: Scene, first: bool) -> list[_Text]:
             )
         element = scene.elements[index]
         if isinstance(element, Dialogue):  # action is never lettered; the art shows it
-            kind = kind_of(element.extension)
-            texts.append(_Text(kind, element.cue, element.text, index, element.span))
+            kind, voice = _lettering(element)
+            texts.append(_Text(kind, element.cue, element.text, index, element.span, voice))
     return texts
 
 
@@ -149,6 +227,8 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         edges = frame_image(frame.png, (w, h), key).convert("L").filter(ImageFilter.FIND_EDGES)
     positions: Mapping[str, Position] = {} if frame.withheld else frame.positions
     heads = [] if frame.withheld else [_head_rect(head, w, h) for head in frame.heads]
+    lone = _lone_head(texts, frame)
+    faces = [_page_rect(panel.rect, head) for head in heads]  # T116, in page px
     ix, iy, iw, ih = x + PADDING, y + PADDING, w - 2 * PADDING, h - 2 * PADDING
     corners = [
         ((row, col), ix + col * iw // GRID_COLS, iy + row * ih // GRID_ROWS)
@@ -171,7 +251,7 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         order and overlap depend on the boxes before it, so the search checks those."""
         text = texts[index]
         # T098: a known head replaces the third
-        known = not frame.withheld and _speaker_head(text.speaker, frame.heads) is not None
+        known = _head_for(text.speaker, frame, lone) is not None
         third = None if known else _third(text.speaker, positions, w)
         bw, bh = box_size(text.text, limit, font_at(layout.FONT_PATH, size))
         costed: list[tuple[float, _Placed]] = []
@@ -186,20 +266,54 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         return [placed for _, placed in costed]
 
     @cache
-    def tail_of(index: int, box: Rect) -> tuple[Point, Triangle] | None:
-        """The tail step 8 draws for this box (T112): its tip and its triangle."""
-        tip = _tip(texts[index], frame, panel.rect, box)
-        triangle = None if tip is None else tail_triangle(box, tip)
-        return None if tip is None or triangle is None else (tip, triangle)
+    def tail_of(index: int, box: Rect) -> _Tail | None:
+        """The tail step 8 draws for this box: its tip, its hull (T112, T116) and the face its
+        tip ends in, the one face it may cross."""
+        text = texts[index]
+        tip = _tip(text, frame, panel.rect, box, lone)
+        if tip is None:
+            return None
+        own = next((face for face in faces if _inside(tip, face)), None)
+        return _Tail(tip, tail_hull(text.voice, box, tip), own)
 
     placed: list[_Placed] = []
-    drawn: list[tuple[Point, Triangle] | None] = []  # placed's tails, while the rule holds
+    drawn: list[_Tail | None] = []  # placed's tails, while a tail rule holds
     tries = 0
     stuck = 0  # the furthest box the search reached: the one that found no room
-    crossed = False  # T112: a candidate was refused for its tail
+    refused = False  # a candidate was refused for a tail (T112, T116)
 
-    def search(index: int, apart: bool) -> bool:
-        nonlocal tries, stuck, crossed
+    def kept(index: int, option: _Placed, rules: int) -> bool:
+        """Whether a candidate keeps the tail rules: 2 all (T112 and T116), 1 T112's, 0 none."""
+        nonlocal refused
+        if rules == 0:
+            return True
+        tail = tail_of(index, option.rect)
+        others = [o for o in drawn if o is not None and o.hull is not None]
+        # a box over its own tip draws no tail, so no rule could see it: it would trade a tail
+        # under a bubble for a bubble over the speaker's mouth
+        broken = tail is not None and tail.hull is None
+        if not broken and tail is not None and tail.hull is not None:
+            hull = tail.hull
+            broken = any(
+                other.tip != tail.tip and tails_cross(hull, other.hull)
+                for other in others
+                if other.hull is not None
+            )  # T112: tails never cross, but two to one tip may meet
+        if not broken and rules == 2:  # T116: tails clear of boxes and faces
+            box = _corners(option.rect)
+            broken = any(
+                other.hull is not None and tails_cross(other.hull, box) for other in others
+            )
+            if not broken and tail is not None and tail.hull is not None:
+                hull, face_of = tail.hull, tail.face
+                broken = any(tails_cross(hull, _corners(o.rect)) for o in placed) or any(
+                    face != face_of and tails_cross(hull, _corners(face)) for face in faces
+                )
+        refused = refused or broken
+        return not broken
+
+    def search(index: int, rules: int) -> bool:
+        nonlocal tries, stuck
         if index == len(texts):
             return True
         stuck = max(stuck, index)
@@ -210,33 +324,36 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
                     continue  # reading order is hard
                 if any(_overlap(option.rect, other.rect) for other in placed):
                     continue
-                tail = tail_of(index, option.rect) if apart else None
-                if tail is not None and any(
-                    other is not None and other[0] != tail[0] and tails_cross(tail[1], other[1])
-                    for other in drawn
-                ):
-                    crossed = True
-                    continue  # T112: tails never cross, but two to one tip may meet
+                if not kept(index, option, rules):
+                    continue
                 tries += 1
                 if tries > SEARCH_LIMIT:
                     return False
                 placed.append(option)
-                drawn.append(tail)
-                if search(index + 1, apart):
+                drawn.append(tail_of(index, option.rect) if rules else None)
+                if search(index + 1, rules):
                     return True
                 placed.pop()
                 drawn.pop()
         return False
 
-    found = search(0, apart=True)
-    if not found and crossed:
-        # T112's last resort: the search from before the rule, with its own tries
+    found = search(0, TAIL_RULES)
+    for rules, warning in (
+        (1, "a tail runs under a bubble or across a face on %s: no placement keeps it clear"),
+        (0, "tails cross on %s: no placement keeps them apart"),
+    ):
+        if found or not refused:
+            break
+        if rules >= TAIL_RULES:
+            continue
+        # the last resorts (T116, then T112): fewer tail rules, each with its own tries
         placed.clear()
         drawn.clear()
         tries = stuck = 0
-        found = search(0, apart=False)
+        refused = False
+        found = search(0, rules)
         if found:
-            log.warning("tails cross on %s: no placement keeps them apart", panel_name(key))
+            log.warning(warning, panel_name(key))
     if not found:
         if tries > SEARCH_LIMIT:
             raise ComicError(
@@ -253,17 +370,26 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
 
 
 def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame) -> Panel:
+    lone = _lone_head([item.text for item in placed], frame)
     bubbles: list[Bubble] = []
     captions: list[Caption] = []
     for item in placed:
         text = item.text
         if isinstance(text.kind, CaptionKind):
             captions.append(
-                Caption(text.kind, text.text, text.element, text.span, item.rect, item.font_px)
+                Caption(
+                    text.kind,
+                    text.text,
+                    text.element,
+                    text.span,
+                    item.rect,
+                    item.font_px,
+                    text.voice,
+                )
             )
             continue
         assert text.speaker is not None and text.element is not None
-        tail = _tip(text, frame, panel.rect, item.rect)
+        tail = _tip(text, frame, panel.rect, item.rect, lone)
         bubbles.append(
             Bubble(
                 text.kind,
@@ -274,19 +400,35 @@ def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame) -> Pan
                 item.rect,
                 tail,
                 item.font_px,
+                text.voice,
             )
         )
     return Panel(panel.scene_index, panel.shot_number, panel.rect, tuple(bubbles), tuple(captions))
 
 
-def _tip(text: _Text, frame: PanelFrame, panel: Rect, box: Rect) -> Point | None:
+@dataclass(frozen=True)
+class _Tail:
+    tip: Point
+    hull: Shape | None  # None: the tip is inside the box, so no tail is drawn
+    face: Rect | None  # the head rect (page px) its tip ends in: the one face it may cross
+
+
+def _tip(
+    text: _Text,
+    frame: PanelFrame,
+    panel: Rect,
+    box: Rect,
+    lone: tuple[str, HeadSeen] | None = None,
+) -> Point | None:
     """comic.md §4 step 8: where a box's tail ends, in page pixels. None for a caption, and for a
     speech bubble on a card: no one is in the panel, and a tail would cross its lines."""
     if isinstance(text.kind, CaptionKind) or (frame.withheld and text.kind is BubbleKind.SPEECH):
         return None
-    head = None if frame.withheld else _speaker_head(text.speaker, frame.heads)
+    head = _head_for(text.speaker, frame, lone)
     if head is not None and text.kind is BubbleKind.SPEECH:
-        return _to_mouth(head, panel, box)
+        # T117: a thought comes from the head's centre; speech from the mouth (T114)
+        down = Fraction(1, 2) if text.voice is Voice.THOUGHT else Fraction(5, 6)
+        return _to_mouth(head, panel, box, down)
     positions: Mapping[str, Position] = {} if frame.withheld else frame.positions
     return _tail(text.kind, _position(text.speaker, positions), panel, box)
 
@@ -316,12 +458,125 @@ def tail_triangle(box: Rect, tip: Point) -> Triangle | None:
     tx, ty = tip
     if x <= tx < x + w and y <= ty < y + h:
         return None
-    r = corner_radius(box)
-    base: Point = (min(max(tx, x + r), x + w - 1 - r), min(max(ty, y + r), y + h - 1 - r))
+    base = _tail_base(box, tip)
     dx, dy = tx - base[0], ty - base[1]
     length = math.hypot(dx, dy)
     px, py = -dy / length * TAIL_BASE / 2, dx / length * TAIL_BASE / 2
     return (base[0] + px, base[1] + py), (float(tx), float(ty)), (base[0] - px, base[1] - py)
+
+
+def _tail_base(box: Rect, tip: Point) -> Point:
+    """The point of the box shrunk by its corner radius nearest the tip: where a tail starts."""
+    x, y, w, h = box
+    r = corner_radius(box)
+    return min(max(tip[0], x + r), x + w - 1 - r), min(max(tip[1], y + r), y + h - 1 - r)
+
+
+def _outside(box: Rect, tip: Point) -> bool:
+    x, y, w, h = box
+    return not (x <= tip[0] < x + w and y <= tip[1] < y + h)
+
+
+def _leaves(box: Rect, start: Point, tip: Point) -> tuple[float, float]:
+    """Where the line from `start` (inside the box) to `tip` (outside) leaves the box."""
+    x, y, w, h = box
+    leave = 1.0
+    for s, t, low, high in ((start[0], tip[0], x, x + w - 1), (start[1], tip[1], y, y + h - 1)):
+        if t > high:
+            leave = min(leave, (high - s) / (t - s))
+        elif t < low:
+            leave = min(leave, (s - low) / (s - t))
+    return start[0] + leave * (tip[0] - start[0]), start[1] + leave * (tip[1] - start[1])
+
+
+def thought_trail(box: Rect, tip: Point) -> tuple[Circle, ...]:
+    """comic.md §4 step 8 (T117): three circles, radii 12, 8 and 5, at 25%, 55% and 85% of the
+    way from where the line from the tail's base leaves the box to the tip; () when the tip is
+    inside the box."""
+    if not _outside(box, tip):
+        return ()
+    ex, ey = _leaves(box, _tail_base(box, tip), tip)
+    return tuple(
+        (ex + f * (tip[0] - ex), ey + f * (tip[1] - ey), r)
+        for f, r in ((0.25, 12.0), (0.55, 8.0), (0.85, 5.0))
+    )
+
+
+def radio_zigzag(box: Rect, tip: Point) -> tuple[tuple[float, float], ...]:
+    """comic.md §4 step 8 (T117): the lightning stroke's points, from the tail's base through
+    35%, 55% and 75% of the way to the tip, pushed sideways +16, -16 and +10 px, to the tip."""
+    if not _outside(box, tip):
+        return ()
+    bx, by = _tail_base(box, tip)
+    dx, dy = tip[0] - bx, tip[1] - by
+    length = math.hypot(dx, dy)
+    nx, ny = -dy / length, dx / length
+    middle = tuple(
+        (bx + f * dx + push * nx, by + f * dy + push * ny)
+        for f, push in ((0.35, 16.0), (0.55, -16.0), (0.75, 10.0))
+    )
+    return ((float(bx), float(by)), *middle, (float(tip[0]), float(tip[1])))
+
+
+def tail_hull(voice: Voice, box: Rect, tip: Point) -> Shape | None:
+    """comic.md §4 steps 7-8 (T116, T117): the convex hull of the tail drawn for this voice, which
+    the tail rules judge; None when no tail is drawn (the tip is inside the box)."""
+    if voice is Voice.THOUGHT:
+        out = 1 / math.cos(math.pi / 8)  # an octagon this much wider holds its circle
+        points = [
+            (cx + r * out * math.cos(k * math.pi / 4), cy + r * out * math.sin(k * math.pi / 4))
+            for cx, cy, r in thought_trail(box, tip)
+            for k in range(8)
+        ]
+        return _hull(points) if points else None
+    if voice is Voice.RADIO:
+        half = STROKE / 2 + EDGE
+        zigzag = radio_zigzag(box, tip)
+        points = [
+            (px + sx * half, py + sy * half)
+            for px, py in zigzag
+            for sx in (-1, 1)
+            for sy in (-1, 1)
+        ]
+        return _hull(points) if points else None
+    return tail_triangle(box, tip)
+
+
+def _hull(points: Sequence[tuple[float, float]]) -> Shape:
+    """The convex hull, counter-clockwise (Andrew's monotone chain)."""
+    ordered = sorted(set(points))
+    if len(ordered) < 3:
+        return tuple(ordered)
+
+    def turn(o: tuple[float, float], a: tuple[float, float], b: tuple[float, float]) -> float:
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower: list[tuple[float, float]] = []
+    upper: list[tuple[float, float]] = []
+    for point in ordered:
+        while len(lower) >= 2 and turn(lower[-2], lower[-1], point) <= 0:
+            lower.pop()
+        lower.append(point)
+    for point in reversed(ordered):
+        while len(upper) >= 2 and turn(upper[-2], upper[-1], point) <= 0:
+            upper.pop()
+        upper.append(point)
+    return tuple(lower[:-1] + upper[:-1])
+
+
+def _corners(rect: Rect) -> Shape:
+    """A rect's pixels as a closed shape: (x, y) to (x + w - 1, y + h - 1)."""
+    x, y, w, h = rect
+    right, bottom = float(x + w - 1), float(y + h - 1)
+    return (float(x), float(y)), (right, float(y)), (right, bottom), (float(x), bottom)
+
+
+def _page_rect(panel: Rect, rect: Rect) -> Rect:
+    return panel[0] + rect[0], panel[1] + rect[1], rect[2], rect[3]
+
+
+def _inside(point: Point, rect: Rect) -> bool:
+    return rect[0] <= point[0] < rect[0] + rect[2] and rect[1] <= point[1] < rect[1] + rect[3]
 
 
 def tails_cross(a: Sequence[tuple[float, float]], b: Sequence[tuple[float, float]]) -> bool:
@@ -360,6 +615,43 @@ def _head_rect(head: HeadSeen, w: int, h: int) -> Rect:
     return left, top, right - left, bottom - top
 
 
+def _lone_head(texts: Sequence[_Text], frame: PanelFrame) -> tuple[str, HeadSeen] | None:
+    """comic.md §4 step 7 (T115): the frame's one head, unnamed, is the speaker's when the panel's
+    in-panel lines have one speaker, unless the positions put that speaker in another third."""
+    if frame.withheld or len(frame.heads) != 1 or frame.heads[0].character is not None:
+        return None
+    speakers = {t.speaker for t in texts if t.kind is BubbleKind.SPEECH and t.speaker is not None}
+    if len(speakers) != 1:
+        return None
+    (speaker,) = speakers
+    head = frame.heads[0]
+    position = _position(speaker, frame.positions)
+    if position is not None:
+        centre = (head.box[0] + head.box[2]) / 2
+        third = (
+            Position.LEFT
+            if centre < 1 / 3
+            else Position.CENTRE
+            if centre < 2 / 3
+            else Position.RIGHT
+        )
+        if third is not position:
+            return None
+    return speaker, head
+
+
+def _head_for(
+    speaker: str | None, frame: PanelFrame, lone: tuple[str, HeadSeen] | None
+) -> HeadSeen | None:
+    """The speaker's head: named by the head agent (T098), else the lone unnamed head (T115)."""
+    if frame.withheld:
+        return None
+    named = _speaker_head(speaker, frame.heads)
+    if named is None and lone is not None and speaker == lone[0]:
+        return lone[1]
+    return named
+
+
 def _speaker_head(speaker: str | None, heads: Sequence[HeadSeen]) -> HeadSeen | None:
     """The speaker's head (T098): the head whose character `match_speaker` finds for them."""
     named = [head for head in heads if head.character is not None]
@@ -369,7 +661,7 @@ def _speaker_head(speaker: str | None, heads: Sequence[HeadSeen]) -> HeadSeen | 
     return next((head for head in named if head.character == name), None)
 
 
-def _to_mouth(head: HeadSeen, panel: Rect, box: Rect) -> Point:
+def _to_mouth(head: HeadSeen, panel: Rect, box: Rect, down: Fraction = Fraction(5, 6)) -> Point:
     """comic.md §4 step 8 (T114): the tail aims at the mouth, the centre of the head box's lower
     third, and ends where the line from the bubble's centre to it enters the grown head rect, so
     the tip stops short of the face. In page pixels, inside the rect and so inside the panel."""
@@ -377,7 +669,7 @@ def _to_mouth(head: HeadSeen, panel: Rect, box: Rect) -> Point:
     x0, y0, x1, y1 = head.box
     left, top = math.floor(x0 * w), math.floor(y0 * h)
     right, bottom = math.ceil(x1 * w), math.ceil(y1 * h)
-    mouth = ((left + right) / 2, top + 5 * (bottom - top) / 6)
+    mouth = ((left + right) / 2, top + float(down) * (bottom - top))
     hx, hy, hw, hh = _head_rect(head, w, h)
     centre = (box[0] + box[2] // 2 - x, box[1] + box[3] // 2 - y)
     enter = 0.0  # how far along the line, centre to mouth, it enters the rect

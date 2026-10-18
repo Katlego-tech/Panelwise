@@ -261,7 +261,9 @@ from this box and its tip) shares no point with the tail of any box already plac
 tails end at the same tip (two lines of one speaker meeting at their head reads as one speaker, not
 a crossing); **tails stay clear** (T116): the box's tail shares no point with any other box already
 placed (bubble or caption), no tail already placed shares a point with this box, and the box's tail
-shares no point with any head rect but the one its tip ends in (no tail across another face). A
+shares no point with any head rect but the one its tip ends in (no tail across another face); and,
+while any tail rule holds, a bubble never covers its own tip (it would draw no tail, so no rule could
+see it, and it would sit on the speaker's mouth to escape a rule). A
 tail is judged by its *hull* (`tail_hull`), the convex hull of what step 8 draws for its voice: for a
 plain tail that is the triangle itself, so a crossing is judged on exactly what is drawn. **Cost** among the admissible: `detail + 2.0 × covers_head + 2.0 ×
 covers_speaker`, where `detail` is the mean of Pillow `FIND_EDGES` over the box on the grayscale
@@ -351,7 +353,7 @@ draws it with dashed sides. `THOUGHT` draws a **trail** of three circles (radii 
 to the tip; its tip aims at the head box's **centre** (a thought comes from the head, not the mouth;
 the same rule as the mouth's, with `T + (B − T) / 2`). `RADIO` draws a **lightning** zigzag: a 6 px
 white stroke with a 3 px black edge from the base through points at 35%, 55% and 75% of the way to
-the tip, pushed sideways +10, −10 and +6 px, to the tip. The *hull* (step 7's rules) is the convex
+the tip, pushed sideways +16, −16 and +10 px, to the tip. The *hull* (step 7's rules) is the convex
 hull of what is drawn: the triangle; the trail's circles; the zigzag's points widened by the
 stroke.
 

@@ -263,4 +263,5 @@ def test_render_draws_tail_triangles_points(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(render_module, "tail_triangle", recording)
     render_module.render_pages(placed, given)
     want = [(b.rect, b.tail) for b in second(placed).bubbles]
-    assert sorted(asked) == sorted((rect, tip) for rect, tip in want if tip is not None)
+    # each pass (outlines, then fills) draws the same triangle
+    assert set(asked) == {(rect, tip) for rect, tip in want if tip is not None}
