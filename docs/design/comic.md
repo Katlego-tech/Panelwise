@@ -1,7 +1,7 @@
 # Design — `comic` (page layout, panels, speech bubbles, export)
 
 **Status:** agreed; §4a, the comic job, proposed (T064) · **Owner:** Katlego (Claude); §4a Tumo (Claude) · **Tasks:** T022 (layout), T023 (bubbles, lettering,
-export), T064 (the comic job, storage, the API), T098 (bubbles placed by the speaker's head; Katlego), T112 (tails never cross; Katlego), T114 (the tail aims at the mouth; Katlego), T115 (a lone unnamed head is the speaker's; Katlego), T116 (tails clear of bubbles and faces; Katlego), T117 (balloon voices: thought, whisper, shout, distress, radio; Katlego), T118 (one speaker's lines linked; Katlego), T024 consumes it (reader) · **Spec:** [SPEC.md](../../SPEC.md) US3 (script →
+export), T064 (the comic job, storage, the API), T098 (bubbles placed by the speaker's head; Katlego), T112 (tails never cross; Katlego), T114 (the tail aims at the mouth; Katlego), T115 (a lone unnamed head is the speaker's; Katlego), T116 (tails clear of bubbles and faces; Katlego), T117 (balloon voices: thought, whisper, shout, distress, radio; Katlego), T118 (one speaker's lines linked; Katlego), T119–T121 (the linked tail nearest the head, merged balloons, pauses unlinked; Katlego), T024 consumes it (reader) · **Spec:** [SPEC.md](../../SPEC.md) US3 (script →
 comic)
 
 ---
@@ -153,7 +153,14 @@ classDiagram
   and a radio's zigzag have their own ways to reach the speaker). A chain's first bubble has the
   tail; each linked bubble has none (`tail` is `null`) and is joined to the one before by a
   *connector*, so the reader sees one balloon splitting in two. Only consecutive lines link: a line
-  by someone else in between breaks the chain.
+  by someone else in between breaks the chain. **A pause the script states unlinks (T121):** a
+  second line whose parenthetical says `beat`, `pause`, `pauses`, `pausing`, `a moment` or `silence`
+  (whole words). Those two lines stay separate, a tail each, as letterers mark a deliberate pause.
+  An action line between them does not unlink (Katlego, 2026-10-18): a screenplay puts action
+  between nearly every two blocks of one speaker, so it would unlink almost every pair; only a
+  stated pause is the script asking for one. **The tail (T119)** is on the chain's box nearest
+  the speaker: the one whose centre is closest to the tip it would have (ties to the earlier). That
+  is the box a letterer hangs the tail from, so the rest of the chain is reached through it.
 - **`SCENE` caption** on a scene's first panel: `scene.location`, then — only when
   `absolute_time(scene.time_of_day)` is not `None` — ` — ` and that time. Words from the heading
   only; a borrowed clock (`CONTINUOUS`) is never lettered. `element` is `None`; `span` is the
@@ -273,7 +280,9 @@ shares no point with any head rect but the one its tip ends in (no tail across a
 a *linked* box (T118) has no tail but a **connector** to the box before it, which counts as a
 tail for every rule above (it may not cross a tail, run under a third box, or cross a face; a tail or
 connector of either box it joins is never "another"), and its gap is at most `LINK_GAP` = 120 px
-(the shortest distance between the two boxes: a bridge, not a wander); and,
+(the shortest distance between the two boxes: a bridge, not a wander); a chain's one tail (T119) is
+judged when its last box is placed, since only then is the box nearest the speaker known, and it may
+not run under any box of its own chain but the one it leaves; and,
 while any tail rule holds, a bubble never covers its own tip (it would draw no tail, so no rule could
 see it, and it would sit on the speaker's mouth to escape a rule). A
 tail is judged by its *hull* (`tail_hull`), the convex hull of what step 8 draws for its voice: for a
@@ -363,7 +372,13 @@ bubbles.py computes it; placement tests crossings with it and render.py draws it
 disagree. **Connectors (T118):** a band 22 px wide (`LINK_WIDTH`) from one box's centre to the
 other's, drawn in the outline pass grown by the 3 px outline and in the fill pass in white, so the
 two boxes' fills hide its ends and it opens into both: one balloon, stretched. Its hull is that band
-grown by the outline. **Tails by voice (T117):** `PLAIN`, `SHOUT` and `DISTRESS` draw the triangle; `WHISPER`
+grown by the outline. **Merged (T120):** when two linked boxes are less than `MERGE_GAP` = 16 px
+apart and overlap along the other axis by at least `LINK_WIDTH` once each end is inset by half the
+larger corner radius (half, so two one-line pills side by side still merge), the connector is
+instead the *seam*: a rectangle across that inset overlap,
+from 8 px inside one box to 8 px inside the other. Drawn the same way, the two boxes read as one
+outline pinched at the waist (the letterers' abutted balloons: speech with no breath). Otherwise,
+the bridge. **Tails by voice (T117):** `PLAIN`, `SHOUT` and `DISTRESS` draw the triangle; `WHISPER`
 draws it with dashed sides. `THOUGHT` draws a **trail** of three circles (radii 12, 8 and 5 px) at
 25%, 55% and 85% of the way from where the line from the triangle's base to the tip leaves the box,
 to the tip; its tip aims at the head box's **centre** (a thought comes from the head, not the mouth;
@@ -551,7 +566,7 @@ def voice_of(dialogue: Dialogue) -> Voice: ...   # §3: the script's words only
 def thought_trail(box: Rect, tip: Point) -> tuple[tuple[float, float, float], ...]: ...   # (x, y, r) of the three circles; () when the tip is inside the box
 def radio_zigzag(box: Rect, tip: Point) -> tuple[tuple[float, float], ...]: ...   # the stroke's points, base to tip; () when the tip is inside the box
 def tail_hull(voice: Voice, box: Rect, tip: Point) -> tuple[tuple[float, float], ...] | None: ...   # step 7's rules judge this; None when no tail is drawn
-def connector(a: Rect, b: Rect) -> tuple[tuple[float, float], ...]: ...   # T118: the band between two boxes' centres, LINK_WIDTH wide (the drawn shape)
+def connector(a: Rect, b: Rect) -> tuple[tuple[float, float], ...]: ...   # T118: the band between two boxes' centres, LINK_WIDTH wide; T120: the seam when they nearly touch (the drawn shape)
 
 # app/comic/render.py (T023)
 def withheld_checks(audit: Audit) -> str: ...   # the card's <checks>: "audit error", or the failed hard checks in Check order, "_" as spaces, ", "-joined
@@ -594,7 +609,8 @@ withheld one). `to_json` reads `withheld` as "the shot has no entry in `frame_ur
 job passes a URL for every accepted frame and none for a withheld one. A bubble's `tail` is
 `[x, y]` or `null`; a caption has no `tail` key. `voice` (T117) is added to both, so a reader that
 doesn't know it reads the comic as before; `kind`'s values are unchanged. A bubble's `linked`
-(T118) is `true` when it joins the bubble before it in `bubbles`; its `tail` is then `null`.
+(T118) is `true` when it joins the bubble before it in `bubbles`. A chain has exactly one
+non-`null` `tail`, on its box nearest the speaker (T119), which may be any of its boxes.
 
 **The comic job** (T064; §4a). Migration `0005_comics`, upgrade: the `jobs_kind` CHECK is dropped and
 re-made with `'comic'` (`JobKind.COMIC = "comic"`); `frame_audits` gains `target` (text, not null,
@@ -681,6 +697,8 @@ Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, mult
 | Reading order | a hard constraint | a cost term: the cheapest spot could still break reading order |
 | A panel's boxes | placed as a set: depth-first in each box's preference order, at most 10,000 tries | one box at a time, cheapest first, never revisited: on a detailed frame the first bubble could take a late cell and leave the next none, and the comic stopped (PR #92, real FLUX frames). The lowest total cost over all boxes: a different layout for panels that letter fine today, for no gain the reader sees |
 | Bubble position | image detail + every head (T098) + the speaker's third when their head is unknown | a vision model placing bubbles: another call per panel, not deterministic. (T098 keeps this: placement stays code over stored boxes; the one vision question is the audit's, asked once when the panel is accepted) |
+| A pause between one speaker's lines (T121) | unlinked when the second line's parenthetical states one (`(beat)`, `(pause)`) | an action line between as a pause too (built first, 2026-10-18: it unlinked almost every pair, since a screenplay puts action between nearly every two blocks; Katlego dropped it); linking every pair (the research: an unlinked pair is how a letterer marks a pause); a timer or word count |
+| Which linked box has the tail (T119) | the one nearest the speaker | the first (T118's: the tail may cross the whole chain to reach the speaker) |
 | One speaker's lines (T118) | consecutive same-speaker bubbles joined by a connector, the first with the tail; the gap capped at 120 px; links dropped only in the last-resort search | a tail on every bubble (two tails to one head read as two people unless they meet); one balloon holding both lines (merges two script elements, so two spans in one box); a link across another speaker's line (the reading order would jump) |
 | Balloon shapes (T117) | a `voice` from the parenthetical, extension and cue's own words, beside `kind` | from punctuation or capitals ("!" is not a shout the script states); from the drawing (the audit already shows drawings can be wrong); new `kind` values (the reader's `kind` list is closed, web.md; `voice` is additive) |
 | Thought vs. narration (T117) | `V.O.` is the narration box unless the script says the line is a thought | thought balloons for every `V.O.` (the research: captions replaced thought balloons for monologue) |
@@ -728,6 +746,12 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   already placed; a panel where nothing keeps tails clear but tails can stay apart letters through
   the second search with its warning; the third search as T112's; the reference pages unchanged, or
   each changed panel looked at and named in the PR.
+- **T119–T121** (`tests/comic/test_t119.py`, tests first): the chain's tail is on the box whose
+  centre is nearest its tip, the others `null`, judged by the tail rules; two linked boxes under
+  16 px apart with enough overlap get the seam, others the bridge, and the seam lies inside the two
+  boxes grown by 8 px; a `(beat)`/`(pause)` on the second line unlinks; an action between does
+  not; a `CONT'D` split by a page break stays linked; the sample's p1 0.2 (the gust between) and
+  p5 4.2 (a page break) both stay linked.
 - **T118** (`tests/comic/test_t118.py`, tests first): two and three consecutive lines of one
   speaker link (the first has the tail, the rest `linked` with no tail); another speaker between,
   a different kind or voice, a whisper, thought or radio voice, or a caption between → no link;

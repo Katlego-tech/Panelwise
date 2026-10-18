@@ -47,6 +47,8 @@ SPEAKER_HEIGHT = Fraction(9, 20)  # a speaker's point is at 45% of the panel hei
 SEARCH_LIMIT = 10_000  # candidate placements tried per panel before it fails (comic.md §4 step 7)
 LINK_GAP = 120  # px: the most a connector may span between two linked boxes (T118)
 LINK_WIDTH = 22  # px: a connector's width, inside its outline (T118)
+MERGE_GAP = 16  # px: linked boxes closer than this merge at a seam (T120)
+SEAM_DEPTH = 8  # px: how far a seam reaches into each box (T120)
 LINKABLE = frozenset({Voice.PLAIN, Voice.SHOUT, Voice.DISTRESS})
 TAIL_RULES = 2  # the first search's tail rules: 2 T112's and T116's, 1 T112's, 0 none
 MAX_RADIUS = 48
@@ -168,6 +170,9 @@ _DISTRESS = _words(
 )  # fmt: skip
 
 
+_PAUSE = _words("beat", "pause", "pauses", "pausing", "a moment", "silence")
+
+
 def voice_of(dialogue: Dialogue) -> Voice:
     """comic.md §3 (T117): the balloon's shape from the element's own words, first that applies.
     Never from the drawing or the line's punctuation: a shout is drawn where the script says so."""
@@ -219,12 +224,21 @@ def _texts(shot: Shot, scene: Scene, first: bool) -> list[_Text]:
             before = texts[-1] if texts else None
             linked = (
                 before is not None
+                and before.element is not None
                 and isinstance(kind, BubbleKind)
                 and (before.kind, before.speaker, before.voice) == (kind, element.cue, voice)
                 and voice in LINKABLE
+                and not _paused(element)
             )  # T118: one speaker's consecutive lines read as one balloon split in two
             texts.append(_Text(kind, element.cue, element.text, index, element.span, voice, linked))
     return texts
+
+
+def _paused(second: Dialogue) -> bool:
+    """T121: the script states a pause before one speaker's next line: a pause word in its
+    parenthetical. An action line between doesn't count (Katlego, 2026-10-18): a screenplay puts
+    action between nearly every two blocks of one speaker."""
+    return bool(_PAUSE.search(second.parenthetical or ""))
 
 
 def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> tuple[list[_Placed], bool]:
@@ -289,43 +303,56 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> tuple[lis
         return _Tail(tip, tail_hull(text.voice, box, tip), own, frozenset({index}))
 
     placed: list[_Placed] = []  # placed[i] letters texts[i]
-    drawn: list[_Tail | None] = []  # placed's tails and connectors, while a tail rule holds
+    drawn: list[list[_Tail]] = []  # each placed box's tails and connectors, while a rule holds
     tries = 0
     stuck = 0  # the furthest box the search reached: the one that found no room
     refused = False  # a candidate was refused for a tail (T112, T116, T118)
 
-    def judged(index: int, option: _Placed, rules: int) -> tuple[bool, _Tail | None]:
+    def judged(index: int, option: _Placed, rules: int) -> tuple[bool, list[_Tail]]:
         """Whether a candidate keeps the tail rules (2 all, 1 T112's and the link gap, 0 none),
-        and the tail or connector it brings. A tail or connector of a box it joins is never
-        "another" (T118)."""
+        and the tails and connectors it brings: its connector to the box before it (T118), and,
+        when it closes a chain, the chain's one tail from the box nearest the speaker (T119). A
+        tail or connector of a box it joins is never "another"."""
         nonlocal refused
         if rules == 0:
-            return True, None
+            return True, []
+        shapes: list[_Tail] = []
+        broken = False
         if texts[index].linked:
             before = placed[-1].rect
-            shape: _Tail | None = _Tail(
-                None,
-                _band(before, option.rect, LINK_WIDTH + 2 * EDGE),
-                None,
-                frozenset({index - 1, index}),
-            )
+            band = _connector(before, option.rect, EDGE)
+            shapes.append(_Tail(None, band, None, frozenset({index - 1, index})))
             broken = _gap(before, option.rect) > LINK_GAP
-        else:
-            shape = tail_of(index, option.rect)
-            # a box over its own tip draws no tail, so no rule could see it: it would trade a tail
-            # under a bubble for a bubble over the speaker's mouth
-            broken = shape is not None and shape.hull is None
-        others = [o for o in drawn if o is not None and o.hull is not None]
-        hull = None if shape is None else shape.hull
-        if not broken and shape is not None and hull is not None:
+        if not broken and (index + 1 == len(texts) or not texts[index + 1].linked):
+            start = index
+            while texts[start].linked:
+                start -= 1
+            rects = [p.rect for p in placed[start:index]] + [option.rect]
+            k = start + _nearest(texts[start : index + 1], rects, frame, panel.rect, lone)
+            tail = tail_of(k, rects[k - start])
+            if tail is not None:
+                # a box over its own tip draws no tail, so no rule could see it: it would trade
+                # a tail under a bubble for a bubble over the speaker's mouth
+                broken = tail.hull is None
+                shapes.append(tail)
+        others = [o for group in drawn for o in group if o.hull is not None]
+        boxes = [*((j, p.rect) for j, p in enumerate(placed)), (index, option.rect)]
+        for n, shape in enumerate(shapes):
+            hull = shape.hull
+            if broken or hull is None:
+                continue
             broken = any(
                 not (other.owners & shape.owners)
                 and not (other.tip is not None and other.tip == shape.tip)
+                and other.hull is not None
                 and tails_cross(hull, other.hull)
-                for other in others
-                if other.hull is not None
+                for other in [*others, *shapes[:n]]
             )  # T112: tails never cross, but two to one tip may meet
-        if not broken and rules == 2:  # T116: tails clear of boxes and faces
+            if not broken and rules == 2:  # T116: clear of boxes and faces
+                broken = any(
+                    j not in shape.owners and tails_cross(hull, _corners(rect)) for j, rect in boxes
+                ) or any(face != shape.face and tails_cross(hull, _corners(face)) for face in faces)
+        if not broken and rules == 2:
             box = _corners(option.rect)
             broken = any(
                 index not in other.owners
@@ -333,13 +360,8 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> tuple[lis
                 and tails_cross(other.hull, box)
                 for other in others
             )
-            if not broken and shape is not None and hull is not None:
-                broken = any(
-                    j not in shape.owners and tails_cross(hull, _corners(o.rect))
-                    for j, o in enumerate(placed)
-                ) or any(face != shape.face and tails_cross(hull, _corners(face)) for face in faces)
         refused = refused or broken
-        return not broken, shape
+        return not broken, shapes
 
     def search(index: int, rules: int) -> bool:
         nonlocal tries, stuck
@@ -353,14 +375,14 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> tuple[lis
                     continue  # reading order is hard
                 if any(_overlap(option.rect, other.rect) for other in placed):
                     continue
-                ok, shape = judged(index, option, rules)
+                ok, shapes = judged(index, option, rules)
                 if not ok:
                     continue
                 tries += 1
                 if tries > SEARCH_LIMIT:
                     return False
                 placed.append(option)
-                drawn.append(shape)
+                drawn.append(shapes)
                 if search(index + 1, rules):
                     return True
                 placed.pop()
@@ -403,9 +425,18 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> tuple[lis
 
 def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame, links: bool) -> Panel:
     lone = _lone_head([item.text for item in placed], frame)
+    tailed: set[int] = set()  # T119: each chain's one tail, on its box nearest the speaker
+    start = 0
+    for index, item in enumerate(placed):
+        if not (links and item.text.linked):
+            start = index
+        if index + 1 == len(placed) or not (links and placed[index + 1].text.linked):
+            chain = placed[start : index + 1]
+            texts_ = [p.text for p in chain]
+            tailed.add(start + _nearest(texts_, [p.rect for p in chain], frame, panel.rect, lone))
     bubbles: list[Bubble] = []
     captions: list[Caption] = []
-    for item in placed:
+    for index, item in enumerate(placed):
         text = item.text
         if isinstance(text.kind, CaptionKind):
             captions.append(
@@ -421,8 +452,8 @@ def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame, links:
             )
             continue
         assert text.speaker is not None and text.element is not None
-        linked = links and text.linked  # T118: the connector replaces its tail
-        tail = None if linked else _tip(text, frame, panel.rect, item.rect, lone)
+        linked = links and text.linked  # T118: joined to the bubble before it
+        tail = _tip(text, frame, panel.rect, item.rect, lone) if index in tailed else None
         bubbles.append(
             Bubble(
                 text.kind,
@@ -602,9 +633,66 @@ def _hull(points: Sequence[tuple[float, float]]) -> Shape:
 
 
 def connector(a: Rect, b: Rect) -> Shape:
-    """comic.md §4 step 8 (T118): the band joining two linked boxes, centre to centre,
-    LINK_WIDTH wide: the shape render.py draws, its ends hidden under the two boxes' fills."""
-    return _band(a, b, LINK_WIDTH)
+    """comic.md §4 step 8: what joins two linked boxes, as render.py draws it: the seam when they
+    nearly touch (T120), else the band centre to centre, LINK_WIDTH wide (T118). Its ends are
+    hidden under the two boxes' fills."""
+    return _connector(a, b, 0)
+
+
+def _connector(a: Rect, b: Rect, grow: float) -> Shape:
+    """The connector grown by `grow` px all round: the tail rules judge it grown by the outline."""
+    seam = _seam(a, b, grow) if _gap(a, b) < MERGE_GAP else None
+    return seam if seam is not None else _band(a, b, LINK_WIDTH + 2 * grow)
+
+
+def _seam(a: Rect, b: Rect, grow: float) -> Shape | None:
+    """T120: a rectangle across the two boxes' overlap, inset by half the larger corner radius, from
+    SEAM_DEPTH px inside one to SEAM_DEPTH px inside the other; None when the overlap, inset, is
+    narrower than LINK_WIDTH, or the boxes aren't one above or beside the other."""
+    r = max(corner_radius(a), corner_radius(b)) // 2  # half: two pills side by side still merge
+    if a[1] + a[3] <= b[1] or b[1] + b[3] <= a[1]:  # one above the other
+        top, bottom = (a, b) if a[1] < b[1] else (b, a)
+        low = max(top[0], bottom[0]) + r
+        high = min(top[0] + top[2], bottom[0] + bottom[2]) - r
+        start, end = top[1] + top[3] - SEAM_DEPTH, bottom[1] + SEAM_DEPTH
+        if high - low < LINK_WIDTH:
+            return None
+        return (
+            (low - grow, start - grow), (high + grow, start - grow),
+            (high + grow, end + grow), (low - grow, end + grow),
+        )  # fmt: skip
+    if a[0] + a[2] <= b[0] or b[0] + b[2] <= a[0]:  # side by side
+        left, right = (a, b) if a[0] < b[0] else (b, a)
+        low = max(left[1], right[1]) + r
+        high = min(left[1] + left[3], right[1] + right[3]) - r
+        start, end = left[0] + left[2] - SEAM_DEPTH, right[0] + SEAM_DEPTH
+        if high - low < LINK_WIDTH:
+            return None
+        return (
+            (start - grow, low - grow), (end + grow, low - grow),
+            (end + grow, high + grow), (start - grow, high + grow),
+        )  # fmt: skip
+    return None
+
+
+def _nearest(
+    texts: Sequence[_Text],
+    rects: Sequence[Rect],
+    frame: PanelFrame,
+    panel: Rect,
+    lone: tuple[str, HeadSeen] | None,
+) -> int:
+    """T119: which box of a linked chain has its tail: the one whose centre is nearest the tip it
+    would have (ties to the earlier); the first when none has a tip."""
+    best, best_distance = 0, math.inf
+    for n, (text, rect) in enumerate(zip(texts, rects, strict=True)):
+        tip = _tip(text, frame, panel, rect, lone)
+        if tip is None:
+            continue
+        distance = math.hypot(rect[0] + rect[2] / 2 - tip[0], rect[1] + rect[3] / 2 - tip[1])
+        if distance < best_distance:
+            best, best_distance = n, distance
+    return best
 
 
 def _band(a: Rect, b: Rect, width: float) -> Shape:

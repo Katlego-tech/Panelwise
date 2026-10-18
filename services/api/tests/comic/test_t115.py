@@ -30,8 +30,9 @@ def test_two_lines_of_the_one_speaker_aim_at_the_head_as_one_linked_balloon() ->
     screenplay, plan, book = panel_of(line("NANDI", "You came back."), line("NANDI", "Why?"))
     placed = second(place_lettering(book, screenplay, plan, framed(book, (UNNAMED_RIGHT,))))
     first, then = placed.bubbles
-    assert first.tail == to_mouth(UNNAMED_RIGHT, placed.rect, first.rect)
-    assert then.linked and then.tail is None  # T118: the chain's first bubble has the tail
+    assert then.linked
+    (tailed,) = [b for b in (first, then) if b.tail is not None]  # T119: one tail, either box
+    assert tailed.tail == to_mouth(UNNAMED_RIGHT, placed.rect, tailed.rect)
 
 
 def bottom_centre(rect: tuple[int, int, int, int]) -> tuple[int, int]:
