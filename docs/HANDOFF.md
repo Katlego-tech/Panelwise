@@ -1,97 +1,128 @@
 # `Panelwise` — Handoff
 
-> The record of 2026-10-03's handoff (Katlego → Tumo) is in git history: `git log -- docs/HANDOFF.md`.
+> Earlier handoffs (2026-10-03 Katlego → Tumo, 2026-10-11 Tumo → Katlego) are in git history:
+> `git log -- docs/HANDOFF.md`.
 
-**Written:** 2026-10-11 · **Branch:** `main` (everything is merged) · **By:** Tumo (via Claude), for Katlego
+**Written:** 2026-10-17 (evening, SAST) · **By:** Tumo (via Claude), for Katlego · **Why:** Tumo is
+taking a break. Katlego (or Tumo, coming back) picks up from here, and updates STATUS.md and
+anything else that needs it. **Branch of this note:** `docs/handoff-1017` (PR into main).
 
 ---
 
-## 1. What is done
+## 1. What is done (2026-10-17)
 
-All of this is on `main`, each change gated and independently reviewed. Run `bash scripts/gate.sh`: 11 checks, 1,042 API tests and 338 web tests on the day of writing.
+- **§ U8's lighthouse table is complete** (Katlego's ask on #194): people 25 of 25, the sex agent
+  23 of 23, the judge's matches 23 of 25, presence 2 against 0. Commit `e64d095` on
+  `docs/audit-labels` (#194).
+- **Two held-out runs on Super VL, every frame looked at.** Reports and eye verdicts:
+  `eval/runs/2026-10-17-rooftop-tomatoes.md` (main: 21 of 21 shown, 11 right, 6 weak, 4 wrong) and
+  `eval/runs/2026-10-17-gogos-recipe.md` (Katlego's `feat/bubbles-t098`: 17 of 17 shown, 8 right,
+  4 weak, 5 wrong; its comic's bubbles looked at too). **Every wrong frame in both is one person
+  drawn twice or an extra person.**
+- **T109 designed, reviewed:** PR **#199** (`docs/describer-caps-t109`). Every Super VL describer
+  `ERROR` is a loop at temperature 0 cut off at 4,096 tokens. Length limits sent in the decoding
+  grammar only end 7 of 7 loops, and 10 of 10 other frames answer byte for byte as before. A fresh
+  review found nothing blocking; its fixes are pushed (gate passed). The code is not started.
+- **T110 measured:** `eval/measurements/t110/README.md`. **Proposed: no code change.** The 6 absent
+  frames slip through because of the stored extraction (no sex for TEBOGO, a sexless FORTUIN
+  before T101, CROWD as a character) and drawn-twice frames, not the presence agent. Tumo hasn't
+  confirmed yet.
 
-- **The renderer (T026, #90/#91).** fal.ai, with **FLUX.2 [klein] 4B** as the default `FAL_MODEL`. Your klein choice in #97/#98 was right; fal won only because it was already built and live-tested. #97/#98 are closed with a note.
-- **The storyboard.**
-  - **T027 (#96/#99):** the PDF export.
-  - **T066 (#100/#101):** one failed frame no longer stops the board.
-  - **T070 (#110/#111):** Storage retries a transient error.
-- **The comic.**
-  - **T067 (#102/#103):** one failed panel no longer stops the comic.
-  - **T073 (#112/#113):** panels render as many at once as the renderer allows; 5 min instead of 38.
-  - **T065 (#94/#95):** lettering is placed as a set (your #92 repro).
-- **The prompt (storyboard.md §3.1).**
-  - **T074 (#118/#119):** each visible character's age from their introduction (`LERATO (10)` → "a 10-year-old").
-  - **T079 (#127/#128):** their sex from the introduction's own pronouns ("a 10-year-old girl"); their look, verbatim ("braids tied back"); listeners on screen for a line spoken off screen.
-- **The audit (verify.md).**
-  - **T071 (#114/#115):** only legible text the script didn't write fails; `RENDER_MAX_ATTEMPTS`; `python -m app.verify.reaudit`.
-  - **T072 (#116/#117):** the judge refuses a wrong age, knows set dressing, and treats weather as an event.
-  - **T077 (#125/#126):** a signature only warns (Tumo's decision).
-  - **T078 (#123/#124):** a part of a shot's prop counts as that prop ("kite string"); the describer skips the drawing's own marks.
-  - **T080 (#129/#130):** the judge refuses a wrong sex or look; a frame with none of the people the prompt drew fails `NO_CHARACTER`.
-- **Plumbing.**
-  - **T075 (#120/#121):** model calls ride out a minute of dropped connections.
-  - **T076 (#122):** the frame sheet sits above the board.
-  - **T068 (#104/#105):** the gate builds the API image.
-  - **T069 (#108/#109):** the hosted demo's caps and judge seed; migration `0006`.
-- **Not started:** everything in §6.
+**Not started:** T109's code; the two runs' labels in `eval/frame-labels.json`; the-choir (the
+last held-out script, unread); T108; re-measuring T102/T104 on Super VL; T030.
 
-## 2. Decisions already locked (do not relitigate)
+## 2. Decisions already locked (don't reopen)
 
-- **fal.ai with klein** (Tumo, 2026-10-11). On the-red-kite at 3 attempts a frame it accepted **15 of 22** frames, against 3 of 21 for schnell. `FAL_MODEL` makes the model one setting.
-- **A signature only warns** (T077, Tumo). It is no character, prop, line or event. Legible words read inside it still fail as text.
-- **Every word in a prompt traces to the script.** The age, sex word and look come only from the line that introduces the character (storyboard.md §3.1's invariant, tested).
-- **The audit is measured on stored drawings first.** Same prompt and seed give the same drawing, so `reaudit` and the scorecard test an audit change for free. Only a prompt or renderer change needs new drawings.
+- T109's fix is **limits in `response_format` only**, the prompt's schema text unchanged. Rejected
+  with numbers (verify.md §8): limits in the prompt too (changed 7 of 10 answers that hit no limit),
+  `frequency_penalty` (fewer objects on every frame), a prompt sentence (2 of 7), temperature 0.3
+  (2 of 7), a larger `max_tokens`, salvaging cut-off JSON.
+- T109's limits: 24 people, 40 objects, 40 text entries of up to 100 characters, appearance up to
+  200, object name up to 60. A list **at** its limit is never passed silently: 24 people fail
+  `UNSCRIPTED_PERSON`, 40 objects `BACKGROUND_OBJECT`, each with a limit detail (the review's
+  Non-negotiable I point).
+- **Nothing merges into main without Tumo's go-ahead, per PR** (Vercel deploys main).
 
-## 3. Environment — how to run it
+## 3. Open PRs and the merge order (when Tumo says go)
 
-```
-bash scripts/gate.sh        # with TEST_DATABASE_URL=postgresql://…/panelwise_test PANELWISE_REQUIRE_DB=1
-python -m app.verify.reaudit <project-id> [--target storyboard|comic] [--limit N]   # writes nothing
-```
+Ours: #181 → #183 (T102), #186 → #187 (T104, migration 0009), #184 → #185 (T103), #194 (eval),
+#199 (T109 design). Order: #181, retarget #183 to main, merge; retarget #186, merge; retarget #187,
+merge (only then may `render.yaml` carry `split_panels`); #184, retarget #185, merge; #194; #199.
+Retarget each child to main **before** merging its base (the repo auto-deletes merged branches).
+Check CI on each after retargeting. Katlego's #193 (T097 code, 0010) follows #187, then #195 (T098).
 
-- **Live settings:** `FAL_KEY`; `FAL_MODEL` (default klein); `FAL_CONCURRENCY=2`; `RENDER_MAX_ATTEMPTS` (1–3, default 3); `NEBIUS_MODEL_VISION=deepseek-ai/DeepSeek-V4.1-Flash`; `LLM_MAX_ATTEMPTS` (default 5, so an old `.env` saying 3 overrides it).
-- **Run gates one at a time.** Never run two DB test suites at once on one test Postgres: they collide.
-- **New worktrees:** run `pnpm install --frozen-lockfile` in `apps/web`, or the gate's web checks don't run.
+## 4. Decisions waiting on Tumo
 
-## 4. Verified facts
+1. **The reply on #194** (drafted, not posted): agree to Katlego's paid-run rule (post on the PR
+   before any paid run), T109 and T110 are Tumo's, and note that Tumo's rooftop-tomatoes run
+   (17:46–17:52 UTC) overlapped Katlego's T098 run unannounced (0 errors, no 404s).
+2. **Close T110 as measured, no change?**
+3. **Where the two runs' labels go:** proposed, a branch stacked on #194 (`frame-labels.json` is
+   only there), with `eval/tools/make_labels.py`.
+4. **T098's tails** (Katlego's lane, for #195): on gogos-recipe's comic, 3.1 and 5.4's tails point
+   away from their speaker because the head box carries no name (the judge left the person
+   unmatched). Not yet posted on #195.
 
-- **klein's sizes.** It draws in multiples of **32**, so 1280 × 720 comes back 1280 × 736. `fit` crops it, and the size check accepts up to 31 px more than asked.
-- **Run-to-run noise.** The judge's verdicts move by about ±1–2 frames per run on everyday objects. Compare runs on the same stored drawings, not single numbers.
-- **Cost.** A red-kite run at 3 attempts is about 49 drawings.
-- **Where frames still fail** (klein run, after T077):
-  - unscripted everyday objects (the judge), about two-thirds of withholds;
-  - painted text;
-  - an occasional invented person.
-- **T080 on that run's stored drawings.** It caught the empty roof (1.3) and some boys drawn as Lerato. It still accepted the boy in 3.1, 4.1, 4.4 and 5.1: the judge only sees Lerato's extracted quotes. T079 fixes this at the source, but it is not yet measured live (§6, step 1).
-- **The labelled frames.** On your 27 labelled frames (eval.md §6a) T078 gave 23/27 agreement. T077 lowers agreement by 2, because your labels count a signature as bad. Relabel those two as a note, or keep them and read the number knowing why.
+## 5. Next steps, in order
 
-## 5. Corrections
+1. Tumo's answers to §4.
+2. **T109 code** to #199's contract (verify.md § T109 contracts, llm.md §6): tests first
+   (`tests/verify/test_t109.py`, the llm body test), a worktree from main, a fresh reviewer. Then
+   `eval/tools/score_labels.py` on the 109 labelled frames with Super VL (about $0.25, Tumo's go-ahead).
+3. Label rooftop-tomatoes and gogos-recipe into `eval/frame-labels.json` from the two reports'
+   tables (§1), then `score_labels.py --stored`.
+4. **Drawn-twice frames** (T104 is ours, on #187): measure for free on today's stored frames why the
+   layout agent passes 3 of 5 copies ("different faces, hair") before any design. It's the fault
+   behind most wrong frames today.
+5. **the-choir**, the last held-out script: arm the watcher, Tumo uploads, report, look at every
+   frame, label.
+6. T108 (the look match: "pigtails" for "braids"); T102/T104 re-measured on Super VL once merged.
+7. T030: the judge seed on the hosted Supabase (Tumo's go-ahead), the hosted end-to-end run; check
+   the hosted API reached migration 0009 after the merges.
+8. The tail: T036, T055, README feedback (the team's words), T034, gitleaks since 2026-10-05,
+   Devpost text, the final hosted smoke, submit on 29 Oct. **fal top-ups: $10 before 1 Nov, $5
+   before 1 Dec.**
 
-- I said #91 "runs klein with no code change". It didn't: the size check refused 736. Fixed in #91 before merging.
+## 6. How to run it (Tumo's machine)
 
-## 6. Next steps, in order
+- **The local stack runs Katlego's branch, not main:** the API is built from the worktree
+  `../pw-t098` (detached at `eed335d`) through a compose override that also sets Super VL with
+  thinking off, klein, 3 attempts and the ladder `drawn_sex,no_character,split_panels` (Tumo's
+  `.env` still names DeepSeek). **The local database is at migration 0010.** main's code doesn't
+  know 0010: to run main again, `alembic downgrade 0008` first (or reset the local database).
+- **Test database** (`pw-t062-pg`, 127.0.0.1:55432): at main's migrations (no 0009) since the last
+  gate. Before pushing a branch with 0009 nothing is needed; after a T104 gate, drop every
+  `panelwise*_test` database and recreate `panelwise_test` before pushing a branch without it.
+- **Worktrees:** `../pw-t103`, `../pw-t104`, `../pw-labels` (#194), `../pw-t098` (Katlego's code,
+  detached), `../pw-t109` (#199), `../pw-handoff` (this note). A new worktree needs `uv sync` in
+  `services/api` and `pnpm install --frozen-lockfile` in `apps/web` before its first gate.
+- **Running a probe in the API container:** copy it in (`docker cp` with forward-slash Windows paths
+  and `MSYS_NO_PATHCONV=1`), then `cd /srv/api && PYTHONPATH=/srv/api .venv/bin/python /tmp/x.py`.
+  `/work` doesn't exist and `/` isn't writable: use `/tmp`. Pull results out with `docker cp`.
+- **Pulling a run's frames:** `eval/measurements/2026-10-16/fetch_shots.py` (on #194; change
+  `/work/fs` to `/tmp/fs`); a comic's pages: `eval/measurements/2026-10-17-runs/fetch_comic.py`;
+  contact sheets: `sheets.py` there. Watchers: `wait_comic.sh` there; `wait_run.sh` polls the
+  newest project after a cutoff.
+- **Gate:** push with `TEST_DATABASE_URL=postgresql://postgres:pw@127.0.0.1:55432/panelwise_test
+  PANELWISE_REQUIRE_DB=1`. 11 checks on a code change; **10 on a docs-only push** (the secret sweep
+  has nothing to sweep and isn't counted). That's expected, not a skipped check.
 
-1. **The first live run of T079 + T080.** Upload the-red-kite (klein, 3 attempts, about $0.15–0.20) and check:
-   - that Lerato is drawn as a girl with braids;
-   - that shot 1.3 shows her;
-   - how many of 22 frames are accepted (15 before).
-2. **Re-point #107 (T049) at `main`.** Its base, `feat/t026-workers-ai`, is closed. Then re-run the scorecard with the new audit.
-3. **The judge on everyday objects**, the biggest remaining lever. A wording that called everyday things set dressing gained nothing and let a wrong person through (verify.md §8). Measure any idea on stored drawings first.
-4. **Lettering vs signature.** Since T077, gibberish lettering the describer calls a signature only warns (the klein run's 4.2).
-5. **Props a shot needs but the frame lacks** ("the kite under her arm"). Nothing checks this yet.
-6. **Weather.** "A storm" in the script doesn't yet support a drawn lightning bolt.
-7. **Deploy.**
-   - Hosted settings: `FAL_KEY`, `FAL_MODEL`, `RENDER_MAX_ATTEMPTS=3`.
-   - Render vs Railway: your #80/#81, conflicting now.
-   - Batch-sign frame URLs: the board takes 7–29 s to load.
+## 7. Verified facts
 
-## 7. Gotchas
+- Token Factory's strict `json_schema` decoding **enforces `maxItems` and `maxLength`** on Super VL.
+- Super VL is near-deterministic at temperature 0: the unchanged describer call reproduced the
+  stored answer on 9 of 10 frames.
+- The describer's stored answers never exceed 21 people / 32 objects (DeepSeek, 1,352) or
+  33 text entries (Super VL, 79: a calendar's dates).
+- T104 live (gogos-recipe): `split_panels` withheld 1.4's strip and the redraw was shown; on the
+  comic it withheld 3.4 after 3 strips.
 
-- **Stacked PRs and STATUS/TASKS conflicts.** Every PR adds a row near the same anchors. Merge `main` in and keep both rows, checking for duplicates.
-- **`_ACTION_FLOOR`.** Looks give way to the 55-word budget and keep 12 words for actions. Don't make `LOOK` a fixed part: a two-character shot would exceed 55 and fail to render.
-- **The deferred import.** `audit_frame` imports `visible_characters` inside the function, because `app.storyboard`'s renderer modules import `app.verify`.
+## 8. Gotchas
 
-## 8. Open questions
+- Never read the repo-root `.env` or `apps/web/.env.local` (a deny rule blocks it anyway).
+- Don't open the-choir's script until its run has finished.
+- The scorer's labels and bundles live on #194's branch only, until it merges.
 
-- Should "every shot character missing" also count characters the prompt didn't draw? T080 says no, on purpose.
-- Should the comic run at 3 attempts too? It does now (`RENDER_MAX_ATTEMPTS`); watch the spend.
+## 9. Corrections
+
+None.
