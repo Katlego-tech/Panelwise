@@ -76,9 +76,10 @@ classDiagram
 - **`LimbLabel`** is one drawing judged by eye (Katlego), stored in
   `docs/design/limb-agent/labels.json`. `defect` means a reader would notice at once; `unclear` is a
   drawing too small or too sketchy to say. Labelled **before** any model answer is seen, so the
-  labels don't lean toward the model. A fault names the **third** the broken body is in, not a
-  description index (2026-10-18): the hunted drawings below have no stored description, and an
-  answer's person is matched to a fault through the position the describer gives that person.
+  labels don't lean toward the model. A fault was meant to name the **third** the broken body is
+  in (the hunted drawings have no stored description), but the labels never filled it in (2026-10-18),
+  so **faults are matched per drawing**: an answer that names any defect on a drawing labelled
+  `defect` is a catch. The bar's measures are per drawing anyway (§8).
 - **The hunted pool** (`source: hunt`, Katlego's ask, 2026-10-18): Tumo's 109 frames have no
   anatomy fault at all and the probe has one, so recall on them alone would rest on one or two
   drawings. Claude looks through every drawing in the dev bucket (1,382 on 2026-10-18, every
