@@ -3,7 +3,7 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
-_Last updated: 2026-10-17 — by Katlego (via Claude)_
+_Last updated: 2026-10-18 — by Katlego (via Claude)_
 
 ---
 
@@ -270,6 +270,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
+- 2026-10-18 — Katlego (via Claude) — **Research filed** (`docs/research/`, Katlego's two reports): speech-bubble placement → T114 (the tail aims at the mouth) and comic.md §10; anatomical fidelity → limb-agent.md §2, §10 (recall by framing, a fused-to-object defect, a box per defect). **Next:** T114. **Blocked on:** nothing.
 - 2026-10-17 — Katlego (via Claude) — **T113 designed (stretch, US5):** the comic read aloud by ElevenLabs (Katlego; the team has a subscription): every lettered line byte for byte, voices from the script's sex and age, one call per line cached by text and voice, off without `ELEVENLABS_API_KEY`, capped by `NARRATION_MONTHLY_CHARACTER_CAP`. New lane `narration` (Katlego; the reader's control with Tumo). **Next:** after the submission path. **Blocked on:** nothing.
 - 2026-10-17 — Katlego (via Claude) — **Claimed:** lanes `comic` and `verify` for T097, T098 and T111 (told Tumo on #194, with T109/T110 proposed for his two new items). T111 written: the limb agent, labels by eye first, then measured on Super VL against a bar written before the run (docs/design/limb-agent.md). A double paid run with Tumo's scorer today (about $0.6, discarded): proposed on #194 that every paid run is announced on its PR first. **Next:** T098's live comic (running), then T111's labels. **Blocked on:** nothing.
 - 2026-10-17 — Katlego (via Claude) — T105 code (#192): `NEBIUS_VISION_THINKING` (unset sends nothing), tests first. **Measured** on the-red-kite's 44 stored attempts, three ways (about $0.5): Super VL with thinking off ties DeepSeek on the 10 disputed hard checks (7 of 10 each, every drawing looked at), 0 errors, 0.95× tokens, 1.43× median seconds, and withholds the one wrong frame DeepSeek shows; with thinking on it's worse (4 of 10: "pigtails" for Lerato's braids, refused as unscripted). Findings § U8. **Decided (Katlego): migrate.** The defaults are Super VL with thinking off (#192); most of the audit carries over (schemas, people, the sex agent 48 of 48, the judge's matches 36 of 44); T106 (rooftop setting), T107 (signatures), T108 (hair wording, Tumo) adapt the rest; pitch and plan in docs/super-vl-migration.md. **Next:** #191 then #192 merged (the hosted API redeploys on Super VL); Tumo's held-out translation run. **Blocked on:** nothing.
