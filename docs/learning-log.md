@@ -66,12 +66,20 @@ it before changing the prompt or the audit; add to it after every live run.
   cue only to a name holding all its words. So a bare `CHARACTER` name folds into the one titled
   spelling (a cue, or a model name the script writes) whose words are it plus forms of address
   (`TITLE_WORDS`; never a kinship word: Mama Thembi can be Thembi's mother); none, two (`MR. DUBE`,
-  `MRS. DUBE`), a bare cue or a superset name (`THABO DUBE`): no fold. Still open: the presence agent's sex question
-  (a found person gets no `DRAWN_SEX`), and redacting a multi-word role name only whole (8.1).
+  `MRS. DUBE`), a bare cue or a superset name (`THABO DUBE`): no fold. Merged 2026-10-16 (#179,
+  #180). T102 (verify.md §3): a person the presence agent finds is asked T095's sex question too,
+  and `DRAWN_SEX` fails on the other sex. Still open: redacting a multi-word role name only whole
+  (8.1).
 - **Measured:** free, 2026-10-15, `ground` replayed on the model entities of all 30 stored
   extractions with a prototype fold: **1 changed**, this one: `MR. FORTUIN` and `MS. NAIDOO` each one
   `Source.MODEL` character with their 3 quotes, recall 2/4 → 4/4, `MS. NAIDOO` female from her own
-  pronouns; 29 identical. Live: the next held-out runs.
+  pronouns; 29 identical. T102, Token Factory only (2026-10-16): the presence agent run afresh on
+  the 77 stored frames it would run on found 36 people the script sexes; asked, 2 the other sex,
+  both real (sipho-and-siphokazi 2.1, MAMA THEMBI drawn as a man; the-borrowed-bicycle 4.1,
+  NALEDI as a boy), 0 false alarms, 6 questions failed (the model's thinking used its tokens).
+  The real code (sex question at 4,096 tokens, 1 of 37 failed): `DRAWN_SEX` fails 4 frames, lighthouse
+  7.5 among them (MR. FORTUIN drawn as an old woman, with T101's names), one arguable (the-night-taxi
+  2.3, a child who reads as a girl, in a frame wrong anyway).  Live: the next held-out runs.
 - **Sex labels** (eval/sex-labels.json): `character_sex` right for MS. NAIDOO and MR. FORTUIN, a miss
   for both duplicates, 0 wrong, 0 invented. The sex agent asked about 32 matched people, every
   answer the script's sex; nothing withheld.
@@ -252,7 +260,12 @@ it before changing the prompt or the audit; add to it after every live run.
   in some 500 stored drawings), so two test runs (about 80 drawings) could not show a change. A
   describer question ("one picture or several panels?") is the measurable route, on the four
   stored splits and as many whole frames, if it comes back.
-- **Measured:** not yet.
+- **Measured:** 2026-10-16, a vision question ("one picture or several panels; anyone drawn twice?")
+  on every stored attempt with two or more people (332, the newest run of 11 scripts; Token Factory
+  only): **23 splits, every one looked at, all real**, far more than the 4 seen by eye. Three
+  were shown (market-day 4.2 and 5.2 warned, the-red-kite 5.2 passed). T104 (verify.md §3): a
+  `SPLIT_PANELS` check and a `DRAWN_TWICE` check from that question, hard, on the ladder by
+  Tumo's call.
 
 ### L014 · Painted lettering and everyday objects hold back most shots · open
 

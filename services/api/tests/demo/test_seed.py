@@ -134,6 +134,9 @@ async def finished(sessions: async_sessionmaker[AsyncSession], *, comic: bool) -
                     judgement=None,
                     checks=[],
                     positions={},
+                    seen=[{"person": 0, "character": "NANDI", "sex": "female"}],
+                    found=[{"character": "NANDI", "person": 0, "reason": "r"}],
+                    layout={"panels": 1, "copies": [], "reason": "r"},
                     verdict="pass",
                     models=["m"],
                     prompt_tokens=1,
@@ -190,6 +193,16 @@ async def test_a_settled_project_is_copied_once_with_its_frames_audits_and_comic
             .where(FrameAuditRow.project_id == copy.id)  # type: ignore[union-attr]
         )
         comic = await s.get(ComicRow, first.project_id)
+        copied = list(
+            await s.scalars(select(FrameAuditRow).where(FrameAuditRow.project_id == copy.id))  # type: ignore[union-attr]
+        )
+    # The agents' answers come with each audit, so `recheck` decides the copy as the source.
+    assert copied and all(
+        a.seen == [{"person": 0, "character": "NANDI", "sex": "female"}]
+        and a.found == [{"character": "NANDI", "person": 0, "reason": "r"}]
+        and a.layout == {"panels": 1, "copies": [], "reason": "r"}
+        for a in copied
+    )
     assert src is not None and copy is not None
     assert (copy.owner, copy.title, copy.pdf_path, copy.plan) == (
         judge,

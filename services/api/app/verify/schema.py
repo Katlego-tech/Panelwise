@@ -67,9 +67,36 @@ class PersonCheck(BaseModel):
     sex: Literal["male", "female", "unclear"]
 
 
+class Layout(BaseModel):
+    """The layout agent's answer (T104): the frame's panels, the [a, b] pairs of numbered people
+    who are one person drawn twice, and a short reason."""
+
+    panels: int
+    copies: list[list[int]]
+    reason: str
+
+
 class Presence(BaseModel):
     """The presence agent's answer (T099): which numbered described person is the character,
     or None, and a short reason."""
 
     person: int | None
     reason: str
+
+
+class HeadAnswer(BaseModel):
+    """One numbered person's head (T097): whether it is in view, and its box as fractions of the
+    image's width and height from its top-left."""
+
+    person: int
+    visible: bool
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+
+
+class HeadCheck(BaseModel):
+    """The head agent's answer (T097): a head for each numbered person."""
+
+    heads: list[HeadAnswer]
