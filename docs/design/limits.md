@@ -132,7 +132,8 @@ request fal failed costs nothing; so the count is a floor, and the cap is set wi
 for one job finishing over it. **Measured** (2026-10-15, the stored runs of 11 scripts on the local
 stack): a storyboard under today's ladder (`drawn_sex,no_character`) is **17–26 drawings** (the
 held-out runs of 13–14 Oct), about $0.07–0.10; under the old strict audit up to 134 (lost-property, 49
-shots). Its audit is 130,000–175,000 tokens (up to 390,000 under the old audit; T102 lets every sex
+shots). Its audit is 130,000–175,000 tokens (up to 390,000 under the old audit; T104's layout
+question adds about 15,000–24,000 to it and as much to its comic, verify.md §3; T102 lets every sex
 question, T095's too, use up to 4,096 tokens, so measure tokens a job again once the agent set
 settles); this month's
 `llm_usage` on the local stack, all our testing, is 4.4 million tokens in 1,455 calls.
@@ -252,7 +253,7 @@ now read (`.env.example`'s "read by no code yet" goes), off when unset or blank 
 | "Per day" | rolling 24 h | a calendar day: whose time zone? judges are worldwide |
 | Page count | at upload, before storing | in the job's parse: the judge waits for a failure the upload could have told them |
 | Judge sample | a copy of a finished project | rendering it on the judge's first visit: spends on every fresh account and makes the judge wait |
-| The image budget (T030) | count drawings from `frame_audits`, per month, refuse new work at the start | a dollar figure (fal bills per image; a count reads the same and needs no price table); a counter in the renderer (a second count to keep in step with the log, and a migration while #170 takes 0009); stopping a running job at the cap (half a board, as for tokens); counting fal requests (a safety redraw costs, but the gap is at most 3 to 1 and rare) |
+| The image budget (T030) | count drawings from `frame_audits`, per month, refuse new work at the start | a dollar figure (fal bills per image; a count reads the same and needs no price table); a counter in the renderer (a second count to keep in step with the log, and a migration while #170 or T104 takes 0009); stopping a running job at the cap (half a board, as for tokens); counting fal requests (a safety redraw costs, but the gap is at most 3 to 1 and rare) |
 
 ## 9. How this is verified
 
