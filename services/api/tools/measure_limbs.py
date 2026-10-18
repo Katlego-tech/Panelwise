@@ -285,6 +285,8 @@ async def main() -> None:
                               bucket=settings.supabase_storage_bucket, client=client)  # fmt: skip
 
         async def one(lab: Label) -> None:
+            if lab.verdict == "unclear":
+                return  # left out of every score (§8): asking would only spend tokens
             record: dict[str, Any] | None = records.get(lab.asset)
             if record is not None and (record["people"] == 0 or len(record["asks"]) >= args.repeat):
                 return
