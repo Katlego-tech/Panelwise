@@ -115,6 +115,23 @@ errors, 0.95× tokens, 1.43× median time, right on 7 of 10 disputed hard checks
 most of the audit carries over unchanged. **Yours:** the held-out translation run (18–19 Oct, the
 commands are in #192's comment) and T108, the look match (20–22 Oct); re-measure T102/T104 on Super
 VL as they land. Rollback is two Render dashboard variables (the plan's § Rollback).
+### 👋 For Tumo (from Katlego, 2026-10-17): T104 on the hosted ladder, and the reviews
+
+- **Decision: `split_panels` withholds on the hosted demo, `drawn_twice` warns** (Katlego). The data
+  backs `split_panels` (23 of 23 flags real) more than `drawn_twice` (5 real plus 1 wrong-anyway after
+  the veto, recall unmeasured). **Please add it in #187**, in the same PR as the code:
+  `render.yaml` `AUDIT_WITHHOLD_CHECKS: drawn_sex,no_character,split_panels`, and deploy.md §6's
+  `render.yaml` block to match. **Not before the code is on `main`**: `withholding` (config.py)
+  refuses a name it doesn't know, so the API wouldn't start. Expect about 5.7% of attempts flagged
+  (+1–1.5 drawings and +7–10k tokens a storyboard), and some shots withheld after 3 attempts
+  (lost-property 11.5 split on all 3 stored attempts). TASKS T104's Done then holds on the hosted
+  demo for `split_panels`; reword it for `drawn_twice`, which is seen there only as a warning.
+- **Reviews are on your six PRs** (#181, #183–#187; comment reviews, nothing blocking), each with
+  what was run. The stacked ones (#183, #185, #186, #187) have had no CI gate: retarget each to
+  `main` once its base merges.
+- **T102's 4,096 ceiling:** not blocking; the caps are provisional and more agents are coming
+  (limbs, bubbles), so measure tokens a job once the agent set settles.
+- **Migrations:** #187 takes `0009_audit_layout`; Katlego's #170 (T097) moved to `0010_audit_heads`.
 
 ### 👋 For Tumo (from Katlego, 2026-10-16): the caps are set; the fal top-ups
 
@@ -277,6 +294,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 - 2026-10-16 — Tumo (via Claude) — Merged #179/#180 (T101) on Tumo's go-ahead. From now on nothing merges into main without Tumo's go-ahead (Vercel deploys main: Katlego connected Vercel on 15 Oct 22:51 UTC, two projects, `panelwise` and `panelwise-4m9b`). T102 design `docs/found-sex-t102`, measured on stored drawings (Token Factory only): the presence agent on the 77 stored frames it would run on found 36 people the script sexes; the sex question flagged 2, both real (MAMA THEMBI as a man, NALEDI as a boy), 0 false alarms. Seen while measuring (the prototype): 16 presence questions (at their 4,096 tokens) and 6 of 36 sex questions (at 1,024) came back empty (DeepSeek's thinking used the budget; at 4,096 the real code's sex questions lost 1 of 37), each a frame decided without them. Next: review, then the code; rooftop-tomatoes waits for Tumo's upload.
 - 2026-10-17 — Katlego (via Claude) — T105 code (#192): `NEBIUS_VISION_THINKING` (unset sends nothing), tests first. **Measured** on the-red-kite's 44 stored attempts, three ways (about $0.5): Super VL with thinking off ties DeepSeek on the 10 disputed hard checks (7 of 10 each, every drawing looked at), 0 errors, 0.95× tokens, 1.43× median seconds, and withholds the one wrong frame DeepSeek shows; with thinking on it's worse (4 of 10: "pigtails" for Lerato's braids, refused as unscripted). Findings § U8. **Decided (Katlego): migrate.** The defaults are Super VL with thinking off (#192); most of the audit carries over (schemas, people, the sex agent 48 of 48, the judge's matches 36 of 44); T106 (rooftop setting), T107 (signatures), T108 (hair wording, Tumo) adapt the rest; pitch and plan in docs/super-vl-migration.md. **Next:** #191 then #192 merged (the hosted API redeploys on Super VL); Tumo's held-out translation run. **Blocked on:** nothing.
 - 2026-10-17 — Katlego (via Claude) — NVIDIA released Nemotron 3.5 Super VL, Bolt 74B-A9B and Bolt E4B (15 Oct); only Super VL is on Token Factory (listed 12 Oct, `text+image->text`, $0.30/$0.90). One probe (about $0.0014): a comic page's 4 panels and its first bubble read verbatim, 367 of 395 completion tokens thinking. Findings § U8; T105 designed (docs/design/vision-model.md): a `NEBIUS_VISION_THINKING` setting, then `reaudit` on stored drawings three ways, adopted only past §8's bar. **Next:** T105's code and measurement, after the README draft. **Blocked on:** nothing.
+- 2026-10-17 — Katlego (via Claude) — Reviewed Tumo's T102–T104 (#181, #183–#187: approve with nits each, posted as comment reviews; the T104 full gate on a merge with main passed, 11 checks). **Decided:** `split_panels` withholds on the hosted demo with T104's code, `drawn_twice` warns (deploy.md §6; Tumo adds it in #187). #170 brought up to main, T097's migration now `0010` (after T104's `0009`). **Next:** the README draft (#36) refreshed; Nemotron 3.5 Super VL as the describer (T105, measured first). **Blocked on:** nothing.
 - 2026-10-16 — Katlego (via Claude) — **Devpost allows a judge login** (confirmed by Katlego): limits.md §10's last open question closed; the shared judge account and sign-up off stand. **Next:** T030's judge seed and hosted run (Tumo). **Blocked on:** nothing.
 - 2026-10-16 — Katlego (via Claude) — **The hosted demo is up:** API https://panelwise-api.onrender.com (`1c-2g`, Frankfurt; hosted Supabase 0002 → 0008 on deploy; health ok), web https://panelwise.vercel.app with `API_URL` set (`/api/health` 200 through it); `API_HEALTH_URL` set, keep-alive passed. The first deploy failed on a localhost `DATABASE_URL` (fixed in the dashboard). T037: all but a storyboard drawn on the hosted stack. **Next:** Tumo's T030 (judge seed, the hosted run). **Blocked on:** nothing.
 - 2026-10-16 — Katlego (via Claude) — **Caps decided:** `IMAGE_MONTHLY_GENERATION_CAP` = 800 (Tumo's fal balance $5.35; $10 loaded by 31 Oct, $5 by 30 Nov; deploy.md §6), so limits.md §10's money caps are closed. **API on Render:** Blueprint applied from `main` (`panelwise-api`, `1c-2g`, Frankfurt, both caps entered); the first deploy is running (`no-deploy` from the likely URL while it builds). **Next:** the deploy live and healthy (the migrations to 0008 in its log), `API_URL` on Vercel, `API_HEALTH_URL` and the keep-alive. **Blocked on:** nothing.
