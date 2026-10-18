@@ -40,6 +40,7 @@ the drawn sex (T095, T102); hairstyle words (T108); the judge (unchanged).
 | The drawings to label | Tumo's 109 labelled frames (`eval/labelled/`, `eval/frame-labels.json`, #194: each frame's Storage path, project data and stored audit; read only, never edited here) and the 18 distinct drawings of the 14 Oct probe (the-red-kite, T097's eye test, 2026-10-17) |
 | How a model is measured | [vision-model.md](vision-model.md) §8 (T105: a bar written before the run); [nebius-findings.md](../nebius-findings.md) § U8 |
 | The vision model | `nvidia/Nemotron-3.5-Super-VL`, `NEBIUS_VISION_THINKING=false` (T105's default) |
+| Background reading | [docs/research/anatomical-fidelity.pdf](../research/anatomical-fidelity.pdf), its findings in [docs/research/README.md](../research/README.md) § Anatomical fidelity: the four kinds of fault, small hands, answers that box the fault |
 
 ## 3. Domain model
 
@@ -216,3 +217,15 @@ then the scorer on Tumo's 109 frames, asked of Tumo first (#194's rule).
 3. **Order with T106 and T107** (also Katlego's, 18–20 Oct): proposed T098 → T111's labels and run
    → T106/T107 → T111's code if adopted. The code has to land by 22 Oct to be in the 23 Oct judge
    sample.
+4. **Recall by framing** (docs/research § Anatomical fidelity: a hand in a wide shot is a few
+   latent tokens): the run's table splits recall and false alarms by the shot's framing, so a
+   check that only works on close and medium shots is seen as that. Free: the framing is in the
+   project data. Proposed for the first run.
+5. **A second prompt, only if the first misses the bar or the look finds a kind it can't name**
+   (the first run stays on the prototype's prompt, §8):
+   - a `limb_fused_to_object` defect: an arm melted into a sleeve, a bag or a table. The research's
+     *fusion* kind; the prototype only names fused bodies;
+   - a box per defect, as the research's diagnostic model gives: the answer says where, and the
+     look checks the box landed.
+6. **Repair instead of redraw** (the research's regional inpainting): needs an inpainting endpoint
+   and a hand box. Out of T111; recorded so the decision in § U9 can point at it.
