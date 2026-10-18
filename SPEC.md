@@ -112,7 +112,8 @@ script."* Never "Nemotron vision auditor". [verify.md §8; RUBRIC.md]
 ## User stories
 
 Priorities follow PLAN.md § Build phases: US1 is Phase 3 on its own and is the MVP (**P1**); US2,
-US3 and US4 are all Phase 4 (**P2**). Within P2, STATUS.md's timeline builds US2 and US4 in week 3
+US3 and US4 are all Phase 4 (**P2**). US5 is a **stretch** (Katlego, 2026-10-17): built only after
+the submission path is safe, never on it. Within P2, STATUS.md's timeline builds US2 and US4 in week 3
 and US3 in week 4; PLAN.md doesn't rank them further (see Open questions).
 
 Each scenario becomes an acceptance test ([docs/testing-strategy.md](docs/testing-strategy.md));
@@ -321,6 +322,42 @@ Scenario: A reference portrait keeps a character consistent
 - [ ] No image prompt contains any character's name token.
 - [ ] Portraits are used as references only when audited `READY`.
 - [ ] Undescribed characters are flagged in the UI.
+
+---
+
+### US5 — Listen to the comic (stretch)
+
+**As a** reader of the comic, **I want** to hear it read aloud, each line in its speaker's voice,
+**so that** the comic plays like a table read.
+
+[docs/design/narration.md; T113. Stretch: off without `ELEVENLABS_API_KEY`; built only after the
+submission path is safe]
+
+```
+Scenario: The comic is read aloud in reading order
+  Given a finished comic and narration turned on
+  When  the reader presses Listen
+  Then  every lettered line is spoken in reading order, byte for byte as lettered
+  And   each line is in its speaker's voice and the scene captions in a narrator's
+  And   the line being read is highlighted, and the page turns when the next line is on it
+```
+
+- **Scenario: nothing is spoken that isn't lettered** — Given any comic, when it is narrated, then
+  the spoken text is exactly the lettering's (no action lines, no summary, no audio tags), so every
+  clip traces to its line's verbatim span. [narration.md §1; PLAN.md Non-negotiable 1]
+- **Scenario: a voice comes from the script** — Given a character the script states is a woman in
+  her 60s, when the cast is chosen, then her voice is from the older-female pool; given a character
+  the script doesn't sex, then a neutral voice. Never from the drawing or the name. [narration.md §3]
+- **Scenario: narration is off without its key** — Given no `ELEVENLABS_API_KEY`, then the reader
+  shows no Listen control and every other behaviour is as before. [narration.md §4]
+- **Scenario: the month's narration is spent** — Given the month's characters would pass
+  `NARRATION_MONTHLY_CHARACTER_CAP`, when narration is asked for, then it is refused before any call.
+  [narration.md §4; limits.md §4]
+
+**Acceptance criteria:**
+- [ ] Every clip's text equals its lettering's text.
+- [ ] A line already spoken in a voice is never paid for again.
+- [ ] Without the key the app behaves exactly as before.
 
 ---
 
