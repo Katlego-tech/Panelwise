@@ -93,11 +93,6 @@ def test_otherwise_a_bridge(a: Rect, b: Rect) -> None:
 @pytest.mark.parametrize(
     "lines",
     [
-        (
-            say("LERATO", "Come on, wind."),
-            Action("A gust tears the kite away.", SPAN),
-            say("LERATO", "No, no, no!"),
-        ),
         (say("LERATO", "And we watch the sky."), say("LERATO", "Every minute.", None, "beat")),
         (
             say("LERATO", "And we watch the sky."),
@@ -118,6 +113,17 @@ def test_a_pause_the_script_states_keeps_the_lines_apart(
     assert all(b.tail is not None for b in placed.bubbles)  # a tail each
 
 
+def test_an_action_line_between_does_not_unlink() -> None:
+    # Katlego, 2026-10-18: a screenplay puts action between nearly every two blocks of one speaker
+    screenplay, plan, book = panel_of(
+        say("LERATO", "Come on, wind."),
+        Action("A gust tears the kite away.", SPAN),
+        say("LERATO", "No, no, no!"),
+    )
+    placed = second(place_lettering(book, screenplay, plan, framed(book)))
+    assert [b.linked for b in placed.bubbles] == [False, True]
+
+
 def test_a_speech_split_by_a_page_break_stays_linked() -> None:
     screenplay, plan, book = panel_of(
         say("LERATO", "And we watch the sky."), say("LERATO", "Every minute.", "CONT'D")
@@ -127,12 +133,12 @@ def test_a_speech_split_by_a_page_break_stays_linked() -> None:
 
 
 def test_the_samples_two_pairs() -> None:
-    # the-red-kite: "Come on, wind." and "No, no, no!" have the gust between them; "And we watch
-    # the sky, Grandpa." runs on over a page break as LERATO (CONT'D)
+    # the-red-kite: "Come on, wind." and "No, no, no!" have the gust between them, and stay linked;
+    # "And we watch the sky, Grandpa." runs on over a page break as LERATO (CONT'D)
     screenplay = parse_pdf((SAMPLES / "the-red-kite.pdf").read_bytes())
     gust = screenplay.scenes[0].elements[3]
     assert isinstance(gust, Action) and gust.text.startswith("A gust")
     book, _ = build()
     panels = {(p.scene_index, p.shot_number): p for page in book.pages for p in page.panels}
-    assert not any(b.linked for b in panels[(0, 2)].bubbles)
+    assert [b.linked for b in panels[(0, 2)].bubbles] == [False, True]
     assert [b.linked for b in panels[(4, 2)].bubbles if b.speaker == "LERATO"] == [False, True]

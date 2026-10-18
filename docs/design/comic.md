@@ -153,12 +153,12 @@ classDiagram
   and a radio's zigzag have their own ways to reach the speaker). A chain's first bubble has the
   tail; each linked bubble has none (`tail` is `null`) and is joined to the one before by a
   *connector*, so the reader sees one balloon splitting in two. Only consecutive lines link: a line
-  by someone else in between breaks the chain. **A pause the script states unlinks (T121):** an
-  action element between the two dialogue elements in the scene (the script's own beat: "A gust
-  tears the kite out of her hands."), or a second line whose parenthetical says `beat`, `pause`,
-  `pauses`, `pausing`, `a moment` or `silence` (whole words). Those two lines stay separate, a tail
-  each, as letterers mark a deliberate pause. A speech split only by a page break (`CONT'D`,
-  nothing between) stays linked: it is one breath. **The tail (T119)** is on the chain's box nearest
+  by someone else in between breaks the chain. **A pause the script states unlinks (T121):** a
+  second line whose parenthetical says `beat`, `pause`, `pauses`, `pausing`, `a moment` or `silence`
+  (whole words). Those two lines stay separate, a tail each, as letterers mark a deliberate pause.
+  An action line between them does not unlink (Katlego, 2026-10-18): a screenplay puts action
+  between nearly every two blocks of one speaker, so it would unlink almost every pair; only a
+  stated pause is the script asking for one. **The tail (T119)** is on the chain's box nearest
   the speaker: the one whose centre is closest to the tip it would have (ties to the earlier). That
   is the box a letterer hangs the tail from, so the rest of the chain is reached through it.
 - **`SCENE` caption** on a scene's first panel: `scene.location`, then — only when
@@ -697,7 +697,7 @@ Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, mult
 | Reading order | a hard constraint | a cost term: the cheapest spot could still break reading order |
 | A panel's boxes | placed as a set: depth-first in each box's preference order, at most 10,000 tries | one box at a time, cheapest first, never revisited: on a detailed frame the first bubble could take a late cell and leave the next none, and the comic stopped (PR #92, real FLUX frames). The lowest total cost over all boxes: a different layout for panels that letter fine today, for no gain the reader sees |
 | Bubble position | image detail + every head (T098) + the speaker's third when their head is unknown | a vision model placing bubbles: another call per panel, not deterministic. (T098 keeps this: placement stays code over stored boxes; the one vision question is the audit's, asked once when the panel is accepted) |
-| A pause between one speaker's lines (T121) | unlinked when the script puts an action or a `(beat)` between them | linking every pair (the research: an unlinked pair is how a letterer marks a pause); a timer or word count (the script already says where it breathes) |
+| A pause between one speaker's lines (T121) | unlinked when the second line's parenthetical states one (`(beat)`, `(pause)`) | an action line between as a pause too (built first, 2026-10-18: it unlinked almost every pair, since a screenplay puts action between nearly every two blocks; Katlego dropped it); linking every pair (the research: an unlinked pair is how a letterer marks a pause); a timer or word count |
 | Which linked box has the tail (T119) | the one nearest the speaker | the first (T118's: the tail may cross the whole chain to reach the speaker) |
 | One speaker's lines (T118) | consecutive same-speaker bubbles joined by a connector, the first with the tail; the gap capped at 120 px; links dropped only in the last-resort search | a tail on every bubble (two tails to one head read as two people unless they meet); one balloon holding both lines (merges two script elements, so two spans in one box); a link across another speaker's line (the reading order would jump) |
 | Balloon shapes (T117) | a `voice` from the parenthetical, extension and cue's own words, beside `kind` | from punctuation or capitals ("!" is not a shout the script states); from the drawing (the audit already shows drawings can be wrong); new `kind` values (the reader's `kind` list is closed, web.md; `voice` is additive) |
@@ -749,9 +749,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - **T119–T121** (`tests/comic/test_t119.py`, tests first): the chain's tail is on the box whose
   centre is nearest its tip, the others `null`, judged by the tail rules; two linked boxes under
   16 px apart with enough overlap get the seam, others the bridge, and the seam lies inside the two
-  boxes grown by 8 px; an action between, or a `(beat)`/`(pause)` on the second line, unlinks; a
-  `CONT'D` split by a page break stays linked; the sample's p1 0.2 unlinks (the gust) and p5 4.2
-  stays linked and merged.
+  boxes grown by 8 px; a `(beat)`/`(pause)` on the second line unlinks; an action between does
+  not; a `CONT'D` split by a page break stays linked; the sample's p1 0.2 (the gust between) and
+  p5 4.2 (a page break) both stay linked.
 - **T118** (`tests/comic/test_t118.py`, tests first): two and three consecutive lines of one
   speaker link (the first has the tail, the rest `linked` with no tail); another speaker between,
   a different kind or voice, a whisper, thought or radio voice, or a caption between → no link;

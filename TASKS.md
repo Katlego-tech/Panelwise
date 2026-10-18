@@ -705,7 +705,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Design:  docs/design/comic.md §3 (linked lines: a pause unlinks), §8
       Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/test_t119.py
       Contract:comic.md §3
-      Verify:  bash scripts/gate.sh; the sample's p1 0.2 (an action between) unlinked, p5 4.2 (CONT'D) linked
-      Done:    two lines with an action or a (beat) between are separate balloons with a tail each
+      Verify:  bash scripts/gate.sh; the sample's p1 0.2 (an action between) and p5 4.2 (CONT'D) both linked
+      Done:    two lines with a (beat) or (pause) stated between are separate balloons with a tail each; an action line between doesn't unlink (Katlego, 2026-10-18)
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

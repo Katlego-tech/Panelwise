@@ -228,19 +228,17 @@ def _texts(shot: Shot, scene: Scene, first: bool) -> list[_Text]:
                 and isinstance(kind, BubbleKind)
                 and (before.kind, before.speaker, before.voice) == (kind, element.cue, voice)
                 and voice in LINKABLE
-                and not _paused(scene, before.element, index)
+                and not _paused(element)
             )  # T118: one speaker's consecutive lines read as one balloon split in two
             texts.append(_Text(kind, element.cue, element.text, index, element.span, voice, linked))
     return texts
 
 
-def _paused(scene: Scene, before: int, index: int) -> bool:
-    """T121: the script puts a pause between two of one speaker's lines: an action between them
-    (its own beat), or a pause word in the second line's parenthetical."""
-    between = scene.elements[before + 1 : index]
-    second = scene.elements[index]
-    note = second.parenthetical if isinstance(second, Dialogue) else None
-    return any(not isinstance(e, Dialogue) for e in between) or bool(_PAUSE.search(note or ""))
+def _paused(second: Dialogue) -> bool:
+    """T121: the script states a pause before one speaker's next line: a pause word in its
+    parenthetical. An action line between doesn't count (Katlego, 2026-10-18): a screenplay puts
+    action between nearly every two blocks of one speaker."""
+    return bool(_PAUSE.search(second.parenthetical or ""))
 
 
 def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> tuple[list[_Placed], bool]:
