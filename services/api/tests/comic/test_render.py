@@ -281,6 +281,8 @@ def test_the_json_has_the_readers_shape_and_round_trips_every_span() -> None:
                     "rect",
                     "tail",
                     "font_px",
+                    "voice",
+                    "linked",
                 ]
                 assert Span(**gb["span"]) == bubble.span
                 assert (gb["kind"], gb["speaker"], gb["text"], gb["element"]) == (
@@ -291,8 +293,11 @@ def test_the_json_has_the_readers_shape_and_round_trips_every_span() -> None:
                 )
                 assert gb["rect"] == list(bubble.rect) and gb["font_px"] == bubble.font_px
                 assert gb["tail"] == (list(bubble.tail) if bubble.tail else None)
+                assert gb["voice"] == bubble.voice.value  # T117
+                assert gb["linked"] is bubble.linked  # T118
             for gc, caption in zip(gp["captions"], panel.captions, strict=True):
-                assert list(gc) == ["kind", "text", "element", "span", "rect", "font_px"]
+                assert list(gc) == ["kind", "text", "element", "span", "rect", "font_px", "voice"]
+                assert gc["voice"] == caption.voice.value
                 assert Span(**gc["span"]) == caption.span
                 assert (gc["kind"], gc["text"], gc["element"]) == (
                     caption.kind.value,
@@ -307,4 +312,5 @@ def test_the_json_has_the_readers_shape_and_round_trips_every_span() -> None:
         "span": {"page": 1, "line_start": 5, "line_end": 5},
         "rect": first["rect"],
         "font_px": 32,
+        "voice": "plain",
     }
