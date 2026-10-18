@@ -653,7 +653,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:Non-negotiable I holds: a different hairstyle (short hair for braids) is still refused; only words for the same style are accepted
       Verify:  bash scripts/gate.sh; `recheck`/`reaudit` on the-red-kite's and one held-out project's stored attempts with Super VL
       Done:    storyboard 4.1 matches LERATO on Super VL, comic 1.1 (short hair) is still refused, recorded in findings § U8
-- [ ] T112 [US3] **Speech tails never cross each other.** Asked by Katlego on 2026-10-17, after T098's live comic: with tails now ending at heads, two speakers whose bubbles sit on the "wrong" sides draw tails that cross. Lane `comic` (Claude for Katlego). Needs T098.
+- [x] T112 [US3] **Speech tails never cross each other.** Asked by Katlego on 2026-10-17, after T098's live comic: with tails now ending at heads, two speakers whose bubbles sit on the "wrong" sides draw tails that cross. Lane `comic` (Claude for Katlego). Needs T098.
       Design:  docs/design/comic.md §4 step 7 (the tail rule, the last-resort search), step 8 (one triangle), §6 (`tail_triangle`, `tails_cross`), §8, §9 (T112), §10 (a tail hidden under another bubble: open)
       Files:   services/api/app/comic/{bubbles,render}.py; services/api/tests/comic/test_t112.py
       Contract:comic.md §6 verbatim: `tail_triangle(box, tip)` and `tails_cross(a, b)` in bubbles.py (render.py's `_tail_polygon`, `_radius` and `TAIL_BASE` moved there, unchanged); `place_lettering`'s signature and the layout JSON unchanged
