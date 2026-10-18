@@ -1,4 +1,5 @@
-"""The default renderer: FLUX.1 [schnell] on fal.ai (storyboard.md §3.5; T026).
+"""The default renderer: FLUX.2 [klein] 4B on fal.ai, the model `Settings.fal_model` names
+(FLUX.1 [schnell] before 2026-10-11; storyboard.md §3.5; T026).
 
 One synchronous call per drawing, at most a megapixel in multiples of 16 (fal bills each started
 megapixel), fitted to exactly the size asked for and post-processed in the style. Every drawing is
