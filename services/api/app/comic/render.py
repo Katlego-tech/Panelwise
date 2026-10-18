@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw
 from app.comic import layout
 from app.comic.bubbles import (
     STROKE,
+    connector,
     corner_radius,
     frame_image,
     panel_name,
@@ -162,6 +163,7 @@ def _panel_json(panel: Panel, frame_urls: Mapping[Key, str]) -> dict[str, object
             "tail": None if b.tail is None else list(b.tail),
             "font_px": b.font_px,
             "voice": b.voice.value,
+            "linked": b.linked,
         }
         for b in panel.bubbles
     ]
@@ -213,10 +215,16 @@ def _letter(draw: ImageDraw.ImageDraw, panel: Panel) -> None:
     """Every outline, then every fill, then a whisper's dashes, then every word: a tail under a
     bubble never hides text, and a dash never crosses a word (comic.md §4 step 7)."""
     items: list[Bubble | Caption] = [*panel.captions, *panel.bubbles]
-    for item in items:
-        _balloon(draw, item, outline=True)
-    for item in items:
-        _balloon(draw, item, outline=False)
+    links = [  # T118: a linked bubble's connector to the bubble before it
+        connector(before.rect, bubble.rect)
+        for before, bubble in pairwise(panel.bubbles)
+        if bubble.linked
+    ]
+    for outline in (True, False):
+        for band in links:
+            _shape(draw, list(band), BLACK if outline else WHITE, OUTLINE if outline else 0)
+        for item in items:
+            _balloon(draw, item, outline=outline)
     for item in items:
         if isinstance(item, Bubble) and item.voice is Voice.WHISPER:
             _whisper_dashes(draw, item)

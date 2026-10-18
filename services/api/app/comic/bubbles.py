@@ -45,6 +45,9 @@ HEAD_COST = 2.0  # T098: a box over anyone's head
 HEAD_MARGIN = 12  # T098: px a head rect grows by, so a tail's tip stops short of the face
 SPEAKER_HEIGHT = Fraction(9, 20)  # a speaker's point is at 45% of the panel height
 SEARCH_LIMIT = 10_000  # candidate placements tried per panel before it fails (comic.md §4 step 7)
+LINK_GAP = 120  # px: the most a connector may span between two linked boxes (T118)
+LINK_WIDTH = 22  # px: a connector's width, inside its outline (T118)
+LINKABLE = frozenset({Voice.PLAIN, Voice.SHOUT, Voice.DISTRESS})
 TAIL_RULES = 2  # the first search's tail rules: 2 T112's and T116's, 1 T112's, 0 none
 MAX_RADIUS = 48
 TAIL_BASE = 28  # px: a tail's width at its base (comic.md §4 step 8)
@@ -71,6 +74,7 @@ class _Text:
     element: int | None
     span: Span
     voice: Voice = Voice.PLAIN
+    linked: bool = False  # T118: joined to the text before it by a connector, no tail
 
 
 @dataclass(frozen=True)
@@ -109,8 +113,8 @@ def place_lettering(
             if frame is None:
                 raise ComicError(f"{panel_name(key)} has no frame", shot=key)
             texts = _texts(shot, scene, firsts[panel.scene_index] == key)
-            placed = _place(panel, texts, frame)
-            lettered = _lettered(panel, placed, frame)
+            placed, links = _place(panel, texts, frame)
+            lettered = _lettered(panel, placed, frame, links)
             bubbles += len(lettered.bubbles)
             captions += len(lettered.captions)
             panels.append(lettered)
@@ -212,14 +216,22 @@ def _texts(shot: Shot, scene: Scene, first: bool) -> list[_Text]:
         element = scene.elements[index]
         if isinstance(element, Dialogue):  # action is never lettered; the art shows it
             kind, voice = _lettering(element)
-            texts.append(_Text(kind, element.cue, element.text, index, element.span, voice))
+            before = texts[-1] if texts else None
+            linked = (
+                before is not None
+                and isinstance(kind, BubbleKind)
+                and (before.kind, before.speaker, before.voice) == (kind, element.cue, voice)
+                and voice in LINKABLE
+            )  # T118: one speaker's consecutive lines read as one balloon split in two
+            texts.append(_Text(kind, element.cue, element.text, index, element.span, voice, linked))
     return texts
 
 
-def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Placed]:
+def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> tuple[list[_Placed], bool]:
     """comic.md §4 step 7: the panel's boxes as a set. Depth-first in reading order, each box
     trying its candidates in preference order (32 px by cost, then 28 px); the first complete
-    placement wins, so a panel one box at a time could letter is lettered exactly as before."""
+    placement wins, so a panel one box at a time could letter is lettered exactly as before.
+    Also whether its links (T118) held: the last-resort search drops them."""
     x, y, w, h = panel.rect
     key = (panel.scene_index, panel.shot_number)
     edges = None
@@ -274,43 +286,60 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         if tip is None:
             return None
         own = next((face for face in faces if _inside(tip, face)), None)
-        return _Tail(tip, tail_hull(text.voice, box, tip), own)
+        return _Tail(tip, tail_hull(text.voice, box, tip), own, frozenset({index}))
 
-    placed: list[_Placed] = []
-    drawn: list[_Tail | None] = []  # placed's tails, while a tail rule holds
+    placed: list[_Placed] = []  # placed[i] letters texts[i]
+    drawn: list[_Tail | None] = []  # placed's tails and connectors, while a tail rule holds
     tries = 0
     stuck = 0  # the furthest box the search reached: the one that found no room
-    refused = False  # a candidate was refused for a tail (T112, T116)
+    refused = False  # a candidate was refused for a tail (T112, T116, T118)
 
-    def kept(index: int, option: _Placed, rules: int) -> bool:
-        """Whether a candidate keeps the tail rules: 2 all (T112 and T116), 1 T112's, 0 none."""
+    def judged(index: int, option: _Placed, rules: int) -> tuple[bool, _Tail | None]:
+        """Whether a candidate keeps the tail rules (2 all, 1 T112's and the link gap, 0 none),
+        and the tail or connector it brings. A tail or connector of a box it joins is never
+        "another" (T118)."""
         nonlocal refused
         if rules == 0:
-            return True
-        tail = tail_of(index, option.rect)
+            return True, None
+        if texts[index].linked:
+            before = placed[-1].rect
+            shape: _Tail | None = _Tail(
+                None,
+                _band(before, option.rect, LINK_WIDTH + 2 * EDGE),
+                None,
+                frozenset({index - 1, index}),
+            )
+            broken = _gap(before, option.rect) > LINK_GAP
+        else:
+            shape = tail_of(index, option.rect)
+            # a box over its own tip draws no tail, so no rule could see it: it would trade a tail
+            # under a bubble for a bubble over the speaker's mouth
+            broken = shape is not None and shape.hull is None
         others = [o for o in drawn if o is not None and o.hull is not None]
-        # a box over its own tip draws no tail, so no rule could see it: it would trade a tail
-        # under a bubble for a bubble over the speaker's mouth
-        broken = tail is not None and tail.hull is None
-        if not broken and tail is not None and tail.hull is not None:
-            hull = tail.hull
+        hull = None if shape is None else shape.hull
+        if not broken and shape is not None and hull is not None:
             broken = any(
-                other.tip != tail.tip and tails_cross(hull, other.hull)
+                not (other.owners & shape.owners)
+                and not (other.tip is not None and other.tip == shape.tip)
+                and tails_cross(hull, other.hull)
                 for other in others
                 if other.hull is not None
             )  # T112: tails never cross, but two to one tip may meet
         if not broken and rules == 2:  # T116: tails clear of boxes and faces
             box = _corners(option.rect)
             broken = any(
-                other.hull is not None and tails_cross(other.hull, box) for other in others
+                index not in other.owners
+                and other.hull is not None
+                and tails_cross(other.hull, box)
+                for other in others
             )
-            if not broken and tail is not None and tail.hull is not None:
-                hull, face_of = tail.hull, tail.face
-                broken = any(tails_cross(hull, _corners(o.rect)) for o in placed) or any(
-                    face != face_of and tails_cross(hull, _corners(face)) for face in faces
-                )
+            if not broken and shape is not None and hull is not None:
+                broken = any(
+                    j not in shape.owners and tails_cross(hull, _corners(o.rect))
+                    for j, o in enumerate(placed)
+                ) or any(face != shape.face and tails_cross(hull, _corners(face)) for face in faces)
         refused = refused or broken
-        return not broken
+        return not broken, shape
 
     def search(index: int, rules: int) -> bool:
         nonlocal tries, stuck
@@ -324,13 +353,14 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
                     continue  # reading order is hard
                 if any(_overlap(option.rect, other.rect) for other in placed):
                     continue
-                if not kept(index, option, rules):
+                ok, shape = judged(index, option, rules)
+                if not ok:
                     continue
                 tries += 1
                 if tries > SEARCH_LIMIT:
                     return False
                 placed.append(option)
-                drawn.append(tail_of(index, option.rect) if rules else None)
+                drawn.append(shape)
                 if search(index + 1, rules):
                     return True
                 placed.pop()
@@ -338,6 +368,7 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         return False
 
     found = search(0, TAIL_RULES)
+    used = TAIL_RULES
     for rules, warning in (
         (1, "a tail runs under a bubble or across a face on %s: no placement keeps it clear"),
         (0, "tails cross on %s: no placement keeps them apart"),
@@ -352,6 +383,7 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         tries = stuck = 0
         refused = False
         found = search(0, rules)
+        used = rules
         if found:
             log.warning(warning, panel_name(key))
     if not found:
@@ -366,10 +398,10 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
             f"{FONT_SIZES[-1]} px; the panel is too small for its lines, and no line is ever cut",
             shot=key,
         )
-    return placed
+    return placed, used > 0
 
 
-def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame) -> Panel:
+def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame, links: bool) -> Panel:
     lone = _lone_head([item.text for item in placed], frame)
     bubbles: list[Bubble] = []
     captions: list[Caption] = []
@@ -389,7 +421,8 @@ def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame) -> Pan
             )
             continue
         assert text.speaker is not None and text.element is not None
-        tail = _tip(text, frame, panel.rect, item.rect, lone)
+        linked = links and text.linked  # T118: the connector replaces its tail
+        tail = None if linked else _tip(text, frame, panel.rect, item.rect, lone)
         bubbles.append(
             Bubble(
                 text.kind,
@@ -401,6 +434,7 @@ def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame) -> Pan
                 tail,
                 item.font_px,
                 text.voice,
+                linked,
             )
         )
     return Panel(panel.scene_index, panel.shot_number, panel.rect, tuple(bubbles), tuple(captions))
@@ -408,9 +442,12 @@ def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame) -> Pan
 
 @dataclass(frozen=True)
 class _Tail:
-    tip: Point
+    """A tail or a connector (T118), as the tail rules see it."""
+
+    tip: Point | None  # None for a connector
     hull: Shape | None  # None: the tip is inside the box, so no tail is drawn
     face: Rect | None  # the head rect (page px) its tip ends in: the one face it may cross
+    owners: frozenset[int]  # the texts whose boxes it joins: their boxes and tails aren't "other"
 
 
 def _tip(
@@ -562,6 +599,27 @@ def _hull(points: Sequence[tuple[float, float]]) -> Shape:
             upper.pop()
         upper.append(point)
     return tuple(lower[:-1] + upper[:-1])
+
+
+def connector(a: Rect, b: Rect) -> Shape:
+    """comic.md §4 step 8 (T118): the band joining two linked boxes, centre to centre,
+    LINK_WIDTH wide: the shape render.py draws, its ends hidden under the two boxes' fills."""
+    return _band(a, b, LINK_WIDTH)
+
+
+def _band(a: Rect, b: Rect, width: float) -> Shape:
+    ax, ay = a[0] + a[2] / 2, a[1] + a[3] / 2
+    bx, by = b[0] + b[2] / 2, b[1] + b[3] / 2
+    length = math.hypot(bx - ax, by - ay)
+    nx, ny = -(by - ay) / length * width / 2, (bx - ax) / length * width / 2
+    return (ax + nx, ay + ny), (bx + nx, by + ny), (bx - nx, by - ny), (ax - nx, ay - ny)
+
+
+def _gap(a: Rect, b: Rect) -> float:
+    """The shortest distance between two boxes (T118's LINK_GAP)."""
+    dx = max(0, b[0] - (a[0] + a[2]), a[0] - (b[0] + b[2]))
+    dy = max(0, b[1] - (a[1] + a[3]), a[1] - (b[1] + b[3]))
+    return math.hypot(dx, dy)
 
 
 def _corners(rect: Rect) -> Shape:

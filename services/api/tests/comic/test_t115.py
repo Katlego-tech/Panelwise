@@ -26,11 +26,12 @@ def test_one_unnamed_head_and_one_speaker_the_tail_aims_at_that_head() -> None:
     assert bubble.tail == to_mouth(UNNAMED_RIGHT, placed.rect, bubble.rect)
 
 
-def test_two_lines_of_the_one_speaker_both_aim_at_the_head() -> None:
+def test_two_lines_of_the_one_speaker_aim_at_the_head_as_one_linked_balloon() -> None:
     screenplay, plan, book = panel_of(line("NANDI", "You came back."), line("NANDI", "Why?"))
     placed = second(place_lettering(book, screenplay, plan, framed(book, (UNNAMED_RIGHT,))))
-    for bubble in placed.bubbles:
-        assert bubble.tail == to_mouth(UNNAMED_RIGHT, placed.rect, bubble.rect)
+    first, then = placed.bubbles
+    assert first.tail == to_mouth(UNNAMED_RIGHT, placed.rect, first.rect)
+    assert then.linked and then.tail is None  # T118: the chain's first bubble has the tail
 
 
 def bottom_centre(rect: tuple[int, int, int, int]) -> tuple[int, int]:

@@ -172,9 +172,11 @@ def test_two_speakers_on_the_wrong_sides_are_placed_so_their_tails_do_not_cross(
 def test_two_lines_of_one_speaker_ending_at_one_tip_may_meet(
     caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # no head and no position: both tails go to the bottom centre and meet there
+    # no head and no position: both tails go to the bottom centre and meet there. Whispered,
+    # so T118 doesn't link them: a whisper's dashes keep their own tails.
     screenplay, plan, book = panel_of(
-        line("NANDI", "You came back."), line("NANDI", "The boat didn't.")
+        Dialogue("NANDI", None, "whispering", "You came back.", SPAN),
+        Dialogue("NANDI", None, "whispering", "The boat didn't.", SPAN),
     )
     caplog.set_level(logging.WARNING, logger="app.comic.bubbles")
     placed = second(place_lettering(book, screenplay, plan, framed(book)))
