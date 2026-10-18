@@ -501,8 +501,27 @@ def one_at_a_time(
     return [(rect, size) for rect, _, size in placed]
 
 
-def test_every_panel_the_old_rule_letters_is_lettered_exactly_as_before() -> None:
+def crossed(panel: Panel) -> bool:
+    """Whether two of the panel's tails cross, two to one tip exempt (T112)."""
+    drawn = [
+        (b.tail, triangle)
+        for b in panel.bubbles
+        if b.tail is not None and (triangle := bubbles.tail_triangle(b.rect, b.tail)) is not None
+    ]
+    return any(
+        tip != other and bubbles.tails_cross(a, b)
+        for i, (tip, a) in enumerate(drawn)
+        for other, b in drawn[i + 1 :]
+    )
+
+
+def test_every_panel_the_old_rule_letters_is_lettered_exactly_as_before(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The search without T112's tail rule is the old rule; with it, a panel changes only where
+    the old placement's tails crossed, and then none of its tails cross."""
     rng = random.Random(65)
+    changed = 0
     lines = [
         "You came back.",
         "The boat didn't. I walked the last mile along the cliff.",
@@ -534,14 +553,26 @@ def test_every_panel_the_old_rule_letters_is_lettered_exactly_as_before() -> Non
         given = frames(book, rng.choice([solid, busy_left, busy_top, quiet_bottom_right]))
         firsts = {s.scene_index: s.number for s in reversed(plan.shots)}
         try:
-            placed = {
+            kept = {
                 (p.scene_index, p.shot_number): p
                 for p in panels(place_lettering(book, screenplay, plan, given))
             }
+            with monkeypatch.context() as patch:
+                patch.setattr(bubbles, "tails_cross", lambda a, b: False)  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+                placed = {
+                    (p.scene_index, p.shot_number): p
+                    for p in panels(place_lettering(book, screenplay, plan, given))
+                }
         except ComicError as error:
-            placed, failed = {}, error.shot
+            placed, kept, failed = {}, {}, error.shot
         else:
             failed = None
+        for key, panel in placed.items():
+            if crossed(panel):
+                changed += 1
+                assert kept[key] == panel or not crossed(kept[key])
+            else:
+                assert kept[key] == panel
         for panel in panels(book):
             key = (panel.scene_index, panel.shot_number)
             old = one_at_a_time(panel, screenplay, plan, given[key], firsts[key[0]] == key[1])
@@ -557,6 +588,7 @@ def test_every_panel_the_old_rule_letters_is_lettered_exactly_as_before() -> Non
             assert [(t.rect, t.font_px) for t in order] == old
             compared += 1
     assert compared >= 20
+    assert changed >= 1  # the sample holds a panel whose old tails crossed
 
 
 # ------------------------------------------------------------------------ frames

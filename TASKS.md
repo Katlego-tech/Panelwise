@@ -587,13 +587,13 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:storyboard.md §6: `introduced_sex`'s signature unchanged
       Verify:  bash scripts/gate.sh (§9's T096 list; the invariant test's fourth key); free: the eight read samples' introductions (2 right, 0 wrong)
       Done:    THABO and KAMO are male from their introductions, no labelled character changes sex, and the next held-out runs' characters are scored
-- [ ] T097 [US3] **The head agent: where each person's head is in a comic panel's accepted frame.** Found on 2026-10-14: a bubble's tail points at a third of the panel at a fixed 45% of its height, and placement keeps that third's whole height clear, so tails miss heads high or low and bubbles can sit on faces. Measured on stored drawings (Token Factory, 2026-10-14): every box looked at on its head, repeatable within 0.02. Anatomy was measured too and is left out (a three-armed man passed twice). Lane `verify` (Claude for Katlego). Builds on T095 (`matched_people`, migration 0007).
+- [x] T097 [US3] **The head agent: where each person's head is in a comic panel's accepted frame.** Found on 2026-10-14: a bubble's tail points at a third of the panel at a fixed 45% of its height, and placement keeps that third's whole height clear, so tails miss heads high or low and bubbles can sit on faces. Measured on stored drawings (Token Factory, 2026-10-14): every box looked at on its head, repeatable within 0.02. Anatomy was measured too and is left out (a three-armed man passed twice). Lane `verify` (Claude for Katlego). Builds on T095 (`matched_people`, migration 0007).
       Design:  docs/design/verify.md §3 (The head agent), §4, §6 (T097 contracts), §7, §8, §9 (T097)
       Files:   services/api/app/verify/{model,schema,audit,loop}.py; services/api/app/frames/{model,writer}.py; services/api/migrations/versions/0010_audit_heads.py; services/api/app/comic/job.py (`heads=True`); services/api/tests/verify/test_t097.py; services/api/tests/db (the schema test)
       Contract:verify.md §6 verbatim: `HeadBox`, `HeadSeen`, `Audit.matched`, `Audit.heads`, `HeadAnswer`, `HeadCheck`, `HEAD_AGENT_PROMPT`, `heads_seen`, `find_heads`, `render_until_accepted(heads=)`, `FrameAuditRow.heads`
       Verify:  bash scripts/gate.sh (§9's T097 list); Token Factory: the real `find_heads` on Super VL (T105) on the 15 measured drawings, the boxes drawn and looked at
       Done:    a comic job's accepted panels have `frame_audits.heads` with a box on each visible head, a storyboard job asks no head question, and no frame's verdict changes because of the agent
-- [ ] T098 [US3] **Bubbles placed by the speaker's head: the tail points at it, and no bubble covers a face.** Lane `comic` (Claude for Katlego). Needs T097.
+- [x] T098 [US3] **Bubbles placed by the speaker's head: the tail points at it, and no bubble covers a face.** Lane `comic` (Claude for Katlego). Needs T097.
       Design:  docs/design/comic.md §2, §4 (steps 7 and 8), §6 (`PanelFrame.heads`), §8, §9 (T098)
       Files:   services/api/app/comic/{model,bubbles,render,job}.py; services/api/tests/comic/test_t098.py
       Contract:comic.md §6 verbatim: `PanelFrame.heads`; `place_lettering`'s signature unchanged; the layout JSON unchanged
@@ -617,6 +617,24 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:grounding.md §6: `ground`'s signature unchanged; `_fold_titled` private to filter.py; the `openers` keyword defaults to `()`, so every existing caller and test is unchanged
       Verify:  bash scripts/gate.sh (§9's T101 list; every existing grounding test unchanged); free: the 30 stored extractions replayed through the real `ground`, only the-lighthouse-inspector changes, as §3 records
       Done:    the lighthouse's model `FORTUIN` comes out as one `MR. FORTUIN` (`Source.MODEL`, its quotes, `FORTUIN` an other name) and `MS. NAIDOO` female, with no CUE duplicate; a kinship word (MAMA THEMBI), two titled spellings, a bare cue, a superset name (THABO DUBE) or a first name against a full name fold nothing; and the next held-out runs show no bare-surname duplicate
+- [ ] T102 [US2] **A person the presence agent finds is asked the sex question too.** Found on 2026-10-14 (L022, the-lighthouse-inspector 7.5: the presence agent found an old woman as Mr. Fortuin and nothing asked her sex, so she was shown). Measured on stored drawings (Token Factory only, 2026-10-16): the presence agent on the 77 stored frames it would run on found 36 people for characters the script sexes; asked, 2 the other sex, both real (MAMA THEMBI drawn as a man, NALEDI as a boy), 0 false alarms. Tumo's call (2026-10-15): build (a) of the backlog. Lane `verify` (Claude for Tumo).
+      Design:  docs/design/verify.md §3 (A found person is asked the sex question too; the `DRAWN_SEX` row), §4, §6 (T102 contracts), §8, §9 (T102)
+      Files:   services/api/app/verify/audit.py (`found_people`, `_ask_sexes(pairs)` one question per person, `check_person` at 4,096 tokens, `run_checks`, `audit_frame`); services/api/tests/verify/test_t102.py
+      Contract:verify.md §6 T102: `present_characters` and `run_checks` signatures unchanged; `_ask_sexes` takes (person, character) pairs; no migration (`frame_audits.seen`)
+      Verify:  bash scripts/gate.sh (§9's T102 list; T095 and T099 tests unchanged); Token Factory: the real code on the 77 stored frames (about 2 flagged, both real, 0 false alarms)
+      Done:    with `AUDIT_WITHHOLD_CHECKS=drawn_sex,no_character`, a found person drawn as the other sex fails `DRAWN_SEX` and the shot is redrawn; lighthouse 7.5 replayed with T101's names is flagged; a found person of the script's sex, `unclear`, or with no script sex passes; and the next held-out runs' `seen` holds the found people's answers
+- [ ] T104 [US2] **The layout agent: a frame drawn as several panels, or one person drawn twice.** Found on 2026-10-12 (L015, split panels) and 2026-10-14 (L022: lighthouse 4.2, MS. NAIDOO twice). Measured on stored drawings (Token Factory only, 2026-10-16): 332 attempts with two or more people; 23 splits flagged, all real; 8 copies in one picture, 6 real; the matched veto removes the 1 false one and 1 real one (a girl matched to TEBOGO), leaving 5 real and 1 wrong frame anyway. Tumo's call (2026-10-16): build (c). Lane `verify` (Claude for Tumo).
+      Design:  docs/design/verify.md §3 (The layout agent; the SPLIT_PANELS and DRAWN_TWICE rows), §4, §6 (T104 contracts), §7, §8, §9 (T104)
+      Files:   services/api/app/verify/{model,schema,audit,recheck}.py; services/api/app/frames/{model,writer}.py; services/api/migrations/versions/0009_audit_layout.py; services/api/tests/verify/{test_t104,test_checks}.py
+      Contract:verify.md §6 T104; `run_checks(layout=)` defaults to None; migration 0009, whichever of T104 and Katlego's #170 merges second renumbering
+      Verify:  bash scripts/gate.sh (§9's T104 list); Token Factory: the real code on the 332 stored frames (about 23 splits, all real; copies with the veto)
+      Done:    on the hosted ladder (`drawn_sex,no_character,split_panels`, Katlego, 2026-10-17) a split frame is withheld and redrawn and a person drawn twice in one picture warns (withheld too where `drawn_twice` is on a ladder); two look-alike characters each matched pass; and the next held-out runs' audits hold the layout answers
+- [ ] T103 [US3] **The storyboard PDF names each line's speaker.** Planned 2026-10-15 (the re-plan: "speaker names on the PDF's dialogue"): the PDF printed a speech with no speaker (load-shedding 2.1: "Load shedding. Thank you, Lord." under an action line, whose?), while the web's frame sheet shows each dialogue part under its cue. Lane `storyboard` (Claude for Tumo).
+      Design:  docs/design/storyboard.md §3.4 (Speakers; Fitting), §6 (`SourceLine`, `Block.source_lines`, `_source_lines`, `DOCUMENT_VERSION` 3)
+      Files:   services/api/app/storyboard/{model,document}.py; services/api/tests/storyboard/{test_t103,test_document}.py
+      Contract:storyboard.md §6: `SourceLine(text, speaker, of)`; `Block.source_lines: tuple[SourceLine, ...]`; `layout_document`'s and `render_pdf`'s signatures unchanged
+      Verify:  bash scripts/gate.sh (test_t103, and test_document's two long-source tests on the fallback: a dialogue element gives its cue line, with its extension, Bold, then its speech; an action element no speaker line; the speeches and actions joined are the shot's `source`; a speaker line never ends a page; the document key changes with the version); the PDF of a stored run exported and looked at
+      Done:    every speech in an exported storyboard PDF sits under its speaker's name, shown when the speaker changes as the web shows it, repeated above a speech continued on the next page, the words unchanged; a heading-only shot prints as before; and a PDF cached before T103 is drawn again
 - [ ] T105 [US2] **Nemotron 3.5 Super VL as the vision model, measured first.** Super VL is the target (Katlego, 2026-10-17: the sponsor's technology); the measurement shows fit and what translates. Found on 2026-10-17: NVIDIA's 15 Oct release put `nvidia/Nemotron-3.5-Super-VL` (text and images) on Token Factory, the first NVIDIA model there that takes an image (findings § U8; one probe read a comic page correctly). It could make every vision call (the describer and every agent) NVIDIA's, which option A had to give up (§ The vision decision). Lane `verify` (Claude for Katlego). Measured on stored drawings before any default changes.
       Design:  docs/design/vision-model.md (all); docs/nebius-findings.md § U8
       Files:   services/api/app/core/config.py (`nebius_vision_thinking`, in `_blank_is_off`); services/api/app/llm/client.py (`vision_thinking`); services/api/tests/llm/test_client.py; .env.example; docs/nebius-findings.md (§ U8's tables); if adopted: the two defaults, § Settled configuration, verify.md §2's vision-decision row
@@ -641,6 +659,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:Non-negotiable I holds: a different hairstyle (short hair for braids) is still refused; only words for the same style are accepted
       Verify:  bash scripts/gate.sh; `recheck`/`reaudit` on the-red-kite's and one held-out project's stored attempts with Super VL
       Done:    storyboard 4.1 matches LERATO on Super VL, comic 1.1 (short hair) is still refused, recorded in findings § U8
+- [ ] T109 [US2] **The describer's answer capped in its grammar, so a loop can't cut it off.** Found on 2026-10-17 (T105, findings § U8): on Super VL the describer's answer failed its schema even after the repair on 7 of 109 labelled frames, and on rooftop-tomatoes' comic 6.1 live: an `ERROR`, the frame withheld, a redraw on the hosted demo. Measured (verify.md §9 T109): each is a loop at temperature 0 (one object or a string repeated until `max_tokens`), and length limits in the decoding grammar alone end all 7 while 10 of 10 other frames answer exactly as before. Lane `verify` (Tumo, Claude; number proposed by Katlego on #194).
+      Design:  docs/design/verify.md § T109 contracts, §8, §9 T109; docs/design/llm.md §6 (`structured_chat(grammar=)`), §8, §9; its own PR (`docs/describer-caps-t109`)
+      Files:   services/api/app/llm/structured.py; services/api/app/verify/{schema,audit}.py; services/api/tests/llm/, services/api/tests/verify/test_t109.py
+      Contract:verify.md § T109 contracts and llm.md §6 verbatim: `DescriptionLimits`, `DESCRIPTION_LIMITS` (24, 40, 40, 100, 200, 60), `description_grammar()`, `structured_chat(..., grammar=None)`, `run_checks`'s limit details (a list at its limit is never passed silently); `FrameDescription` and the prompt's schema text unchanged
+      Verify:  bash scripts/gate.sh (tests first: test_t109.py and the llm body test); `eval/tools/score_labels.py` on the 109 labelled frames with Super VL (about $0.25, Tumo's go-ahead), every frame whose verdict moves looked at
+      Done:    the 6 labelled frames that loop when asked (market-day 2.1, 3.2, 5.2; the-borrowed-bicycle 5.5; the-lighthouse-inspector 8.1; the-night-taxi 1.1) and rooftop comic 6.1 describe without an `ERROR` on Super VL; no other labelled frame's verdict moves for a describer reason; recorded in verify.md §9 and findings § U8
 - [ ] T111 [US2] **The limb agent: a body drawn wrong (a third arm, fused bodies, a missing limb), measured on Super VL first.** Raised 2026-10-17 (Katlego). On 2026-10-14 the same question failed on DeepSeek-V4.1-Flash: it called a three-armed man `normal` twice and miscounted limbs, so T097 dropped anatomy (verify.md §3, on #170). Super VL is the vision model now (T105) and got T097's head boxes right (24 of 24). No drawing has an anatomy label yet, so labels come first. Lane `verify` (Claude for Katlego). This task is the measurement and the decision; the code task gets its number when §8 adopts it, announced on the PR. Plan: docs/design/limb-agent.md §9, §10 (labels 17–18 Oct, the run 18 Oct, the decision 19 Oct, code by 22 Oct if adopted).
       Design:  docs/design/limb-agent.md (all)
       Files:   docs/design/limb-agent/labels.json (new: the eye labels); services/api/tools/measure_limbs.py (new: writes nothing); docs/nebius-findings.md § U9 (new; § U8 is Tumo's)
@@ -653,5 +677,59 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:narration.md §6 verbatim: the three settings, `Line`, `clips_of`, `cast`, `ElevenLabs.speak`, `NarrationClip`, `NarrationRow`, the two routes and their codes
       Verify:  bash scripts/gate.sh (narration.md §9's tests, ElevenLabs through a MockTransport only); live (announced first): the 2026-10-17 live comic narrated and listened to end to end
       Done:    on the live comic, Listen plays every line in reading order, each clip's text equal to its lettering, Lerato's and Mokgosi's voices distinct, the narrator on the captions; without the key nothing changes
+- [x] T112 [US3] **Speech tails never cross each other.** Asked by Katlego on 2026-10-17, after T098's live comic: with tails now ending at heads, two speakers whose bubbles sit on the "wrong" sides draw tails that cross. Lane `comic` (Claude for Katlego). Needs T098.
+      Design:  docs/design/comic.md §4 step 7 (the tail rule, the last-resort search), step 8 (one triangle), §6 (`tail_triangle`, `tails_cross`), §8, §9 (T112), §10 (a tail hidden under another bubble: open)
+      Files:   services/api/app/comic/{bubbles,render}.py; services/api/tests/comic/test_t112.py
+      Contract:comic.md §6 verbatim: `tail_triangle(box, tip)` and `tails_cross(a, b)` in bubbles.py (render.py's `_tail_polygon`, `_radius` and `TAIL_BASE` moved there, unchanged); `place_lettering`'s signature and the layout JSON unchanged
+      Verify:  bash scripts/gate.sh (§9's T112 list; the reference pages unchanged, or every changed page looked at); the 2026-10-17 live comic re-lettered from its stored frames (no drawing, no model call: free), its pages looked at
+      Done:    on the live comic's pages no two tails cross except two lines of one speaker meeting at their head; a panel no placement can keep apart still letters (warned in the log); a panel without crossings letters exactly as before
+- [x] T114 [US3] **A speech tail aims at the speaker's mouth.** Asked by Katlego on 2026-10-18: the tail points at the centre of the head box's lower third, not the head rect's nearest point (lettering practice, docs/research). Lane `comic` (Claude for Katlego). Needs T112.
+      Design:  docs/design/comic.md §4 step 8 (the mouth, the tip on the line to it), §8, §9 (T114)
+      Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/{test_t114,test_t098}.py
+      Contract:comic.md §4 step 8; `place_lettering`'s signature, the layout JSON and step 7's costs unchanged
+      Verify:  bash scripts/gate.sh (§9's T114 list; the reference pages unchanged); the 2026-10-17 live comic re-lettered from its stored frames (free), its tails looked at
+      Done:    on the live comic every tail with a named head points at the speaker's mouth and chin, its tip short of the face; a frame without heads letters exactly as before
+- [x] T115 [US3] **A lone unnamed head is the speaker's.** Katlego, 2026-10-18, on Tumo's gogos-recipe finding (#200: 3.1 and 5.4 point away). Lane `comic` (Claude for Katlego). Needs T114.
+      Design:  docs/design/comic.md §4 step 7 (the lone unnamed head), §8, §9 (T115)
+      Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/test_t115.py
+      Contract:comic.md §4 step 7; no signature or JSON change
+      Verify:  bash scripts/gate.sh (§9's T115 list)
+      Done:    a panel with one unnamed head and one speaker points that speaker's tail at the head; with two heads nothing is guessed
+- [x] T116 [US3] **Tails stay clear of other bubbles and other faces.** Katlego, 2026-10-18 (comic.md §10's hidden tail; the research: no tail across another face). Lane `comic` (Claude for Katlego). Needs T112.
+      Design:  docs/design/comic.md §4 step 7 (tails stay clear; the searches in order), §8, §9 (T116)
+      Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/{test_t116,test_t112,test_bubbles}.py
+      Contract:comic.md §4 step 7, §6 (`tail_hull`); `place_lettering`'s signature unchanged
+      Verify:  bash scripts/gate.sh (§9's T116 list; every changed reference panel looked at); the 2026-10-17 live comic re-lettered (free): p2's hidden tail is visible
+      Done:    on the live comic no tail runs under a bubble or across another face; a panel where nothing keeps tails clear still letters, warned in the log
+- [x] T117 [US3] **Balloon voices: thought, whisper, shout, distress, radio, and narration boxes.** Katlego, 2026-10-18, from the lettering research (docs/research). Lane `comic` (Claude for Katlego). Needs T116.
+      Design:  docs/design/comic.md §3 (Voice, the two kind exceptions), §4 step 7 (drawing by voice), step 8 (tails by voice), §6, §8, §9 (T117)
+      Files:   services/api/app/comic/{model,bubbles,render,__init__}.py; services/api/tests/comic/test_t117.py; the reference pages
+      Contract:comic.md §6 verbatim (`Voice`, `Bubble.voice`, `Caption.voice`, `voice_of`, `thought_trail`, `radio_zigzag`, `tail_hull`); the layout JSON gains `voice`, nothing else changes
+      Verify:  bash scripts/gate.sh (§9's T117 list); a page of every voice looked at; the live comic re-lettered (free): Lerato's whisper dashed, the radio announcer's broadcast box
+      Done:    each of the six voices is drawn as specified wherever the script's words call for it, and only there; every word lettered byte for byte as before
+- [x] T118 [US3] **One speaker's consecutive lines are linked.** Katlego, 2026-10-18: "the bubble splitting into two or more with the linking part stretched out" (the research's connector). Lane `comic` (Claude for Katlego). Needs T117.
+      Design:  docs/design/comic.md §3 (linked lines), §4 step 7 (connectors under the tail rules, LINK_GAP), step 8 (connectors), §6, §8, §9 (T118)
+      Files:   services/api/app/comic/{model,bubbles,render}.py; services/api/tests/comic/test_t118.py; the reference pages
+      Contract:comic.md §6 (`Bubble.linked`, `connector`); the layout JSON gains `linked`
+      Verify:  bash scripts/gate.sh (§9's T118 list); the reference pages and the 17 Oct live comic (free) looked at: p5 4.2's two lines of Lerato linked
+      Done:    wherever one speaker has consecutive lines in a panel they read as one balloon split in two, the first with the tail
+- [x] T119 [US3] **A linked chain's tail leaves the box nearest the speaker.** Katlego, 2026-10-18 (docs/research § Same-speaker balloons). Lane `comic` (Claude for Katlego). Needs T118.
+      Design:  docs/design/comic.md §3 (linked lines), §4 step 7 (the chain's tail judged at its last box), §9
+      Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/test_t119.py
+      Contract:comic.md §3, §6; the JSON's shape unchanged (a chain's one tail may be on any box)
+      Verify:  bash scripts/gate.sh; the reference and live pages looked at
+      Done:    every chain's one tail leaves the box nearest its speaker and keeps the tail rules
+- [x] T120 [US3] **Two linked balloons that nearly touch merge into one outline.** Katlego, 2026-10-18 (abutted balloons). Lane `comic`. Needs T118.
+      Design:  docs/design/comic.md §4 step 8 (merged, the seam)
+      Files:   services/api/app/comic/{bubbles,render}.py; services/api/tests/comic/test_t119.py
+      Contract:`connector(a, b)` returns the seam or the band
+      Verify:  bash scripts/gate.sh; the live comic's p5 4.2 (a speech split by a page break) looked at
+      Done:    linked boxes under 16 px apart read as one balloon pinched at the waist
+- [x] T121 [US3] **A pause the script states keeps one speaker's lines apart.** Katlego, 2026-10-18. Lane `comic`. Needs T118.
+      Design:  docs/design/comic.md §3 (linked lines: a pause unlinks), §8
+      Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/test_t119.py
+      Contract:comic.md §3
+      Verify:  bash scripts/gate.sh; the sample's p1 0.2 (an action between) and p5 4.2 (CONT'D) both linked
+      Done:    two lines with a (beat) or (pause) stated between are separate balloons with a tail each; an action line between doesn't unlink (Katlego, 2026-10-18)
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
