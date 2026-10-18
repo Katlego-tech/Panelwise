@@ -286,7 +286,7 @@ def _tip(text: _Text, frame: PanelFrame, panel: Rect, box: Rect) -> Point | None
         return None
     head = None if frame.withheld else _speaker_head(text.speaker, frame.heads)
     if head is not None and text.kind is BubbleKind.SPEECH:
-        return _to_head(_head_rect(head, panel[2], panel[3]), panel, box)
+        return _to_mouth(head, panel, box)
     positions: Mapping[str, Position] = {} if frame.withheld else frame.positions
     return _tail(text.kind, _position(text.speaker, positions), panel, box)
 
@@ -369,13 +369,29 @@ def _speaker_head(speaker: str | None, heads: Sequence[HeadSeen]) -> HeadSeen | 
     return next((head for head in named if head.character == name), None)
 
 
-def _to_head(head: Rect, panel: Rect, box: Rect) -> Point:
-    """comic.md §4 step 8 (T098): the point of the speaker's head rect nearest the bubble's
-    centre, in page pixels; inside the panel, as the rect is clipped to it."""
-    x, y, _, _ = panel
-    hx, hy, hw, hh = head
-    cx, cy = box[0] + box[2] // 2, box[1] + box[3] // 2
-    return min(max(cx, x + hx), x + hx + hw - 1), min(max(cy, y + hy), y + hy + hh - 1)
+def _to_mouth(head: HeadSeen, panel: Rect, box: Rect) -> Point:
+    """comic.md §4 step 8 (T114): the tail aims at the mouth, the centre of the head box's lower
+    third, and ends where the line from the bubble's centre to it enters the grown head rect, so
+    the tip stops short of the face. In page pixels, inside the rect and so inside the panel."""
+    x, y, w, h = panel
+    x0, y0, x1, y1 = head.box
+    left, top = math.floor(x0 * w), math.floor(y0 * h)
+    right, bottom = math.ceil(x1 * w), math.ceil(y1 * h)
+    mouth = ((left + right) / 2, top + 5 * (bottom - top) / 6)
+    hx, hy, hw, hh = _head_rect(head, w, h)
+    centre = (box[0] + box[2] // 2 - x, box[1] + box[3] // 2 - y)
+    enter = 0.0  # how far along the line, centre to mouth, it enters the rect
+    for c, m, low, high in (
+        (centre[0], mouth[0], hx, hx + hw - 1),
+        (centre[1], mouth[1], hy, hy + hh - 1),
+    ):
+        if c < low:
+            enter = max(enter, (low - c) / (m - c))
+        elif c > high:
+            enter = max(enter, (c - high) / (c - m))
+    tx = math.floor(centre[0] + enter * (mouth[0] - centre[0]) + 0.5)
+    ty = math.floor(centre[1] + enter * (mouth[1] - centre[1]) + 0.5)
+    return x + min(max(tx, hx), hx + hw - 1), y + min(max(ty, hy), hy + hh - 1)
 
 
 def _position(speaker: str | None, positions: Mapping[str, Position]) -> Position | None:

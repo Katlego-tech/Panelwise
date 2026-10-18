@@ -38,6 +38,7 @@ from tests.fakes import MemoryStore
 
 head_rect = bubbles._head_rect  # pyright: ignore[reportPrivateUsage]
 cost_of = bubbles._cost  # pyright: ignore[reportPrivateUsage]
+to_mouth = bubbles._to_mouth  # pyright: ignore[reportPrivateUsage]
 reused = comic_job._reused  # pyright: ignore[reportPrivateUsage]
 Prior = comic_job._Prior  # pyright: ignore[reportPrivateUsage]
 
@@ -111,15 +112,10 @@ def test_a_speaker_with_a_head_pays_no_third_and_the_tail_ends_at_the_head() -> 
     assert isinstance(bubble, Bubble) and bubble.kind is BubbleKind.SPEECH
     assert bubble.rect[:2] == (x + INSET, y + INSET)  # the left third is free to use
     hx, hy, hw, hh = head_rect(NANDI_RIGHT, w, h)
-    bx, by, bw, bh = bubble.rect
-    centre = (bx + bw // 2, by + bh // 2)
-    # the point of the grown head rect nearest the bubble's centre, in page pixels
-    want = (
-        min(max(centre[0], x + hx), x + hx + hw - 1),
-        min(max(centre[1], y + hy), y + hy + hh - 1),
-    )
-    assert bubble.tail == want == (x + hx, y + hy)  # up and left of the head: its top-left corner
-    assert x <= want[0] < x + w and y <= want[1] < y + h
+    # T114 replaced T098's nearest point: the tail aims at the mouth (tests/comic/test_t114.py)
+    want = to_mouth(NANDI_RIGHT, (x, y, w, h), bubble.rect)
+    assert bubble.tail == want
+    assert x + hx <= want[0] < x + hx + hw and y + hy <= want[1] < y + hy + hh
 
 
 def test_the_speaker_is_found_by_match_speaker() -> None:
@@ -127,8 +123,7 @@ def test_the_speaker_is_found_by_match_speaker() -> None:
     x, y, w, h = second(book).rect
     head = HeadSeen(1, "Nandi", NANDI_RIGHT.box)
     bubble = lettered(second(place_lettering(book, screenplay, plan, with_heads(book, (head,)))))
-    hx, hy, _, _ = head_rect(head, w, h)
-    assert isinstance(bubble, Bubble) and bubble.tail == (x + hx, y + hy)
+    assert isinstance(bubble, Bubble) and bubble.tail == to_mouth(head, (x, y, w, h), bubble.rect)
 
 
 @pytest.mark.parametrize(
