@@ -1,7 +1,7 @@
 # Design — `comic` (page layout, panels, speech bubbles, export)
 
 **Status:** agreed; §4a, the comic job, proposed (T064) · **Owner:** Katlego (Claude); §4a Tumo (Claude) · **Tasks:** T022 (layout), T023 (bubbles, lettering,
-export), T064 (the comic job, storage, the API), T098 (bubbles placed by the speaker's head; Katlego), T112 (tails never cross; Katlego), T024 consumes it (reader) · **Spec:** [SPEC.md](../../SPEC.md) US3 (script →
+export), T064 (the comic job, storage, the API), T098 (bubbles placed by the speaker's head; Katlego), T112 (tails never cross; Katlego), T114 (the tail aims at the mouth; Katlego), T024 consumes it (reader) · **Spec:** [SPEC.md](../../SPEC.md) US3 (script →
 comic)
 
 ---
@@ -29,6 +29,7 @@ invented sound effects.
 | Inputs | `ShotPlan`, `Shot` (shots.md §6); `Screenplay`, `Scene`, `Dialogue`, `Span` (script.md §6); the frame renderer and audit (verify.md §6: `Renderer`, `render_until_accepted`, `Audit.positions`, and from T097 `Audit.heads`: each described person's head box on a comic panel's accepted frame). **Depends on verify.md's `Renderer.render` and `render_until_accepted` taking `width`/`height`** (added in PR #17, T010), so this doc lands after it |
 | Prior art in FrameFlow | none: FrameFlow made storyboard PDFs, never comics (its `storyboard_document.py` hand-wrote a PDF with base-14 fonts, two 16:9 panels per A4 page) |
 | Font | **Comic Neue Regular** (`ComicNeue-Regular.ttf`, SIL Open Font License 1.1), committed with its licence under `services/api/assets/fonts/` by T022, because step 5's budget measures text with the same file the renderer letters with |
+| Lettering practice | [docs/research/speech-bubble-placement.pdf](../research/speech-bubble-placement.pdf), its findings against this doc in [docs/research/README.md](../research/README.md) § Speech bubble placement: the tail aims at the mouth (T114), tails never cross (T112), faces stay clear (T098); the rest is §10 |
 | Page size | US comic trim, 6.625 × 10.25 in, rendered at 300 dpi = **1988 × 3075 px**; margins **120 px** (0.4 in); gutters **36 px** |
 
 ## 3. Domain model
@@ -264,8 +265,16 @@ in the comic font at `font_px`. Outlines of every box on a panel are drawn first
 then every text, so a tail passing under another bubble never covers its words.
 
 **8. Tails.** `SPEECH`: from the bubble's nearest edge to the speaker's point. **With a speaker's head
-rect** (T098): the point of that rect (step 7, already grown by 12 px, so the tip stops short of the
-face) nearest the bubble box's centre, in page pixels. Without one: the horizontal centre of their
+rect** (T098), **aimed at the mouth** (T114): the *mouth* is the centre of the lower third of the
+speaker's head box, un-grown: with the box in panel pixels `(L, T, R, B) = (⌊x0·w⌋, ⌊y0·h⌋, ⌈x1·w⌉,
+⌈y1·h⌉)`, the mouth is `((L + R) / 2, T + 5 (B − T) / 6)` (the box runs from the top of the hair to
+the chin, verify.md §3, so its lower third holds the mouth and chin). The tip is where the straight
+line from the bubble box's centre to the mouth enters the speaker's head rect (step 7, grown by
+12 px, so the tip still stops short of the face), rounded to the nearest pixel and kept inside that
+rect, in page pixels. A bubble whose centre is inside the head rect has its tip at its own centre,
+so it draws no tail (as before T114). (T098's tip was the rect's point nearest the bubble's centre:
+from a bubble beside the head that is level with the bubble, often the hair; from one above, the
+crown.) Without one: the horizontal centre of their
 third (`left`/`centre`/`right`) at 45% of the panel height; when the position is unknown, the
 panel's bottom centre (on a withheld card: no tail, step 6). `OFF_PANEL`: to the panel edge on the speaker's side, else the right edge.
 Captions: no tail. `Bubble.tail` is the tip, in page pixels, always inside the panel: a third's
@@ -575,6 +584,7 @@ Dependency: **Pillow** (text measurement, edge detection, compositing, PNG, mult
 | Reading order | a hard constraint | a cost term: the cheapest spot could still break reading order |
 | A panel's boxes | placed as a set: depth-first in each box's preference order, at most 10,000 tries | one box at a time, cheapest first, never revisited: on a detailed frame the first bubble could take a late cell and leave the next none, and the comic stopped (PR #92, real FLUX frames). The lowest total cost over all boxes: a different layout for panels that letter fine today, for no gain the reader sees |
 | Bubble position | image detail + every head (T098) + the speaker's third when their head is unknown | a vision model placing bubbles: another call per panel, not deterministic. (T098 keeps this: placement stays code over stored boxes; the one vision question is the audit's, asked once when the panel is accepted) |
+| Where a tail points (T114) | at the mouth: the centre of the head box's lower third, the tip where the line to it enters the grown head rect (Katlego, 2026-10-18; lettering practice, docs/research) | the rect's point nearest the bubble (T098: level with the bubble, so often the hair or the crown); the mouth itself as the tip (the tip lands on the face, which T098's margin keeps clear); asking the vision model for the mouth (another question, for a point a third of the box already gives) |
 | Tails that cross (T112) | a hard rule in the set search, on the drawn triangles; tails ending at one tip exempt; if no placement keeps them apart, the search runs again without the rule and logs | a cost term (a crossing would still win whenever the uncrossed spot is busier, which is the case that matters); redrawing a tail as a curve around the other (a new shape to draw and test, and a curved tail still crosses); failing the panel (a lost comic for a readability fault) |
 | Speaker position | the speaker's head box from the audit (T097, T098), else the audit's `positions` third | face detection: another model and dependency for a box the vision model already gives (measured: verify.md §3, the head agent). Before T098 the third alone, with the tail at a fixed 45% of the height: it missed a head high or low in the frame, and the third's whole height was kept clear for one head |
 | Page flow | a scene starts a new tier, not a new page | a page per scene: short scenes waste pages |
@@ -604,10 +614,18 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   panel's bubble overlaps no head rect when a free spot exists, and a box over a non-speaker's head
   costs 2.0 more than the same box elsewhere; a speaker with a head rect pays no third cost; a
   `SPEECH` tail's tip is the point of the speaker's head rect nearest the bubble's centre, inside
-  the panel; a speaker matched to no head (no `character`, or another name) keeps the third and
+  the panel (replaced by T114's mouth below); a speaker matched to no head (no `character`, or another name) keeps the third and
   the 45% tip; an `OFF_PANEL` tail and a withheld card are unchanged; a frame with no heads letters
   exactly as before (the reference pages compare unchanged); `panel_frame` carries the accepted
   audit's heads, the comic job's reused panel its row's (`None` → `()`), a card `()`.
+- **T114** (`tests/comic/test_t114.py`, tests first): the mouth is the centre of the un-grown head
+  box's lower third; a `SPEECH` tail's tip lies on the line from the bubble's centre to the mouth,
+  on the grown head rect's edge (within a pixel of rounding), inside the rect and the panel; a
+  bubble beside the head ends at the rect's side, a bubble above it at its top edge, both on the
+  line to the mouth; a bubble whose centre is inside the head rect draws no tail; a speaker with
+  no head, an `OFF_PANEL` tail and a withheld card are unchanged; a frame with no heads letters
+  exactly as before (the reference pages compare unchanged); T112's tests still pass on the new
+  tips.
 - **T112** (`tests/comic/test_t112.py`, tests first): `tails_cross` on triangles that cross, touch
   at a point, and stay apart; two speakers whose cheapest placement crosses (the left bubble's
   speaker on the right, the right bubble's on the left, both with head rects) are placed so no two
@@ -669,3 +687,20 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   speakers the audit placed nowhere (both to the bottom centre). Exempting by speaker instead would
   log a crossing on every panel of the second kind, where no placement can help. Waits with the
   hidden tail above, which the "crosses no other box" rule would also fix.
+- [ ] **A speaker whose head has no name** (Tumo, 2026-10-17, gogos-recipe on `feat/bubbles-t098`,
+  `eval/runs/2026-10-17-gogos-recipe.md` on #200): 3.1 "Ma. There's writing at the back." and 5.4
+  "Next time, sing in tune." point away from their speaker. The head agent boxed the head, but the
+  judge left that person unmatched, so the box has no `character` and the tail falls back to the
+  third or the bottom centre. Pointing at an unnamed head is a guess (5.4's unnamed person is an
+  extra the script doesn't have), so it isn't T114's. Options: point at the one unnamed head only
+  when the panel has exactly one head and one speaker; or leave it to the judge's matching.
+  Katlego's call.
+- [ ] **From the lettering research** (docs/research § Speech bubble placement), not adopted:
+  - no tail across another character's face: a tail crosses no head rect but its speaker's (with
+    the hidden-tail rule above);
+  - a shorter tail, ending 50–60% of the way to the head;
+  - the tail leaving from near the balloon's middle, not the point nearest the tip;
+  - a long speech (over about 25 words) split at sentence ends into linked balloons. Every word is
+    kept, in order, so Non-negotiable I holds, but the layout JSON gains a link;
+  - lines stacked as an oval (short, long, short) instead of a greedy wrap;
+  - hands that are doing something kept clear, if T111 ever gives hand boxes.

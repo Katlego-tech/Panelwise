@@ -659,5 +659,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:comic.md §6 verbatim: `tail_triangle(box, tip)` and `tails_cross(a, b)` in bubbles.py (render.py's `_tail_polygon`, `_radius` and `TAIL_BASE` moved there, unchanged); `place_lettering`'s signature and the layout JSON unchanged
       Verify:  bash scripts/gate.sh (§9's T112 list; the reference pages unchanged, or every changed page looked at); the 2026-10-17 live comic re-lettered from its stored frames (no drawing, no model call: free), its pages looked at
       Done:    on the live comic's pages no two tails cross except two lines of one speaker meeting at their head; a panel no placement can keep apart still letters (warned in the log); a panel without crossings letters exactly as before
+- [ ] T114 [US3] **A speech tail aims at the speaker's mouth.** Asked by Katlego on 2026-10-18: the tail points at the centre of the head box's lower third, not the head rect's nearest point (lettering practice, docs/research). Lane `comic` (Claude for Katlego). Needs T112.
+      Design:  docs/design/comic.md §4 step 8 (the mouth, the tip on the line to it), §8, §9 (T114)
+      Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/{test_t114,test_t098}.py
+      Contract:comic.md §4 step 8; `place_lettering`'s signature, the layout JSON and step 7's costs unchanged
+      Verify:  bash scripts/gate.sh (§9's T114 list; the reference pages unchanged); the 2026-10-17 live comic re-lettered from its stored frames (free), its tails looked at
+      Done:    on the live comic every tail with a named head points at the speaker's mouth and chin, its tip short of the face; a frame without heads letters exactly as before
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
