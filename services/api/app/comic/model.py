@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from app.script import Span
-from app.verify.model import Position
+from app.verify.model import HeadSeen, Position
 
 type Rect = tuple[int, int, int, int]  # x, y, w, h (page px)
 type Point = tuple[int, int]  # x, y (page px)
@@ -23,6 +23,17 @@ class BubbleKind(StrEnum):
 class CaptionKind(StrEnum):
     SCENE = "scene"
     VOICE_OVER = "voice_over"
+
+
+class Voice(StrEnum):
+    """T117: the balloon's shape, from the script's own words (comic.md §3)."""
+
+    PLAIN = "plain"
+    THOUGHT = "thought"
+    WHISPER = "whisper"
+    SHOUT = "shout"
+    DISTRESS = "distress"
+    RADIO = "radio"
 
 
 class ComicError(RuntimeError):
@@ -47,6 +58,8 @@ class Bubble:
     rect: Rect
     tail: Point | None
     font_px: int
+    voice: Voice = Voice.PLAIN  # T117
+    linked: bool = False  # T118: joined to the bubble before it by a connector; tail None
 
 
 @dataclass(frozen=True)
@@ -59,6 +72,7 @@ class Caption:
     span: Span
     rect: Rect
     font_px: int
+    voice: Voice = Voice.PLAIN  # T117: PLAIN, or RADIO for a broadcast voice-over
 
 
 @dataclass(frozen=True)
@@ -113,6 +127,7 @@ class PanelFrame:
     positions: Mapping[str, Position]
     withheld: bool
     card: WithheldCard | None = None
+    heads: tuple[HeadSeen, ...] = ()  # T098: the accepted audit's head boxes (T097); () on a card
 
     def __post_init__(self) -> None:
         if self.withheld != (self.card is not None):

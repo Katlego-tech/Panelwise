@@ -25,6 +25,8 @@ from app.verify.model import (
     Audit,
     Check,
     CheckResult,
+    FrameLayout,
+    HeadSeen,
     Light,
     ObjectCategory,
     ObjectKind,
@@ -44,7 +46,14 @@ from app.verify.prompts import (  # T099: the judge's own character lines, on pu
     _sexed,  # pyright: ignore[reportPrivateUsage]
     render_spec,
 )
-from app.verify.schema import FrameDescription, Judgement, PersonCheck, Presence
+from app.verify.schema import (
+    FrameDescription,
+    HeadCheck,
+    Judgement,
+    Layout,
+    PersonCheck,
+    Presence,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +76,9 @@ _SEVERITY = {
     Check.BACKGROUND_OBJECT: Severity.SOFT,
     # A character the script sexes drawn as the other sex, as the sex agent sees it (T095).
     Check.DRAWN_SEX: Severity.HARD,
+    # A frame drawn as a strip of panels, or one person drawn twice in one picture (T104).
+    Check.SPLIT_PANELS: Severity.HARD,
+    Check.DRAWN_TWICE: Severity.HARD,
 }
 # An unscripted animal or weapon is a story choice: it still withholds the frame (T089).
 _STORY_OBJECTS: frozenset[ObjectCategory] = frozenset(
@@ -524,6 +536,7 @@ def run_checks(
     seen: Sequence[PersonSeen] = (),
     sexes: Mapping[str, str] | None = None,
     found: Sequence[PersonFound] = (),
+    layout: FrameLayout | None = None,
 ) -> tuple[tuple[CheckResult, ...], Verdict, dict[str, Position]]:
     if not (
         _calls_each_once([c.person for c in judgement.people], len(description.people))
@@ -576,13 +589,17 @@ def run_checks(
         elif _points_elsewhere(call.support):
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support points at someone else")
 
-    # T095: a matched character the script sexes, drawn as the other sex.
+    # T095: a matched character the script sexes, drawn as the other sex; T102: or a found one.
     accepted = matched_people(shot, description, judgement, extraction, ages)
+    found_at = found_people(on_screen, found, accepted, description, ages)
     for answer in seen:
         want = (sexes or {}).get(answer.character)
         if (
             want is not None
-            and accepted.get(answer.person) == answer.character
+            and (
+                accepted.get(answer.person) == answer.character
+                or found_at.get(answer.character) == answer.person
+            )
             and answer.sex in ("male", "female")
             and answer.sex != want
         ):
@@ -666,6 +683,20 @@ def run_checks(
     if size is not None and abs(size - _FRAMING_STEP[shot.framing]) >= 2:
         failures[Check.FRAMING].append(f"{description.shot_size} for a {shot.framing} shot")
 
+    # T104: a frame in panels; in one picture, a person drawn twice unless both are characters.
+    if layout is not None and layout.panels > 1:
+        failures[Check.SPLIT_PANELS].append(f"drawn as {layout.panels} panels")
+    elif layout is not None:
+        known = dict(accepted) | {person: name for name, person in found_at.items()}
+        for a, b in layout.copies:
+            if a in known and b in known:
+                continue
+            one, two = description.people[a], description.people[b]
+            failures[Check.DRAWN_TWICE].append(
+                f"person {a} ({one.position}, {one.appearance}) and person {b} "
+                f"({two.position}, {two.appearance}): the same person drawn twice"
+            )
+
     checks = tuple(
         CheckResult(check, _SEVERITY[check], not failed, "; ".join(failed))
         for check, failed in failures.items()
@@ -722,7 +753,7 @@ async def check_person(
             ],
         },
     ]
-    result = await structured_chat(model, messages, PersonCheck, Tier.VISION, max_tokens=1024)
+    result = await structured_chat(model, messages, PersonCheck, Tier.VISION, max_tokens=4096)
     return result.value, result.chat
 
 
@@ -730,30 +761,34 @@ async def _ask_sexes(
     model: NebiusChatModel,
     image: str,
     description: FrameDescription,
-    matched: Mapping[int, str],
+    pairs: Sequence[tuple[int, str]],
     sexes: Mapping[str, str],
     chats: list[ChatResult],
 ) -> tuple[PersonSeen, ...]:
-    """The sex agent on every matched person the script sexes, at once (T095). A failed question
-    checks nothing for that person: logged, never an ERROR."""
-    asks = [(i, name) for i, name in sorted(matched.items()) if name in sexes]
-    if not asks:
+    """The sex agent on the (person, character) pairs whose character the script sexes: the
+    matched people (T095), or the found ones (T102). One question per person, all at once, the
+    answer kept for each of that person's pairs in the given order (T102: the question names no
+    character). A failed question checks nothing for that person: logged, never an ERROR."""
+    asks = [(i, name) for i, name in pairs if name in sexes]
+    people = sorted({i for i, _ in asks})
+    if not people:
         return ()
     answers = await asyncio.gather(
-        *(check_person(model, image, description, i) for i, _ in asks), return_exceptions=True
+        *(check_person(model, image, description, i) for i in people), return_exceptions=True
     )
-    seen: list[PersonSeen] = []
-    for (i, name), answer in zip(asks, answers, strict=True):
+    sex: dict[int, str] = {}
+    for i, answer in zip(people, answers, strict=True):
         if isinstance(answer, BaseException):
             if not isinstance(answer, LLMError | ValidationError):
                 raise answer
             detail = str(answer) if isinstance(answer, LLMError) else type(answer).__name__
-            logger.warning("sex agent on person %d (%s) failed: %s", i, name, detail)
+            names = ", ".join(name for p, name in asks if p == i)
+            logger.warning("sex agent on person %d (%s) failed: %s", i, names, detail)
             continue
         check, chat = answer
         chats.append(chat)
-        seen.append(PersonSeen(i, name, check.sex))
-    return tuple(seen)
+        sex[i] = check.sex
+    return tuple(PersonSeen(i, name, sex[i]) for i, name in asks if i in sex)
 
 
 async def _judge(
@@ -835,10 +870,22 @@ def present_characters(
     description: FrameDescription,
     ages: Mapping[str, int] | None,
 ) -> frozenset[str]:
-    """The drawn characters the presence agent finds (T099, pure): an answer naming a person who
-    exists, whom `matched_people` doesn't accept as another character, and whose described age
-    doesn't contradict the character's introduced years."""
-    out: set[str] = set()
+    """The drawn characters the presence agent finds (T099, pure): `found_people`'s characters."""
+    return frozenset(found_people(on_screen, found, accepted, description, ages))
+
+
+def found_people(
+    on_screen: Sequence[str],
+    found: Sequence[PersonFound],
+    accepted: Mapping[int, str],
+    description: FrameDescription,
+    ages: Mapping[str, int] | None,
+) -> dict[str, int]:
+    """Character -> the person the presence agent finds for them (T099, T102; pure): an answer
+    naming a person who exists, whom `matched_people` doesn't accept as another character, and whose
+    described age doesn't contradict the character's introduced years; the first such answer per
+    character."""
+    out: dict[str, int] = {}
     for answer in found:
         i = answer.person
         if answer.character not in on_screen or i is None:
@@ -850,8 +897,8 @@ def present_characters(
             years, described_age(description.people[i].appearance)
         ):
             continue
-        out.add(answer.character)
-    return frozenset(out)
+        out.setdefault(answer.character, i)
+    return out
 
 
 async def _find_characters(
@@ -887,6 +934,66 @@ async def _find_characters(
     return tuple(found)
 
 
+LAYOUT_AGENT_PROMPT = (
+    "You look at one storyboard drawing and a numbered list of the people a describer saw in it. "
+    "Answer two things from the drawing alone. First, panels: 1 when it is one single picture, "
+    "or the number of separate panels when it is laid out as a strip or grid of pictures side by "
+    "side. Second, copies: the pairs of numbered people who are plainly the same person drawn "
+    "more than once (the same face, hair, build and clothes, for example one person shown at two "
+    "moments, or twice in one room), as [a, b] pairs; an empty list when everyone is a different "
+    "person. People who merely look alike in a sketchy style (two men in suits, two children) are "
+    "not copies unless their face, hair and clothes match. Give a short reason."
+)
+
+
+async def check_layout(
+    model: NebiusChatModel, image: str, description: FrameDescription
+) -> tuple[Layout, ChatResult]:
+    """The layout agent (T104): one vision question, how many panels the frame is and which
+    numbered people are one person drawn twice."""
+    people = [f"[{i}] {p.position}: {p.appearance}" for i, p in enumerate(description.people)]
+    messages = [
+        {"role": "system", "content": LAYOUT_AGENT_PROMPT},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "\n".join(["People in the drawing:", *people])},
+                {"type": "image_url", "image_url": {"url": image}},
+            ],
+        },
+    ]
+    result = await structured_chat(model, messages, Layout, Tier.VISION, max_tokens=4096)
+    return result.value, result.chat
+
+
+def frame_layout(layout: Layout, people: int) -> FrameLayout:
+    """The answer cleaned (T104, pure): panels at least 1; each pair of two different people in
+    range once, as sorted (a, b), in sorted order; anything else dropped."""
+    pairs = {
+        (min(pair), max(pair))
+        for pair in layout.copies
+        if len(pair) == 2 and pair[0] != pair[1] and all(0 <= i < people for i in pair)
+    }
+    return FrameLayout(max(1, layout.panels), tuple(sorted(pairs)), layout.reason)
+
+
+async def _ask_layout(
+    model: NebiusChatModel, image: str, description: FrameDescription, chats: list[ChatResult]
+) -> FrameLayout | None:
+    """The layout agent on a frame of two or more people (T104). A failed question asks nothing:
+    logged, never an ERROR."""
+    if len(description.people) < 2:
+        return None
+    try:
+        layout, chat = await check_layout(model, image, description)
+    except (LLMError, ValidationError) as exc:
+        detail = str(exc) if isinstance(exc, LLMError) else type(exc).__name__
+        logger.warning("layout agent failed: %s", detail)
+        return None
+    chats.append(chat)
+    return frame_layout(layout, len(description.people))
+
+
 async def audit_frame(
     model: NebiusChatModel,
     frame: RenderedFrame,
@@ -900,6 +1007,8 @@ async def audit_frame(
     judgement: Judgement | None = None
     seen: tuple[PersonSeen, ...] = ()
     found: tuple[PersonFound, ...] = ()
+    layout: FrameLayout | None = None
+    matched: dict[int, str] = {}
     step = "describe"
     try:
         description, chat = await describe_frame(model, frame.png)
@@ -931,7 +1040,7 @@ async def audit_frame(
         sexes = shot_sexes(shot, screenplay, extraction, character_sex)
         matched = matched_people(shot, description, judgement, extraction, ages)
         image = f"data:image/png;base64,{base64.b64encode(frame.png).decode()}"
-        seen = await _ask_sexes(model, image, description, matched, sexes, chats)
+        seen = await _ask_sexes(model, image, description, sorted(matched.items()), sexes, chats)
         # T099: none of the drawn characters matched, on a judgement run_checks will read.
         well_formed = _calls_each_once(
             [c.person for c in judgement.people], len(description.people)
@@ -940,6 +1049,12 @@ async def audit_frame(
             found = await _find_characters(
                 model, image, on_screen, shot, screenplay, extraction, description, chats
             )
+            # T102: a found person the script sexes gets T095's question too.
+            found_at = found_people(on_screen, found, matched, description, ages)
+            pairs = sorted((person, character) for character, person in found_at.items())
+            seen += await _ask_sexes(model, image, description, pairs, sexes, chats)
+        if well_formed:  # T104: a split frame, or one person drawn twice
+            layout = await _ask_layout(model, image, description, chats)
         checks, verdict, positions = run_checks(
             shot,
             scene,
@@ -951,6 +1066,7 @@ async def audit_frame(
             seen=seen,
             sexes=sexes,
             found=found,
+            layout=layout,
         )
 
     return Audit(
@@ -970,4 +1086,77 @@ async def audit_frame(
         ),
         seen=seen,
         found=found,
+        layout=layout,
+        matched=matched,
     )
+
+
+HEAD_AGENT_PROMPT = (
+    "You look at the people in a storyboard drawing and say where each listed person's head is: "
+    "the box around the head, from the top of the hair to the chin, as fractions of the image's "
+    "width and height from its top-left corner (0 to 1). Set visible to false when the head is out "
+    "of frame or hidden. Answer for every person listed, by their number, and only for them."
+)
+
+
+def heads_seen(answer: HeadCheck, people: int, matched: Mapping[int, str]) -> tuple[HeadSeen, ...]:
+    """The head agent's answer kept (T097, pure): an answer for a described person, the first
+    for that person, visible, with 0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1; anything else
+    dropped. Each kept box carries the character the person was accepted as, in person order."""
+    answered: set[int] = set()
+    kept: list[HeadSeen] = []
+    for head in answer.heads:
+        if not 0 <= head.person < people or head.person in answered:
+            continue
+        answered.add(head.person)
+        if head.visible and 0 <= head.x0 < head.x1 <= 1 and 0 <= head.y0 < head.y1 <= 1:
+            box = (head.x0, head.y0, head.x1, head.y1)
+            kept.append(HeadSeen(head.person, matched.get(head.person), box))
+    return tuple(sorted(kept, key=lambda h: h.person))
+
+
+async def find_heads(model: NebiusChatModel, frame: RenderedFrame, audit: Audit) -> Audit:
+    """The head agent (T097): one vision question on an accepted comic panel, where each
+    described person's head is. It is no check: the audit comes back with `heads` and the
+    question's usage and model added, its verdict and checks untouched. No described person asks
+    nothing; a failed question is logged and changes nothing."""
+    if audit.description is None or not audit.description.people:
+        return audit
+    people = audit.description.people
+    lines = [f"{i}: {p.position} third, {p.appearance}" for i, p in enumerate(people)]
+    image = f"data:image/png;base64,{base64.b64encode(frame.png).decode()}"
+    messages = [
+        {"role": "system", "content": HEAD_AGENT_PROMPT},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "\n".join(["People in the drawing:", *lines])},
+                {"type": "image_url", "image_url": {"url": image}},
+            ],
+        },
+    ]
+    try:
+        result = await structured_chat(model, messages, HeadCheck, Tier.VISION, max_tokens=4096)
+    except (LLMError, ValidationError) as exc:
+        detail = str(exc) if isinstance(exc, LLMError) else type(exc).__name__
+        logger.warning(
+            "head agent on shot %s attempt %d failed: %s", audit.shot, audit.attempt, detail
+        )
+        return audit
+    heads = heads_seen(result.value, len(people), audit.matched)
+    if len(heads) < len(result.value.heads):
+        logger.info(
+            "head agent on shot %s attempt %d kept %d of %d answers",
+            audit.shot,
+            audit.attempt,
+            len(heads),
+            len(result.value.heads),
+        )
+    chat = result.chat
+    usage = Usage(
+        prompt_tokens=audit.usage.prompt_tokens + chat.usage.prompt_tokens,
+        completion_tokens=audit.usage.completion_tokens + chat.usage.completion_tokens,
+        reasoning_tokens=audit.usage.reasoning_tokens + chat.usage.reasoning_tokens,
+    )
+    models = tuple(dict.fromkeys((*audit.models, chat.model)))
+    return replace(audit, heads=heads, usage=usage, models=models)
