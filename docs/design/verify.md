@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn), T094 (the rule ladder), T095 (the sex agent), T097 (the head agent: where each person's head is, for the comic's bubbles), T099 (the presence agent) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn), T094 (the rule ladder), T095 (the sex agent), T097 (the head agent: where each person's head is, for the comic's bubbles), T099 (the presence agent), T106 (a rooftop is exterior), T107 (a signature's letters aren't text) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -107,7 +107,30 @@ classDiagram
   itself: shading, hatching, outlines, sketch lines, shadows, the frame's border (it listed
   "pencil shading" as an object, which failed a good frame). Under `text` it writes, word for
   word, each piece of writing it can actually **read**; a scribble, an unreadable signature or a
-  mark that isn't letters is left out of `text` (it may still set `has_text`).
+  mark that isn't letters is left out of `text` (it may still set `has_text`). **T107:** the
+  artist's signature or initials are left out of `text` **even when it can read them**: they go
+  only under `signature`. `text` is the scene's lettering (signs, labels, screens, paper,
+  clothing, a drawn sound effect), the writing a script could have asked for. Super VL reads the
+  scrawled corner signatures that DeepSeek left out ("J. Eubred", "Muller", "M. P. P. 2020"), so
+  on the-red-kite's 44 stored attempts its `text` entries rose 9 → 25 and the soft `TEXT_IN_FRAME`
+  6 → 22 (findings § U8), each one a signature reported as unscripted lettering.
+- **Interior or exterior (T106).** `exterior` when the place is open to the sky (a rooftop, a
+  balcony, a yard, a street), even when the sky is left as blank paper; `interior` only when walls
+  and a ceiling close it in; `unclear` when the drawing doesn't show which. Super VL called
+  the-red-kite's flat roof `interior` on both of its attempts (comic and storyboard 0.4): a
+  parapet, a white sky, and in one some beams. That's a hard `SETTING` fail on a right frame.
+  DeepSeek said `unclear` there, which passes.
+- **The instruction's wording for both (T106, T107), verbatim in `DESCRIBE_PROMPT`:**
+  - the setting: "Say whether the scene is interior or exterior: exterior when the place is
+    open to the sky (a rooftop, a balcony, a yard, a street), even if the sky is left blank;
+    interior only when walls and a ceiling close it in; unclear when you can't tell." It replaces
+    "Say whether the scene is interior or exterior, and", and the light follows as its own
+    sentence ("Give its light: …").
+  - the text: "Under text, write out word for word each piece of writing you can read in the
+    scene, as it is written: signs, labels, screens, paper, clothing, sound effects. Leave out
+    scribbles, marks that aren't letters, and the artist's signature or initials even when you
+    can read them: those go under signature, not text." It replaces the two sentences from "Under
+    text" to "letters.".
 - **Ages and signatures (T072).** Each person's `appearance` starts with how old they look
   (`a child`, `a teenager`, `an adult`, `an old man`, `an old woman`). `signature` is true when
   the image carries a signature, initials or an artist's mark, readable or not: the live run's
@@ -397,7 +420,7 @@ classDiagram
 | `DRAWN_SEX` (T095) | sex agent (VISION) + code | **hard** | a person the judge matched to a character whose sex the script gives (`character_sex`) is drawn as the other sex: the sex agent, asked about that one person on the image, answers `male` or `female` and it isn't the script's. `unclear` passes, and so does a person matched to no character or to one with no sex from the script. Detail: `person N (position, appearance): drawn male, but REFILWE is female`. **T102:** also a person the presence agent finds for a character the script sexes (`found_people`), asked the same question |
 | `SPLIT_PANELS` (T104) | layout agent (VISION) + code | **hard** | the layout agent, asked on a frame with two or more described people, answers `panels` > 1: the frame is a strip or grid of pictures, not one (L015). No answer (not asked, or a failed question) passes. Detail: `drawn as 2 panels` |
 | `DRAWN_TWICE` (T104) | layout agent (VISION) + code | **hard** | on a frame of one picture (`panels` 1), a `copies` pair of two described people in range who are not both known as characters (accepted by `matched_people`, or found by the presence agent: `found_people`), and so not two different characters: one person drawn twice. In a split frame the copies are the split's own (`SPLIT_PANELS` names it). Detail: `person 0 (left, …) and person 1 (right, …): the same person drawn twice` |
-| `SIGNATURE` (T077) | code | soft | `signature` is true: a signature, initials or an artist's mark, readable or not. Words the describer reads in it are still `text`, so a legible signature that isn't the script's (`@hutley`) still fails `TEXT_IN_FRAME` (soft since T089) |
+| `SIGNATURE` (T077) | code | soft | `signature` is true: a signature, initials or an artist's mark, readable or not. Since T107 the describer keeps a signature's letters out of `text`, readable or not, so a legible signature that isn't the script's (`@hutley`) still fails `TEXT_IN_FRAME` (soft since T089) |
 
 **Verdict:** `FAIL` if any hard check fails; `WARN` if only soft checks fail; `PASS` otherwise. Hard
 checks are the ones that would put something unscripted on screen; soft checks are quality
@@ -1266,7 +1289,8 @@ limit rule above names it. A looping string arrives cut to 100 characters, which
 | A wrong sex or look (T080) | the judge refuses the match, as for a wrong age | a code check on the describer's words ("a boy"): the describer's phrases vary, and matching them to "she" or "braids" is guessing |
 | No one in frame (T080) | the hard `NO_CHARACTER`, against the people the prompt drew | `MISSING_CHARACTER` made hard: a shot of two where one is drawn would be withheld for a framing choice; against `shot.characters`: a planner character no covered line puts on screen was never drawn, so every attempt would fail |
 | A child drawn as an adult (T072) | the judge refuses the match when the apparent age plainly contradicts the character's quoted age, so the person is unscripted | a new `AGE` check in code: the describer's age is a phrase, and matching it to `(10)`, `(70s)` or "old" in code is guessing; leaving it to portraits (T025): T025 waits on the renderer, and 14 of 27 labelled frames (eval.md §6a.2) drew the wrong age |
-| A signature (T072, T077; Tumo, 2026-10-11) | the soft `SIGNATURE` check (T077): logged and shown, the frame `WARN`; words read in it are still `text`. On eval.md §6a's 27 labelled frames this passes 2 that Katlego labelled bad for their signature (one also had a second kite the describer missed): by this decision a signature is no grounding failure, so those labels count the signature as a note | a hard fail (T072): on 2026-10-11, re-judging the same stored drawings, it withheld 4 more of the-red-kite's 22 klein frames (6 accepted with T077, 2 without) and 1 of its 21 schnell frames, each otherwise right, and a mark in a corner is no character, prop, line or event; T071's rule alone (no flag): the flag stays, so a reviewer sees the mark; cropping the border to remove it: halved signatures in a 2026-10-10 experiment, and is renderer post-processing, after the renderer decision |
+| A rooftop (T106) | the describer's rule: open to the sky is `exterior`, even with the sky left blank; `interior` only when walls and a ceiling close it in; else `unclear` | a code exception for `ROOF` in the heading (it would pass a roof drawn indoors); dropping `SETTING` to soft (it catches real INT/EXT swaps: verify.md §8, T071) |
+| A signature (T072, T077, T107; Tumo, 2026-10-11) | the soft `SIGNATURE` check (T077): logged and shown, the frame `WARN`; since T107 its letters are never `text`, readable or not (both checks are soft, so a frame's verdict is the same either way; what changes is that a scrawl isn't reported as unscripted lettering). On eval.md §6a's 27 labelled frames this passes 2 that Katlego labelled bad for their signature (one also had a second kite the describer missed): by this decision a signature is no grounding failure, so those labels count the signature as a note | a hard fail (T072): on 2026-10-11, re-judging the same stored drawings, it withheld 4 more of the-red-kite's 22 klein frames (6 accepted with T077, 2 without) and 1 of its 21 schnell frames, each otherwise right, and a mark in a corner is no character, prop, line or event; T071's rule alone (no flag): the flag stays, so a reviewer sees the mark; cropping the border to remove it: halved signatures in a 2026-10-10 experiment, and is renderer post-processing, after the renderer decision |
 | A part of a prop (T078) | code: the prop's head noun right before the part's own word, a prop of this shot, no copy word, never an animal, vehicle, weapon or food; the judge's call doesn't matter | the judge alone (it called a kite string unscripted 3 times in 27 labelled frames); a shared word (my first draft matched `coil of wire` to `SPOOL OF BLUE STRING` through `of`, and `second kite` to `RED KITE`); a judge prompt saying everyday things are set dressing (2026-10-11: no labelled good frame gained, and a grown man for Lerato passed). Measured on the saved judgements of three runs over the 27 labelled frames: 0, 1 and 2 good frames gained, no labelled-bad frame passing |
 | Drawing marks (T078) | the describer leaves them out | a code list of mark words: the describer's names vary; the judge: it called "pencil shading" unscripted |
 | Ordinary things in the place (T072) | the judge is told what set dressing covers; code still needs the heading's words as support | exempting more categories in code (as T071 did for costume and structure): weather is `nature` too, and a lightning bolt is an event the script must have |
@@ -1326,6 +1350,14 @@ it against the script."*
   heading's words fails against the prop `RED KITE`, a `bucket` doesn't. Live, with Tumo's go-ahead (Token
   Factory only): T071's and T072's audits on eval.md §6a's 27 labelled frames (Katlego's, in the
   dev bucket), scored against his labels, the numbers in the PR; then one upload of the-red-kite.
+- **T106:** `DESCRIBE_PROMPT` carries the setting sentence verbatim (§3), and the schema is
+  unchanged. Live, with `reaudit` on Super VL (announced on the PR): the-red-kite's 44 stored
+  attempts are described again; both rooftop attempts (0.4) read `exterior` or `unclear`, and no
+  other attempt's setting changes.
+- **T107:** `DESCRIBE_PROMPT` carries the text sentences verbatim (§3), and the schema is
+  unchanged. The same run: the stored attempts' `text` entries are classified by hand first
+  (signature or scene lettering), then `text_in_frame` falls back near DeepSeek's 6, with every
+  piece of scene lettering ("SNAP.", "SLAP & NOPE.") still in `text`.
 - **T077:** `run_checks`: `signature` true with `text` empty fails `SIGNATURE` (soft) and no hard
   check, so the verdict is `WARN`; with an unread word in `text` it also fails `TEXT_IN_FRAME`
   (`FAIL`); `signature` false fails neither. The web names `signature` "artist's signature".
