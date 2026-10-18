@@ -22,7 +22,7 @@ from app.comic import (
 from app.comic import render as render_module
 from app.comic.bubbles import tail_triangle, tails_cross
 from app.comic.model import Point
-from app.script import Dialogue, Screenplay
+from app.script import Action, Dialogue, Screenplay
 from app.shots import Framing, ShotPlan
 from app.verify.model import HeadSeen
 from tests.comic.conftest import frames, solid
@@ -40,7 +40,7 @@ def line(cue: str, text: str, extension: str | None = None) -> Dialogue:
     return Dialogue(cue, extension, None, text, SPAN)
 
 
-def panel_of(*lines: Dialogue) -> tuple[Screenplay, ShotPlan, ComicBook]:
+def panel_of(*lines: Dialogue | Action) -> tuple[Screenplay, ShotPlan, ComicBook]:
     """One scene whose second shot letters `lines`, on a 900 x 700 panel (no scene caption)."""
     s = scene(0, *lines)
     screenplay = Screenplay("", 1, (s,), (1,))

@@ -28,8 +28,8 @@ def lettered(*lines: Dialogue) -> Panel:
 def test_two_lines_of_one_speaker_are_one_balloon_split_in_two() -> None:
     panel = lettered(say("NANDI", "You came back."), say("NANDI", "The boat didn't."))
     first, then = panel.bubbles
-    assert not first.linked and first.tail is not None  # the chain's first has the tail
-    assert then.linked and then.tail is None
+    assert not first.linked and then.linked
+    assert sum(b.tail is not None for b in panel.bubbles) == 1  # one tail (T119: on either box)
     assert gap(first.rect, then.rect) <= LINK_GAP
     assert [b.text for b in panel.bubbles] == ["You came back.", "The boat didn't."]
 
@@ -38,11 +38,8 @@ def test_three_lines_chain() -> None:
     panel = lettered(
         say("NANDI", "You came back."), say("NANDI", "The boat didn't."), say("NANDI", "I walked.")
     )
-    assert [(b.linked, b.tail is None) for b in panel.bubbles] == [
-        (False, False),
-        (True, True),
-        (True, True),
-    ]
+    assert [b.linked for b in panel.bubbles] == [False, True, True]
+    assert sum(b.tail is not None for b in panel.bubbles) == 1
     for before, bubble in zip(panel.bubbles, panel.bubbles[1:], strict=False):
         assert gap(before.rect, bubble.rect) <= LINK_GAP
 
@@ -121,7 +118,8 @@ def test_the_json_carries_linked() -> None:
     screenplay, plan, book = panel_of(say("NANDI", "You came back."), say("NANDI", "Why?"))
     data = to_json(place_lettering(book, screenplay, plan, framed(book)), {})
     got = data["pages"][0]["panels"][1]["bubbles"]  # type: ignore[index]
-    assert [(b["linked"], b["tail"] is None) for b in got] == [(False, False), (True, True)]  # type: ignore[index]
+    assert [b["linked"] for b in got] == [False, True]  # type: ignore[index]
+    assert sum(b["tail"] is not None for b in got) == 1  # type: ignore[index]
 
 
 def test_render_draws_the_connector(monkeypatch: pytest.MonkeyPatch) -> None:

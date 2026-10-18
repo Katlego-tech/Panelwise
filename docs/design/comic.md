@@ -373,8 +373,9 @@ disagree. **Connectors (T118):** a band 22 px wide (`LINK_WIDTH`) from one box's
 other's, drawn in the outline pass grown by the 3 px outline and in the fill pass in white, so the
 two boxes' fills hide its ends and it opens into both: one balloon, stretched. Its hull is that band
 grown by the outline. **Merged (T120):** when two linked boxes are less than `MERGE_GAP` = 16 px
-apart and overlap along the other axis by at least `LINK_WIDTH` once each end is inset by the
-larger corner radius, the connector is instead the *seam*: a rectangle across that inset overlap,
+apart and overlap along the other axis by at least `LINK_WIDTH` once each end is inset by half the
+larger corner radius (half, so two one-line pills side by side still merge), the connector is
+instead the *seam*: a rectangle across that inset overlap,
 from 8 px inside one box to 8 px inside the other. Drawn the same way, the two boxes read as one
 outline pinched at the waist (the letterers' abutted balloons: speech with no breath). Otherwise,
 the bridge. **Tails by voice (T117):** `PLAIN`, `SHOUT` and `DISTRESS` draw the triangle; `WHISPER`
