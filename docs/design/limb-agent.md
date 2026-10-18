@@ -1,6 +1,6 @@
 # Design — `verify` the limb agent: a body drawn wrong, measured on Super VL first
 
-**Status:** draft (measure first; the check is designed only as far as the measurement needs) ·
+**Status:** measured 2026-10-18: **not adopted**, no `LIMBS` check (findings § U9; §8 below) ·
 **Owner:** Katlego (Claude) · **Tasks:** T111 (label, measure, decide); the code task is numbered
 when §8 adopts it, announced on this doc's PR · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 · **Raised:** 2026-10-17 by Katlego
@@ -177,6 +177,11 @@ Whether `hands: deformed` fails `LIMBS` too is decided by §8's numbers for hand
 | `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0011_audit_bodies`, tests | only if adopted | the code task |
 
 ## 8. Decisions & alternatives
+
+> **Decided 2026-10-18 (findings § U9): no check.** With thinking off it caught 5.3% of the base
+> set's defects (bar 60%). With thinking on it caught 0%, and 15% of asks returned nothing. It
+> answers "1 head, 2 arms, 2 legs, normal" whatever is drawn. §6's proposed code is not built,
+> and no task number is taken.
 
 **The bar, written before the run** (Katlego to confirm, §10). On the labelled drawings, Super VL
 with thinking off, each drawing asked twice:

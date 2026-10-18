@@ -449,6 +449,63 @@ over many frames as the measurement.
 Raw: `eval/measurements/2026-10-17/` (both runs' per-frame results and logs, and the
 lighthouse's `measure.py` records).
 
+## U9 — Does the vision model see a body drawn wrong? (2026-10-18, T111)
+
+**No.** Measured for T111 (limb-agent.md) on `nvidia/Nemotron-3.5-Super-VL`. The question was
+the 14 Oct prototype's, unchanged (§6): per listed person, count heads, arms and legs, then
+`normal`, `defect` (which) or `unclear`, and the hands. Each drawing was asked twice. The bar was
+written before the run and confirmed by Katlego (§8). Pass or fail is judged on the base set;
+the hunted drawings are reported apart.
+
+**The labels** (`docs/design/limb-agent/labels.json`, Katlego by eye, every drawing shown alone):
+
+| Pool | Normal | Defect | Unclear |
+|---|---|---|---|
+| Tumo's 109 labelled frames | 92 | 16 | 1 |
+| T097's 14 Oct probe, 18 | 14 | 3 | 1 |
+| Hunted: Claude's picks from the 1,382 drawings in the dev bucket | 15 | 29 | 4 |
+
+The base set's 19 defects were named by no earlier label; Tumo's were about the script, not
+anatomy. Extra arms and extra legs are the commonest (24 of the 42 faults named), then fused
+bodies, two heads, missing limbs, twists and one deformed hand.
+
+**The runs** (asks and drawings below count only ones Katlego labelled normal or defect):
+
+| Run | Pool | Catches (bar ≥ 60%) | False alarms (≤ 2.5%) | Agreement (≥ 90%) | Errors (≤ 2%) |
+|---|---|---|---|---|---|
+| thinking off | base | **2/38 = 5.3%** | 0/198 = 0% | 117/117 = 100% | 0/234 = 0% |
+| thinking off | hunted | 0/56 = 0% | 2/28 = 7.1% | 42/42 = 100% | 0/84 = 0% |
+| thinking on | base | **0/26 = 0%** | 0/178 = 0% | 99/99 = 100% | **36/238 = 15.1%** |
+| thinking on | hunted | 0/36 = 0% | 0/23 = 0% | 26/26 = 100% | **29/88 = 33%** |
+
+By framing (base, thinking off): wide 2/16, medium 0/22; the close-up shots had no defects. Six
+base drawings have nobody in their stored description, so they were never asked. Four of the 66
+fresh descriptions (thinking off) looped to the token limit, T109's problem; those drawings got
+no limb question.
+
+**What the model does:** it does not count; it fills in a template. On drawings labelled
+`defect`, 274 of 276 body answers (thinking off) were "1 head, 2 arms, 2 legs, normal". That
+includes the man with three arms on the rooftop, the diving girl with three legs, and both boys
+drawn with two heads. Its one base catch named `misplaced_limb` on a drawing labelled
+`missing_limb`, while still counting 2 arms and 2 legs. Its two hunted false alarms are real
+oddities Katlego didn't count as a body fault: a giraffe's neck that seems to grow out of a
+woman's head ("extra arm"), and a hand floating in the air ("deformed hand"). The perfect
+agreement is the same template answer twice. With thinking on, the answers are about 10 times
+longer (389,894 completion tokens against 38,790), a quarter of asks spend the whole 4,096-token
+budget thinking and return nothing, and not one answer names a defect.
+
+**Decision (limb-agent.md §8): no `LIMBS` check.** This is the same result as DeepSeek-V4.1-Flash
+on 14 Oct (verify.md §3, *The head agent*). Two vision models, three runs: the question doesn't
+work, whatever the model or thinking setting. The labels and the hunt stay as a test set for any
+later try, such as the research's box-per-defect prompt or a dedicated detector (limb-agent.md
+§10).
+
+**Cost:** run 1 used 511,456 + 38,790 tokens for 318 asks, plus 121,538 + 17,818 for 57
+descriptions. Run 2 used 414,384 + 389,894 for 261 asks, plus 129,182 + 29,415 for 61
+descriptions. Both runs were announced on #208 first, one process each.
+
+Raw: `eval/measurements/2026-10-18-limbs/` (both runs' answers per drawing, and their logs).
+
 ## Follow-ups this creates
 
 - T004: `json_schema` strict by default; thinking off by default on the fast tier; trace
