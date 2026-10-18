@@ -257,7 +257,8 @@ def test_a_source_too_long_for_a_page_continues_with_every_line() -> None:
     sp = screenplay()
     p = plan(sp)
     long = "\n".join(f"Line {i}: the lamp turns and the beam sweeps the water." for i in range(60))
-    shots = (replace(p.shots[0], source=long), *p.shots[1:])
+    # T103: no elements, so the lines are `source`'s own (the fallback), as before T103.
+    shots = (replace(p.shots[0], elements=(), source=long), *p.shots[1:])
     p = replace(p, shots=shots)
     pages = layout_document(mixed(p), p, sp, STYLE)
     parts = [b for b in blocks(pages) if b.shot == (0, 1)]
@@ -265,7 +266,7 @@ def test_a_source_too_long_for_a_page_continues_with_every_line() -> None:
     assert parts[0].frame_rect is not None and not parts[0].continued
     assert all(b.continued and b.frame_rect is None and b.audit_line is None for b in parts[1:])
     assert all(b.title == "1.1 (cont.)" for b in parts[1:])
-    lines = [line for b in parts for line in b.source_lines]
+    lines = [line.text for b in parts for line in b.source_lines]
     assert lines == [f"Line {i}: the lamp turns and the beam sweeps the water." for i in range(60)]
     for pg in pages:
         assert all(b.y + block_height(b) <= content_bottom(STYLE) for b in pg.blocks)
@@ -275,11 +276,12 @@ def test_source_lines_keep_element_breaks_and_are_never_cut_or_folded() -> None:
     sp = screenplay()
     p = plan(sp)
     text = "\u201cIt\u2019s gone\u201d \u2014 " + " ".join(["lighthouse"] * 40) + "\nAll of it."
-    shots = (replace(p.shots[0], source=text), *p.shots[1:])
+    shots = (replace(p.shots[0], elements=(), source=text), *p.shots[1:])  # the fallback (T103)
     p = replace(p, shots=shots)
     (first, *_) = blocks(layout_document(mixed(p), p, sp, STYLE))
-    assert first.source_lines[-1] == "All of it."  # its own element, its own line
-    assert " ".join(first.source_lines[:-1]) == text.split("\n")[0]  # curly quotes, dash kept
+    texts = [line.text for line in first.source_lines]
+    assert texts[-1] == "All of it."  # its own element, its own line
+    assert " ".join(texts[:-1]) == text.split("\n")[0]  # curly quotes, dash kept
 
 
 def test_the_heading_is_its_span_line_even_after_a_form_feed() -> None:

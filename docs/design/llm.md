@@ -161,7 +161,11 @@ class NebiusChatModel:
 async def structured_chat[T: BaseModel](model: NebiusChatModel, messages: Sequence[Message],
         response_model: type[T], tier: Tier = Tier.FAST, *, max_repair_attempts: int = 1,
         thinking: bool | None = None, temperature: float = 0.0,
-        max_tokens: int | None = None) -> StructuredResult[T]: ...
+        max_tokens: int | None = None,
+        grammar: Mapping[str, Any] | None = None) -> StructuredResult[T]: ...
+#   grammar (T109): the schema sent as response_format's "schema" in place of model_json_schema(),
+#   for limits the decoder enforces but the prompt doesn't show (verify.md § T109 contracts). The
+#   prompt's schema text and the validation stay response_model's. None (the default): as before
 ```
 
 **Thinking defaults** (findings U2): `FAST` → `False`; `REASONING` → `True`; `VISION` → nothing
@@ -175,7 +179,9 @@ sent (the toggle was only measured on Nemotron). `False` sends
 <ResponseModel.__name__>, "schema": <model_json_schema()>, "strict": true}}` (findings U1), plus
 `"Reply with JSON only, matching this JSON Schema: <schema>"` appended to the first system message,
 (as an extra `text` part when its content is a list of parts), or a new leading system message
-if there is none. Never a second system message: some chat templates accept only one.
+if there is none. Never a second system message: some chat templates accept only one. With
+`grammar` (T109), `response_format`'s `"schema"` is `grammar`; the prompt's `<schema>` is still
+`model_json_schema()`, and the repair turn and validation are unchanged.
 
 **Settings** (`app/core/config.py`, env names in `.env.example`): `nebius_api_key`,
 `nebius_base_url`, `nebius_model_fast`, `nebius_model_reasoning`, `nebius_model_vision`,
@@ -206,6 +212,7 @@ was 3).
 | Retry on 4xx | never (except 429) | a malformed request fails the same way every time and costs credit |
 | How long a call rides out an outage (T075) | 5 attempts, waits 2, 4, 8, 16 s, a 10 s connect timeout: a dropped connection is retried for about 80 s | 3 attempts, waits 1 s and 2 s, no connect timeout of its own (before T075): on 2026-10-10 Token Factory dropped connections on and off from 21:28 to 21:38, each `ConnectError` took about 20 s, and three of them ended a call in 45 s; 3 of sipho-and-siphokazi's 31 audits were withheld as `audit_error` for it |
 | A read timeout (T075) | at most 2 per call | retried like a dropped connection: five waits of 120 s on a hung model |
+| Limits only the decoder sees (T109) | `structured_chat(grammar=)`: one optional schema for `response_format` | `Field(max_length=…)` on the response model: the prompt's schema text changes with it, and on Super VL that changed 7 of 10 answers that reached no limit (verify.md §9 T109); a vision-only client method: two paths to the same request |
 | Re-audit an `audit_error` later in the job (T075) | not now: a follow-up in the storyboard and comic jobs | here: the client can't know a drawing exists. Those jobs sit on the renderer PRs (#91, #98), which wait on the renderer decision |
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none.
@@ -219,6 +226,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - `structured_chat` tests: schema inlined into the existing system message (not a second one),
   valid on the first try → `repaired=False`, invalid then valid → `repaired=True` with the repair
   turn shaped as specified, invalid twice → `ValidationError`.
+- **T109:** `structured_chat(grammar=g)` sends `g` as `response_format.json_schema.schema` and still
+  puts `model_json_schema()` in the system message; a repair turn resends with `g` too; without
+  `grammar` the body is byte for byte today's.
 - **T075:** with an injected `sleep` and a `MockTransport`: four `ConnectError`s then a 200 answer,
   after waits of 2, 4, 8 and 16 s; five `ConnectError`s give `LLMRequestError(None)` after 5
   attempts; two `ReadTimeout`s end the call after 2 attempts, while a `ReadTimeout` then a

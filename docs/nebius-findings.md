@@ -356,6 +356,99 @@ stays DeepSeek-V4.1-Flash until T105 ([docs/design/vision-model.md](design/visio
 measures Super VL on stored drawings with `python -m app.verify.reaudit`: the verdicts it changes,
 looked at; schema failures; tokens and seconds an attempt, with thinking on and off.
 
+### U8 held out: the-lighthouse-inspector (2026-10-17, T105's translation run)
+
+_Run by Tumo (via Claude) on Tumo's machine, as Katlego asked on #192: `measure.py` (#192's
+comment, unchanged) on every stored attempt of the-lighthouse-inspector, project `78f8735f`
+(held out, 2026-10-14, 26 storyboard frames, all attempt 1), on main @ `abefcd6`. DeepSeek ran with
+`NEBIUS_VISION_THINKING=false` too (main's default since #192; the-red-kite's DeepSeek column above
+had it unset). The stored extraction predates T101, so the bare `FORTUIN` is still a sexless
+character here. Every attempt has an eye verdict from the held-out run (`eval/frame-labels.json`)._
+
+| | DeepSeek-V4.1-Flash | Super VL, `NEBIUS_VISION_THINKING=false` |
+|---|---|---|
+| Attempts, `ERROR`s | 26, 0 | 26, **1** (8.1: the describer's answer failed the schema, then its repair) |
+| Raw verdicts (pass / warn / fail) | 2 / 19 / 5 | 5 / 16 / 4 (+1 error) |
+| Hosted verdicts (`drawn_sex,no_character`) | 2 / 24 / 0 | 5 / 20 / 0 (+1 error, withheld) |
+| Tokens (prompt + completion) | 173,890 | 149,618: **0.86×** |
+| Seconds an attempt, median | 14.8 | 11.7: **0.79×** |
+| Text entries more on Super VL | | 10 of 26 attempts (T107's pattern) |
+| Setting differences | | none besides 8.1's error (no rooftops in this script) |
+
+**Every attempt whose hard checks or hosted verdict differ (5 of 26), against the eye verdict:**
+
+| Attempt | Eye verdict | DeepSeek | Super VL |
+|---|---|---|---|
+| 4.3 | right | warn | pass ✓ |
+| 5.2 | right | warn | pass ✓ |
+| 9.2 | right | `unscripted_object` ✗ (warn on the ladder) | pass ✓ |
+| 7.5 (Mr. Fortuin drawn as an old woman) | **wrong** | the judge matched her as FORTUIN: warn, shown ✗ | the judge refused her (`unscripted_person`), the presence agent found her as FORTUIN: warn, shown ✗ |
+| 8.1 (no rescue boat) | weak | `unscripted_person` (warn) | `ERROR`, withheld: a redraw |
+
+**What carries over**, the rows of the-red-kite's table above, from the same two records (no new
+run; 25 attempts, since 8.1 has no description on Super VL):
+
+| Part of the audit | Agrees | What differs |
+|---|---|---|
+| Structured output (strict `json_schema`) | 25 of 26 | 8.1 failed the schema and its repair (the new item below) |
+| People described (how many) | 25 of 25 | — |
+| The sex agent (T095) | 24 questions each; 23 of 23 answers on the same people the same | — |
+| The presence agent (T099) | found someone on 2 attempts against 0 | 7.3 and 7.5, the two judge differences below |
+| The judge's matches (person → character) | 23 of 25 the same | both a match DeepSeek made and Super VL's judge refused, then the presence agent found: 7.3 (Ms. Naidoo drawn twice, weak; described as "an adult … in a suit jacket", no sex) and 7.5 (Mr. Fortuin as an old woman, wrong; FORTUIN found). The same outcome both ways |
+| Setting | 25 of 25 | — |
+| Light, shot size | 14 and 21 of 25 | soft checks only |
+| Lettering against signature | `has_text` 19 of 25 | text entries more on 10 of 26 (T107) |
+
+**What this adds to the-red-kite's findings:** nothing new among T106–T108's three items, and one
+new item: **the describer's schema on Super VL**: 1 of 26 here (8.1), 7 of 109 on the labelled
+frames below, against 0 of 44 on the-red-kite. Each is an `ERROR`: withheld, redrawn on the hosted
+demo (a drawing and an audit spent). 7.5 is shown by both: with T101 (MR. FORTUIN gets "male" from
+his title) and T102 (a found person is asked its sex), it is caught (T102's real-code measurement,
+verify.md §3).
+
+### U8 on the labelled frames (2026-10-17): 109 drawings judged by eye
+
+_`eval/tools/score_labels.py` on all 109 frames of `eval/frame-labels.json` (11 scripts, judged by
+eye on the days they were drawn: 57 wrong, 12 weak, 40 right), main @ `abefcd6` (so T095 and T099
+run; T101–T104 are not on main yet), both with thinking off, the hosted ladder
+`drawn_sex,no_character`. A frame is withheld when its laddered verdict is FAIL or `ERROR`._
+
+| | DeepSeek-V4.1-Flash | Super VL |
+|---|---|---|
+| Wrong frames withheld (57) | **17** | 14 (one of them an `ERROR`) |
+| Right frames withheld (40) | 3 | 5 (**4 of them `ERROR`s**) |
+| Weak frames withheld (12) | 0 | 2 (both `ERROR`s) |
+| `ERROR`s (the describer's schema, after its repair) | 0 | **7 of 109** (market-day 2.1, 3.2, 5.2; sipho-and-siphokazi 2.1; the-borrowed-bicycle 5.5; the-lighthouse-inspector 8.1; the-night-taxi 1.1) |
+| Leaving the 7 out: wrong withheld (56) / right withheld (36) | 17 / 2 | 13 / 1 |
+| `drawn_sex` faults (15) withheld | 9 | **10** (the sex agent: the-borrowed-bicycle 2.3 and 5.2 caught only by Super VL) |
+| `absent` faults (8) withheld | **4** | 1 |
+
+**Frames only one model withholds** (looked at, by their eye verdicts):
+- **Only DeepSeek** (6 wrong, 1 right): final-whistle 2.3 (no crowd), 4.3 (Lindi, not Palesa),
+  lost-property 7.4 (one man, no Tebogo), 9.6 (a split), the-bread-van 4.4 (three boys for Theo),
+  the-lighthouse-inspector 7.5 (Mr. Fortuin as a woman), all through `no_character`; and
+  final-whistle 1.4 (right, a false alarm). On Super VL the judge matches someone or the presence
+  agent finds them, so the frame is shown.
+- **Only Super VL**: the-borrowed-bicycle 2.3 and 5.2 (NALEDI drawn as a boy: `drawn_sex`), and the
+  7 `ERROR`s.
+
+**What this adds** (beside T106–T108):
+1. **The describer's schema on Super VL:** 7 of 109 (6%) fail even after the repair; 0 on
+   DeepSeek. Each withholds the frame (on the hosted demo, a redraw), and most land on right frames.
+2. **Absent characters let through:** `no_character` withholds 1 of the 8 absent-character frames
+   on Super VL against 4 on DeepSeek. The presence agent (T099) finds people more readily on Super
+   VL, or the judge matches them; worth a look at those six frames' `found` answers before T102
+   and T104 land, since both build on the presence agent.
+3. **The sex agent holds up:** 10 of 15 sex faults withheld against 9.
+
+**One run is noisy at the level of a frame:** lighthouse 7.5 on DeepSeek was shown in the
+`measure.py` run above and withheld (`no_character`) in this one, the same attempt and settings:
+the judge isn't deterministic. Read single-frame differences as leads to look at, and the counts
+over many frames as the measurement.
+
+Raw: `eval/measurements/2026-10-17/` (both runs' per-frame results and logs, and the
+lighthouse's `measure.py` records).
+
 ## Follow-ups this creates
 
 - T004: `json_schema` strict by default; thinking off by default on the fast tier; trace
