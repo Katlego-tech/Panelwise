@@ -689,5 +689,23 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:comic.md §6 (`Bubble.linked`, `connector`); the layout JSON gains `linked`
       Verify:  bash scripts/gate.sh (§9's T118 list); the reference pages and the 17 Oct live comic (free) looked at: p5 4.2's two lines of Lerato linked
       Done:    wherever one speaker has consecutive lines in a panel they read as one balloon split in two, the first with the tail
+- [ ] T119 [US3] **A linked chain's tail leaves the box nearest the speaker.** Katlego, 2026-10-18 (docs/research § Same-speaker balloons). Lane `comic` (Claude for Katlego). Needs T118.
+      Design:  docs/design/comic.md §3 (linked lines), §4 step 7 (the chain's tail judged at its last box), §9
+      Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/test_t119.py
+      Contract:comic.md §3, §6; the JSON's shape unchanged (a chain's one tail may be on any box)
+      Verify:  bash scripts/gate.sh; the reference and live pages looked at
+      Done:    every chain's one tail leaves the box nearest its speaker and keeps the tail rules
+- [ ] T120 [US3] **Two linked balloons that nearly touch merge into one outline.** Katlego, 2026-10-18 (abutted balloons). Lane `comic`. Needs T118.
+      Design:  docs/design/comic.md §4 step 8 (merged, the seam)
+      Files:   services/api/app/comic/{bubbles,render}.py; services/api/tests/comic/test_t119.py
+      Contract:`connector(a, b)` returns the seam or the band
+      Verify:  bash scripts/gate.sh; the live comic's p5 4.2 (a speech split by a page break) looked at
+      Done:    linked boxes under 16 px apart read as one balloon pinched at the waist
+- [ ] T121 [US3] **A pause the script states keeps one speaker's lines apart.** Katlego, 2026-10-18. Lane `comic`. Needs T118.
+      Design:  docs/design/comic.md §3 (linked lines: a pause unlinks), §8
+      Files:   services/api/app/comic/bubbles.py; services/api/tests/comic/test_t119.py
+      Contract:comic.md §3
+      Verify:  bash scripts/gate.sh; the sample's p1 0.2 (an action between) unlinked, p5 4.2 (CONT'D) linked
+      Done:    two lines with an action or a (beat) between are separate balloons with a tail each
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
