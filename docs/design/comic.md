@@ -663,3 +663,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   it. But listen to me." has its tail entirely under "Can I have all of it?" (step 7 draws every
   outline, then every fill, so a tail never covers words, but it can vanish). A second rule, "a
   tail crosses no other box", would fix it. Katlego's call whether it joins T112 or waits.
+- [ ] **One tip, two speakers** (found building T112): the exemption is by tip, so two speakers'
+  tails that end at one point are never refused. It happens to two `OFF_PANEL` boxes of equal
+  height side by side (one edge, one middle: the left tail runs under the right box) and to two
+  speakers the audit placed nowhere (both to the bottom centre). Exempting by speaker instead would
+  log a crossing on every panel of the second kind, where no placement can help. Waits with the
+  hidden tail above, which the "crosses no other box" rule would also fix.

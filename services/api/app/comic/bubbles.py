@@ -5,6 +5,7 @@ span; the only other words are a scene's heading caption. Nothing is shortened: 
 no room even at 28 px fails the comic, naming the shot, rather than lose a word.
 """
 
+import logging
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -42,9 +43,14 @@ HEAD_COST = 2.0  # T098: a box over anyone's head
 HEAD_MARGIN = 12  # T098: px a head rect grows by, so a tail's tip stops short of the face
 SPEAKER_HEIGHT = Fraction(9, 20)  # a speaker's point is at 45% of the panel height
 SEARCH_LIMIT = 10_000  # candidate placements tried per panel before it fails (comic.md §4 step 7)
+MAX_RADIUS = 48
+TAIL_BASE = 28  # px: a tail's width at its base (comic.md §4 step 8)
 
 type Kind = BubbleKind | CaptionKind
 type Cell = tuple[int, int]  # (row, col)
+type Triangle = tuple[tuple[float, float], ...]
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -179,12 +185,21 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
         costed.sort(key=lambda pair: pair[0])  # stable: row-major among equal costs
         return [placed for _, placed in costed]
 
+    @cache
+    def tail_of(index: int, box: Rect) -> tuple[Point, Triangle] | None:
+        """The tail step 8 draws for this box (T112): its tip and its triangle."""
+        tip = _tip(texts[index], frame, panel.rect, box)
+        triangle = None if tip is None else tail_triangle(box, tip)
+        return None if tip is None or triangle is None else (tip, triangle)
+
     placed: list[_Placed] = []
+    drawn: list[tuple[Point, Triangle] | None] = []  # placed's tails, while the rule holds
     tries = 0
     stuck = 0  # the furthest box the search reached: the one that found no room
+    crossed = False  # T112: a candidate was refused for its tail
 
-    def search(index: int) -> bool:
-        nonlocal tries, stuck
+    def search(index: int, apart: bool) -> bool:
+        nonlocal tries, stuck, crossed
         if index == len(texts):
             return True
         stuck = max(stuck, index)
@@ -195,16 +210,34 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
                     continue  # reading order is hard
                 if any(_overlap(option.rect, other.rect) for other in placed):
                     continue
+                tail = tail_of(index, option.rect) if apart else None
+                if tail is not None and any(
+                    other is not None and other[0] != tail[0] and tails_cross(tail[1], other[1])
+                    for other in drawn
+                ):
+                    crossed = True
+                    continue  # T112: tails never cross, but two to one tip may meet
                 tries += 1
                 if tries > SEARCH_LIMIT:
                     return False
                 placed.append(option)
-                if search(index + 1):
+                drawn.append(tail)
+                if search(index + 1, apart):
                     return True
                 placed.pop()
+                drawn.pop()
         return False
 
-    if not search(0):
+    found = search(0, apart=True)
+    if not found and crossed:
+        # T112's last resort: the search from before the rule, with its own tries
+        placed.clear()
+        drawn.clear()
+        tries = stuck = 0
+        found = search(0, apart=False)
+        if found:
+            log.warning("tails cross on %s: no placement keeps them apart", panel_name(key))
+    if not found:
         if tries > SEARCH_LIMIT:
             raise ComicError(
                 f"{panel_name(key)}: no placement for its lines within {SEARCH_LIMIT:,} tries "
@@ -220,7 +253,6 @@ def _place(panel: Panel, texts: Sequence[_Text], frame: PanelFrame) -> list[_Pla
 
 
 def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame) -> Panel:
-    positions: Mapping[str, Position] = {} if frame.withheld else frame.positions
     bubbles: list[Bubble] = []
     captions: list[Caption] = []
     for item in placed:
@@ -231,15 +263,7 @@ def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame) -> Pan
             )
             continue
         assert text.speaker is not None and text.element is not None
-        tail = None  # on a card no one is in the panel, and a tail would cross its lines
-        if not (frame.withheld and text.kind is BubbleKind.SPEECH):
-            head = None if frame.withheld else _speaker_head(text.speaker, frame.heads)
-            if head is not None and text.kind is BubbleKind.SPEECH:
-                tail = _to_head(
-                    _head_rect(head, panel.rect[2], panel.rect[3]), panel.rect, item.rect
-                )
-            else:
-                tail = _tail(text.kind, _position(text.speaker, positions), panel.rect, item.rect)
+        tail = _tip(text, frame, panel.rect, item.rect)
         bubbles.append(
             Bubble(
                 text.kind,
@@ -255,6 +279,18 @@ def _lettered(panel: Panel, placed: Sequence[_Placed], frame: PanelFrame) -> Pan
     return Panel(panel.scene_index, panel.shot_number, panel.rect, tuple(bubbles), tuple(captions))
 
 
+def _tip(text: _Text, frame: PanelFrame, panel: Rect, box: Rect) -> Point | None:
+    """comic.md §4 step 8: where a box's tail ends, in page pixels. None for a caption, and for a
+    speech bubble on a card: no one is in the panel, and a tail would cross its lines."""
+    if isinstance(text.kind, CaptionKind) or (frame.withheld and text.kind is BubbleKind.SPEECH):
+        return None
+    head = None if frame.withheld else _speaker_head(text.speaker, frame.heads)
+    if head is not None and text.kind is BubbleKind.SPEECH:
+        return _to_head(_head_rect(head, panel[2], panel[3]), panel, box)
+    positions: Mapping[str, Position] = {} if frame.withheld else frame.positions
+    return _tail(text.kind, _position(text.speaker, positions), panel, box)
+
+
 def _tail(kind: BubbleKind, position: Position | None, panel: Rect, box: Rect) -> Point:
     """comic.md §4 step 8: the tip, in page pixels, always inside the panel."""
     x, y, w, h = panel
@@ -265,6 +301,40 @@ def _tail(kind: BubbleKind, position: Position | None, panel: Rect, box: Rect) -
         return x + w // 2, y + h - 1
     centre = {Position.LEFT: w // 6, Position.CENTRE: w // 2, Position.RIGHT: 5 * w // 6}
     return x + centre[position], y + math.floor(h * SPEAKER_HEIGHT)
+
+
+def corner_radius(rect: Rect) -> int:
+    """A bubble's corner radius (comic.md §4 step 7): min(48, h/2, w/2)."""
+    return min(MAX_RADIUS, rect[3] // 2, rect[2] // 2)
+
+
+def tail_triangle(box: Rect, tip: Point) -> Triangle | None:
+    """comic.md §4 step 8: the tail, 28 px wide at its base, from the point of the box shrunk by
+    its corner radius nearest the tip, to the tip; None when the tip is inside the box. Placement
+    tests crossings with it and render.py draws it, so the two never disagree (T112)."""
+    x, y, w, h = box
+    tx, ty = tip
+    if x <= tx < x + w and y <= ty < y + h:
+        return None
+    r = corner_radius(box)
+    base: Point = (min(max(tx, x + r), x + w - 1 - r), min(max(ty, y + r), y + h - 1 - r))
+    dx, dy = tx - base[0], ty - base[1]
+    length = math.hypot(dx, dy)
+    px, py = -dy / length * TAIL_BASE / 2, dx / length * TAIL_BASE / 2
+    return (base[0] + px, base[1] + py), (float(tx), float(ty)), (base[0] - px, base[1] - py)
+
+
+def tails_cross(a: Sequence[tuple[float, float]], b: Sequence[tuple[float, float]]) -> bool:
+    """Whether two tails share a point, touching included (T112). Two convex shapes are apart
+    exactly when some edge's normal strictly separates their projections."""
+    for shape in (a, b):
+        for (x0, y0), (x1, y1) in zip(shape, (*shape[1:], shape[0]), strict=True):
+            nx, ny = y0 - y1, x1 - x0
+            on_a = [nx * px + ny * py for px, py in a]
+            on_b = [nx * px + ny * py for px, py in b]
+            if max(on_a) < min(on_b) or max(on_b) < min(on_a):
+                return False
+    return True
 
 
 def _cost(

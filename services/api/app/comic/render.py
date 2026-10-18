@@ -11,7 +11,7 @@ from io import BytesIO
 from PIL import Image, ImageDraw
 
 from app.comic import layout
-from app.comic.bubbles import frame_image, panel_name
+from app.comic.bubbles import corner_radius, frame_image, panel_name, tail_triangle
 from app.comic.layout import FONT_PX, PADDING, WRAP_SHARE, font_at, wrap
 from app.comic.model import (
     Bubble,
@@ -20,8 +20,6 @@ from app.comic.model import (
     ComicError,
     Panel,
     PanelFrame,
-    Point,
-    Rect,
     WithheldCard,
 )
 from app.script import Span
@@ -34,8 +32,6 @@ CARD_GREY = (128, 128, 128)  # #808080
 CAPTION_FILL = (255, 244, 194)  # #FFF4C2
 PANEL_BORDER = CARD_BORDER = 4
 OUTLINE = 3
-MAX_RADIUS = 48
-TAIL_BASE = 28
 
 type Key = tuple[int, int]
 type RGB = tuple[int, int, int]
@@ -197,14 +193,16 @@ def _card(w: int, h: int, card: WithheldCard) -> Image.Image:
 def _letter(draw: ImageDraw.ImageDraw, panel: Panel) -> None:
     """Every outline, then every fill, then every word: a tail under a bubble never hides text."""
     items: list[Bubble | Caption] = [*panel.captions, *panel.bubbles]
-    tails = {id(b): _tail_polygon(b) for b in panel.bubbles}
+    tails = {
+        id(b): None if b.tail is None else tail_triangle(b.rect, b.tail) for b in panel.bubbles
+    }
     for item in items:
         x, y, w, h = item.rect
         grown = (x - OUTLINE, y - OUTLINE, x + w - 1 + OUTLINE, y + h - 1 + OUTLINE)
         if isinstance(item, Caption):
             draw.rectangle(grown, fill=BLACK)
             continue
-        draw.rounded_rectangle(grown, radius=_radius(item.rect) + OUTLINE, fill=BLACK)
+        draw.rounded_rectangle(grown, radius=corner_radius(item.rect) + OUTLINE, fill=BLACK)
         polygon = tails[id(item)]
         if polygon is not None:
             draw.polygon(polygon, fill=BLACK)
@@ -215,7 +213,7 @@ def _letter(draw: ImageDraw.ImageDraw, panel: Panel) -> None:
         if isinstance(item, Caption):
             draw.rectangle(box, fill=CAPTION_FILL)
             continue
-        draw.rounded_rectangle(box, radius=_radius(item.rect), fill=WHITE)
+        draw.rounded_rectangle(box, radius=corner_radius(item.rect), fill=WHITE)
         polygon = tails[id(item)]
         if polygon is not None:
             draw.polygon(polygon, fill=WHITE)
@@ -227,23 +225,3 @@ def _letter(draw: ImageDraw.ImageDraw, panel: Panel) -> None:
         for i, line in enumerate(wrap(item.text, limit, font)):
             left = x + (w - font.getlength(line)) / 2
             draw.text((left, y + PADDING + i * (ascent + descent)), line, font=font, fill=BLACK)
-
-
-def _radius(rect: Rect) -> int:
-    return min(MAX_RADIUS, rect[3] // 2, rect[2] // 2)
-
-
-def _tail_polygon(bubble: Bubble) -> list[tuple[float, float]] | None:
-    """A triangle from inside the bubble to its tip; none when the tip is inside the box."""
-    if bubble.tail is None:
-        return None
-    x, y, w, h = bubble.rect
-    tx, ty = bubble.tail
-    if x <= tx < x + w and y <= ty < y + h:
-        return None
-    r = _radius(bubble.rect)
-    base: Point = (min(max(tx, x + r), x + w - 1 - r), min(max(ty, y + r), y + h - 1 - r))
-    dx, dy = tx - base[0], ty - base[1]
-    length = math.hypot(dx, dy)
-    px, py = -dy / length * TAIL_BASE / 2, dx / length * TAIL_BASE / 2
-    return [(base[0] + px, base[1] + py), (float(tx), float(ty)), (base[0] - px, base[1] - py)]
