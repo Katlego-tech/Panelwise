@@ -191,7 +191,7 @@ services:
         sync: false
       # The hosted demo's settings (T030): decided, so written here.
       - key: AUDIT_WITHHOLD_CHECKS
-        value: drawn_sex,no_character
+        value: drawn_sex,no_character,split_panels
       - key: UPLOADS_PER_DAY
         value: "3"
       - key: UPLOAD_MAX_PAGES
@@ -227,7 +227,8 @@ Validated against render.com/schema/render.yaml.json on 2026-10-08 (`1c-2g` is i
   (limits.md §10): `LLM_MONTHLY_TOKEN_CAP` = **2,800,000** (Katlego, 2026-10-16: 30% of the $18 left
   on Token Factory, $5.40, over the three months the cap counts, Oct to Dec, is $1.80 a month; a
   storyboard and its comic measured 339,000 tokens, at most $0.19 at DeepSeek-V4.1-Flash's
-  $0.30/$1.20 per million, the dearest model the API calls; less one job's room),
+  $0.30/$1.20 per million, the dearest model the API calls; less one job's room; with T104's layout
+  question about 370,000–387,000, so about 7 a month instead of 8, verify.md §3),
   `IMAGE_MONTHLY_GENERATION_CAP` = **800** (Katlego, 2026-10-16, from Tumo's fal balance: $5.35
   left, $10 loaded at the end of October for November and $5 at the end of November for December;
   about $8 of a month's money for the demo, 1,000 drawings at $0.004, less one job with re-renders,
