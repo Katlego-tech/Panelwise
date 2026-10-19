@@ -605,7 +605,7 @@ vuln_scan() {
 #     # jscpd:ignore-end
 duplication_check() {
   step "duplication check (jscpd $JSCPD_VERSION, threshold $DUPLICATION_THRESHOLD%)"
-  local out rc
+  local out rc tree
   local -a files
 
   mapfile -t files < <(git ls-files \
@@ -625,11 +625,23 @@ duplication_check() {
     return 0
   fi
 
+  # jscpd reads a copy of exactly these files, laid out as in the repo, through one directory
+  # argument. Handing it the files themselves broke on Windows: npx runs through cmd.exe, whose
+  # command line stops at 8,191 characters, and the list passed that on 2026-10-19 (213 files,
+  # 7,993 characters). cmd printed "The syntax of the command is incorrect." and jscpd never ran.
+  tree="$(mktemp -d)"
+  if ! ( cd "$root" && printf '%s\0' "${files[@]}" | xargs -0 cp --parents -t "$tree" ); then
+    bad "Could not copy the source files for the duplication check (jscpd). A check that did not run is a failed check."
+    fail=1
+    rm -rf "$tree"
+    return 0
+  fi
   out="$(mktemp)"
-  ( cd "$root" && npx --yes "jscpd@$JSCPD_VERSION" --threshold "$DUPLICATION_THRESHOLD" \
-      --reporters console --no-colors "${files[@]}" ) 2>&1 | tee "$out"
+  ( cd "$tree" && npx --yes "jscpd@$JSCPD_VERSION" --threshold "$DUPLICATION_THRESHOLD" \
+      --reporters console --no-colors . ) 2>&1 | tee "$out"
   rc=${PIPESTATUS[0]}
   ran=$((ran + 1))
+  rm -rf "$tree"
   if [ "$rc" -ne 0 ]; then
     if grep -q 'too many duplicates' "$out"; then
       bad "Duplicated code is over the threshold. Reuse the shared version instead of copying it,"
