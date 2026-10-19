@@ -732,5 +732,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:comic.md §3
       Verify:  bash scripts/gate.sh; the sample's p1 0.2 (an action between) and p5 4.2 (CONT'D) both linked
       Done:    two lines with a (beat) or (pause) stated between are separate balloons with a tail each; an action line between doesn't unlink (Katlego, 2026-10-18)
+- [ ] T122 [POL] **A page's image links signed in one request.** Found on 2026-10-19 (what a judge feels, STATUS's 17–19 Oct row): `GET /projects/{id}/frames` signs every accepted frame's link with its own Storage request, one after another, on every 2 s poll while a storyboard draws; `GET /projects/{id}/comic` does the same for each page and the PDF. Measured (storyboard.md §9 T122, free): rooftop-tomatoes' 21 frames 4.9 s one at a time, 0.22 s in one batch. Lane `storyboard` (Tumo, Claude).
+      Design:  docs/design/storyboard.md §6 (`AssetStore.signed_urls`, the T122 note on `read_frames`/`read_comic`), §7, §8, §9 T122; its own PR (`docs/batch-sign-t122`)
+      Files:   services/api/app/storage/store.py; services/api/app/api/v1/projects.py; services/api/tests/fakes.py (`MemoryStore.signed_urls` loops over its own `signed_url`, so `BrokenStore` and the `CountingStore`s keep working); services/api/tests/storage/test_t122.py, tests/api/test_t122.py
+      Contract:storyboard.md §6 verbatim: `signed_urls(paths, expires_in_s) -> list[str]` (order kept, `[]` without a request, 100 paths a request, a null link raises `StorageError` naming the count); the two reads sign in one call; responses unchanged
+      Verify:  bash scripts/gate.sh (tests first: §9 T122); the probe again on the local stack (`eval/measurements/t122/`): one request for a storyboard's frames; the storyboard and comic pages load in the browser
+      Done:    `GET /projects/{id}/frames` makes one Storage request for a 21-frame storyboard (was 21), every link opens its frame, and the hosted storyboard page shows its frames
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
