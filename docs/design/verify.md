@@ -1554,7 +1554,8 @@ it against the script."*
   **The limits** sit above every stored answer: DeepSeek's 1,352 descriptions reach 21 people,
   32 objects, 15 pieces of text and 175 characters of appearance; Super VL's 79 reach 33 pieces of
   text (a calendar's 31 dates, an honest answer). **Tests** (`tests/verify/test_t109.py`, tests
-  first): `description_grammar()` sets exactly the six limits and leaves the rest of
+  first): `description_grammar()` sets exactly the eight limits (`signature_text` at 5 entries of 60,
+  2026-10-19) and leaves the rest of
   `FrameDescription.model_json_schema()` equal; `describe_frame` sends the capped schema as
   `response_format` and the uncapped one in the system message (a MockTransport reads the body);
   `structured_chat` without `grammar` sends today's body (llm.md §9); `run_checks` on a description

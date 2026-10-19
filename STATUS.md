@@ -73,7 +73,7 @@ Tumo picked up the 2026-10-11 handoff in person. Plan to submit on **29 Oct** (3
 | 27–28 Oct | gitleaks over the commits since 2026-10-05 (repo public already), Devpost text, final hosted smoke (T035) | both | ⬜ |
 | 29 Oct | Submit (T035) | both | ⬜ |
 
-Proposed cuts (Tumo to confirm): T003 (fal renders; no money for a GPU VM) and T025 (several days of port, audit and new drawings; T079's looks cover the cheap half).
+Cuts (decided 2026-10-19, Tumo; Katlego's proposal on #212): T003 (fal renders; no money for a GPU VM) and T025 (several days of port, audit and new drawings; T079's looks cover the cheap half).
 
 ### 👋 For Katlego (from Tumo, 2026-10-12)
 
@@ -212,7 +212,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 |-------|------|---------------|--------|
 | 1 | Token Factory check; versions + compose; ComfyUI on Nebius GPU; port llm, script, grounding | 28 Sep – 4 Oct | ✅ closed 4 Oct (MILESTONES.md): all but T003 (GPU; optional since 9 Oct, fal instead) |
 | 2 | **US1**: script → grounded storyboard on Nemotron, end to end in the web app. Design docs for verify + comic | 5 – 11 Oct | ✅ closed 11 Oct (MILESTONES.md): live on the-red-kite that evening, fal instead of the GPU |
-| 3 | **US2**: frame audit + re-render + audit log. **US4**: reference portraits | 12 – 18 Oct | 🟡 closed 18 Oct (MILESTONES.md): US2 ✅ live and hosted; US4 slipped (T025 not built, cut proposed, Tumo to confirm) |
+| 3 | **US2**: frame audit + re-render + audit log. **US4**: reference portraits | 12 – 18 Oct | 🟡 closed 18 Oct (MILESTONES.md): US2 ✅ live and hosted; US4 slipped (T025 not built, cut 2026-10-19) |
 | 4 | **US3**: comic pages + reader. Hosted demo live | 19 – 25 Oct | 🟡 done early: comic layout, lettering and PDF (T022, T023), the comic job (T064), the reader (T024), the bubble work (T097–T121); hosted demo live since 16 Oct; open: T030's end-to-end hosted run and judge seed |
 | 5 | Hardening, eval numbers, video, README, repo public, **submit by 29 Oct** (one day of buffer) | 26 – 30 Oct | 🟡 eval numbers (T032) done early; README drafted (T033, needs the team's feedback section) |
 
