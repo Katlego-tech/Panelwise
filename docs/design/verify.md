@@ -671,17 +671,23 @@ of 17–26 attempts (limits.md §3: its audit is 130,000–175,000, so about +12
 for its comic: about 30,000–48,000 a storyboard and comic, +9–14% on the 339,000 deploy.md §6
 sizes `LLM_MONTHLY_TOKEN_CAP` by (about 370,000–387,000 each, about 7 a month instead of 8); and, when on the ladder, each withheld frame is one
 more attempt, a drawing (the image budget, T030) and its audit. **Old rows:** a row from before T104
-has no `layout`, so `recheck` can't measure the new checks on it (both pass), as for a sex found
-later. **Migration:** 0009, unless Katlego's T097 (#170, design only, which was to take 0009) lands
+has no `layout`, so `recheck` can't measure `SPLIT_PANELS` or the layout's copies on it (they pass),
+as for a sex found later; T124's described-alike pairs need only the description, so they are checked. **Migration:** 0009, unless Katlego's T097 (#170, design only, which was to take 0009) lands
 first: whichever of the two merges second renumbers its migration (revision and down_revision).
 **Described alike (T124; 2026-10-19, `eval/measurements/t124/`).** The layout agent argues copies apart:
 on gogos-recipe 2.1 the describer gave both children the same words ("a child in a short-sleeved shirt
 and shorts") and the agent answered "different faces, hair, and clothing details"; 1.4's second
 attempt, "loose hair against a ponytail". And a caught copy only warned. So **a pair the describer
 itself described alike is a copy too**, in code: `described_alike` (pure, §6) gives each pair of
-described people, not both known as characters (the T104 veto, the same `known` map), whose
+described people, not both **vetoed**, whose
 `appearance` words overlap by **at least 0.5** (Jaccard on the lowercase words, a short stop-word
-list out). Each such pair not already a layout pair fails `DRAWN_TWICE` with its own detail. It needs
+list out). **Vetoed** is T104's `known` (accepted ∪ found characters) and every **scripted extra**: a
+person the judge called no character with a support that passes every `UNSCRIPTED_PERSON` test (found,
+naming no character, an action line, pointing at no one else). A scripted crowd ("PUPILS fill the
+corridor", "two GUARDS") is drawn alike on every attempt, so without it such a shot would be withheld
+three times over (review of #222). A character and an alike stranger, or a character and an alike
+extra, is still a copy. Layout pairs keep T104's veto (characters only). Each such pair not already a
+layout pair fails `DRAWN_TWICE` with its own detail. It needs
 no layout answer (a frame of one person has no pairs; a failed layout question still lets it run),
 but a split frame (`panels > 1`) is `SPLIT_PANELS`'s alone. **Measured** on stored Super VL audits,
 67 labelled attempts with 10 copies and 34 right frames (the 17 Oct runs, lighthouse, red-kite):
@@ -1213,7 +1219,7 @@ def run_checks(..., layout: FrameLayout | None = None) -> ...   # T104: SPLIT_PA
 FrameAuditRow.layout: Mapped[dict | None]   # {"panels", "copies", "reason"}; NULL: not asked or older
 ```
 
-`recheck` reads `layout` from the row and passes it on (NULL: both checks pass, as before T104).
+`recheck` reads `layout` from the row and passes it on (NULL: `SPLIT_PANELS` and the layout's copies pass, as before T104; T124's described-alike pairs are still checked).
 
 ### T124 contracts
 
@@ -1221,15 +1227,17 @@ FrameAuditRow.layout: Mapped[dict | None]   # {"panels", "copies", "reason"}; NU
 # app/verify/audit.py
 ALIKE_OVERLAP = 0.5   # T124: measured, eval/measurements/t124/
 _ALIKE_STOP_WORDS = frozenset("a an the with and of in on at wearing holding her his their to is".split())
-def described_alike(description: FrameDescription, known: Mapping[int, str],
+def described_alike(description: FrameDescription, vetoed: Collection[int],
                     overlap: float = ALIKE_OVERLAP) -> tuple[tuple[int, int], ...]: ...
-#   pure: every pair (a, b), a < b, of description.people, not both in `known`, whose appearance
+#   pure: every pair (a, b), a < b, of description.people, not both in `vetoed`, whose appearance
 #   words overlap >= overlap; words: re.findall(r"[a-z]+", appearance.lower()) minus the stop words;
 #   overlap |A & B| / |A | B| (0.0 when both are empty); pairs in sorted order
 def run_checks(...) -> ...   # T124: unless layout.panels > 1 (SPLIT_PANELS), DRAWN_TWICE also for each
-#   pair of described_alike(description, known) not in layout.copies (layout None: no layout pairs),
+#   pair of described_alike(description, vetoed) not in layout.copies (layout None: no layout pairs),
 #   detail f"person {a} ({position}, {appearance}) and person {b} ({position}, {appearance}):
-#   described alike, one of them no character"; `known` is T104's accepted ∪ found map
+#   described alike, one of them no character"; vetoed = T104's known (accepted ∪ found) ∪ the
+#   scripted extras (a no-character call whose support passes every UNSCRIPTED_PERSON test);
+#   layout pairs keep T104's veto (known only)
 ```
 
 `recheck` decides it again for free on every stored row with a description (the layout column isn't
@@ -1524,7 +1532,9 @@ it against the script."*
 - **T124** (`tests/verify/test_t124.py`, tests first): `described_alike` on identical appearances
   (1.0), on 0.5 exactly (flags) and just below (doesn't), on a pair both known (never), one known
   (flags), neither (flags), with stop words only (0.0), case and punctuation ignored, three alike
-  people as three sorted pairs; `run_checks` fails `DRAWN_TWICE` for an alike pair with `layout` None
+  people as three sorted pairs; in `run_checks` two alike scripted extras (no character, an action
+  line's support) pass, a character and an alike extra fail, two alike people whose support fails
+  (`UNSCRIPTED_PERSON`) fail; `run_checks` fails `DRAWN_TWICE` for an alike pair with `layout` None
   and with a layout of no copies, with the T124 detail; a pair in both sources fails once, with the
   layout's detail; a split frame fails `SPLIT_PANELS` only; `recheck` on a stored row flags it.
   `render.yaml`'s ladder names `drawn_twice` and `withholding` accepts it. Mutation check: each rule
