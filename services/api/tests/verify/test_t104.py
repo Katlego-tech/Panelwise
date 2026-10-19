@@ -3,6 +3,8 @@
 
 import inspect
 import json
+import re
+from pathlib import Path
 from typing import Any
 
 import httpx2
@@ -10,6 +12,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.config import Settings, withholding
 from app.frames.model import FrameAuditRow
 from app.frames.writer import FrameWriter
 from app.grounding import Extraction
@@ -30,6 +33,8 @@ THREE = [
     {"position": "right", "appearance": "a boy in a blazer, running"},
 ]
 TWO = THREE[:2]
+# Two people the describer told apart: T124's described_alike flags TWO on its own words.
+UNLIKE = [THREE[0], {"position": "right", "appearance": "an old woman with a walking stick"}]
 
 
 # --- frame_layout -------------------------------------------------------------------------------
@@ -144,7 +149,7 @@ def test_one_accepted_and_one_found_as_another_character_pass(
 
 
 def test_no_layout_passes_both(screenplay: Screenplay, extraction: Extraction) -> None:
-    checks, _ = checks_for(screenplay, extraction, None)
+    checks, _ = checks_for(screenplay, extraction, None, people=UNLIKE)
     assert checks[Check.SPLIT_PANELS].ok and checks[Check.DRAWN_TWICE].ok
 
 
@@ -161,13 +166,25 @@ def test_the_ladder_withholds_or_warns(screenplay: Screenplay, extraction: Extra
     assert apply_ladder(logged, frozenset({Check.DRAWN_SEX})).verdict is Verdict.WARN
 
 
-def test_the_hosted_ladder_withholds_a_split_and_warns_a_copy(
+def hosted_ladder() -> frozenset[Check] | None:
+    """render.yaml's AUDIT_WITHHOLD_CHECKS, read as the API reads it."""
+    text = (Path(__file__).parents[4] / "render.yaml").read_text(encoding="utf-8")
+    value = re.search(r"key: AUDIT_WITHHOLD_CHECKS\s+value: (\S+)", text)
+    assert value is not None
+    return withholding(Settings(audit_withhold_checks=value[1]))
+
+
+def test_the_hosted_ladder_withholds_a_split_and_a_copy(
     screenplay: Screenplay, extraction: Extraction
 ) -> None:
-    # render.yaml's ladder (Katlego, 2026-10-17): split_panels withholds, drawn_twice warns.
-    hosted = frozenset({Check.DRAWN_SEX, Check.NO_CHARACTER, Check.SPLIT_PANELS})
+    # render.yaml's ladder: split_panels (Katlego, 2026-10-17) and drawn_twice (T124, Tumo,
+    # 2026-10-19) withhold.
+    hosted = hosted_ladder()
+    assert hosted == frozenset(
+        {Check.DRAWN_SEX, Check.NO_CHARACTER, Check.SPLIT_PANELS, Check.DRAWN_TWICE}
+    )
     for layout, want in (
-        (FrameLayout(1, ((0, 1),), "r"), Verdict.WARN),
+        (FrameLayout(1, ((0, 1),), "r"), Verdict.FAIL),
         (FrameLayout(2, (), "r"), Verdict.FAIL),
     ):
         checks, verdict, _ = run_checks(
@@ -255,7 +272,7 @@ async def test_no_question_on_a_malformed_judgement(
 async def test_a_failed_question_checks_nothing(
     screenplay: Screenplay, extraction: Extraction
 ) -> None:
-    handler = Laid(people=MATCHED_TWO, described_people=TWO, fail=True)
+    handler = Laid(people=MATCHED_TWO, described_people=UNLIKE, fail=True)
     result = await audit(handler, screenplay, extraction)
     assert len(calls(handler, LAYOUT_AGENT_PROMPT)) == 1
     assert result.layout is None
