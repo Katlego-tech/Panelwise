@@ -1,7 +1,6 @@
 # Design — `characters` (reference portraits and consistent characters)
 
-**Status:** agreed, **not built** (2026-10-18: T025 is open and cutting it is proposed, waiting on
-Tumo; T003's GPU, where its ComfyUI nodes would go, isn't set up; a character's look is carried
+**Status:** agreed, **not built: T025 cut 2026-10-19** (Tumo; Katlego's proposal on #212); T003's GPU, where its ComfyUI nodes would go, isn't set up; a character's look is carried
 from the script's words by T079's look prompts instead) · **Owner:** Katlego (Claude) · **Tasks:**
 T025 (portraits, references in frames); its ComfyUI nodes are installed on T003's GPU · **Spec:** [SPEC.md](../../SPEC.md) US4 (the same character
 looks the same from panel to panel)
