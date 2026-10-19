@@ -176,9 +176,28 @@ def test_the_limit_detail_joins_the_check_s_other_details(
 
 
 def _objects(n: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    objects = [{"name": "coat", "category": "clothing", "held": False} for _ in range(n)]
-    calls = [{"object": i, "kind": "scripted_prop", "support": "oilskin coat"} for i in range(n)]
+    """n unheld mugs, each a scripted prop the shot's own text supports: every one is checked
+    (not clothing, which the object checks skip) and passes."""
+    objects = [{"name": "mug", "category": "other", "held": False} for _ in range(n)]
+    calls = [{"object": i, "kind": "scripted_prop", "support": "two chipped mugs"} for i in range(n)]
     return objects, calls
+
+
+def test_an_object_the_checks_refuse_still_fails_under_the_limit(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    objects, calls = _objects(LIMITS.objects - 1)
+    calls[0] = {"object": 0, "kind": "scripted_prop", "support": "no such line"}
+    results, _, _ = run_checks(
+        kitchen_shot(),
+        screenplay.scenes[0],
+        described(objects=objects),
+        judged(objects=calls),
+        extraction,
+    )
+
+    result = _check(results, Check.BACKGROUND_OBJECT)
+    assert result.detail == "object 0 (mug, other): prop without support"
 
 
 def test_objects_at_the_limit_fail_background_object_soft(
