@@ -67,7 +67,8 @@ def test_two_people_called_as_one_character_puts_an_unscripted_person_on_screen(
         kitchen_shot(), screenplay.scenes[0], description, judgement, extraction
     )
     assert verdict is Verdict.FAIL
-    assert failing(checks) == {Check.UNSCRIPTED_PERSON}
+    # The second NANDI is no character, described as the first: drawn twice too (T124).
+    assert failing(checks) == {Check.UNSCRIPTED_PERSON, Check.DRAWN_TWICE}
     assert positions == {"NANDI": Position.LEFT}  # the first person called for her
 
 

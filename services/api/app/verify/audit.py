@@ -695,17 +695,25 @@ def run_checks(
         failures[Check.FRAMING].append(f"{description.shot_size} for a {shot.framing} shot")
 
     # T104: a frame in panels; in one picture, a person drawn twice unless both are characters.
+    # T124: also a pair the describer itself described alike, with or without a layout answer.
     if layout is not None and layout.panels > 1:
         failures[Check.SPLIT_PANELS].append(f"drawn as {layout.panels} panels")
-    elif layout is not None:
+    else:
         known = dict(accepted) | {person: name for name, person in found_at.items()}
-        for a, b in layout.copies:
+        copies = layout.copies if layout is not None else ()
+        twice = [(a, b, "the same person drawn twice") for a, b in copies]
+        twice += [
+            (a, b, "described alike, one of them no character")
+            for a, b in described_alike(description, known)
+            if (a, b) not in copies
+        ]
+        for a, b, why in twice:
             if a in known and b in known:
                 continue
             one, two = description.people[a], description.people[b]
             failures[Check.DRAWN_TWICE].append(
                 f"person {a} ({one.position}, {one.appearance}) and person {b} "
-                f"({two.position}, {two.appearance}): the same person drawn twice"
+                f"({two.position}, {two.appearance}): {why}"
             )
 
     checks = tuple(
@@ -983,6 +991,37 @@ async def check_layout(
     ]
     result = await structured_chat(model, messages, Layout, Tier.VISION, max_tokens=4096)
     return result.value, result.chat
+
+
+# T124: a pair whose appearance words overlap this much is one person drawn twice, unless both
+# are known characters. Measured on stored Super VL audits: 7 of 10 copies, no right frame
+# (eval/measurements/t124/).
+ALIKE_OVERLAP = 0.5
+_ALIKE_STOP_WORDS = frozenset(
+    "a an the with and of in on at wearing holding her his their to is".split()
+)
+
+
+def _appearance_words(appearance: str) -> frozenset[str]:
+    return frozenset(re.findall(r"[a-z]+", appearance.lower())) - _ALIKE_STOP_WORDS
+
+
+def described_alike(
+    description: FrameDescription, known: Mapping[int, str], overlap: float = ALIKE_OVERLAP
+) -> tuple[tuple[int, int], ...]:
+    """The pairs of described people, not both known as characters, whose appearance words
+    overlap at least `overlap` (T124, pure; Jaccard, stop words out). The layout agent argues such
+    a copy apart; the describer's own words don't."""
+    words = [_appearance_words(p.appearance) for p in description.people]
+    pairs: list[tuple[int, int]] = []
+    for a in range(len(words)):
+        for b in range(a + 1, len(words)):
+            if a in known and b in known:
+                continue
+            union = words[a] | words[b]
+            if union and len(words[a] & words[b]) / len(union) >= overlap:
+                pairs.append((a, b))
+    return tuple(pairs)
 
 
 def frame_layout(layout: Layout, people: int) -> FrameLayout:
