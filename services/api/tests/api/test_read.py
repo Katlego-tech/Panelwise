@@ -9,13 +9,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
-from app.frames.model import FrameRow
+from app.frames.model import FrameAuditRow, FrameRow
 from app.main import create_app
 from app.projects.codec import load_extraction, load_plan, load_screenplay
 from app.projects.job import run_job
 from app.projects.model import ProjectRow
 from app.projects.repo import create_upload
 from app.projects.views import entity_views, lines_view, report_view, scene_views, shot_views
+from app.verify.schema import FrameDescription
 from tests.fakes import FakeVerifier, MemoryStore
 from tests.projects.test_pipeline import GOOD_PDF, Models, make
 
@@ -228,3 +229,76 @@ async def test_an_accepted_frame_without_working_storage_is_503(
     app = create_app(Settings(database_url=migrated), verifier=FakeVerifier(), store=serving)
     with TestClient(app) as c:
         assert get(c, f"/{pid}/frames") == (503, {"error": "storage_unavailable"})
+
+
+# A frame audited since T107 reads: DescriptionView carries `signature_text` (web.md §6). Before
+# it, the view refused the field and GET …/frames answered 500 for every storyboard drawn after
+# 2026-10-18.
+
+T107 = FrameDescription.model_validate(
+    {
+        "people": [{"position": "left", "appearance": "a child with braids"}],
+        "setting": "exterior",
+        "light": "day",
+        "shot_size": "wide",
+        "objects": [],
+        "signature": True,
+        "signature_text": ["J. Blake"],
+        "has_text": False,
+        "text": [],
+    }
+).model_dump(mode="json")
+
+
+async def test_a_frame_audited_since_t107_reads_with_its_signature_text(
+    client: TestClient, store: MemoryStore, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    pid, jid = await project(sessions, store, run=True)
+    async with sessions() as s, s.begin():
+        s.add(
+            FrameRow(
+                project_id=pid, scene_index=0, shot_number=1, state="passed", attempt=1,
+                job_id=jid, asset="frames/a.png",
+            )
+        )  # fmt: skip
+        s.add(
+            FrameAuditRow(
+                project_id=pid, job_id=jid, scene_index=0, shot_number=1, attempt=1, seed=11,
+                frame_asset="frames/a.png", description=T107, judgement=None,
+                checks=[{"check": "signature", "severity": "soft", "ok": False, "detail": "x"}],
+                positions={}, verdict="warn", models=["m"], prompt_tokens=0, completion_tokens=0,
+            )
+        )  # fmt: skip
+
+    status, frames = get(client, f"/{pid}/frames")
+
+    assert status == 200
+    (audit,) = frames[0]["audits"]
+    assert audit["description"]["signature_text"] == ["J. Blake"]
+    assert audit["description"]["signature"] is True
+
+
+async def test_a_description_from_before_t107_reads_with_none(
+    client: TestClient, store: MemoryStore, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    pid, jid = await project(sessions, store, run=True)
+    old = {k: v for k, v in T107.items() if k != "signature_text"}
+    async with sessions() as s, s.begin():
+        s.add(
+            FrameRow(
+                project_id=pid, scene_index=0, shot_number=1, state="passed", attempt=1,
+                job_id=jid, asset="frames/a.png",
+            )
+        )  # fmt: skip
+        s.add(
+            FrameAuditRow(
+                project_id=pid, job_id=jid, scene_index=0, shot_number=1, attempt=1, seed=11,
+                frame_asset="frames/a.png", description=old, judgement=None, checks=[],
+                positions={}, verdict="pass", models=["m"], prompt_tokens=0, completion_tokens=0,
+            )
+        )  # fmt: skip
+
+    status, frames = get(client, f"/{pid}/frames")
+
+    assert status == 200
+    assert frames[0]["audits"][0]["description"]["signature_text"] == []
