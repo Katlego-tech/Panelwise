@@ -191,7 +191,7 @@ services:
         sync: false
       # The hosted demo's settings (T030): decided, so written here.
       - key: AUDIT_WITHHOLD_CHECKS
-        value: drawn_sex,no_character,split_panels,drawn_twice
+        value: drawn_sex,no_character,split_panels
       - key: UPLOADS_PER_DAY
         value: "3"
       - key: UPLOAD_MAX_PAGES
