@@ -41,7 +41,14 @@ def _without_limits(schema: dict[str, Any]) -> dict[str, Any]:
 
 def test_the_limits_are_the_contract_s() -> None:
     assert DESCRIPTION_LIMITS == DescriptionLimits(
-        people=24, objects=40, text=40, text_chars=100, appearance_chars=200, object_name_chars=60
+        people=24,
+        objects=40,
+        text=40,
+        text_chars=100,
+        appearance_chars=200,
+        object_name_chars=60,
+        signature=5,
+        signature_chars=60,
     )
 
 
@@ -53,9 +60,9 @@ def test_the_grammar_sets_the_limits_and_nothing_else() -> None:
     assert props["objects"]["maxItems"] == 40
     assert props["text"]["maxItems"] == 40
     assert props["text"]["items"]["maxLength"] == 100
-    # T107's signature_text is capped like text (verify.md §3)
-    assert props["signature_text"]["maxItems"] == 40
-    assert props["signature_text"]["items"]["maxLength"] == 100
+    # T107's signature_text: a name or initials, 5 entries of 60 (verify.md §3; Katlego, #212)
+    assert props["signature_text"]["maxItems"] == 5
+    assert props["signature_text"]["items"]["maxLength"] == 60
     assert defs["SeenPerson"]["properties"]["appearance"]["maxLength"] == 200
     assert defs["SeenObject"]["properties"]["name"]["maxLength"] == 60
     assert _without_limits(grammar) == FrameDescription.model_json_schema()
@@ -63,11 +70,20 @@ def test_the_grammar_sets_the_limits_and_nothing_else() -> None:
 
 def test_the_grammar_follows_the_limits_it_is_given() -> None:
     small = DescriptionLimits(
-        people=2, objects=3, text=4, text_chars=5, appearance_chars=6, object_name_chars=7
+        people=2,
+        objects=3,
+        text=4,
+        text_chars=5,
+        appearance_chars=6,
+        object_name_chars=7,
+        signature=8,
+        signature_chars=9,
     )
     props = description_grammar(small)["properties"]
     assert (props["people"]["maxItems"], props["objects"]["maxItems"]) == (2, 3)
     assert (props["text"]["maxItems"], props["text"]["items"]["maxLength"]) == (4, 5)
+    signature = props["signature_text"]
+    assert (signature["maxItems"], signature["items"]["maxLength"]) == (8, 9)
 
 
 def test_the_model_s_own_schema_has_no_limits() -> None:
