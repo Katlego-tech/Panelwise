@@ -1028,9 +1028,12 @@ class AssetStore(Protocol):
     #   SupabaseStore uploads without upsert and treats Supabase's 409 "already exists" as success
     async def signed_url(self, path: str, expires_in_s: int) -> str: ...
     async def signed_urls(self, paths: Sequence[str], expires_in_s: int) -> list[str]: ...   # T122
-    #   one link per path, in the order given; [] for no paths, with no request. SupabaseStore: one
-    #   POST /storage/v1/object/sign/{bucket} {"expiresIn": n, "paths": [...]} per 100 paths (the
-    #   answer keeps the request's order and links have signed_url's form); an item whose
+    #   one link per path, in the order given (a path given twice is signed twice, in its place);
+    #   [] for no paths, with no request. SupabaseStore: one POST /storage/v1/object/sign/{bucket}
+    #   {"expiresIn": n, "paths": [...]} per 100 paths, the chunks sent in order and their links
+    #   joined (100 is our limit, to keep a request small, not Supabase's); the answer keeps the
+    #   request's order and its links have signed_url's form (both measured, §9 T122). All or
+    #   nothing, as signed_url is today: one missing object fails the whole call. An item whose
     #   "signedURL" is null (its "error" set: a missing object) raises
     #   StorageError("signed_urls: storage could not sign <k> of <n>"), naming no path; T070's retry
     #   applies to each request as to signed_url
@@ -1298,11 +1301,15 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   `"signedURL": null` raises `StorageError` naming the count, not the path; a 503 then a 200 is
   retried as T070's. `read_frames` with three accepted frames and one withheld makes one batch
   request and gives the withheld frame no link; `read_comic` signs the pages and the PDF in one;
-  a `StorageError` from either is 503 `storage_unavailable`. The fakes (`tests/fakes.py`,
-  `tests/api/test_read.py`) gain `signed_urls`. **Measured first** (2026-10-19, free: signing
-  writes nothing): 21 frames one at a time 4.9 s against one batch 0.22 s (median of 5 rounds);
-  the batch answer keeps the order, a missing object is an item with `"signedURL": null` and an
-  `error`, and an empty `paths` is refused with 400 (hence no request for `[]`).
+  a `StorageError` from either is 503 `storage_unavailable`. The fake `MemoryStore`
+  (`tests/fakes.py`) gains `signed_urls` as a loop over its own `signed_url`, so a subclass that
+  overrides `signed_url` (`BrokenStore` in `tests/api/test_read.py`, the `CountingStore`s) keeps
+  failing or counting through the batch call too. **Measured first** (2026-10-19, free: signing
+  writes nothing; `eval/measurements/t122/`): 21 frames one at a time 4.9 s against one batch
+  0.22 s (median of 5 rounds); the batch answer keeps the order and echoes each path, a path asked
+  twice is signed twice, a batch link has the single call's form up to `?token=` and opens the
+  image (200), a missing object is an item with `"signedURL": null` and an `error`, and an empty
+  `paths` is refused with 400 (hence no request for `[]`).
 - **`build_storyboard`** with a fake renderer and a mocked audit: one frame per shot in plan order;
   every attempt logged with its asset; `PASSED`, `WARNED` (soft checks noted) and `WITHHELD` (hard
   checks noted, `asset` `None`) frames; a `FAILED` frame among drawn ones leaving the storyboard

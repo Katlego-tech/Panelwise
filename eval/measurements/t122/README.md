@@ -21,3 +21,7 @@ to Supabase's Ireland region, so the hosted times are smaller, but the ratio is 
 - A missing object doesn't fail the request: its item has `"signedURL": null` and an `error`.
 - `"paths": []` is refused: 400 "body/paths must NOT have fewer than 1 items". So `signed_urls([])`
   makes no request.
+
+**`probe_sign_dupes.py <project id>`**: asked `[a, b, a]` in one batch.
+- 3 answers for 3 paths, each echoing its path in place: the duplicate is signed both times.
+- The batch link equals the single call's link up to `?token=`, and fetching it returns the image (200).
