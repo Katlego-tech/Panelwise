@@ -102,6 +102,19 @@ describe("ScriptLive (web.md §4.2, Live)", () => {
       expect(push).not.toHaveBeenCalled();
     });
 
+    it("a poll with no answer neither counts nor resets: 401, network error, 401 goes to sign in", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockRejectedValueOnce(new TypeError("offline"))
+        .mockResolvedValueOnce(unauthorized());
+      render(<ScriptLive id="p1" job={job()} />);
+      await tick();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
+    });
+
     it("no second poll goes while one is unanswered", async () => {
       fetchMock.mockReturnValue(new Promise(() => {}));
       render(<ScriptLive id="p1" job={job()} />);

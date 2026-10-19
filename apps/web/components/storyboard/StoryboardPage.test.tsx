@@ -367,6 +367,24 @@ describe("live (web.md §4.3)", () => {
       expect(push).not.toHaveBeenCalled();
     });
 
+    it("only the status poll counts: a 401 on …/frames, twice, stays on the page", async () => {
+      fetchMock
+        .mockResolvedValueOnce(status(rendering))
+        .mockResolvedValueOnce(unauthorized())
+        .mockResolvedValueOnce(status(rendering))
+        .mockResolvedValueOnce(unauthorized());
+      render(<StoryboardPage project={keeper(rendering)} board={board()} />);
+      await tick();
+      await tick();
+      expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+        "/api/projects/p1/status",
+        "/api/projects/p1/frames",
+        "/api/projects/p1/status",
+        "/api/projects/p1/frames",
+      ]);
+      expect(push).not.toHaveBeenCalled();
+    });
+
     it("no second poll goes while one is unanswered", async () => {
       fetchMock.mockReturnValue(new Promise(() => {}));
       render(<StoryboardPage project={keeper(reading)} board={board()} />);
