@@ -18,8 +18,8 @@ def people(*appearances: str) -> list[dict[str, Any]]:
     return [{"position": "left", "appearance": a} for a in appearances]
 
 
-def alike(*appearances: str, known: dict[int, str] | None = None) -> tuple[tuple[int, int], ...]:
-    return described_alike(described(people=people(*appearances)), known or {})
+def alike(*appearances: str, known: set[int] | None = None) -> tuple[tuple[int, int], ...]:
+    return described_alike(described(people=people(*appearances)), known or set())
 
 
 CHILD = "a child in a short-sleeved shirt and shorts"  # gogos-recipe 2.1's two children, verbatim
@@ -50,12 +50,12 @@ def test_case_punctuation_and_stop_words_are_ignored() -> None:
 
 
 def test_a_pair_both_known_is_two_characters() -> None:
-    assert alike(CHILD, CHILD, known={0: "MPHO", 1: "SIPHO"}) == ()
+    assert alike(CHILD, CHILD, known={0, 1}) == ()
 
 
 def test_one_known_or_neither_is_still_a_copy() -> None:
-    assert alike(CHILD, CHILD, known={0: "MPHO"}) == ((0, 1),)
-    assert alike(CHILD, CHILD, known={1: "MPHO"}) == ((0, 1),)
+    assert alike(CHILD, CHILD, known={0}) == ((0, 1),)
+    assert alike(CHILD, CHILD, known={1}) == ((0, 1),)
 
 
 def test_three_alike_people_are_three_sorted_pairs() -> None:
@@ -126,3 +126,50 @@ def test_unlike_people_pass_without_a_layout_answer(
     unlike = [{"position": "left", "appearance": CHILD}, {"position": "right", "appearance": ADULT}]
     checks, _ = checks_for(screenplay, extraction, None, people=unlike)
     assert checks[Check.DRAWN_TWICE].ok
+
+
+# --- a scripted crowd (review of #222) -----------------------------------------------------------
+
+EXTRA = "Rain hammers the window."  # an action line of the kitchen shot, naming no character
+
+
+def extra(person: int, support: str | None = EXTRA) -> dict[str, Any]:
+    return {"person": person, "character": None, "support": support}
+
+
+def test_two_alike_scripted_extras_are_a_crowd(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    checks, _ = checks_for(screenplay, extraction, None, people=TWINS, calls_=[extra(0), extra(1)])
+    assert checks[Check.UNSCRIPTED_PERSON].ok  # both scripted
+    assert checks[Check.DRAWN_TWICE].ok
+
+
+def test_a_character_and_an_alike_extra_is_still_a_copy(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    calls_ = [{"person": 0, "character": "NANDI", "support": None}, extra(1)]
+    checks, _ = checks_for(screenplay, extraction, None, people=TWINS, calls_=calls_)
+    assert not checks[Check.DRAWN_TWICE].ok
+
+
+def test_alike_people_whose_support_fails_are_a_copy(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    checks, _ = checks_for(
+        screenplay, extraction, None, people=TWINS, calls_=[extra(0), extra(1, "not in the script")]
+    )
+    assert not checks[Check.UNSCRIPTED_PERSON].ok
+    assert not checks[Check.DRAWN_TWICE].ok
+
+
+def test_a_layout_pair_of_two_extras_keeps_t104_s_veto(
+    screenplay: Screenplay, extraction: Extraction
+) -> None:
+    # T104 vetoes characters only: the layout agent's own pair of two extras still fails.
+    layout = FrameLayout(1, ((0, 1),), "the same child")
+    checks, _ = checks_for(
+        screenplay, extraction, layout, people=TWINS, calls_=[extra(0), extra(1)]
+    )
+    assert not checks[Check.DRAWN_TWICE].ok
+    assert checks[Check.DRAWN_TWICE].detail.endswith("the same person drawn twice")

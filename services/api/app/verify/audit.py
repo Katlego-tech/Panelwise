@@ -10,7 +10,7 @@ import base64
 import hashlib
 import logging
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import replace
 
 from pydantic import ValidationError
@@ -568,6 +568,7 @@ def run_checks(
     failures: dict[Check, list[str]] = {check: [] for check in Check}
 
     positions: dict[str, Position] = {}
+    extras: set[int] = set()  # T124: scripted extras, whose support passed every test below
     for call in sorted(judgement.people, key=lambda c: c.person):
         person = description.people[call.person]
         who = f"person {call.person} ({person.position}, {person.appearance})"
@@ -590,6 +591,8 @@ def run_checks(
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support is not an action line")
         elif _points_elsewhere(call.support):
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support points at someone else")
+        else:
+            extras.add(call.person)
     # T109: a list at its limit may have been cut, so whoever lay past it was never checked.
     if (n := len(description.people)) >= DESCRIPTION_LIMITS.people:
         failures[Check.UNSCRIPTED_PERSON].append(
@@ -695,7 +698,8 @@ def run_checks(
         failures[Check.FRAMING].append(f"{description.shot_size} for a {shot.framing} shot")
 
     # T104: a frame in panels; in one picture, a person drawn twice unless both are characters.
-    # T124: also a pair the describer itself described alike, with or without a layout answer.
+    # T124: also a pair the describer itself described alike, with or without a layout answer;
+    # two scripted extras alike are a crowd, not a copy.
     if layout is not None and layout.panels > 1:
         failures[Check.SPLIT_PANELS].append(f"drawn as {layout.panels} panels")
     else:
@@ -704,7 +708,7 @@ def run_checks(
         twice = [(a, b, "the same person drawn twice") for a, b in copies]
         twice += [
             (a, b, "described alike, one of them no character")
-            for a, b in described_alike(description, known)
+            for a, b in described_alike(description, known.keys(), extras)
             if (a, b) not in copies
         ]
         for a, b, why in twice:
@@ -1007,16 +1011,19 @@ def _appearance_words(appearance: str) -> frozenset[str]:
 
 
 def described_alike(
-    description: FrameDescription, known: Mapping[int, str], overlap: float = ALIKE_OVERLAP
+    description: FrameDescription,
+    known: Collection[int],
+    extras: Collection[int] = (),
+    overlap: float = ALIKE_OVERLAP,
 ) -> tuple[tuple[int, int], ...]:
-    """The pairs of described people, not both known as characters, whose appearance words
-    overlap at least `overlap` (T124, pure; Jaccard, stop words out). The layout agent argues such
-    a copy apart; the describer's own words don't."""
+    """The pairs of described people whose appearance words overlap at least `overlap` (T124,
+    pure; Jaccard, stop words out), unless both are known characters or both scripted extras (a
+    crowd). The layout agent argues such a copy apart; the describer's own words don't."""
     words = [_appearance_words(p.appearance) for p in description.people]
     pairs: list[tuple[int, int]] = []
     for a in range(len(words)):
         for b in range(a + 1, len(words)):
-            if a in known and b in known:
+            if (a in known and b in known) or (a in extras and b in extras):
                 continue
             union = words[a] | words[b]
             if union and len(words[a] & words[b]) / len(union) >= overlap:
