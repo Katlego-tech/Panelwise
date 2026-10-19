@@ -179,7 +179,8 @@ def _objects(n: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """n unheld mugs, each a scripted prop the shot's own text supports: every one is checked
     (not clothing, which the object checks skip) and passes."""
     objects = [{"name": "mug", "category": "other", "held": False} for _ in range(n)]
-    calls = [{"object": i, "kind": "scripted_prop", "support": "two chipped mugs"} for i in range(n)]
+    call = {"kind": "scripted_prop", "support": "two chipped mugs"}
+    calls = [{"object": i, **call} for i in range(n)]
     return objects, calls
 
 
