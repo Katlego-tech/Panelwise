@@ -176,3 +176,47 @@ async def test_tier_and_call_options_are_passed_through() -> None:
     assert body["model"] == "reasoning-model"
     assert body["chat_template_kwargs"] == {"enable_thinking": False}
     assert (body["temperature"], body["max_tokens"]) == (0.3, 500)
+
+
+# --- T109: a grammar the decoder enforces but the prompt doesn't show (llm.md §6, §9) -----------
+
+
+def capped() -> dict[str, Any]:
+    schema = Scene.model_json_schema()
+    schema["properties"]["characters"]["maxItems"] = 3
+    return schema
+
+
+async def test_grammar_goes_to_response_format_and_the_prompt_keeps_the_model_schema() -> None:
+    rec = Recorder(json.dumps(VALID))
+    await structured_chat(
+        make(rec), [{"role": "system", "content": "Extract."}], Scene, grammar=capped()
+    )
+
+    body = rec.bodies[0]
+    assert body["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {"name": "Scene", "schema": capped(), "strict": True},
+    }
+    prompt = body["messages"][0]["content"]
+    assert json.dumps(Scene.model_json_schema()) in prompt
+    assert "maxItems" not in prompt
+
+
+async def test_a_repair_turn_sends_the_same_grammar() -> None:
+    rec = Recorder("not json", json.dumps(VALID))
+    result = await structured_chat(
+        make(rec), [{"role": "user", "content": "s"}], Scene, grammar=capped()
+    )
+
+    assert result.repaired is True
+    assert [b["response_format"]["json_schema"]["schema"] for b in rec.bodies] == [capped()] * 2
+
+
+async def test_without_a_grammar_the_body_is_today_s() -> None:
+    plain, none = Recorder(json.dumps(VALID)), Recorder(json.dumps(VALID))
+    await structured_chat(make(plain), [{"role": "user", "content": "s"}], Scene)
+    await structured_chat(make(none), [{"role": "user", "content": "s"}], Scene, grammar=None)
+
+    assert plain.bodies == none.bodies
+    assert plain.bodies[0]["response_format"]["json_schema"]["schema"] == Scene.model_json_schema()
