@@ -123,8 +123,9 @@ classDiagram
   labels, screens, paper, clothing, sound effects; never the artist's signature or initials".
   `TEXT_IN_FRAME` reads `text` only, as before, so a signature's letters are no lettering.
   `signature_text` is required in the schema the model is given and defaults to `[]` when a
-  stored description (before T107) is read back. T109's limits cap it like `text` (at most 40
-  entries of 100 characters).
+  stored description (before T107) is read back. T109's limits cap it at **5 entries of 60
+  characters** (Katlego, 2026-10-19, #212): a signature is a name or initials, never a paragraph, and
+  the smaller cap keeps more of the 4,096 tokens for the rest of the answer.
 - **Interior or exterior (T106).** `exterior` when the place is open to the sky (a rooftop, a
   balcony, a yard, a street), even when the sky is left as blank paper; `interior` only when walls
   and a ceiling close it in; `unclear` when the drawing doesn't show which. Super VL called
@@ -1215,13 +1216,17 @@ limits sit above every honest answer stored (§9 T109) and keep the whole answer
 ```python
 # app/verify/schema.py
 @dataclass(frozen=True) class DescriptionLimits: people: int; objects: int; text: int; text_chars: int;
-                                                 appearance_chars: int; object_name_chars: int
+                                                 appearance_chars: int; object_name_chars: int;
+                                                 signature: int; signature_chars: int
 DESCRIPTION_LIMITS = DescriptionLimits(people=24, objects=40, text=40, text_chars=100,
-                                       appearance_chars=200, object_name_chars=60)
+                                       appearance_chars=200, object_name_chars=60,
+                                       signature=5, signature_chars=60)
 def description_grammar(limits: DescriptionLimits = DESCRIPTION_LIMITS) -> dict[str, Any]: ...
 #   pure: a deep copy of FrameDescription.model_json_schema() with
 #   properties.people.maxItems, properties.objects.maxItems, properties.text.maxItems,
-#   properties.text.items.maxLength, $defs.SeenPerson.properties.appearance.maxLength,
+#   properties.text.items.maxLength, properties.signature_text.maxItems (`signature`),
+#   properties.signature_text.items.maxLength (`signature_chars`),
+#   $defs.SeenPerson.properties.appearance.maxLength,
 #   $defs.SeenObject.properties.name.maxLength set from `limits`; nothing else changes
 #   (FrameDescription itself is unchanged: validation and the prompt's schema text stay as they are)
 
@@ -1549,7 +1554,8 @@ it against the script."*
   **The limits** sit above every stored answer: DeepSeek's 1,352 descriptions reach 21 people,
   32 objects, 15 pieces of text and 175 characters of appearance; Super VL's 79 reach 33 pieces of
   text (a calendar's 31 dates, an honest answer). **Tests** (`tests/verify/test_t109.py`, tests
-  first): `description_grammar()` sets exactly the six limits and leaves the rest of
+  first): `description_grammar()` sets exactly the eight limits (`signature_text` at 5 entries of 60,
+  2026-10-19) and leaves the rest of
   `FrameDescription.model_json_schema()` equal; `describe_frame` sends the capped schema as
   `response_format` and the uncapped one in the system message (a MockTransport reads the body);
   `structured_chat` without `grammar` sends today's body (llm.md §9); `run_checks` on a description
