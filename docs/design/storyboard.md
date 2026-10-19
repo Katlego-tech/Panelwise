@@ -1027,15 +1027,29 @@ class AssetStore(Protocol):
     async def put(self, path: str, data: bytes, content_type: str) -> None: ...   # idempotent: an existing path is left as is
     #   SupabaseStore uploads without upsert and treats Supabase's 409 "already exists" as success
     async def signed_url(self, path: str, expires_in_s: int) -> str: ...
+    async def signed_urls(self, paths: Sequence[str], expires_in_s: int) -> list[str]: ...   # T122
+    #   one link per path, in the order given; [] for no paths, with no request. SupabaseStore: one
+    #   POST /storage/v1/object/sign/{bucket} {"expiresIn": n, "paths": [...]} per 100 paths (the
+    #   answer keeps the request's order and links have signed_url's form); an item whose
+    #   "signedURL" is null (its "error" set: a missing object) raises
+    #   StorageError("signed_urls: storage could not sign <k> of <n>"), naming no path; T070's retry
+    #   applies to each request as to signed_url
 class SupabaseStore:                                    # Supabase Storage REST (/storage/v1/object/...), secret key, httpx2
     def __init__(self, *, url: str, secret_key: str, bucket: str, client: httpx2.AsyncClient,
                  max_attempts: int = 3,
                  sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None: ...
-    #   T070: every operation (exists, get, put, signed_url) is tried up to max_attempts times on
+    #   T070: every operation (exists, get, put, signed_url, signed_urls) is tried up to max_attempts times on
     #   429, 500, 502, 503, 504, 520-524 or an httpx2.TransportError, sleeping 1 s, then 2 s (the
     #   LLM client's policy, app/llm/client.py); any other status is answered at once, as today.
     #   Out of attempts: StorageError("<op>: storage answered <status> after <n> attempts") or
     #   StorageError("<op>: storage unreachable after <n> attempts"); a TransportError never escapes
+
+# app/api/v1/projects.py (T122): the two reads that sign many links sign them in one call
+#   read_frames (GET /projects/{id}/frames): every frame in ACCEPTED with an asset, in frames
+#   order, through one store.signed_urls(...); each view gets its own link, the others None, as
+#   before. read_comic (GET /projects/{id}/comic): [*comic.pages, comic.pdf] through one
+#   signed_urls; the last link is the PDF's. A StorageError is 503 storage_unavailable, as before.
+#   GET /projects/{id}/storyboard/pdf keeps signed_url (one link). Responses are unchanged.
 
 # app/storyboard/model.py
 type Rect = tuple[int, int, int, int]
@@ -1126,6 +1140,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | `services/api/app/api/v1/projects.py`, `schemas.py`, `app/main.py` | changed | `GET /projects/{id}/storyboard/pdf` (web.md §6); `app.state.styles` loaded at startup (§3.4 Style) | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
 | `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames; T070 retries a transient failure | T053, T070 |
+| `services/api/app/storage/store.py`, `app/api/v1/projects.py`, `tests/fakes.py` | changed | `signed_urls` (one batch request per 100 links); `read_frames` and `read_comic` sign in one call | T122 |
 | `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, `COMFYUI_MAX_WORDS`), T026 (`COMFYUI_URL`, `COMFYUI_TIMEOUT_S`, `SUPABASE_STORAGE_BUCKET`) |
 | `styles/*.toml`, `styles/README.md` | new / changed | the styles the team keeps public (§10); the file format | T008 |
 | `services/api/app/storyboard/fal.py` | new | §3.5: `FalRenderer`, `fal_draw_size`, `fal_request`, `fal_factory` | T026 |
@@ -1170,6 +1185,7 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | PDF | Pillow page images, one PDF with `save_all` (comic.md's choice) | FrameFlow's hand-written PDF writer (base-14 fonts, so it folded em dashes and curly quotes: not verbatim); reportlab: a second PDF library. **Cost:** the PDF's text isn't selectable |
 | What prints under a frame | the shot's verbatim `source`, never truncated, plus its span | FrameFlow's frame description cut at four lines: a storyboard block must show exactly the lines it cites |
 | One PDF per | screenplay, scenes starting new pages | FrameFlow's one PDF per scene: a crew hands around one document |
+| Signing many links (T122; measured 2026-10-19) | one batch request (`signed_urls`): rooftop-tomatoes' 21 frames in 0.22 s, median of 5, from Tumo's machine | one request per link, one after another (before T122): 4.9 s for the same 21, longer than the storyboard page's 2 s poll, which re-signs every accepted frame on each tick; the same requests at once (`asyncio.gather`): 21 requests still, and a burst on every poll of every open tab; caching links: an expiry to track per link, for what one request already fixes |
 | A transient Storage error (T070) | `SupabaseStore` retries it: 3 attempts, 1 s then 2 s, on 429, 5xx (520–524 included) or a dropped connection, the LLM client's policy | no retry: one Cloudflare 520 on a `put` lost a frame already drawn and paid for (live run, 2026-10-10); a retry in each caller (the upload, the frames, the comic, T027's PDF): one policy written four times; retrying a 4xx: it answers the same way every time |
 | Local development Storage (deploy.md §10) | a dev bucket in the same Supabase project, through the same `SupabaseStore`; tests use an in-memory fake `AssetStore` | a local filesystem adapter: a second code path to keep honest, plus an API route to serve its files to the browser |
 | Signed URLs | the bucket is private; the API hands out signed URLs | a public bucket: frames of unreleased scripts readable by anyone with the path (RLS: deploy.md §6, T009) |
@@ -1275,6 +1291,18 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   attempts, having slept 1 s and 2 s; a `ConnectError` then a 200 on `get` returns the bytes; three
   `ConnectError`s raise `StorageError` ("unreachable"), never the httpx2 error; a 400 or a 403 is
   tried once; `exists` and `signed_url` retry the same way; no warning names the key or the path.
+- **T122** (`tests/storage/test_t122.py` and `tests/api/test_t122.py`, tests first), with `MockTransport`:
+  `signed_urls` sends one `POST /storage/v1/object/sign/{bucket}` with `expiresIn` and the paths,
+  and returns the links in the order given, prefixed as `signed_url`'s are; 150 paths make two
+  requests (100, then 50), the links still in order; `[]` makes no request; an item with
+  `"signedURL": null` raises `StorageError` naming the count, not the path; a 503 then a 200 is
+  retried as T070's. `read_frames` with three accepted frames and one withheld makes one batch
+  request and gives the withheld frame no link; `read_comic` signs the pages and the PDF in one;
+  a `StorageError` from either is 503 `storage_unavailable`. The fakes (`tests/fakes.py`,
+  `tests/api/test_read.py`) gain `signed_urls`. **Measured first** (2026-10-19, free: signing
+  writes nothing): 21 frames one at a time 4.9 s against one batch 0.22 s (median of 5 rounds);
+  the batch answer keeps the order, a missing object is an item with `"signedURL": null` and an
+  `error`, and an empty `paths` is refused with 400 (hence no request for `[]`).
 - **`build_storyboard`** with a fake renderer and a mocked audit: one frame per shot in plan order;
   every attempt logged with its asset; `PASSED`, `WARNED` (soft checks noted) and `WITHHELD` (hard
   checks noted, `asset` `None`) frames; a `FAILED` frame among drawn ones leaving the storyboard
