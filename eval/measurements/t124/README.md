@@ -72,3 +72,10 @@ appearances are longer; the-choir and the judge sample measure the rule there ag
 ## Files
 - `attempts.json`, `checks.json`: the 17 Oct runs' stored attempts (from `frame_audits`).
 - `rules.py <repo> <this directory>`: the table in §2.
+
+## Note on the map
+`rules.py` counts a person as known when the judge's raw call names any character; the code uses
+the accepted and found characters plus the scripted extras (review of #222). Accepted drops a name
+outside the shot or refused for its age (both already fail `UNSCRIPTED_PERSON`), so the code can flag
+a little more; the extras flag less. `recheck-17oct.txt` is the code's own run on the 17 Oct rows:
+6 of 7 copies, no right frame.
