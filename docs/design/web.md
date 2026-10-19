@@ -184,6 +184,36 @@ don't match. Check both and try again." Reference: signin.png.
   failure copy above; Supabase unreachable → "Signing in isn't working right now. Try again in a
   minute." While it runs the button reads "Signing in…". **Sign out** (the bar's "Sign out",
   projects.png) is a server action too: `signOut`, then `/sign-in`.
+- **A 401 while signed in (T123).** A route handler answers 401 whenever `getClaims()` fails, and
+  that doesn't always mean the session is gone. When the proxy's refresh can't reach Supabase Auth
+  (a network error or a 5xx), `@supabase/auth-js` keeps the session cookie. The request answers 401,
+  after up to ~50 s of auth-js's own retries. The next request, once Auth answers, refreshes the
+  same cookie (measured: `eval/measurements/t123/`). When a refresh is refused with the access token
+  expired, the cookie is cleared and every request after it is a 401 too. So the browser goes to
+  `/sign-in` on the **second 401 in a row**, never the first:
+  - **Pollers** (`ScriptLive`, `Storyboard`, `ComicStage`, `ProjectsPage`) keep one poll request
+    in flight at a time and count 401s with `unauthorizedStreak()`. A 401 leaves the page as it is
+    until the next tick. Any other answer resets the count. The second 401 in a row →
+    `router.push("/sign-in")`. A request with no answer (a network error, an abort) neither counts
+    nor resets.
+  - **One-shot actions** (the upload, "Try another render", Export PDF, "Make the comic") send
+    through `fetchPast401()`: on a 401, the same request goes once more, after 1 s; a second 401 →
+    `/sign-in`. Repeating is safe: a route handler answers its own 401 before it calls the API, and
+    the API answers 401 before it does anything (`current_caller` first, §6). The button keeps its
+    busy state across the repeat.
+  - Unchanged: a page load's server-side `redirect("/sign-in")` and the proxy's redirects. A page
+    load is a real check, and the proxy has just tried the refresh itself.
+
+  ```ts
+  // apps/web/lib/client/signed-out.ts
+  export const RETRY_401_MS = 1000;
+  /** A poller's 401s in a row: saw(status) is true when the browser should go to /sign-in. */
+  export function unauthorizedStreak(): { saw(status: number): boolean };
+  //   saw(401): false the first time, true from the second in a row on; saw(any other): false, count to 0
+  /** fetch(input, init); when that answers 401, wait RETRY_401_MS and fetch(input, init) once more. */
+  export function fetchPast401(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
+  //   the second answer is returned whatever it is; a throw from either fetch propagates
+  ```
 
 ### 4.1 Upload and the job
 
@@ -256,7 +286,7 @@ sequenceDiagram
 
 `/projects`: the server component reads `GET /api/v1/projects`; a client part polls `GET
 /api/projects` every 2 s while any row's job is `queued` or `running` or its `frames.active` is
-above 0, and stops otherwise (a 401 there sends the browser to `/sign-in`). References:
+above 0, and stops otherwise (two 401s in a row there send the browser to `/sign-in`, §4.0 T123). References:
 projects.png and projects-states.png.
 
 **`ProjectRow`**, newest first, by its latest job (`ProjectSummary.job`) and `frames`:
@@ -309,7 +339,7 @@ projects.png and projects-states.png.
      larger than this demo accepts. Upload a smaller file."
    - 400 `no_file` / `bad_form`, 411 → "The upload didn't arrive whole. Choose the file again and
      try once more."
-   - 401 → the browser goes to `/sign-in`.
+   - 401 → the same request once more after 1 s; a second 401 → the browser goes to `/sign-in` (§4.0, T123).
    - 503, any other status, or no response → "Panelwise can't take uploads right now. Try again in
      a minute."
 5. **Accepted (202), staged:** in T040 the panel returns to idle and the list refreshes, the new
@@ -343,7 +373,7 @@ columns stack: intro, report, entities, scenes.
 
 - **Live:** while the job is `queued` or `running` a client part polls `GET /api/projects/[id]/status`
   every 2 s; when the job's `state` or `stage` changes it re-renders the page from the server
-  (`router.refresh()`), so a stage's results appear as it finishes. A 401 goes to `/sign-in`.
+  (`router.refresh()`), so a stage's results appear as it finishes. Two 401s in a row go to `/sign-in` (§4.0, T123).
 - **Job strip** (`components/shared/JobStrip.tsx`, T041; T042's storyboard uses the same one;
   storyboard.png draws it): under the bar, `role="status"`. The stage in words, as an eyebrow:
   `queued` "Queued", `parsing`/`extracting` "Reading the script", `planning` "Planning shots",
@@ -411,7 +441,7 @@ exists), `GET …/lines`, `GET …/shots` and `GET …/frames` in parallel (befo
   `attempt` are unchanged keeps the `image_url` it already has, so a fresh signed URL never
   reloads an image that is on screen.
 
-A 401 goes to `/sign-in`; a failed poll is retried on the next tick.
+Two 401s in a row go to `/sign-in` (§4.0, T123); a failed poll is retried on the next tick.
 
 **`/projects/[id]/storyboard`** (T042), by the job (§5):
 
@@ -502,7 +532,7 @@ state (§4.1), drawn in storyboard-states.png.
   disabled. A 202's `FrameView` replaces that frame on the board at once (now `rendering`, attempt
   n + 1 of n + 1), and the board goes live (`frames.active` > 0 on the next status). A 503
   `renderer_unavailable` → under the button, "Rendering isn't available right now."; a 409 → the
-  board refetches `…/frames` (the frame moved on); a 401 → `/sign-in`; anything else → "That
+  board refetches `…/frames` (the frame moved on); a 401 twice (§4.0, T123) → `/sign-in`; anything else → "That
   didn't start. Try again in a minute." The same button sits in the sheet's withheld panel.
 
 - **Job strip** under the bar while polling (above): T041's `JobStrip`, unchanged (§4.2).
@@ -512,7 +542,7 @@ state (§4.1), drawn in storyboard-states.png.
   the page refreshes when the job's stage changes). Then a click shows "Making the PDF…", fetches
   `GET /api/projects/[id]/storyboard/pdf` and opens the `pdf_url` it answers (storyboard.md §3.4
   Delivery; the PDF is built on demand); a 409 (a frame went live again since the page was drawn)
-  shows "Available when every frame has settled" under the button, a 401 goes to `/sign-in`, and
+  shows "Available when every frame has settled" under the button, a 401 twice (§4.0, T123) goes to `/sign-in`, and
   anything else shows "The PDF couldn't be made. Try again in a minute." A `failed` frame is
   settled: a storyboard with one is exported with its failed card (storyboard.md §3.4). (A job
   that failed because the renderer looked down, storyboard.md §4, leaves later shots with no row,
@@ -622,7 +652,7 @@ draws nothing on a page except the hit areas over it.
 Server component: `GET /api/v1/projects/{id}` → `Project`; once `shots` is set, `GET …/comic` →
 `ComicView` (§6). The client part polls `GET /api/projects/[id]/comic` every 2 s **while
 `ComicView.job` is `queued` or `running`**, and `GET /api/projects/[id]/status` while the upload's job
-is (as §4.3); when a polled job's `state` changes → `router.refresh()`. A 401 goes to `/sign-in`; a
+is (as §4.3); when a polled job's `state` changes → `router.refresh()`. Two 401s in a row go to `/sign-in` (§4.0, T123); a
 failed poll is retried on the next tick. 404 and unavailable as §4.2.
 
 **`/projects/[id]/comic`**, by the project and its `ComicView`:
@@ -641,7 +671,7 @@ failed poll is retried on the next tick. 404 and unavailable as §4.2.
 **Make the comic** posts `POST /api/projects/[id]/comic`: "Starting…" while sending; 202 → the
 making row at once (the answer's job) and polling starts; 409 `comic_running` → `router.refresh()`;
 503 `renderer_unavailable` → the "isn't set up" line and the button disabled; 409 `not_ready` →
-`router.refresh()`; 401 → `/sign-in`; anything else → "The comic couldn't be started. Try again." under
+`router.refresh()`; a 401 twice (§4.0, T123) → `/sign-in`; anything else → "The comic couldn't be started. Try again." under
 the button, which stays enabled.
 
 **The reader** (comic.png):
@@ -1182,6 +1212,7 @@ character", `light` "light", `framing` "framing", `signature` "artist's signatur
 | `components/storyboard/AuditLog.tsx` (AttemptItem, CheckList inside), the "Try another render" action (an edit to T042's `FrameCard.tsx`), `apps/web/app/api/projects/[id]/frames/[scene]/[number]/attempts/route.ts` | new | §4.4 step 5; §4.3 retry | T061 (the API side: T021) |
 | `components/storyboard/ExportButton.tsx` | new | §4.3 export, staged (always disabled until T027) | T042 |
 | `apps/web/app/api/projects/[id]/storyboard/pdf/route.ts`, `ExportButton.tsx` and `canExport` (`board.ts`) | new / changed | §4.3 export | T027 |
+| `apps/web/lib/client/signed-out.ts`; `components/script/ScriptLive.tsx`, `components/storyboard/{Storyboard,RetryButton,ExportButton}.tsx`, `components/comic/ComicStage.tsx`, `components/projects/{ProjectsPage,UploadPanel}.tsx` | new / changed | §4.0 *A 401 while signed in* | T123 |
 | `apps/web/app/projects/[id]/comic/`, `components/comic/*` (ComicPage, ComicNote, ComicSheet, TracedCard, LetteringList, `comic.ts` for the words and the rect percentages), `apps/web/app/api/projects/[id]/comic/route.ts` (GET, POST), `AppBar.tsx` (the Comic tab enabled), `lib/api/types.ts` (§6 comic types) | new | §4.5 | T024 |
 
 ## 8. Decisions & alternatives
@@ -1197,6 +1228,7 @@ character", `light` "light", `framing` "framing", `signature` "artist's signatur
 | Images | Supabase Storage signed URLs, only for passed or warned frames | public bucket URLs: a withheld frame's file would be one guess away |
 | Theme | light only | dark mode: the paper-on-a-light-table metaphor doesn't survive inversion, and the deadline is 2026-10-30 |
 | Script text | always Courier Prime | the body face: quotes would look like our words |
+| A 401 on a poll or an action (T123) | `/sign-in` on the second 401 in a row; an action repeats once after 1 s | a Supabase client in the browser refreshing the session itself: a second refresher racing the proxy's, and auth-js in the client bundle; the route handler retrying `getClaims()`: holds a request already up to ~50 s into auth-js's retries; redirecting on the first 401 (today): signs out a judge whose session is alive (measured, `eval/measurements/t123/`) |
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none (shadcn/ui,
 restyled).
@@ -1240,6 +1272,18 @@ restyled).
   withheld label, Download PDF only with a comic, one URL refetch on an image error; the route
   relays GET and POST; the Comic tab enabled. Then on the local stack, a T062 copy's comic (comic.md
   §4a's local check) read in the browser against comic.png and comic-phone.png.
+- **A 401 while signed in (T123):** vitest, tests first: `unauthorizedStreak` (401 → false; 401, 401
+  → true; 401, 200, 401 → false; 401, 503, 401 → false); `fetchPast401` (200 → one call; 401 then
+  202 → 202, two calls of the same input and init, the second 1 s later on fake timers; 401 twice →
+  401; 503 → one call; a throw propagates). For each poller (`ScriptLive`, `Storyboard`,
+  `ComicStage`, `ProjectsPage`): one 401 → no `push`, and the next tick asks again; 401, 401 →
+  `push("/sign-in")` once; 401, 200, 401 → no `push`; no second poll request while one is
+  unanswered. For each action (upload, Try another render, Export PDF, Make the comic): 401 then its
+  success answer → the success path, no `push`; 401 twice → `push("/sign-in")`. Mutation check:
+  each rule removed, a test fails. Then in the browser on the local stack, with a poll running
+  (a comic re-run: no drawings, no tokens): the session cookie's `expires_at` set in the past from
+  the console, Supabase made unreachable from the web container (`/etc/hosts`) for one poll, then
+  restored. The page stays and keeps updating (today: `/sign-in`).
 - **Visual:** each screen side by side with its PNG in §2 at 1440 px (and the storyboard and the comic at 390 px),
   layout, tokens and copy matching; a difference is fixed in the code or, if the reference is
   wrong, in this doc first.
