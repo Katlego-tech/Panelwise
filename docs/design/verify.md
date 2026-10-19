@@ -679,9 +679,9 @@ on gogos-recipe 2.1 the describer gave both children the same words ("a child in
 and shorts") and the agent answered "different faces, hair, and clothing details"; 1.4's second
 attempt, "loose hair against a ponytail". And a caught copy only warned. So **a pair the describer
 itself described alike is a copy too**, in code: `described_alike` (pure, §6) gives each pair of
-described people, not both **vetoed**, whose
+described people, not both characters and not both scripted extras, whose
 `appearance` words overlap by **at least 0.5** (Jaccard on the lowercase words, a short stop-word
-list out). **Vetoed** is T104's `known` (accepted ∪ found characters) and every **scripted extra**: a
+list out). Characters are T104's `known` (accepted ∪ found); a **scripted extra** is a
 person the judge called no character with a support that passes every `UNSCRIPTED_PERSON` test (found,
 naming no character, an action line, pointing at no one else). A scripted crowd ("PUPILS fill the
 corridor", "two GUARDS") is drawn alike on every attempt, so without it such a shot would be withheld
@@ -1227,15 +1227,16 @@ FrameAuditRow.layout: Mapped[dict | None]   # {"panels", "copies", "reason"}; NU
 # app/verify/audit.py
 ALIKE_OVERLAP = 0.5   # T124: measured, eval/measurements/t124/
 _ALIKE_STOP_WORDS = frozenset("a an the with and of in on at wearing holding her his their to is".split())
-def described_alike(description: FrameDescription, vetoed: Collection[int],
+def described_alike(description: FrameDescription, known: Collection[int], extras: Collection[int] = (),
                     overlap: float = ALIKE_OVERLAP) -> tuple[tuple[int, int], ...]: ...
-#   pure: every pair (a, b), a < b, of description.people, not both in `vetoed`, whose appearance
+#   pure: every pair (a, b), a < b, of description.people, not both in `known` and not both in
+#   `extras` (a character and an extra still pair), whose appearance
 #   words overlap >= overlap; words: re.findall(r"[a-z]+", appearance.lower()) minus the stop words;
 #   overlap |A & B| / |A | B| (0.0 when both are empty); pairs in sorted order
 def run_checks(...) -> ...   # T124: unless layout.panels > 1 (SPLIT_PANELS), DRAWN_TWICE also for each
-#   pair of described_alike(description, vetoed) not in layout.copies (layout None: no layout pairs),
+#   pair of described_alike(description, known, extras) not in layout.copies (layout None: none),
 #   detail f"person {a} ({position}, {appearance}) and person {b} ({position}, {appearance}):
-#   described alike, one of them no character"; vetoed = T104's known (accepted ∪ found) ∪ the
+#   described alike, one of them no character"; known = T104's accepted ∪ found people; extras = the
 #   scripted extras (a no-character call whose support passes every UNSCRIPTED_PERSON test);
 #   layout pairs keep T104's veto (known only)
 ```
