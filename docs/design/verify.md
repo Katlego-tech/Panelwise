@@ -431,7 +431,7 @@ classDiagram
 | `BACKGROUND_OBJECT` (T083; T086: and unheld food) | judge + code | soft | an object of category `other`, `nature`, `furniture` or `screen_or_sign`, not `held`, not a named prop, called `unscripted`, or `set_dressing` whose `support` isn't in the heading (§3, Background objects warn): the place's everyday things the script didn't mention. Its detail is `object N (name, category): not in the script`. **T089:** also every object failure that isn't an animal's or a weapon's, with that failure's own detail (`held, so not set dressing`, `prop without support`, `unscripted`, `the script names it`, `never set dressing`, `not in the heading`) |
 | `DRAWN_SEX` (T095) | sex agent (VISION) + code | **hard** | a person the judge matched to a character whose sex the script gives (`character_sex`) is drawn as the other sex: the sex agent, asked about that one person on the image, answers `male` or `female` and it isn't the script's. `unclear` passes, and so does a person matched to no character or to one with no sex from the script. Detail: `person N (position, appearance): drawn male, but REFILWE is female`. **T102:** also a person the presence agent finds for a character the script sexes (`found_people`), asked the same question |
 | `SPLIT_PANELS` (T104) | layout agent (VISION) + code | **hard** | the layout agent, asked on a frame with two or more described people, answers `panels` > 1: the frame is a strip or grid of pictures, not one (L015). No answer (not asked, or a failed question) passes. Detail: `drawn as 2 panels` |
-| `DRAWN_TWICE` (T104) | layout agent (VISION) + code | **hard** | on a frame of one picture (`panels` 1), a `copies` pair of two described people in range who are not both known as characters (accepted by `matched_people`, or found by the presence agent: `found_people`), and so not two different characters: one person drawn twice. In a split frame the copies are the split's own (`SPLIT_PANELS` names it). Detail: `person 0 (left, …) and person 1 (right, …): the same person drawn twice` |
+| `DRAWN_TWICE` (T104, T124) | layout agent (VISION) + code | **hard** | (T124: also a pair `described_alike`, with or without a layout answer, below) on a frame of one picture (`panels` 1), a `copies` pair of two described people in range who are not both known as characters (accepted by `matched_people`, or found by the presence agent: `found_people`), and so not two different characters: one person drawn twice. In a split frame the copies are the split's own (`SPLIT_PANELS` names it). Detail: `person 0 (left, …) and person 1 (right, …): the same person drawn twice` |
 | `SIGNATURE` (T077) | code | soft | `signature` is true: a signature, initials or an artist's mark, readable or not. Since T107 the describer keeps a signature's letters out of `text`, readable or not, so a legible signature that isn't the script's (`@hutley`) still fails `TEXT_IN_FRAME` (soft since T089) |
 
 **Verdict:** `FAIL` if any hard check fails; `WARN` if only soft checks fail; `PASS` otherwise. Hard
@@ -674,6 +674,27 @@ more attempt, a drawing (the image budget, T030) and its audit. **Old rows:** a 
 has no `layout`, so `recheck` can't measure the new checks on it (both pass), as for a sex found
 later. **Migration:** 0009, unless Katlego's T097 (#170, design only, which was to take 0009) lands
 first: whichever of the two merges second renumbers its migration (revision and down_revision).
+**Described alike (T124; 2026-10-19, `eval/measurements/t124/`).** The layout agent argues copies apart:
+on gogos-recipe 2.1 the describer gave both children the same words ("a child in a short-sleeved shirt
+and shorts") and the agent answered "different faces, hair, and clothing details"; 1.4's second
+attempt, "loose hair against a ponytail". And a caught copy only warned. So **a pair the describer
+itself described alike is a copy too**, in code: `described_alike` (pure, §6) gives each pair of
+described people, not both known as characters (the T104 veto, the same `known` map), whose
+`appearance` words overlap by **at least 0.5** (Jaccard on the lowercase words, a short stop-word
+list out). Each such pair not already a layout pair fails `DRAWN_TWICE` with its own detail. It needs
+no layout answer (a frame of one person has no pairs; a failed layout question still lets it run),
+but a split frame (`panels > 1`) is `SPLIT_PANELS`'s alone. **Measured** on stored Super VL audits,
+67 labelled attempts with 10 copies and 34 right frames (the 17 Oct runs, lighthouse, red-kite):
+alone it catches 7 of 10 copies, with the layout agent 8 of 10, and flags **no right frame** (4 weak
+ones, one of them a real extra person). **Known risk:** on the 109 labelled frames' stored DeepSeek
+descriptions it flags 6 of 40 right frames, each a cast the judge didn't match whose two people
+DeepSeek described in generic words ("a man in a shirt"). Super VL describes every hosted frame and
+writes longer appearances; the-choir and the judge sample measure it again. **On the hosted ladder**
+(T124, Tumo, 2026-10-19): `drawn_sex,no_character,split_panels,drawn_twice`. A copy is withheld and
+redrawn (a new seed) rather than shown with a warning; a false flag must repeat on every attempt to
+lose the frame. Cost: on 17 Oct's runs 9 of 39 attempts would have failed `DRAWN_TWICE`, so about
+one more drawing, audit and layout question each, within the image budget (T030).
+
 **Measured** (2026-10-16, Token Factory, DeepSeek-V4.1-Flash,
 `proto_twice.py`, the prompt verbatim; no fal): every stored storyboard attempt of the newest run of
 11 scripts with two or more described people, **332** of 511; 330 answered. **Splits: 23 flagged,
@@ -1193,6 +1214,27 @@ FrameAuditRow.layout: Mapped[dict | None]   # {"panels", "copies", "reason"}; NU
 ```
 
 `recheck` reads `layout` from the row and passes it on (NULL: both checks pass, as before T104).
+
+### T124 contracts
+
+```python
+# app/verify/audit.py
+ALIKE_OVERLAP = 0.5   # T124: measured, eval/measurements/t124/
+_ALIKE_STOP_WORDS = frozenset("a an the with and of in on at wearing holding her his their to is".split())
+def described_alike(description: FrameDescription, known: Mapping[int, str],
+                    overlap: float = ALIKE_OVERLAP) -> tuple[tuple[int, int], ...]: ...
+#   pure: every pair (a, b), a < b, of description.people, not both in `known`, whose appearance
+#   words overlap >= overlap; words: re.findall(r"[a-z]+", appearance.lower()) minus the stop words;
+#   overlap |A & B| / |A | B| (0.0 when both are empty); pairs in sorted order
+def run_checks(...) -> ...   # T124: unless layout.panels > 1 (SPLIT_PANELS), DRAWN_TWICE also for each
+#   pair of described_alike(description, known) not in layout.copies (layout None: no layout pairs),
+#   detail f"person {a} ({position}, {appearance}) and person {b} ({position}, {appearance}):
+#   described alike, one of them no character"; `known` is T104's accepted ∪ found map
+```
+
+`recheck` decides it again for free on every stored row with a description (the layout column isn't
+needed). The hosted ladder (`render.yaml`, deploy.md §6) becomes
+`drawn_sex,no_character,split_panels,drawn_twice`.
 `FrameWriter.log` writes it. The web shows a check's name as it shows every check's (no new copy).
 
 ### T109 contracts: the describer's answer capped in its grammar
@@ -1277,6 +1319,7 @@ limit rule above names it. A looping string arrives cut to 100 characters, which
 | `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0008_audit_found` | changed | `PersonFound`, `Presence`, `PRESENCE_AGENT_PROMPT`, `find_character`, `present_characters`, `run_checks(found=)`, `frame_audits.found` | T099 |
 | `services/api/app/verify/audit.py` | changed | `found_people`, `_ask_sexes(pairs)` one question per person, `check_person` at 4,096 tokens, `run_checks`' `DRAWN_SEX` for a found person, `audit_frame` asks after the presence agent | T102 |
 | `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0009_audit_layout` | changed | `Check.SPLIT_PANELS`, `Check.DRAWN_TWICE`, `FrameLayout`, `Layout`, `LAYOUT_AGENT_PROMPT`, `check_layout`, `frame_layout`, `run_checks(layout=)`, `frame_audits.layout` | T104 |
+| `services/api/app/verify/audit.py`, `render.yaml` | changed | `ALIKE_OVERLAP`, `described_alike`, `run_checks`' second `DRAWN_TWICE` source; the hosted ladder | T124 |
 | `services/api/app/verify/{schema,audit}.py`, `app/llm/structured.py` | changed | `DescriptionLimits`, `DESCRIPTION_LIMITS`, `description_grammar`, `describe_frame` sends it; `structured_chat(grammar=)` (llm.md §6) | T109 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
@@ -1289,6 +1332,7 @@ limit rule above names it. A looping string arrives cut to 100 characters, which
 | Where a head is (T097) | one vision question per comic panel, on the accepted attempt only, boxes as fractions, never a verdict | face detection (another model and dependency for a box the vision model already gives, measured on the drawings); the describer giving boxes (it is blind and general; a longer schema on every attempt, storyboard frames too); asking on every attempt (tokens on frames thrown away); an anatomy rule from the same question (it missed a three-armed man twice and miscounted limbs: §3) |
 | A character the judge didn't match (T099) | a vision question per drawn character, only when the judge matched none of them; it counts for `NO_CHARACTER` alone | a judge sentence (the judge already gets the same lines and cites them while calling the person no one; and it can't be measured free); code taking a stranger's support that names a drawn character as a match (free, but by the stored supports it finds about 8 of the 23, and none where the judge cited nothing); making the found person a full match (it would excuse `UNSCRIPTED_PERSON` and start `DRAWN_SEX` questions on a second opinion's say-so; measured only for presence). **T102** adds only the `DRAWN_SEX` question, measured: 36 found people asked, 2 flagged, both real, 0 false alarms |
 | A frame in panels, or one person drawn twice (T104; L015, L022, 2026-10-16) | one vision question on a frame with two or more people; `SPLIT_PANELS` on panels > 1; `DRAWN_TWICE` on a copy pair in one picture unless the two are accepted as two different characters | rewording every style's positive words (fal's klein takes no negative prompt; L015 parked it: it changes every drawing); a code test on the describer's text (it describes the copies differently: "short dark hair" against "shoulder-length wavy hair" for lighthouse 4.2's two women); asking the describer (a describer told to look for copies starts finding them, as T095 found for sex); copies in a split frame (the split's own figures; `SPLIT_PANELS` already names it) |
+| A copy the layout agent argues apart (T124; 2026-10-19) | the describer's own words: a pair described alike (word overlap ≥ 0.5), not both known, fails `DRAWN_TWICE`; `DRAWN_TWICE` on the hosted ladder | withholding on `UNSCRIPTED_PERSON` (it catches 9 of 10 copies, but flags 11 of 40 right frames on the 109 labelled: a judge that misses a drawn cast); a stricter layout prompt (another paid question, and it already sees the matching words); a threshold of 0.8 (no false flag anywhere, but 3 of 10 copies) |
 | A found person's sex (T102; L022, 2026-10-16) | T095's question on each person `found_people` gives for a character the script sexes; `DRAWN_SEX` fails on the other sex | the presence agent's own answer refusing a person of the other sex (its prompt already says "their sex if the script gives it", and it still found an old woman for Mr. Fortuin); a full match (excuses `UNSCRIPTED_PERSON`, T099's reason) |
 | Who sees the image | a vision model, blind to the shot | Nemotron directly: no Token Factory Nemotron accepts images (U7); telling the describer what to expect: it would agree |
 | Who judges | Nemotron (reasoning tier) + code | the vision model judging itself: not NVIDIA, and it already saw the image without the spec, which is the point |
@@ -1477,6 +1521,15 @@ it against the script."*
   hard; migration 0007 upgrades and downgrades (the schema test). Live: one script with
   `AUDIT_WITHHOLD_CHECKS=drawn_sex`, where the real code meets `character_sex` (the prototype used
   the labels).
+- **T124** (`tests/verify/test_t124.py`, tests first): `described_alike` on identical appearances
+  (1.0), on 0.5 exactly (flags) and just below (doesn't), on a pair both known (never), one known
+  (flags), neither (flags), with stop words only (0.0), case and punctuation ignored, three alike
+  people as three sorted pairs; `run_checks` fails `DRAWN_TWICE` for an alike pair with `layout` None
+  and with a layout of no copies, with the T124 detail; a pair in both sources fails once, with the
+  layout's detail; a split frame fails `SPLIT_PANELS` only; `recheck` on a stored row flags it.
+  `render.yaml`'s ladder names `drawn_twice` and `withholding` accepts it. Mutation check: each rule
+  removed, a test fails. Live, free: `recheck` over the 17 Oct runs' stored rows flags 2.1, 1.4 a2,
+  5.3 and rooftop 3.1, 6.2, and no frame labelled right.
 - **T104** (`tests/verify/test_t104.py`, tests first): `frame_layout` sorts and de-duplicates pairs,
   drops `[i, i]`, negative, out-of-range, short and long pairs, and makes `panels` 0 and -1 into 1;
   `run_checks` fails `SPLIT_PANELS` for `panels` 2 with its detail and passes 1; fails `DRAWN_TWICE`
