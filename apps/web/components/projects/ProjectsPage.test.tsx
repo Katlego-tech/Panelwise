@@ -8,7 +8,9 @@ import { ProjectsPage } from "./ProjectsPage";
 
 const fetchMock = vi.fn<typeof fetch>();
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+// One router object, as Next's useRouter() gives: a new one per render would restart the poll's effect.
+const router = { push };
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: false });
@@ -93,24 +95,67 @@ describe("ProjectsPage (web.md §4.1a)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("an older response never overwrites a newer one", async () => {
+  it("one poll at a time: a slow answer is waited for, then lands, and polling goes on (T123)", async () => {
     let slow!: (r: Response) => void;
     fetchMock
-      .mockReturnValueOnce(new Promise((resolve) => (slow = resolve))) // the first poll hangs past the next tick
-      .mockResolvedValueOnce(Response.json([project({ title: "Newer" })]));
+      .mockReturnValueOnce(new Promise((resolve) => (slow = resolve))) // the first poll hangs past two ticks
+      .mockResolvedValueOnce(Response.json([project({ title: "Next" })]));
     render(<ProjectsPage initial={[project()]} />);
     await tick();
-    await tick(); // the second poll lands first
-    expect(screen.getByText("Newer")).toBeInTheDocument();
-    await act(async () => slow(Response.json([project({ title: "Older" })])));
-    expect(screen.getByText("Newer")).toBeInTheDocument();
-    expect(screen.queryByText("Older")).toBeNull();
+    await tick();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    await act(async () => slow(Response.json([project({ title: "Slow" })])));
+    expect(screen.getByText("Slow")).toBeInTheDocument();
+    await tick();
+    expect(screen.getByText("Next")).toBeInTheDocument();
   });
 
-  it("a 401 while polling sends the browser to sign in", async () => {
-    fetchMock.mockResolvedValue(Response.json({ error: "unauthorized" }, { status: 401 }));
-    render(<ProjectsPage initial={[project()]} />);
-    await tick();
-    expect(push).toHaveBeenCalledWith("/sign-in");
+  describe("a 401 while still signed in (web.md §4.0, T123)", () => {
+    const unauthorized = () => Response.json({ error: "unauthorized" }, { status: 401 });
+
+    it("one 401 keeps the list, and the next tick asks again", async () => {
+      fetchMock.mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(Response.json([project({ title: "Later" })]));
+      render(<ProjectsPage initial={[project()]} />);
+      await tick();
+      expect(screen.getByText("Lost Property")).toBeInTheDocument();
+      await tick();
+      expect(screen.getByText("Later")).toBeInTheDocument();
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it("the second 401 in a row sends the browser to sign in", async () => {
+      fetchMock.mockImplementation(async () => unauthorized());
+      render(<ProjectsPage initial={[project()]} />);
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
+    });
+
+    it("an answer between two 401s starts the count again", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockResolvedValueOnce(Response.json([project({ title: "Changed" })]))
+        .mockResolvedValueOnce(unauthorized());
+      render(<ProjectsPage initial={[project()]} />);
+      await tick();
+      await tick();
+      expect(screen.getByText("Changed")).toBeInTheDocument();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it("a poll with no answer neither counts nor resets: 401, network error, 401 goes to sign in", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockRejectedValueOnce(new TypeError("offline"))
+        .mockResolvedValueOnce(unauthorized());
+      render(<ProjectsPage initial={[project()]} />);
+      await tick();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
+    });
   });
 });

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { JobStrip } from "@/components/shared/JobStrip";
 import type { FrameView, LinesView, Project, ProjectSummary, ShotView } from "@/lib/api/types";
+import { unauthorizedStreak } from "@/lib/client/signed-out";
 
 import { isLive, mergeFrames, retryable, stageKey } from "./board";
 import { FrameBoard } from "./FrameBoard";
@@ -67,13 +68,15 @@ export function Storyboard({
     // one, after the refresh, or after the page has gone.
     const abort = new AbortController();
     const init = { cache: "no-store", signal: abort.signal } as const;
+    // Sign in on the second 401 in a row, never the first (web.md §4.0, T123).
+    const streak = unauthorizedStreak();
     let busy = false;
     const timer = setInterval(async () => {
       if (busy) return;
       busy = true;
       try {
         const res = await fetch(`${base}/status`, init);
-        if (res.status === 401) {
+        if (streak.saw(res.status)) {
           routerRef.current.push("/sign-in");
           return;
         }

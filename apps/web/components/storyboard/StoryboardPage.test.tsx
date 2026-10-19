@@ -333,10 +333,78 @@ describe("live (web.md §4.3)", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("a 401 sends the browser to sign in", async () => {
-    fetchMock.mockResolvedValueOnce(Response.json({ error: "unauthorized" }, { status: 401 }));
-    render(<StoryboardPage project={keeper(rendering)} board={board()} />);
-    await tick();
-    expect(push).toHaveBeenCalledWith("/sign-in");
+  describe("a 401 while still signed in (web.md §4.0, T123)", () => {
+    const unauthorized = () => Response.json({ error: "unauthorized" }, { status: 401 });
+    const reading = { job: job({ state: "running", stage: "rendering", progress: 60 }), frames: null };
+
+    it("one 401 stays on the page, and the next tick asks again", async () => {
+      fetchMock.mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(status(reading));
+      render(<StoryboardPage project={keeper(reading)} board={board()} />);
+      await tick();
+      await tick();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it("the second 401 in a row sends the browser to sign in", async () => {
+      fetchMock.mockImplementation(async () => unauthorized());
+      render(<StoryboardPage project={keeper(reading)} board={board()} />);
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
+    });
+
+    it("an answer between two 401s starts the count again", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockResolvedValueOnce(status(reading))
+        .mockResolvedValueOnce(unauthorized());
+      render(<StoryboardPage project={keeper(reading)} board={board()} />);
+      await tick();
+      await tick();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it("a poll with no answer neither counts nor resets: 401, network error, 401 goes to sign in", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockRejectedValueOnce(new TypeError("offline"))
+        .mockResolvedValueOnce(unauthorized());
+      render(<StoryboardPage project={keeper(reading)} board={board()} />);
+      await tick();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
+    });
+
+    it("only the status poll counts: a 401 on …/frames, twice, stays on the page", async () => {
+      fetchMock
+        .mockResolvedValueOnce(status(rendering))
+        .mockResolvedValueOnce(unauthorized())
+        .mockResolvedValueOnce(status(rendering))
+        .mockResolvedValueOnce(unauthorized());
+      render(<StoryboardPage project={keeper(rendering)} board={board()} />);
+      await tick();
+      await tick();
+      expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+        "/api/projects/p1/status",
+        "/api/projects/p1/frames",
+        "/api/projects/p1/status",
+        "/api/projects/p1/frames",
+      ]);
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it("no second poll goes while one is unanswered", async () => {
+      fetchMock.mockReturnValue(new Promise(() => {}));
+      render(<StoryboardPage project={keeper(reading)} board={board()} />);
+      await tick();
+      await tick();
+      await tick();
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
   });
 });
