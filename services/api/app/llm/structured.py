@@ -7,7 +7,7 @@ the caller's job, and is never loosened to absorb a failure here.
 
 import json
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -52,11 +52,15 @@ async def structured_chat[T: BaseModel](
     thinking: bool | None = None,
     temperature: float = 0.0,
     max_tokens: int | None = None,
+    grammar: Mapping[str, Any] | None = None,
 ) -> StructuredResult[T]:
+    """`grammar` (T109): the schema the decoder enforces, in place of the model's own, for limits
+    the prompt doesn't show. The prompt's schema text and the validation stay `response_model`'s."""
     schema = response_model.model_json_schema()
+    decoded = dict(grammar) if grammar is not None else schema
     response_format = {
         "type": "json_schema",
-        "json_schema": {"name": response_model.__name__, "schema": schema, "strict": True},
+        "json_schema": {"name": response_model.__name__, "schema": decoded, "strict": True},
     }
     turns = _with_schema(messages, schema)
 

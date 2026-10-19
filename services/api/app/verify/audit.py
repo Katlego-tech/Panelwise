@@ -47,12 +47,14 @@ from app.verify.prompts import (  # T099: the judge's own character lines, on pu
     render_spec,
 )
 from app.verify.schema import (
+    DESCRIPTION_LIMITS,
     FrameDescription,
     HeadCheck,
     Judgement,
     Layout,
     PersonCheck,
     Presence,
+    description_grammar,
 )
 
 logger = logging.getLogger(__name__)
@@ -588,6 +590,11 @@ def run_checks(
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support is not an action line")
         elif _points_elsewhere(call.support):
             failures[Check.UNSCRIPTED_PERSON].append(f"{who}: its support points at someone else")
+    # T109: a list at its limit may have been cut, so whoever lay past it was never checked.
+    if (n := len(description.people)) >= DESCRIPTION_LIMITS.people:
+        failures[Check.UNSCRIPTED_PERSON].append(
+            f"{n} people described, the limit: any more were not checked"
+        )
 
     # T095: a matched character the script sexes, drawn as the other sex; T102: or a found one.
     accepted = matched_people(shot, description, judgement, extraction, ages)
@@ -649,6 +656,10 @@ def run_checks(
                 failures[filed].append(f"{what}: not in the heading")
             case _:
                 pass
+    if (n := len(description.objects)) >= DESCRIPTION_LIMITS.objects:  # T109, as for people
+        failures[Check.BACKGROUND_OBJECT].append(
+            f"{n} objects described, the limit: any more were not checked"
+        )
 
     # Only legible words the script never wrote (T071): the shot's own text or the scene's place.
     # The heading's time of day isn't a haystack, so a painted "NIGHT" warns (T089: soft).
@@ -722,7 +733,15 @@ async def describe_frame(model: NebiusChatModel, png: bytes) -> tuple[FrameDescr
             ],
         },
     ]
-    result = await structured_chat(model, messages, FrameDescription, Tier.VISION, max_tokens=4096)
+    # T109: limits in the decoder's grammar only, so a loop stops at a limit instead of max_tokens.
+    result = await structured_chat(
+        model,
+        messages,
+        FrameDescription,
+        Tier.VISION,
+        max_tokens=4096,
+        grammar=description_grammar(),
+    )
     return result.value, result.chat
 
 
