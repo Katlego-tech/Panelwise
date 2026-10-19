@@ -25,3 +25,7 @@ to Supabase's Ireland region, so the hosted times are smaller, but the ratio is 
 **`probe_sign_dupes.py <project id>`**: asked `[a, b, a]` in one batch.
 - 3 answers for 3 paths, each echoing its path in place: the duplicate is signed both times.
 - The batch link equals the single call's link up to `?token=`, and fetching it returns the image (200).
+
+**`live_t122.py <project id>`** (after the code, 2026-10-19): the branch's `SupabaseStore.signed_urls`
+on rooftop-tomatoes' 21 accepted frames: **1 request** (`POST /storage/v1/object/sign/panelwise-dev`),
+21 links in order, all 21 open (200); 866 ms including a fresh connection (the warm batch above: 219 ms).

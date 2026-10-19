@@ -236,16 +236,20 @@ async def read_frames(
         raise ApiError(409, "not_ready")
     screenplay = load_screenplay(row.screenplay)
     store: AssetStore | None = request.app.state.store
+    # T122: every accepted frame's link in one call (one at a time took 4.9 s for 21 frames)
+    shown = [f for f in frames if f.state in ACCEPTED and f.asset is not None]
+    urls: dict[tuple[int, int], str] = {}
+    if shown:
+        if store is None:
+            raise ApiError(503, "storage_unavailable")
+        try:
+            links = await store.signed_urls([f.asset for f in shown if f.asset], _SIGNED_URL_S)
+        except StorageError as exc:
+            raise ApiError(503, "storage_unavailable") from exc
+        urls = {(f.scene_index, f.shot_number): u for f, u in zip(shown, links, strict=True)}
     views: list[FrameView] = []
     for frame in frames:
-        url: str | None = None
-        if frame.state in ACCEPTED and frame.asset is not None:
-            if store is None:
-                raise ApiError(503, "storage_unavailable")
-            try:
-                url = await store.signed_url(frame.asset, _SIGNED_URL_S)
-            except StorageError as exc:
-                raise ApiError(503, "storage_unavailable") from exc
+        url = urls.get((frame.scene_index, frame.shot_number))
         attempts = audits.get((frame.scene_index, frame.shot_number), [])
         views.append(
             frame_view(
@@ -469,8 +473,8 @@ async def read_comic(
         if store is None:
             raise ApiError(503, "storage_unavailable")
         try:
-            page_urls = [await store.signed_url(path, _SIGNED_URL_S) for path in comic.pages]
-            pdf_url = await store.signed_url(comic.pdf, _SIGNED_URL_S)
+            # T122: the pages and the PDF in one call; the PDF's link is the last
+            *page_urls, pdf_url = await store.signed_urls([*comic.pages, comic.pdf], _SIGNED_URL_S)
         except StorageError as exc:
             raise ApiError(503, "storage_unavailable") from exc
     can_make = (
