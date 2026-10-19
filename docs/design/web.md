@@ -186,23 +186,35 @@ don't match. Check both and try again." Reference: signin.png.
   projects.png) is a server action too: `signOut`, then `/sign-in`.
 - **A 401 while signed in (T123).** A route handler answers 401 whenever `getClaims()` fails, and
   that doesn't always mean the session is gone. When the proxy's refresh can't reach Supabase Auth
-  (a network error or a 5xx), `@supabase/auth-js` keeps the session cookie. The request answers 401,
+  (a network error, or a 500–504 or 520–530 answer: auth-js's retryable failures), `@supabase/auth-js`
+  keeps the session cookie. The request answers 401,
   after up to ~50 s of auth-js's own retries. The next request, once Auth answers, refreshes the
   same cookie (measured: `eval/measurements/t123/`). When a refresh is refused with the access token
   expired, the cookie is cleared and every request after it is a 401 too. So the browser goes to
   `/sign-in` on the **second 401 in a row**, never the first:
   - **Pollers** (`ScriptLive`, `Storyboard`, `ComicStage`, `ProjectsPage`) keep one poll request
-    in flight at a time and count 401s with `unauthorizedStreak()`. A 401 leaves the page as it is
-    until the next tick. Any other answer resets the count. The second 401 in a row →
-    `router.push("/sign-in")`. A request with no answer (a network error, an abort) neither counts
-    nor resets.
+    in flight at a time (a `busy` flag, as `Storyboard` already has; `ProjectsPage`'s "newest answer
+    wins" `latest` ref goes, since answers can no longer overlap) and count 401s with one
+    `unauthorizedStreak()` made per run of the polling effect, so a restarted poll starts at 0.
+    A 401 leaves the page as it is until the next tick. Any other answer resets the count. The
+    second 401 in a row → `router.push("/sign-in")`. A request with no answer (a network error, an
+    abort) neither counts nor resets. Only the poll's own request feeds the streak: `Storyboard`'s
+    `…/status`, whose `…/frames` follow-up (and the one-shot `refetchFrames` after a 409) treats a 401
+    like any failed answer and waits for the next tick. A poll has no timeout of its own: every
+    request ends (the measured worst case answered in 51 s; Vercel ends a function at its limit).
   - **One-shot actions** (the upload, "Try another render", Export PDF, "Make the comic") send
     through `fetchPast401()`: on a 401, the same request goes once more, after 1 s; a second 401 →
     `/sign-in`. Repeating is safe: a route handler answers its own 401 before it calls the API, and
     the API answers 401 before it does anything (`current_caller` first, §6). The button keeps its
-    busy state across the repeat.
-  - Unchanged: a page load's server-side `redirect("/sign-in")` and the proxy's redirects. A page
-    load is a real check, and the proxy has just tried the refresh itself.
+    busy state across the repeat. The repeat sends the same `init`, so a body must be one that can
+    be sent twice (a `FormData`, a string), never a one-shot `ReadableStream`.
+  - Unchanged, and **a known limit**: a page load's server-side `redirect("/sign-in")` and the
+    proxy's redirects. During the same outage the proxy counts a retryable failure as signed out, so
+    a page request still goes to `/sign-in`: a reload, a link, and a poller's `router.refresh()` on a
+    stage change. Accepted for now: it needs the outage and a stage change in the same window, the
+    cookie survives (signing in again, or a reload once Auth answers, works), and the fix (the proxy
+    and `currentUser()` telling a retryable failure from a refused one) is a change to the session
+    guard itself (§10).
 
   ```ts
   // apps/web/lib/client/signed-out.ts
@@ -1277,13 +1289,16 @@ restyled).
   202 → 202, two calls of the same input and init, the second 1 s later on fake timers; 401 twice →
   401; 503 → one call; a throw propagates). For each poller (`ScriptLive`, `Storyboard`,
   `ComicStage`, `ProjectsPage`): one 401 → no `push`, and the next tick asks again; 401, 401 →
-  `push("/sign-in")` once; 401, 200, 401 → no `push`; no second poll request while one is
-  unanswered. For each action (upload, Try another render, Export PDF, Make the comic): 401 then its
-  success answer → the success path, no `push`; 401 twice → `push("/sign-in")`. Mutation check:
+  `push("/sign-in")` once; 401, 200, 401 → no `push`; 401, a network error, 401 → `push` (no answer
+  neither counts nor resets); no second poll request while one is unanswered. `Storyboard`: a 401
+  on `…/frames` after a 200 `…/status`, twice, → no `push`. For each action (upload, Try another render, Export PDF, Make the comic): 401 then its
+  success answer → the success path, no `push`, the button busy until it lands; 401 twice →
+  `push("/sign-in")`. Mutation check:
   each rule removed, a test fails. Then in the browser on the local stack, with a poll running
   (a comic re-run: no drawings, no tokens): the session cookie's `expires_at` set in the past from
   the console, Supabase made unreachable from the web container (`/etc/hosts`) for one poll, then
-  restored. The page stays and keeps updating (today: `/sign-in`).
+  restored, with no stage change during the outage (the known limit, §4.0). The page stays and
+  keeps updating (today: `/sign-in`).
 - **Visual:** each screen side by side with its PNG in §2 at 1440 px (and the storyboard and the comic at 390 px),
   layout, tokens and copy matching; a difference is fixed in the code or, if the reference is
   wrong, in this doc first.
@@ -1291,6 +1306,11 @@ restyled).
 
 ## 10. Open questions
 
+- [ ] A page request during a Supabase Auth outage (T123's known limit, §4.0): the proxy and
+  `currentUser()` count auth-js's retryable failure as signed out, so a reload or a poller's
+  `router.refresh()` goes to `/sign-in` though the cookie survives. A fix lets such a request
+  through as "unknown" (the page renders its unavailable state) and must keep a refused session
+  redirecting.
 - [ ] Upload limits (bytes, pages) and the extraction budget message's page figure: T030 sets them.
 - [ ] How many extra attempts "Try another render" may start per frame (SPEC open question 4).
 - [ ] Who can see a project beyond its owner (SPEC open question 6); this doc assumes owner only.
