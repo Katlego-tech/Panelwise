@@ -302,3 +302,12 @@ async def test_a_description_from_before_t107_reads_with_none(
 
     assert status == 200
     assert frames[0]["audits"][0]["description"]["signature_text"] == []
+
+
+def test_every_field_the_describer_returns_is_one_the_view_reads() -> None:
+    """The guard against the next one: a field added to FrameDescription (the describer's answer,
+    stored as is) must be added to DescriptionView too, or every new frame's read is a 500."""
+    from app.api.v1.schemas import DescriptionView
+
+    missing = set(FrameDescription.model_fields) - set(DescriptionView.model_fields)
+    assert missing == set()
