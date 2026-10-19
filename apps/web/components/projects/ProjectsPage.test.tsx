@@ -8,7 +8,9 @@ import { ProjectsPage } from "./ProjectsPage";
 
 const fetchMock = vi.fn<typeof fetch>();
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+// One router object, as Next's useRouter() gives: a new one per render would restart the poll's effect.
+const router = { push };
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: false });
@@ -133,13 +135,27 @@ describe("ProjectsPage (web.md §4.1a)", () => {
     it("an answer between two 401s starts the count again", async () => {
       fetchMock
         .mockResolvedValueOnce(unauthorized())
-        .mockResolvedValueOnce(Response.json([project()]))
+        .mockResolvedValueOnce(Response.json([project({ title: "Changed" })]))
         .mockResolvedValueOnce(unauthorized());
       render(<ProjectsPage initial={[project()]} />);
       await tick();
       await tick();
+      expect(screen.getByText("Changed")).toBeInTheDocument();
       await tick();
       expect(push).not.toHaveBeenCalled();
+    });
+
+    it("a poll with no answer neither counts nor resets: 401, network error, 401 goes to sign in", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockRejectedValueOnce(new TypeError("offline"))
+        .mockResolvedValueOnce(unauthorized());
+      render(<ProjectsPage initial={[project()]} />);
+      await tick();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
     });
   });
 });

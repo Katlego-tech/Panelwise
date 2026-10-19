@@ -6,8 +6,10 @@ const push = vi.fn();
 const refresh = vi.fn();
 const replace = vi.fn();
 let params = new URLSearchParams();
+// One router object, as Next's useRouter() gives: a new one per render would restart the poll's effect.
+const router = { push, refresh, replace, back: vi.fn() };
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push, refresh, replace, back: vi.fn() }),
+  useRouter: () => router,
   usePathname: () => "/projects/p1/comic",
   useSearchParams: () => params,
 }));
@@ -205,13 +207,27 @@ describe("the comic page's states (comic-states.png)", () => {
     it("polling: an answer between two 401s starts the count again", async () => {
       fetchMock
         .mockResolvedValueOnce(unauthorized())
-        .mockResolvedValueOnce(Response.json(making))
+        .mockResolvedValueOnce(Response.json(view({ job: job({ progress: 43 }) })))
         .mockResolvedValueOnce(unauthorized());
       render(<ComicPage project={done} view={making} />);
       await tick();
       await tick();
+      expect(screen.getByText(COMIC_COPY.strip(43))).toBeInTheDocument();
       await tick();
       expect(push).not.toHaveBeenCalled();
+    });
+
+    it("polling: no answer neither counts nor resets: 401, network error, 401 goes to sign in", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockRejectedValueOnce(new TypeError("offline"))
+        .mockResolvedValueOnce(unauthorized());
+      render(<ComicPage project={done} view={making} />);
+      await tick();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
     });
 
     it("polling: no second poll goes while one is unanswered", async () => {

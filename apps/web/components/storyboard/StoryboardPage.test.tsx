@@ -367,6 +367,19 @@ describe("live (web.md §4.3)", () => {
       expect(push).not.toHaveBeenCalled();
     });
 
+    it("a poll with no answer neither counts nor resets: 401, network error, 401 goes to sign in", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockRejectedValueOnce(new TypeError("offline"))
+        .mockResolvedValueOnce(unauthorized());
+      render(<StoryboardPage project={keeper(reading)} board={board()} />);
+      await tick();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
+    });
+
     it("only the status poll counts: a 401 on …/frames, twice, stays on the page", async () => {
       fetchMock
         .mockResolvedValueOnce(status(rendering))
