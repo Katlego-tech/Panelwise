@@ -118,6 +118,7 @@ export interface AuditView {
     has_text: boolean;
     text: string[]; // T071: the writing the describer read, verbatim; [] before T071
     signature: boolean; // T072: a signature or artist's mark seen; false before T072
+    signature_text: string[]; // T107: the signature's letters, when readable; [] before T107
   } | null;
   judgement: {
     people: { person: number; character: string | null; support: string | null }[];
