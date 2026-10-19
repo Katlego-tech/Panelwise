@@ -69,11 +69,47 @@ describe("ScriptLive (web.md §4.2, Live)", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("a 401 goes to sign in", async () => {
-    fetchMock.mockResolvedValue(Response.json({ error: "unauthorized" }, { status: 401 }));
-    render(<ScriptLive id="p1" job={job()} />);
-    await tick();
-    expect(push).toHaveBeenCalledWith("/sign-in");
+  describe("a 401 while still signed in (web.md §4.0, T123)", () => {
+    const unauthorized = () => Response.json({ error: "unauthorized" }, { status: 401 });
+
+    it("one 401 stays on the page, and the next tick asks again", async () => {
+      fetchMock.mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(status(job()));
+      render(<ScriptLive id="p1" job={job()} />);
+      await tick();
+      await tick();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it("the second 401 in a row goes to sign in", async () => {
+      fetchMock.mockImplementation(async () => unauthorized());
+      render(<ScriptLive id="p1" job={job()} />);
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
+    });
+
+    it("an answer between two 401s starts the count again", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockResolvedValueOnce(status(job()))
+        .mockResolvedValueOnce(unauthorized());
+      render(<ScriptLive id="p1" job={job()} />);
+      await tick();
+      await tick();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it("no second poll goes while one is unanswered", async () => {
+      fetchMock.mockReturnValue(new Promise(() => {}));
+      render(<ScriptLive id="p1" job={job()} />);
+      await tick();
+      await tick();
+      await tick();
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
   });
 
   it("a failed poll tries again on the next tick", async () => {

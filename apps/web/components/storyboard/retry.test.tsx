@@ -268,11 +268,26 @@ describe("Try another render (web.md §4.3)", () => {
     expect(box).not.toHaveClass("overflow-hidden");
   });
 
-  it("a 401 goes to sign in", async () => {
-    fetchMock.mockResolvedValueOnce(Response.json({ error: "unauthorized" }, { status: 401 }));
+  it("a 401 asks once more a second later, and its 202 starts the render (web.md §4.0, T123)", async () => {
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ error: "unauthorized" }, { status: 401 }))
+      .mockResolvedValueOnce(Response.json(frame({ shot_id: "3.1", state: "rendering", attempt: 4, max_renders: 4 }), { status: 202 }));
     render(page([withheld()]));
     fireEvent.click(button());
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/sign-in"));
+    await waitFor(
+      () => expect(within(document.getElementById("shot-3.1")!).getByText("Rendering attempt 4 of 4")).toBeInTheDocument(),
+      { timeout: 3000 },
+    );
+    expect(fetchMock.mock.calls[1]).toEqual(fetchMock.mock.calls[0]);
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("a second 401 goes to sign in (T123)", async () => {
+    fetchMock.mockImplementation(async () => Response.json({ error: "unauthorized" }, { status: 401 }));
+    render(page([withheld()]));
+    fireEvent.click(button());
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/sign-in"), { timeout: 3000 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("the sheet offers it too, and lists the attempts", () => {
