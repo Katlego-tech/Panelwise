@@ -134,3 +134,28 @@ async def test_the_comic_s_pages_and_pdf_are_signed_in_one_call(
     ]
     assert made["pdf_url"] == f"https://signed/{paths[-1]}?e=3600"
     assert body["comic"]["pdf_url"] == made["pdf_url"]
+
+
+class FailingLater(CountingStore):
+    """Signs while the comic is made, then fails every batch once `broken` is set."""
+
+    broken = False
+
+    async def signed_urls(self, paths: Sequence[str], expires_in_s: int) -> list[str]:
+        if self.broken:
+            raise StorageError("signed_urls: storage could not sign 1 of 2")
+        return await super().signed_urls(paths, expires_in_s)
+
+
+async def test_a_failed_batch_is_503_for_the_comic(
+    migrated: str, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    store = FailingLater()
+    pid, _ = await project(sessions, store, run=True)
+    with TestClient(app_with(migrated, store, renderer=True)) as c:
+        assert c.post(f"/api/v1/projects/{pid}/comic", headers=auth()).status_code == 202
+        settle(c, pid)
+        store.broken = True
+        res = c.get(f"/api/v1/projects/{pid}/comic", headers=auth())
+
+    assert (res.status_code, res.json()) == (503, {"error": "storage_unavailable"})
