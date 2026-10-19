@@ -1334,7 +1334,7 @@ limit rule above names it. A looping string arrives cut to 100 characters, which
 | `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0008_audit_found` | changed | `PersonFound`, `Presence`, `PRESENCE_AGENT_PROMPT`, `find_character`, `present_characters`, `run_checks(found=)`, `frame_audits.found` | T099 |
 | `services/api/app/verify/audit.py` | changed | `found_people`, `_ask_sexes(pairs)` one question per person, `check_person` at 4,096 tokens, `run_checks`' `DRAWN_SEX` for a found person, `audit_frame` asks after the presence agent | T102 |
 | `services/api/app/verify/{model,schema,audit,recheck}.py`, `app/frames/{model,writer}.py`, migration `0009_audit_layout` | changed | `Check.SPLIT_PANELS`, `Check.DRAWN_TWICE`, `FrameLayout`, `Layout`, `LAYOUT_AGENT_PROMPT`, `check_layout`, `frame_layout`, `run_checks(layout=)`, `frame_audits.layout` | T104 |
-| `services/api/app/verify/audit.py`, `render.yaml` | changed | `ALIKE_OVERLAP`, `described_alike`, `run_checks`' second `DRAWN_TWICE` source; the hosted ladder | T124 |
+| `services/api/app/verify/audit.py` | changed | `ALIKE_OVERLAP`, `described_alike`, `run_checks`' second `DRAWN_TWICE` source | T124 |
 | `services/api/app/verify/{schema,audit}.py`, `app/llm/structured.py` | changed | `DescriptionLimits`, `DESCRIPTION_LIMITS`, `description_grammar`, `describe_frame` sends it; `structured_chat(grammar=)` (llm.md §6) | T109 |
 | `services/api/tests/{verify,frames}/` | new | §9 | T020, T021, T062 |
 
@@ -1544,7 +1544,7 @@ it against the script."*
   (`UNSCRIPTED_PERSON`) fail; `run_checks` fails `DRAWN_TWICE` for an alike pair with `layout` None
   and with a layout of no copies, with the T124 detail; a pair in both sources fails once, with the
   layout's detail; a split frame fails `SPLIT_PANELS` only; `recheck` on a stored row flags it.
-  `render.yaml`'s ladder names `drawn_twice` and `withholding` accepts it. Mutation check: each rule
+  `render.yaml`'s ladder stays `drawn_sex,no_character,split_panels`; a copy warns (test_t104.py `test_the_hosted_ladder_withholds_a_split_and_warns_a_copy`). Mutation check: each rule
   removed, a test fails. Live, free: `recheck` over the 17 Oct runs' stored rows flags 2.1, 1.4 a2,
   5.3 and rooftop 3.1, 6.2, and no frame labelled right.
 - **T104** (`tests/verify/test_t104.py`, tests first): `frame_layout` sorts and de-duplicates pairs,
