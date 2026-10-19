@@ -3,6 +3,7 @@
 // Upload a screenplay (web.md §4.1a, UploadPanel): idle (projects.png), chosen with its title,
 // uploading, error (projects-states.png), and accepted, which goes to the new project's
 // storyboard (web.md §4.1 step 5).
+// A 401 is asked once more after 1 s; a second one goes to sign in (web.md §4.0, T123).
 
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState } from "react";
@@ -10,6 +11,7 @@ import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fetchPast401 } from "@/lib/client/signed-out";
 import { cn } from "@/lib/utils";
 
 import { checkFiles, defaultTitle, fileSize, TITLE_MAX, uploadOutcome } from "./upload";
@@ -74,7 +76,7 @@ export function UploadPanel() {
     let status: number | null = null;
     let json: unknown = null;
     try {
-      const res = await fetch("/api/projects", { method: "POST", body });
+      const res = await fetchPast401("/api/projects", { method: "POST", body });
       status = res.status;
       json = await res.json().catch(() => null);
     } catch {

@@ -2,11 +2,13 @@
 
 // Keeps the script page live while its job runs (web.md §4.2, Live): polls the status every 2 s
 // and re-renders the page from the server when the job's state or stage changes. Renders nothing.
+// One poll in flight at a time; sign in on the second 401 in a row (web.md §4.0, T123).
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import type { Job, ProjectSummary } from "@/lib/api/types";
+import { unauthorizedStreak } from "@/lib/client/signed-out";
 
 const POLL_MS = 2000;
 
@@ -21,10 +23,14 @@ export function ScriptLive({ id, job }: { id: string; job: Job }) {
 
   useEffect(() => {
     if (!active) return;
+    const streak = unauthorizedStreak();
+    let busy = false;
     const timer = setInterval(async () => {
+      if (busy) return;
+      busy = true;
       try {
         const res = await fetch(`/api/projects/${encodeURIComponent(id)}/status`, { cache: "no-store" });
-        if (res.status === 401) {
+        if (streak.saw(res.status)) {
           router.push("/sign-in");
           return;
         }
@@ -37,6 +43,8 @@ export function ScriptLive({ id, job }: { id: string; job: Job }) {
         }
       } catch {
         // The next tick tries again.
+      } finally {
+        busy = false;
       }
     }, POLL_MS);
     return () => clearInterval(timer);

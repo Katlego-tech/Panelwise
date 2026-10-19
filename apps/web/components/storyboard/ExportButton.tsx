@@ -3,12 +3,14 @@
 // Export PDF, in the bar (web.md §4.3; storyboard.png; T027). Disabled until the storyboard job is
 // done and every frame has settled; then it asks for the PDF (built on demand) and opens its
 // signed URL. A frame that went live again since the page was drawn answers 409, which says why.
+// A 401 is asked once more after 1 s; a second one goes to sign in (web.md §4.0, T123).
 
 import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { StoryboardPdfView } from "@/lib/api/types";
+import { fetchPast401 } from "@/lib/client/signed-out";
 
 export const EXPORT_COPY = {
   idle: "Export PDF",
@@ -37,7 +39,7 @@ export function ExportButton({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/storyboard/pdf`, { cache: "no-store" });
+      const res = await fetchPast401(`/api/projects/${encodeURIComponent(projectId)}/storyboard/pdf`, { cache: "no-store" });
       if (res.status === 401) {
         router.push("/sign-in");
         return;

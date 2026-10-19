@@ -108,12 +108,27 @@ describe("UploadPanel (web.md §4.1a)", () => {
     );
   });
 
-  it("a 401 sends the browser to sign in", async () => {
-    fetchMock.mockResolvedValue(Response.json({ error: "unauthorized" }, { status: 401 }));
+  it("a 401 sends the same upload once more a second later, Uploading… throughout (web.md §4.0, T123)", async () => {
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ error: "unauthorized" }, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ project: { id: "p-new" }, job: {} }, { status: 202 }));
     render(<UploadPanel />);
     const user = await choose();
     await user.click(screen.getByRole("button", { name: "Board this script" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/sign-in"));
+    expect(screen.getByRole("button", { name: "Uploading…" })).toBeDisabled();
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/projects/p-new/storyboard"), { timeout: 3000 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]![1]).toBe(fetchMock.mock.calls[0]![1]);
+    expect(push).not.toHaveBeenCalledWith("/sign-in");
+  });
+
+  it("a second 401 sends the browser to sign in (T123)", async () => {
+    fetchMock.mockImplementation(async () => Response.json({ error: "unauthorized" }, { status: 401 }));
+    render(<UploadPanel />);
+    const user = await choose();
+    await user.click(screen.getByRole("button", { name: "Board this script" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/sign-in"), { timeout: 3000 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("dropping two files is refused before anything is sent", () => {
