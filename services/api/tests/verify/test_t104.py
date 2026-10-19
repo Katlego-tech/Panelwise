@@ -174,17 +174,15 @@ def hosted_ladder() -> frozenset[Check] | None:
     return withholding(Settings(audit_withhold_checks=value[1]))
 
 
-def test_the_hosted_ladder_withholds_a_split_and_a_copy(
+def test_the_hosted_ladder_withholds_a_split_and_warns_a_copy(
     screenplay: Screenplay, extraction: Extraction
 ) -> None:
-    # render.yaml's ladder: split_panels (Katlego, 2026-10-17) and drawn_twice (T124, Tumo,
-    # 2026-10-19) withhold.
+    # render.yaml's ladder (Katlego, 2026-10-17): split_panels withholds, drawn_twice warns. T124
+    # put drawn_twice on it for one night; the T109 re-score withheld right frames for it.
     hosted = hosted_ladder()
-    assert hosted == frozenset(
-        {Check.DRAWN_SEX, Check.NO_CHARACTER, Check.SPLIT_PANELS, Check.DRAWN_TWICE}
-    )
+    assert hosted == frozenset({Check.DRAWN_SEX, Check.NO_CHARACTER, Check.SPLIT_PANELS})
     for layout, want in (
-        (FrameLayout(1, ((0, 1),), "r"), Verdict.FAIL),
+        (FrameLayout(1, ((0, 1),), "r"), Verdict.WARN),
         (FrameLayout(2, (), "r"), Verdict.FAIL),
     ):
         checks, verdict, _ = run_checks(

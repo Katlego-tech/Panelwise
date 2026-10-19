@@ -749,6 +749,6 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Files:   services/api/app/verify/audit.py; render.yaml; services/api/tests/verify/test_t124.py (+ test_checks.py if the ladder test lists the hosted value)
       Contract:verify.md § T124 contracts verbatim: `ALIKE_OVERLAP = 0.5`, `described_alike(description, known, overlap)`, `run_checks`' second `DRAWN_TWICE` source and its detail; the hosted ladder `drawn_sex,no_character,split_panels,drawn_twice`
       Verify:  bash scripts/gate.sh (tests first: §9 T124, mutation check); `recheck` over the 17 Oct runs' stored rows (free)
-      Done:    `recheck` on gogos-recipe and rooftop-tomatoes fails `DRAWN_TWICE` on 2.1, 1.4 a2, 5.3, rooftop 3.1 and 6.2 and on no frame labelled right; on the hosted ladder such a frame is redrawn, not shown
+      Done:    `recheck` on gogos-recipe and rooftop-tomatoes fails `DRAWN_TWICE` on 2.1, 1.4 a2, 5.3, rooftop 3.1 and 6.2 and on no frame labelled right; a copy warns on its card (`drawn_twice` taken off the hosted ladder on 2026-10-20: the T109 re-score withheld 6 of 40 right frames for it, verify.md §3)
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.

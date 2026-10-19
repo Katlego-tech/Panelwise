@@ -695,11 +695,17 @@ alone it catches 7 of 10 copies, with the layout agent 8 of 10, and flags **no r
 ones, one of them a real extra person). **Known risk:** on the 109 labelled frames' stored DeepSeek
 descriptions it flags 6 of 40 right frames, each a cast the judge didn't match whose two people
 DeepSeek described in generic words ("a man in a shirt"). Super VL describes every hosted frame and
-writes longer appearances; the-choir and the judge sample measure it again. **On the hosted ladder**
-(T124, Tumo, 2026-10-19): `drawn_sex,no_character,split_panels,drawn_twice`. A copy is withheld and
-redrawn (a new seed) rather than shown with a warning; a false flag must repeat on every attempt to
-lose the frame. Cost: on 17 Oct's runs 9 of 39 attempts would have failed `DRAWN_TWICE`, so about
-one more drawing, audit and layout question each, within the image budget (T030).
+writes longer appearances; the-choir and the judge sample measure it again. **Off the hosted
+ladder** (2026-10-20, after one night on it): T124 put `drawn_twice` on the ladder, and the T109
+re-score of the 109 labelled frames the next day (Super VL, today's code;
+`eval/measurements/t124/rescore-2026-10-20/`) withheld 6 of the 40 right frames for it, against 1
+without it. Re-asked with details, the flags came from both sources: the word rule where the judge
+matched neither of two look-alike cast members (final-whistle 2.1), one of a pair (the-night-taxi
+1.1), or one of a 24-person crowd (market-day 3.2); and the layout agent itself (the-night-taxi 2.1,
+two men with buckets called one man). The answers also vary run to run (final-whistle 6.1 and 6.2
+passed on the re-ask). So a copy now **warns**, named on its card by both detectors, and the hosted
+ladder is back to `drawn_sex,no_character,split_panels`. Withholding it again waits on a judge that
+matches the drawn cast, measured on the-choir and the judge sample.
 
 **Measured** (2026-10-16, Token Factory, DeepSeek-V4.1-Flash,
 `proto_twice.py`, the prompt verbatim; no fal): every stored storyboard attempt of the newest run of
@@ -1242,8 +1248,8 @@ def run_checks(...) -> ...   # T124: unless layout.panels > 1 (SPLIT_PANELS), DR
 ```
 
 `recheck` decides it again for free on every stored row with a description (the layout column isn't
-needed). The hosted ladder (`render.yaml`, deploy.md §6) becomes
-`drawn_sex,no_character,split_panels,drawn_twice`.
+needed). The hosted ladder (`render.yaml`, deploy.md §6) stays
+`drawn_sex,no_character,split_panels`: `drawn_twice` warns (§3, 2026-10-20).
 `FrameWriter.log` writes it. The web shows a check's name as it shows every check's (no new copy).
 
 ### T109 contracts: the describer's answer capped in its grammar
@@ -1341,7 +1347,7 @@ limit rule above names it. A looping string arrives cut to 100 characters, which
 | Where a head is (T097) | one vision question per comic panel, on the accepted attempt only, boxes as fractions, never a verdict | face detection (another model and dependency for a box the vision model already gives, measured on the drawings); the describer giving boxes (it is blind and general; a longer schema on every attempt, storyboard frames too); asking on every attempt (tokens on frames thrown away); an anatomy rule from the same question (it missed a three-armed man twice and miscounted limbs: §3) |
 | A character the judge didn't match (T099) | a vision question per drawn character, only when the judge matched none of them; it counts for `NO_CHARACTER` alone | a judge sentence (the judge already gets the same lines and cites them while calling the person no one; and it can't be measured free); code taking a stranger's support that names a drawn character as a match (free, but by the stored supports it finds about 8 of the 23, and none where the judge cited nothing); making the found person a full match (it would excuse `UNSCRIPTED_PERSON` and start `DRAWN_SEX` questions on a second opinion's say-so; measured only for presence). **T102** adds only the `DRAWN_SEX` question, measured: 36 found people asked, 2 flagged, both real, 0 false alarms |
 | A frame in panels, or one person drawn twice (T104; L015, L022, 2026-10-16) | one vision question on a frame with two or more people; `SPLIT_PANELS` on panels > 1; `DRAWN_TWICE` on a copy pair in one picture unless the two are accepted as two different characters | rewording every style's positive words (fal's klein takes no negative prompt; L015 parked it: it changes every drawing); a code test on the describer's text (it describes the copies differently: "short dark hair" against "shoulder-length wavy hair" for lighthouse 4.2's two women); asking the describer (a describer told to look for copies starts finding them, as T095 found for sex); copies in a split frame (the split's own figures; `SPLIT_PANELS` already names it) |
-| A copy the layout agent argues apart (T124; 2026-10-19) | the describer's own words: a pair described alike (word overlap ≥ 0.5), not both known, fails `DRAWN_TWICE`; `DRAWN_TWICE` on the hosted ladder | withholding on `UNSCRIPTED_PERSON` (it catches 9 of 10 copies, but flags 11 of 40 right frames on the 109 labelled: a judge that misses a drawn cast); a stricter layout prompt (another paid question, and it already sees the matching words); a threshold of 0.8 (no false flag anywhere, but 3 of 10 copies) |
+| A copy the layout agent argues apart (T124; 2026-10-19) | the describer's own words: a pair described alike (word overlap ≥ 0.5), not both known, fails `DRAWN_TWICE`; it warns (on the hosted ladder for one night, off again 2026-10-20: it withheld right frames) | withholding on `UNSCRIPTED_PERSON` (it catches 9 of 10 copies, but flags 11 of 40 right frames on the 109 labelled: a judge that misses a drawn cast); a stricter layout prompt (another paid question, and it already sees the matching words); a threshold of 0.8 (no false flag anywhere, but 3 of 10 copies) |
 | A found person's sex (T102; L022, 2026-10-16) | T095's question on each person `found_people` gives for a character the script sexes; `DRAWN_SEX` fails on the other sex | the presence agent's own answer refusing a person of the other sex (its prompt already says "their sex if the script gives it", and it still found an old woman for Mr. Fortuin); a full match (excuses `UNSCRIPTED_PERSON`, T099's reason) |
 | Who sees the image | a vision model, blind to the shot | Nemotron directly: no Token Factory Nemotron accepts images (U7); telling the describer what to expect: it would agree |
 | Who judges | Nemotron (reasoning tier) + code | the vision model judging itself: not NVIDIA, and it already saw the image without the spec, which is the point |
