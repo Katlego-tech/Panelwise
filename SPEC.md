@@ -331,35 +331,38 @@ Scenario: A reference portrait keeps a character consistent
 
 ### US5 — Listen to the comic (stretch)
 
-**As a** reader of the comic, **I want** to hear it read aloud, each line in its speaker's voice,
-**so that** the comic plays like a table read.
+**As a** reader of the comic, **I want** to hear it read aloud in a voice I choose, **so that** I
+can follow the comic by ear as well as by eye.
 
 [docs/design/narration.md; T113. Stretch: off without `ELEVENLABS_API_KEY`; built only after the
-submission path is safe]
+submission path is safe. Revised 2026-10-20 (Katlego): one voice of four, chosen by the reader]
 
 ```
 Scenario: The comic is read aloud in reading order
   Given a finished comic and narration turned on
-  When  the reader presses Listen
+  When  the reader chooses a voice and presses Listen
   Then  every lettered line is spoken in reading order, byte for byte as lettered
-  And   each line is in its speaker's voice and the scene captions in a narrator's
+  And   every line and every scene caption is in the chosen voice
   And   the line being read is highlighted, and the page turns when the next line is on it
 ```
 
 - **Scenario: nothing is spoken that isn't lettered** — Given any comic, when it is narrated, then
-  the spoken text is exactly the lettering's (no action lines, no summary, no audio tags), so every
-  clip traces to its line's verbatim span. [narration.md §1; PLAN.md Non-negotiable 1]
-- **Scenario: a voice comes from the script** — Given a character the script states is a woman in
-  her 60s, when the cast is chosen, then her voice is from the older-female pool; given a character
-  the script doesn't sex, then a neutral voice. Never from the drawing or the name. [narration.md §3]
+  the spoken text is exactly the lettering's (no action lines, no speaker names, no summary, no
+  audio tags, a whispered or shouted balloon's text unchanged), so every clip traces to its line's
+  verbatim span. [narration.md §1; PLAN.md Non-negotiable 1]
+- **Scenario: the reader chooses the voice** — Given narration turned on, then the reader offers
+  four voices, two female and two male; whichever is chosen reads the whole comic. Nothing about a
+  character picks a voice. Given a voice already made for this comic, then Listen plays it without
+  a new call. [narration.md §1, §3]
 - **Scenario: narration is off without its key** — Given no `ELEVENLABS_API_KEY`, then the reader
-  shows no Listen control and every other behaviour is as before. [narration.md §4]
+  shows no voices and no Listen control, and every other behaviour is as before. [narration.md §4]
 - **Scenario: the month's narration is spent** — Given the month's characters would pass
   `NARRATION_MONTHLY_CHARACTER_CAP`, when narration is asked for, then it is refused before any call.
   [narration.md §4; limits.md §4]
 
 **Acceptance criteria:**
 - [ ] Every clip's text equals its lettering's text.
+- [ ] Every clip of a narration is in the voice the reader chose, one of the four.
 - [ ] A line already spoken in a voice is never paid for again.
 - [ ] Without the key the app behaves exactly as before.
 
