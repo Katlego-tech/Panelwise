@@ -79,3 +79,14 @@ the accepted and found characters plus the scripted extras (review of #222). Acc
 outside the shot or refused for its age (both already fail `UNSCRIPTED_PERSON`), so the code can flag
 a little more; the extras flag less. `recheck-17oct.txt` is the code's own run on the 17 Oct rows:
 6 of 7 copies, no right frame.
+
+## 5. A narrower rule, for the next look (`rules2.py`, free)
+Counting a described-alike pair only when **exactly one** of the two is a known character (the
+judge matched one figure; the copy is the other):
+
+| Sample | As merged | Exactly one known |
+|---|---|---|
+| Super VL, stored (67) | copies 7/10, right 0/34 | copies 6/10, right 0/34 |
+| 109 labelled, stored DeepSeek-era | copies 3/8, right 6/40 | copies 1/8, right 0/40 |
+
+It would not fix the layout agent's own false calls (the-night-taxi 2.1 on 2026-10-20).

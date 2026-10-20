@@ -1,128 +1,149 @@
 # `Panelwise` — Handoff
 
-> Earlier handoffs (2026-10-03 Katlego → Tumo, 2026-10-11 Tumo → Katlego) are in git history:
-> `git log -- docs/HANDOFF.md`.
+> Earlier handoffs (2026-10-03 Katlego → Tumo, 2026-10-11 Tumo → Katlego, 2026-10-17 Tumo →
+> Katlego) are in git history: `git log -- docs/HANDOFF.md`.
 
-**Written:** 2026-10-17 (evening, SAST) · **By:** Tumo (via Claude), for Katlego · **Why:** Tumo is
-taking a break. Katlego (or Tumo, coming back) picks up from here, and updates STATUS.md and
-anything else that needs it. **Branch of this note:** `docs/handoff-1017` (PR into main).
+**Written:** 2026-10-20 (SAST) · **By:** Tumo (via Claude), for Katlego · **Why:** Tumo hands the
+work to Katlego, who takes it forward and hands back to Tumo for the rest. Every change below is
+**merged on main (`7ef94d3`)**; no PR of Tumo's is open. **Branch of this note:**
+`docs/handoff-1020`.
 
 ---
 
-## 1. What is done (2026-10-17)
+## 1. What is done (19–20 Oct)
 
-- **§ U8's lighthouse table is complete** (Katlego's ask on #194): people 25 of 25, the sex agent
-  23 of 23, the judge's matches 23 of 25, presence 2 against 0. Commit `e64d095` on
-  `docs/audit-labels` (#194).
-- **Two held-out runs on Super VL, every frame looked at.** Reports and eye verdicts:
-  `eval/runs/2026-10-17-rooftop-tomatoes.md` (main: 21 of 21 shown, 11 right, 6 weak, 4 wrong) and
-  `eval/runs/2026-10-17-gogos-recipe.md` (Katlego's `feat/bubbles-t098`: 17 of 17 shown, 8 right,
-  4 weak, 5 wrong; its comic's bubbles looked at too). **Every wrong frame in both is one person
-  drawn twice or an extra person.**
-- **T109 designed, reviewed:** PR **#199** (`docs/describer-caps-t109`). Every Super VL describer
-  `ERROR` is a loop at temperature 0 cut off at 4,096 tokens. Length limits sent in the decoding
-  grammar only end 7 of 7 loops, and 10 of 10 other frames answer byte for byte as before. A fresh
-  review found nothing blocking; its fixes are pushed (gate passed). The code is not started.
-- **T110 measured:** `eval/measurements/t110/README.md`. **Proposed: no code change.** The 6 absent
-  frames slip through because of the stored extraction (no sex for TEBOGO, a sexless FORTUIN
-  before T101, CROWD as a character) and drawn-twice frames, not the presence agent. Tumo hasn't
-  confirmed yet.
+| PR | What | State |
+|---|---|---|
+| #215 | Hotfix: every hosted storyboard since T107 answered 500 on `GET …/frames` (`DescriptionView` lacked `signature_text`); a guard test now checks every `FrameDescription` field is in the view | merged, **confirmed on the hosted demo** by Tumo (the-borrowed-bicycle's 18 frames load) |
+| #212 | T109: the describer's limits in its decoding grammar | merged; **re-scored** (below) |
+| #213/#214 | T122: a page's image links signed in one Storage request (21 frames 4.9 s → 0.22 s) | merged |
+| #217 | The gate's jscpd ran out of Windows' 8,191-character command line; it now reads a temp copy of the files | merged |
+| #218/#219 | T123: a 401 while still signed in. Pollers go to `/sign-in` on the **second** 401 in a row; actions repeat a 401 once after 1 s | merged. The browser outage check was skipped (Tumo's call); known limit in web.md §10 |
+| #220 | Your answers on #212 recorded: T003, T025 cut; T110 closed | merged |
+| #221 | `signature_text` capped at 5 × 60 (your ask) | merged |
+| #222/#223 | T124: a pair the describer describes alike (word overlap ≥ 0.5; not two characters, not two scripted extras) also fails `DRAWN_TWICE` | merged |
+| #224 | **`drawn_twice` back off the hosted ladder** (it was on for one night via #223) | merged |
 
-**Not started:** T109's code; the two runs' labels in `eval/frame-labels.json`; the-choir (the
-last held-out script, unread); T108; re-measuring T102/T104 on Super VL; T030.
+**The T109 re-score** (2026-10-20, Super VL, main `933ba58`, ladder with `drawn_twice`;
+`eval/measurements/t124/rescore-2026-10-20/`): the 6 frames that looped on 17 Oct all describe
+now; market-day 5.2 still ends `ERROR` with its description and judgement present (not the
+describer). Wrong 43 of 57 withheld, right 7 of 40. 6 of those 7 were `drawn_twice`, hence #224.
+
+**Not started:** T113 (narration, stretch: designed in `docs/design/narration.md`, no code), T030's
+hosted run and seed, the README/video/submit tail (T033–T035), the placeholder sweep (T036),
+gitleaks.
 
 ## 2. Decisions already locked (don't reopen)
 
-- T109's fix is **limits in `response_format` only**, the prompt's schema text unchanged. Rejected
-  with numbers (verify.md §8): limits in the prompt too (changed 7 of 10 answers that hit no limit),
-  `frequency_penalty` (fewer objects on every frame), a prompt sentence (2 of 7), temperature 0.3
-  (2 of 7), a larger `max_tokens`, salvaging cut-off JSON.
-- T109's limits: 24 people, 40 objects, 40 text entries of up to 100 characters, appearance up to
-  200, object name up to 60. A list **at** its limit is never passed silently: 24 people fail
-  `UNSCRIPTED_PERSON`, 40 objects `BACKGROUND_OBJECT`, each with a limit detail (the review's
-  Non-negotiable I point).
-- **Nothing merges into main without Tumo's go-ahead, per PR** (Vercel deploys main).
+- **A copy warns, it doesn't withhold.** The hosted ladder is `drawn_sex,no_character,split_panels`
+  (render.yaml). Putting `drawn_twice` back waits on a judge that matches the drawn cast.
+- **The 401's cause is an unreachable Supabase Auth during the proxy's refresh, not refresh-token
+  reuse** (measured, `eval/measurements/t123/`). Don't add a browser Supabase client.
+- **T003 and T025 are cut; T110 is closed.** Your answers on #212.
+- **T113 is stretch:** only after the submission path is safe; out of the submission unless done
+  and tested by **27 Oct**.
 
-## 3. Open PRs and the merge order (when Tumo says go)
+## 3. Open PRs
 
-Ours: #181 → #183 (T102), #186 → #187 (T104, migration 0009), #184 → #185 (T103), #194 (eval),
-#199 (T109 design). Order: #181, retarget #183 to main, merge; retarget #186, merge; retarget #187,
-merge (only then may `render.yaml` carry `split_panels`); #184, retarget #185, merge; #194; #199.
-Retarget each child to main **before** merging its base (the repo auto-deletes merged branches).
-Check CI on each after retargeting. Katlego's #193 (T097 code, 0010) follows #187, then #195 (T098).
+None of Tumo's. Yours: #36 (README draft; its feedback section is the team's to write).
 
-## 4. Decisions waiting on Tumo
+## 4. What needs you (Katlego)
 
-1. **The reply on #194** (drafted, not posted): agree to Katlego's paid-run rule (post on the PR
-   before any paid run), T109 and T110 are Tumo's, and note that Tumo's rooftop-tomatoes run
-   (17:46–17:52 UTC) overlapped Katlego's T098 run unannounced (0 errors, no 404s).
-2. **Close T110 as measured, no change?**
-3. **Where the two runs' labels go:** proposed, a branch stacked on #194 (`frame-labels.json` is
-   only there), with `eval/tools/make_labels.py`.
-4. **T098's tails** (Katlego's lane, for #195): on gogos-recipe's comic, 3.1 and 5.4's tails point
-   away from their speaker because the head box carries no name (the judge left the person
-   unmatched). Not yet posted on #195.
+1. **Render read-back:** `LLM_MONTHLY_TOKEN_CAP` (2,800,000), `IMAGE_MONTHLY_GENERATION_CAP` (800)
+   and `AUDIT_WITHHOLD_CHECKS` (expect `drawn_sex,no_character,split_panels`, from render.yaml
+   after #224). Issue #216 has the steps.
+2. **T030's seed needs three hosted settings, not two:** `SUPABASE_URL`, `SUPABASE_SECRET_KEY`
+   (creating the judge) **and `DATABASE_URL`** (the session pooler, port 5432) for `--from`, which
+   copies a project (seed.py `main`). In Render's Shell they're already set. Never in chat or the repo.
+3. **T113's inputs**, if you take it on: the ElevenLabs key, the monthly character cap, the voices,
+   the model (narration.md §10).
+4. **The models are as intended** (checked free 2026-10-19): Token Factory lists
+   `nvidia/Nemotron-3_5-Lightning` (fast), `nvidia/nemotron-3-super-120b-a12b` (judge),
+   `nvidia/Nemotron-3.5-Super-VL` (vision, thinking off); fal: `fal-ai/flux-2/klein/4b`. render.yaml
+   sets no model variable, so Render runs the code's defaults unless the dashboard overrides one:
+   worth a glance while you're in it.
 
 ## 5. Next steps, in order
 
-1. Tumo's answers to §4.
-2. **T109 code** to #199's contract (verify.md § T109 contracts, llm.md §6): tests first
-   (`tests/verify/test_t109.py`, the llm body test), a worktree from main, a fresh reviewer. Then
-   `eval/tools/score_labels.py` on the 109 labelled frames with Super VL (about $0.25, Tumo's go-ahead).
-3. Label rooftop-tomatoes and gogos-recipe into `eval/frame-labels.json` from the two reports'
-   tables (§1), then `score_labels.py --stored`.
-4. **Drawn-twice frames** (T104 is ours, on #187): measure for free on today's stored frames why the
-   layout agent passes 3 of 5 copies ("different faces, hair") before any design. It's the fault
-   behind most wrong frames today.
-5. **the-choir**, the last held-out script: arm the watcher, Tumo uploads, report, look at every
-   frame, label.
-6. T108 (the look match: "pigtails" for "braids"); T102/T104 re-measured on Super VL once merged.
-7. T030: the judge seed on the hosted Supabase (Tumo's go-ahead), the hosted end-to-end run; check
-   the hosted API reached migration 0009 after the merges.
-8. The tail: T036, T055, README feedback (the team's words), T034, gitleaks since 2026-10-05,
-   Devpost text, the final hosted smoke, submit on 29 Oct. **fal top-ups: $10 before 1 Nov, $5
-   before 1 Dec.**
+1. **T030** (critical path; deploy.md §9): the caps read back; the judge seed in Render's Shell
+   (`read -s JUDGE_PASSWORD; export JUDGE_PASSWORD; export JUDGE_EMAIL=…; cd /srv/api &&
+   .venv/bin/python -m app.demo.seed`); one hosted run of the-red-kite, storyboard and comic (about
+   22–44 drawings: announce the spend); `seed --from <its id>`; sign in as the judge and check;
+   `event.toml`'s demo URL. Watching that run also closes #215's "frames appear as they're drawn".
+2. **Task bookkeeping:** about 18 tasks are merged but unticked in TASKS.md (T082, T083, T089,
+   T091, T093–T096, T099–T105, T109, T122–T124). Tick the ones whose Done is met; say which still
+   wait on a measurement (T082, T083: a held-out script).
+3. **T036** placeholder sweep; **gitleaks** over the commits since 2026-10-05.
+4. **The judge sample** on the hosted stack (23 Oct).
+5. **the-choir**, the last held-out script (don't open it before its run). It also measures T124's
+   warning and the judge's misses.
+6. **The audit's next lever: the judge misses a drawn cast** (look-alike characters, people in a
+   crowd). It is why `drawn_twice` can't withhold. Free start: `eval/measurements/t124/rules2.py`
+   shows "count a described-alike pair only when exactly one of the two is a known character"
+   removes every right-frame flag on both stored samples (6 of 10 copies on Super VL), but the
+   layout agent's own false calls (the-night-taxi 2.1) need their own look.
+7. **T113** if the above is safe before 27 Oct.
+8. The tail: README (T033, #36), video and ported-code table (T034), make public and submit
+   (T035) on **29 Oct**. fal top-ups: **$10 before 1 Nov, $5 before 1 Dec**.
 
-## 6. How to run it (Tumo's machine)
+## 6. How to run it
 
-- **The local stack runs Katlego's branch, not main:** the API is built from the worktree
-  `../pw-t098` (detached at `eed335d`) through a compose override that also sets Super VL with
-  thinking off, klein, 3 attempts and the ladder `drawn_sex,no_character,split_panels` (Tumo's
-  `.env` still names DeepSeek). **The local database is at migration 0010.** main's code doesn't
-  know 0010: to run main again, `alembic downgrade 0008` first (or reset the local database).
-- **Test database** (`pw-t062-pg`, 127.0.0.1:55432): at main's migrations (no 0009) since the last
-  gate. Before pushing a branch with 0009 nothing is needed; after a T104 gate, drop every
-  `panelwise*_test` database and recreate `panelwise_test` before pushing a branch without it.
-- **Worktrees:** `../pw-t103`, `../pw-t104`, `../pw-labels` (#194), `../pw-t098` (Katlego's code,
-  detached), `../pw-t109` (#199), `../pw-handoff` (this note). A new worktree needs `uv sync` in
-  `services/api` and `pnpm install --frozen-lockfile` in `apps/web` before its first gate.
-- **Running a probe in the API container:** copy it in (`docker cp` with forward-slash Windows paths
-  and `MSYS_NO_PATHCONV=1`), then `cd /srv/api && PYTHONPATH=/srv/api .venv/bin/python /tmp/x.py`.
-  `/work` doesn't exist and `/` isn't writable: use `/tmp`. Pull results out with `docker cp`.
-- **Pulling a run's frames:** `eval/measurements/2026-10-16/fetch_shots.py` (on #194; change
-  `/work/fs` to `/tmp/fs`); a comic's pages: `eval/measurements/2026-10-17-runs/fetch_comic.py`;
-  contact sheets: `sheets.py` there. Watchers: `wait_comic.sh` there; `wait_run.sh` polls the
-  newest project after a cutoff.
-- **Gate:** push with `TEST_DATABASE_URL=postgresql://postgres:pw@127.0.0.1:55432/panelwise_test
-  PANELWISE_REQUIRE_DB=1`. 11 checks on a code change; **10 on a docs-only push** (the secret sweep
-  has nothing to sweep and isn't counted). That's expected, not a skipped check.
+- **Local stack** (Tumo's machine): the API built from `933ba58` (the same API code as main) with a
+  compose override: Super VL, thinking off, klein, 3 attempts, the hosted ladder:
+
+  ```yaml
+  services:
+    api:
+      mem_limit: 512m
+      environment:
+        NEBIUS_MODEL_VISION: nvidia/Nemotron-3.5-Super-VL
+        NEBIUS_VISION_THINKING: "false"
+        FAL_CONCURRENCY: "2"
+        RENDER_MAX_ATTEMPTS: "3"
+        FAL_MODEL: fal-ai/flux-2/klein/4b
+        LLM_MAX_ATTEMPTS: "5"
+        AUDIT_WITHHOLD_CHECKS: "drawn_sex,no_character,split_panels"
+  ```
+
+  `docker compose -f docker-compose.yml -f <that file> up -d --build api`. Local DB at 0010.
+- **Test database** `pw-t062-pg` on 127.0.0.1:55432. Gate: push with
+  `TEST_DATABASE_URL=postgresql://postgres:pw@127.0.0.1:55432/panelwise_test PANELWISE_REQUIRE_DB=1`;
+  11 checks on code, 10 on docs only. Never two gates at once.
+- **Probes in the API container:** `docker cp` (forward-slash paths, `MSYS_NO_PATHCONV=1`), then
+  `cd /srv/api && PYTHONPATH=/srv/api .venv/bin/python /tmp/x.py`. To run a branch's code there
+  without rebuilding: `tar --force-local -cf app.tar app` in `services/api`, copy it to `/tmp`,
+  untar, and run with `PYTHONPATH=/tmp/<dir>` (how T124's `recheck` ran).
+- **`recheck`** (free, no model call): `python -m app.verify.recheck <project-id>` with
+  `AUDIT_WITHHOLD_CHECKS` set to the ladder to measure.
+- **`score_labels.py`** (paid, about $0.25): copy `eval/tools/score_labels.py`,
+  `eval/frame-labels.json` **and `eval/labelled/`** to `/tmp/work/eval/…` in the container, then
+  `score_labels.py /tmp/work --json /tmp/out.json`.
 
 ## 7. Verified facts
 
-- Token Factory's strict `json_schema` decoding **enforces `maxItems` and `maxLength`** on Super VL.
-- Super VL is near-deterministic at temperature 0: the unchanged describer call reproduced the
-  stored answer on 9 of 10 frames.
-- The describer's stored answers never exceed 21 people / 32 objects (DeepSeek, 1,352) or
-  33 text entries (Super VL, 79: a calendar's dates).
-- T104 live (gogos-recipe): `split_panels` withheld 1.4's strip and the redraw was shown; on the
-  comic it withheld 3.4 after 3 strips.
+- The 401: with Auth unreachable, a poll with an expired access token answers 401 after 51 s and
+  the cookie survives; the next request refreshes it. A refresh token's parent is accepted any
+  time; a grandparent older than ~10 s is refused **and its 401 clears the cookie**.
+- On 17 Oct's runs the described-alike rule caught 6 of 7 copies and flagged no right frame; on the
+  harder 109 labelled frames `drawn_twice` (both detectors) withheld 6 of 40 right frames.
+- Render's Blueprint applies `render.yaml`'s non-secret values from main (T104's ladder arrived
+  that way).
+- Docker Desktop stops when Tumo's machine sleeps: start it, then `docker start pw-t062-pg` and the
+  compose stack.
 
 ## 8. Gotchas
 
-- Never read the repo-root `.env` or `apps/web/.env.local` (a deny rule blocks it anyway).
-- Don't open the-choir's script until its run has finished.
-- The scorer's labels and bundles live on #194's branch only, until it merges.
+- Never read the repo-root `.env` or `apps/web/.env.local`.
+- On Windows `tar` needs `--force-local` for a `C:` path; `sed -i` in Git Bash turns CRLF files to
+  LF (repo files are CRLF).
+- A pytest worker can hang when the machine is busy; killing the gate's processes needs the
+  machine owner's OK.
+- Changing a PR's base doesn't start the gate workflow; push to start it.
+- The local Postgres password isn't the compose file's: run DB tools inside the API container.
 
 ## 9. Corrections
 
-None.
+- **T124's ladder entry (#223) was wrong:** it withheld right frames; #224 reverted it the next day.
+- **19 Oct's suspicion that a slow refresh reuses a refresh token** (STATUS log) was wrong; the
+  cause is above.
+- **The seed needs `DATABASE_URL` for `--from`**, not only the two Supabase keys.
