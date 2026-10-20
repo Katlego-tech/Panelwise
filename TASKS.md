@@ -400,6 +400,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 - [ ] T033 [POL] README: setup, how Nemotron and Token Factory are used, feedback section. Lane `eval+submission`.
 - [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
 - [ ] T035 [POL] gitleaks over history, make the repo public, submit on Devpost by 29 Oct. Lane `eval+submission`.
+      Status:  gitleaks done 2026-10-20 (v8.30.1, `git --log-opts=--all`, redacted): 574 commits on every branch, no leaks; re-run just before the repo goes public. Making it public and the submission remain
 - [ ] T055 [POL] **Close the `braces` advisory GHSA-vfj7-8cjw-p6xm.** Accepted in `osv-scanner.toml` on 2026-10-03 (no fixed version; dev-only, via eslint-config-next → fast-glob → micromatch). Lane `infra`.
       Design:  none (a dependency bump)
       Files:   apps/web/package.json / pnpm-lock.yaml (a fixed `braces`, or an `overrides` entry, or a newer eslint-config-next that drops it); osv-scanner.toml (remove the block)
