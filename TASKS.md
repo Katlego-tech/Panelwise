@@ -750,5 +750,11 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:verify.md § T124 contracts verbatim: `ALIKE_OVERLAP = 0.5`, `described_alike(description, known, overlap)`, `run_checks`' second `DRAWN_TWICE` source and its detail; the hosted ladder stays `drawn_sex,no_character,split_panels` (2026-10-20)
       Verify:  bash scripts/gate.sh (tests first: §9 T124, mutation check); `recheck` over the 17 Oct runs' stored rows (free)
       Done:    `recheck` on gogos-recipe and rooftop-tomatoes fails `DRAWN_TWICE` on 2.1, 1.4 a2, 5.3, rooftop 3.1 and 6.2 and on no frame labelled right; a copy warns on its card (`drawn_twice` taken off the hosted ladder on 2026-10-20: the T109 re-score withheld 6 of 40 right frames for it, verify.md §3)
+- [ ] T126 [POL] **A downloaded PDF is named by its screenplay.** Asked by Tumo on 2026-10-20: the storyboard and comic PDFs save as a 64-character hash (their Storage key). Measured free: Supabase Storage names a signed download with `?download=<name>`. Lane `web` (Tumo, Claude).
+      Design:  docs/design/web.md §4.5 *A downloaded PDF is named by its screenplay*, §6 rows; its own PR (`docs/pdf-names-t126`)
+      Files:   services/api/app/api/v1/downloads.py (new), app/api/v1/projects.py; services/api/tests/api/test_t126.py; test_t122.py, test_comic.py where they compare a PDF link
+      Contract:web.md §4.5 verbatim: `download_name(title, kind)`, `with_download(url, filename)`; both PDF links carry `download=`; page links unchanged
+      Verify:  bash scripts/gate.sh (tests first: names, unsafe characters, the 80-character cap, the empty fallback, both routes); after deploy, Export PDF and Download PDF save as "{title} storyboard.pdf" and "{title} comic.pdf"
+      Done:    on the hosted demo the two PDFs download as "the-borrowed-bicycle storyboard.pdf" and "the-borrowed-bicycle comic.pdf"
 - [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
