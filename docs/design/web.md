@@ -325,7 +325,8 @@ projects.png and projects-states.png.
   null, the row shows the verdict alone, never a stand-in message.
 - **The list scrolls on its own (T125; Tumo, 2026-10-20).** From 861 px wide, where upload and list
   sit side by side, the cards (`ul`) are their own scroll area: at most the window's height less
-  the bar, the page's top padding, the heading and a bottom margin (`calc(100dvh - 12.5rem)`), with
+  the bar (56 px), the page's top and bottom padding (48 + 64 px) and the heading (about 46 px):
+  `calc(100dvh - 13.5rem)`, with
   `overflow-y: auto` and `overscroll-behavior: contain`, so a long list scrolls without moving the
   upload panel or the page. The heading stays put above it. A thin scrollbar in `--rule`; padding
   inside so a row's shadow and left edge aren't clipped. **Keyboard:** the area takes focus
