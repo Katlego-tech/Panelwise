@@ -1,8 +1,16 @@
-// "Your screenplays" (web.md §4.1a): newest first, as the API orders them.
+// "Your screenplays" (web.md §4.1a): newest first, as the API orders them. From 861 px, where it
+// sits beside the upload panel, the cards scroll on their own under a fixed heading (T125).
 
 import type { ProjectSummary } from "@/lib/api/types";
 
 import { ProjectRow } from "./ProjectRow";
+
+// The bar (56 px), the page's top padding (48 px), the heading and a bottom margin: 12.5rem.
+// Padding inside keeps the last row's shadow and the scrollbar clear of the cards.
+const SCROLLS = [
+  "min-[861px]:max-h-[calc(100dvh-12.5rem)] min-[861px]:overflow-y-auto min-[861px]:overscroll-contain",
+  "min-[861px]:pr-2 min-[861px]:pb-3 [scrollbar-color:var(--color-rule)_transparent] [scrollbar-width:thin]",
+].join(" ");
 
 export const EMPTY = "No screenplays yet. Upload one to board it.";
 export const UNLOADED = "Your screenplays can't be loaded right now. Reload the page to try again.";
@@ -21,7 +29,7 @@ export function ProjectList({ projects }: { projects: ProjectSummary[] | null })
       ) : projects.length === 0 ? (
         <p className="m-0 text-sm text-ink-2">{EMPTY}</p>
       ) : (
-        <ul className="m-0 grid list-none gap-3.5 p-0">
+        <ul aria-labelledby="list-title" tabIndex={0} className={`m-0 grid list-none gap-3.5 p-0 ${SCROLLS}`}>
           {projects.map((project) => (
             <ProjectRow key={project.id} project={project} />
           ))}
