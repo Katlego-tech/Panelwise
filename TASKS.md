@@ -769,5 +769,6 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Verify:  bash scripts/gate.sh (tests first: §9 T124, mutation check); `recheck` over the 17 Oct runs' stored rows (free)
       Done:    `recheck` on gogos-recipe and rooftop-tomatoes fails `DRAWN_TWICE` on 2.1, 1.4 a2, 5.3, rooftop 3.1 and 6.2 and on no frame labelled right; a copy warns on its card (`drawn_twice` taken off the hosted ladder on 2026-10-20: the T109 re-score withheld 6 of 40 right frames for it, verify.md §3)
       Status:  done, 2026-10-20: merged (#222, #223, #224); `recheck` on the 17 Oct runs fails `DRAWN_TWICE` on exactly 2.1, 1.4 a2, 3.4, 5.3, rooftop 3.1 and 6.2 and on no right frame (`eval/measurements/t124/recheck-17oct.txt`); a copy warns
-- [ ] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
+- [x] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
+      Status:  done, 2026-10-20: the gate's whole-tree placeholder sweep (`gate.sh --stage repo`) is clean, and a search of services/api/app and apps/web for TODO, FIXME, XXX, HACK, NotImplementedError and stand-in data finds none (the `pass` and `...` hits are a sentinel class, an exception subclass, a match default and Protocol stubs)
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
