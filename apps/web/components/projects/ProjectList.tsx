@@ -5,10 +5,11 @@ import type { ProjectSummary } from "@/lib/api/types";
 
 import { ProjectRow } from "./ProjectRow";
 
-// The bar (56 px), the page's top padding (48 px), the heading and a bottom margin: 12.5rem.
+// The bar (56 px), the page's top and bottom padding (pt-12, pb-16: 48 + 64 px) and the heading
+// (about 46 px): 214 px, so 13.5rem (216 px) leaves the page itself no scroll.
 // Padding inside keeps the last row's shadow and the scrollbar clear of the cards.
 const SCROLLS = [
-  "min-[861px]:max-h-[calc(100dvh-12.5rem)] min-[861px]:overflow-y-auto min-[861px]:overscroll-contain",
+  "min-[861px]:max-h-[calc(100dvh-13.5rem)] min-[861px]:overflow-y-auto min-[861px]:overscroll-contain",
   "min-[861px]:pr-2 min-[861px]:pb-3 [scrollbar-color:var(--color-rule)_transparent] [scrollbar-width:thin]",
 ].join(" ");
 

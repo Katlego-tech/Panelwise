@@ -36,7 +36,7 @@ describe("ProjectList scrolls on its own (web.md §4.1a, T125)", () => {
     render(<ProjectList projects={[project("a")]} />);
     const classes = screen.getByRole("list", { name: "Your screenplays" }).className.split(/\s+/);
     for (const rule of [
-      "min-[861px]:max-h-[calc(100dvh-12.5rem)]",
+      "min-[861px]:max-h-[calc(100dvh-13.5rem)]",
       "min-[861px]:overflow-y-auto",
       "min-[861px]:overscroll-contain",
     ]) {
