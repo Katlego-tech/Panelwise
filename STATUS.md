@@ -3,13 +3,14 @@
 > Source of truth for "what's going on right now." Read first, update last. Treat updating it as
 > part of "done." (This is the blank template — copy to `STATUS.md` and keep that one live.)
 
+_Last updated: 2026-10-20 (later) — by Tumo (via Claude)_
 _Last updated: 2026-10-20 — by Tumo (via Claude)_
 _Last updated: 2026-10-18 — by Katlego (via Claude)_
 _Last updated: 2026-10-17 — by Tumo (via Claude)_
 
 ---
 
-## ⇄ HANDOFF: ACTIVE
+## ⇄ HANDOFF: none
 
 > Leave this block here even when dormant — it is the first thing every AI reads, and it only
 > works as a signal if it always lives in the same spot. Set it to `ACTIVE` and fill the rows
@@ -18,7 +19,7 @@ _Last updated: 2026-10-17 — by Tumo (via Claude)_
 
 | Field | Value |
 |---|---|
-| Status | 🟠 ACTIVE: Tumo → Katlego (Katlego takes it forward, then hands back to Tumo) |
+| Status | 🟢 none: Katlego handed it straight back on #216 (2026-10-20: Tumo has a Render seat, secrets in Infisical); Tumo picks it up |
 | Raised | 2026-10-20, Tumo (via Claude), for Katlego (last before: 2026-10-17, Tumo → Katlego, picked up by Tumo on 18 Oct) |
 | Reason | Tumo hands over; everything of his is merged on main (`7ef94d3`), no PR of his open |
 | Document | [docs/HANDOFF.md](docs/HANDOFF.md) (2026-10-20: done, locked decisions, what needs Katlego, next steps, how to run, facts, gotchas, corrections) |
@@ -292,6 +293,7 @@ or on the decisions above. Late-stage: T034 (video, needs a working demo), T035 
 > This is the standup. Every session ends with a line here: **done / next / blocked.** Two or three
 > lines — if it needs more, it's a handoff document. Name blockers, don't solve them here.
 
+- 2026-10-20 — Tumo (via Claude) — **Handoff picked up by Tumo; T030's judge account made; T125 designed.** Katlego answered the handoff on #216 by giving Tumo a Render seat (secrets in Infisical) and asked for a review of #226 (T113 revised). Tumo read back the three Render values (as expected; posted on #216) and created `judge@panelwise.dev` with the seed in the service's Shell; the judge signs in to an empty list. T125 (Tumo's ask): the projects list scrolls on its own from 861 px (web.md §4.1a). **Next:** T125's code; the-red-kite hosted run (Tumo's go-ahead given) and `seed --from`. **Blocked on:** nothing.
 - 2026-10-20 — Tumo (via Claude) — **Handoff raised** (Tumo → Katlego; docs/HANDOFF.md). Everything of Tumo's is merged on main `7ef94d3` (#212–#224); no PR of his open. Katlego takes it forward and hands back to Tumo. **Next:** HANDOFF.md §5: T030 (Render read-back, judge seed, hosted the-red-kite run), task bookkeeping, T036 and gitleaks, the judge sample, the-choir, the judge's misses of a drawn cast, T113 if safe by 27 Oct, the submission tail. **Blocked on:** Katlego's Render access for T030.
 - 2026-10-20 — Tumo (via Claude) — **T109 re-scored; `drawn_twice` off the hosted ladder** (`fix/twice-warns`). The re-score (Tumo's go-ahead, about $0.30 with a rerun after Docker stopped overnight; `eval/measurements/t124/rescore-2026-10-20/`), Super VL on main `933ba58`: **T109** — the 6 frames that looped on 17 Oct all describe now; market-day 5.2 still ends `ERROR` with its description and judgement present (not the describer); two other errors in the first pass were transient. Overall: wrong 43 of 57 withheld, right 7 of 40. **T124's ladder entry was a mistake:** 6 of the 7 right frames were withheld for `drawn_twice`, from the word rule where the judge misses look-alike cast members and from the layout agent itself (the-night-taxi 2.1). Hotfix: back to `drawn_sex,no_character,split_panels`; both detectors stay and warn. **Next:** merge (Render applies the ladder from render.yaml); look at the judge's misses of a drawn cast. **Blocked on:** nothing.
 - 2026-10-19 — Tumo (via Claude) — **T124 designed** (`docs/described-alike-t124`): drawn-twice frames, measured free on stored audits (`eval/measurements/t124/`). The layout agent argues copies apart (gogos 2.1: the describer gave both children the same words), and a caught copy only warned. Design: a pair described alike (word overlap ≥ 0.5, not both known) fails `DRAWN_TWICE` too, and `drawn_twice` joins the hosted ladder. Super VL: 7 of 10 copies, no right frame flagged; the risk (6 of 40 right on DeepSeek's generic descriptions) is named, to measure again on the-choir. The models, checked free: Token Factory lists all three of ours (Lightning, Super 120B, Super VL); render.yaml sets none, so Render runs the code's defaults. **Next:** review, merge, the code. **Blocked on:** nothing.
