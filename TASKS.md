@@ -750,6 +750,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:verify.md § T124 contracts verbatim: `ALIKE_OVERLAP = 0.5`, `described_alike(description, known, overlap)`, `run_checks`' second `DRAWN_TWICE` source and its detail; the hosted ladder stays `drawn_sex,no_character,split_panels` (2026-10-20)
       Verify:  bash scripts/gate.sh (tests first: §9 T124, mutation check); `recheck` over the 17 Oct runs' stored rows (free)
       Done:    `recheck` on gogos-recipe and rooftop-tomatoes fails `DRAWN_TWICE` on 2.1, 1.4 a2, 5.3, rooftop 3.1 and 6.2 and on no frame labelled right; a copy warns on its card (`drawn_twice` taken off the hosted ladder on 2026-10-20: the T109 re-score withheld 6 of 40 right frames for it, verify.md §3)
+- [ ] T125 [POL] **The projects list scrolls on its own.** Asked by Tumo on 2026-10-20: with many screenplays, scrolling the list moves the whole page, upload panel included. Lane `web` (Tumo, Claude).
+      Design:  docs/design/web.md §4.1a *The list scrolls on its own*; its own PR (`docs/list-scroll-t125`)
+      Files:   apps/web/components/projects/ProjectList.tsx (+ ProjectsPage.test.tsx or a ProjectList test)
+      Contract:web.md §4.1a: from 861 px the `ul` is a scroll area (`max-height: calc(100dvh - 13.5rem)`, `overflow-y: auto`, `overscroll-behavior: contain`, thin `--rule` scrollbar), focusable and labelled by the heading; below 861 px unchanged
+      Verify:  bash scripts/gate.sh (tests first: the list is focusable and labelled by its heading, empty and unavailable states have no scroll area); the PR's Vercel preview at 1440 px with more cards than fit, and at 390 px
+      Done:    at 1440 px with more screenplays than fit, the list scrolls while the upload panel stays still, by mouse and by keyboard; at 390 px the page scrolls as before
 - [ ] T127 [POL] **Close 49 advisories in four dependencies (`pillow` 12.3.0, 38; `next` 16.3.8, 3 of them critical; `vite` 8.3.1, 6; `@vitest/mocker` 5.0.2, 2).** Found 2026-10-22 when the dependency scan failed the #228–#232 merge stack, which changes no lockfile; `main` fails it too. Lane `infra`.
       Design:  none (a dependency bump)
       Files:   apps/web/package.json (`next` and `eslint-config-next` 16.3.8 → 16.4.1, pinned exactly as before; `vitest` ^5.0.3; `vite` ^8.3.5 now declared: a peer of vitest and @vitejs/plugin-react that pnpm had auto-installed and kept at 8.3.1); apps/web/pnpm-lock.yaml; services/api/pyproject.toml (`pillow>=13.0.0`), uv.lock; PLAN.md (the pinned version)

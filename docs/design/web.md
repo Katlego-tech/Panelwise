@@ -323,6 +323,16 @@ projects.png and projects-states.png.
   carries no failed count, and a failed frame shows as its own card on the storyboard (§4.3).
 - **`job.error`** is always set on a failed job (T046, the restart sweep); if one ever arrives
   null, the row shows the verdict alone, never a stand-in message.
+- **The list scrolls on its own (T125; Tumo, 2026-10-20).** From 861 px wide, where upload and list
+  sit side by side, the cards (`ul`) are their own scroll area: at most the window's height less
+  the bar (56 px), the page's top and bottom padding (48 + 64 px) and the heading (about 46 px):
+  `calc(100dvh - 13.5rem)`, with
+  `overflow-y: auto` and `overscroll-behavior: contain`, so a long list scrolls without moving the
+  upload panel or the page. The heading stays put above it. A thin scrollbar in `--rule`; padding
+  inside so a row's shadow and left edge aren't clipped. **Keyboard:** the area takes focus
+  (`tabIndex 0`, labelled by the heading "Your screenplays") and scrolls with the arrow keys and
+  Page Up/Down, with the `--pencil` focus ring every control has. **Below 861 px** (the columns
+  stack) nothing changes: the page scrolls, never a box inside it.
 - **Empty list:** under the heading, "No screenplays yet. Upload one to board it."
 - **List unavailable** (the first read failed): under the heading, "Your screenplays can't be loaded
   right now. Reload the page to try again." A failed poll keeps the last list and tries again on
