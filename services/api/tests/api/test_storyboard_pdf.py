@@ -121,6 +121,7 @@ async def test_a_settled_storyboard_answers_a_signed_pdf_built_once(
     status, body = pdf(client, pid)
     assert status == 200, body
     path = body["pdf_url"].removeprefix("https://signed/").split("?")[0]
+    assert body["pdf_url"].endswith("%20storyboard.pdf")  # T126: saved under the screenplay's title
     assert path.startswith("storyboards/") and path.endswith(".pdf")
     data, content_type = store.objects[path]
     assert data.startswith(b"%PDF") and content_type == "application/pdf"
