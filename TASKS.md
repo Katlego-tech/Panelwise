@@ -784,6 +784,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:web.md §4.5 verbatim: `download_name(title, kind)`, `with_download(url, filename)`; both PDF links carry `download=`; page links unchanged
       Verify:  bash scripts/gate.sh (tests first: names, unsafe characters, the 80-character cap, the empty fallback, both routes); after deploy, Export PDF and Download PDF save as "{title} storyboard.pdf" and "{title} comic.pdf"
       Done:    on the hosted demo the two PDFs download as "the-borrowed-bicycle storyboard.pdf" and "the-borrowed-bicycle comic.pdf"
+- [ ] T127 [POL] **Close 49 advisories in four dependencies (`pillow` 12.3.0, 38; `next` 16.3.8, 3 of them critical; `vite` 8.3.1, 6; `@vitest/mocker` 5.0.2, 2).** Found 2026-10-22 when the dependency scan failed the #228–#232 merge stack, which changes no lockfile; `main` fails it too. Lane `infra`.
+      Design:  none (a dependency bump)
+      Files:   apps/web/package.json (`next` and `eslint-config-next` 16.3.8 → 16.4.1, pinned exactly as before; `vitest` ^5.0.3; `vite` ^8.3.5 now declared: a peer of vitest and @vitejs/plugin-react that pnpm had auto-installed and kept at 8.3.1); apps/web/pnpm-lock.yaml; services/api/pyproject.toml (`pillow>=13.0.0`), uv.lock; PLAN.md (the pinned version)
+      Contract:none
+      Verify:  bash scripts/gate.sh: osv-scanner over both lockfiles reports no issues; pytest (the comic reference pages compare pixels, so Pillow 13 is checked there), pnpm lint, test, build pass
+      Done:    the gate's vulnerability scan passes with no new exemption
 - [x] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
       Status:  done, 2026-10-20: the gate's whole-tree placeholder sweep (`gate.sh --stage repo`) is clean, and a search of services/api/app and apps/web for TODO, FIXME, XXX, HACK, NotImplementedError and stand-in data finds none (the `pass` and `...` hits are a sentinel class, an exception subclass, a match default and Protocol stubs)
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
