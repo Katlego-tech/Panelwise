@@ -323,6 +323,16 @@ projects.png and projects-states.png.
   carries no failed count, and a failed frame shows as its own card on the storyboard (§4.3).
 - **`job.error`** is always set on a failed job (T046, the restart sweep); if one ever arrives
   null, the row shows the verdict alone, never a stand-in message.
+- **The list scrolls on its own (T125; Tumo, 2026-10-20).** From 861 px wide, where upload and list
+  sit side by side, the cards (`ul`) are their own scroll area: at most the window's height less
+  the bar (56 px), the page's top and bottom padding (48 + 64 px) and the heading (about 46 px):
+  `calc(100dvh - 13.5rem)`, with
+  `overflow-y: auto` and `overscroll-behavior: contain`, so a long list scrolls without moving the
+  upload panel or the page. The heading stays put above it. A thin scrollbar in `--rule`; padding
+  inside so a row's shadow and left edge aren't clipped. **Keyboard:** the area takes focus
+  (`tabIndex 0`, labelled by the heading "Your screenplays") and scrolls with the arrow keys and
+  Page Up/Down, with the `--pencil` focus ring every control has. **Below 861 px** (the columns
+  stack) nothing changes: the page scrolls, never a box inside it.
 - **Empty list:** under the heading, "No screenplays yet. Upload one to board it."
 - **List unavailable** (the first read failed): under the heading, "Your screenplays can't be loaded
   right now. Reload the page to try again." A failed poll keeps the last list and tries again on
@@ -695,6 +705,22 @@ the button, which stays enabled.
   "{n} pages · {panels} panels · made {made_at}" (the projects list's date format), then the
   **From the script** card, then **Lettering on this page**. The bar's tools hold **Download PDF**, a
   link to `pdf_url` with `download` (absent until a comic exists).
+- **A downloaded PDF is named by its screenplay (T126; Tumo, 2026-10-20).** A browser ignores `download`
+  on a link to another origin, so both PDFs used to save under their Storage key (a 64-character
+  hash). The API now adds `download=<name>` to the two PDF links, and Supabase Storage answers them
+  with `Content-Disposition: attachment; filename="<name>"` (measured on the dev bucket,
+  2026-10-20). The name is `download_name(project.title, kind)`: `"{title} storyboard.pdf"` or
+  `"{title} comic.pdf"`; in the title, `\ / : * ? " < > |` and control characters become `-`,
+  runs of white space one space, trimmed, at most 80 characters, and an empty result `Panelwise`.
+  Page images keep their plain links (they are shown, not saved).
+
+```python
+# app/api/v1/downloads.py (T126)
+def download_name(title: str, kind: Literal["storyboard", "comic"]) -> str: ...
+def with_download(url: str, filename: str) -> str: ...   # url + ("&" if "?" in url else "?") + "download=" + quote(filename)
+# read_storyboard_pdf: pdf_url = with_download(signed, download_name(project.title, "storyboard"))
+# read_comic: the PDF's link (last of signed_urls) the same with "comic"; pages unchanged
+```
 - **One page at a time.** `?page=n` (1-based; missing, not a number or out of range → 1, replaced in
   the URL) so a page can be linked to. **Previous** / **Next** (disabled at the ends) and the ← / →
   keys (ignored while focus is in a text field) change it with `router.replace`, scroll to the top,
@@ -779,7 +805,7 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 | `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T047 |
 | `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T047 |
 | `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row (no rows exist until T021 writes them) | T047 (creates and reads `frames`) |
-| `GET /projects/{id}/storyboard/pdf` | — | 200 `{"pdf_url": str}`, a signed URL (an hour) to the PDF, built on demand and stored by its document key (storyboard.md §3.4, §6 `export_pdf`) · 404 `not_found` · 409 `{"error": "not_ready"}` unless the upload's job is `done`, every plan shot has a `frames` row and none is `rendering` or `auditing` · 503 `storage_unavailable` · 503 `{"error": "styles_unavailable"}` when the styles didn't load · 401/503 as every route | T027 |
+| `GET /projects/{id}/storyboard/pdf` | — | 200 `{"pdf_url": str}`, a signed URL (an hour) to the PDF, saved as `"{title} storyboard.pdf"` (T126, `download=` below), built on demand and stored by its document key (storyboard.md §3.4, §6 `export_pdf`) · 404 `not_found` · 409 `{"error": "not_ready"}` unless the upload's job is `done`, every plan shot has a `frames` row and none is `rendering` or `auditing` · 503 `storage_unavailable` · 503 `{"error": "styles_unavailable"}` when the styles didn't load · 401/503 as every route | T027 |
 | `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` or `failed` → `rendering`, under a new `frame_attempt` job; `failed` since T066) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state (the code keeps its T021 name) · 409 `{"error": "not_ready"}` without a plan or that shot · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
 | `POST /projects/{id}/comic` | — | 202 `{job: Job}` (kind `comic`, `RUNNING`) · 404 `not_found` · 409 `{"error": "not_ready"}` (no plan, or the upload's job not `done`) · 409 `{"error": "comic_running"}` · 503 `renderer_unavailable` · 503 `storage_unavailable`, each before anything is written, in comic.md §4a's order · 401/503 as every route | T064 |
 | `GET /projects/{id}/comic` | — | 200 `ComicView` (every URL signed for 3600 s) · 409 `not_ready` before the plan · 404 · 503 `storage_unavailable` when signing fails | T064 |
@@ -1101,7 +1127,7 @@ interface ComicView {
   can_make: boolean;                     // a renderer factory, a model and a store: POST …/comic would not answer 503
   shots: number;                         // panels in a comic of this plan
   job: Job | null;                       // the latest comic job (its error mapped, comic.md §4a)
-  comic: { made_at: string; pdf_url: string; pages: ComicPageView[] } | null;   // the last finished comic
+  comic: { made_at: string; pdf_url: string; pages: ComicPageView[] } | null;   // the last finished comic; pdf_url saves as "{title} comic.pdf" (T126)
 }
 ```
 

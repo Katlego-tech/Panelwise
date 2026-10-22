@@ -772,6 +772,18 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Verify:  bash scripts/gate.sh (tests first: §9 T124, mutation check); `recheck` over the 17 Oct runs' stored rows (free)
       Done:    `recheck` on gogos-recipe and rooftop-tomatoes fails `DRAWN_TWICE` on 2.1, 1.4 a2, 5.3, rooftop 3.1 and 6.2 and on no frame labelled right; a copy warns on its card (`drawn_twice` taken off the hosted ladder on 2026-10-20: the T109 re-score withheld 6 of 40 right frames for it, verify.md §3)
       Status:  done, 2026-10-20: merged (#222, #223, #224); `recheck` on the 17 Oct runs fails `DRAWN_TWICE` on exactly 2.1, 1.4 a2, 3.4, 5.3, rooftop 3.1 and 6.2 and on no right frame (`eval/measurements/t124/recheck-17oct.txt`); a copy warns
+- [ ] T125 [POL] **The projects list scrolls on its own.** Asked by Tumo on 2026-10-20: with many screenplays, scrolling the list moves the whole page, upload panel included. Lane `web` (Tumo, Claude).
+      Design:  docs/design/web.md §4.1a *The list scrolls on its own*; its own PR (`docs/list-scroll-t125`)
+      Files:   apps/web/components/projects/ProjectList.tsx (+ ProjectsPage.test.tsx or a ProjectList test)
+      Contract:web.md §4.1a: from 861 px the `ul` is a scroll area (`max-height: calc(100dvh - 13.5rem)`, `overflow-y: auto`, `overscroll-behavior: contain`, thin `--rule` scrollbar), focusable and labelled by the heading; below 861 px unchanged
+      Verify:  bash scripts/gate.sh (tests first: the list is focusable and labelled by its heading, empty and unavailable states have no scroll area); the PR's Vercel preview at 1440 px with more cards than fit, and at 390 px
+      Done:    at 1440 px with more screenplays than fit, the list scrolls while the upload panel stays still, by mouse and by keyboard; at 390 px the page scrolls as before
+- [ ] T126 [POL] **A downloaded PDF is named by its screenplay.** Asked by Tumo on 2026-10-20: the storyboard and comic PDFs save as a 64-character hash (their Storage key). Measured free: Supabase Storage names a signed download with `?download=<name>`. Lane `web` (Tumo, Claude).
+      Design:  docs/design/web.md §4.5 *A downloaded PDF is named by its screenplay*, §6 rows; its own PR (`docs/pdf-names-t126`)
+      Files:   services/api/app/api/v1/downloads.py (new), app/api/v1/projects.py; services/api/tests/api/test_t126.py; test_t122.py, test_comic.py where they compare a PDF link
+      Contract:web.md §4.5 verbatim: `download_name(title, kind)`, `with_download(url, filename)`; both PDF links carry `download=`; page links unchanged
+      Verify:  bash scripts/gate.sh (tests first: names, unsafe characters, the 80-character cap, the empty fallback, both routes); after deploy, Export PDF and Download PDF save as "{title} storyboard.pdf" and "{title} comic.pdf"
+      Done:    on the hosted demo the two PDFs download as "the-borrowed-bicycle storyboard.pdf" and "the-borrowed-bicycle comic.pdf"
 - [x] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
       Status:  done, 2026-10-20: the gate's whole-tree placeholder sweep (`gate.sh --stage repo`) is clean, and a search of services/api/app and apps/web for TODO, FIXME, XXX, HACK, NotImplementedError and stand-in data finds none (the `pass` and `...` hits are a sentinel class, an exception subclass, a match default and Protocol stubs)
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
