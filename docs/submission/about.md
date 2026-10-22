@@ -54,7 +54,8 @@ logged, so you can see why a frame was accepted.
   $$\mathbb{E}[N] \;=\; \sum_{i=0}^{k} (1-p)^i \;=\; \frac{1-(1-p)^{k+1}}{p},$$
 
   which is how we budget renders: with \(k = 2\) (a first render and two re-renders) and
-  \(p = ⟨TBD: the measured first-render pass rate⟩\), a frame costs \(⟨TBD⟩\) renders on average.
+  \(p \approx 0.97\) (37 of 38 shots accepted at their first drawing on two held-out scripts, 17 Oct,
+  under the hosted rule ladder), a frame costs about \(1.03\) renders on average.
 - **Stack.** A Next.js app on Vercel in front of a FastAPI service on Render, with Supabase for
   Postgres, image storage and sign-in, live since 16 Oct at https://panelwise.vercel.app.
 
@@ -86,7 +87,9 @@ finish: at catalog prices, an estimated 0.3M tokens in and 0.15M out per screenp
 
 $$0.3 \times \$0.06 + 0.15 \times \$0.24 \approx \$0.05 .$$
 
-⟨TBD: replace the estimate with the measured cost once T006 runs a full script, and say it finished.⟩
+Measured (16 Oct, the-red-kite, storyboard and comic on the deployed stack): it finished, with 44
+drawings (about $0.15 at fal's $0.003–0.004 each) and about 0.34M tokens, roughly $0.20 a script end to
+end.
 
 **Errors that lied.** In FrameFlow, when one provider in the fallback chain hit its quota, the chain
 fell through to a local endpoint that wasn't running and reported only that last error — a 404
@@ -123,7 +126,11 @@ probing Token Factory, and several answers contradicted what the documentation s
   supply. Numbers and method:
   [`eval/`](../../eval/README.md).
 
-⟨TBD: frame-audit accuracy from `eval/` (T049).⟩
+- **The frame audit, scored against our own eyes.** On 109 drawn frames we labelled by hand, picked
+  for their faults (re-scored 20 Oct on Nemotron 3.5 Super VL with the hosted rule ladder), the audit
+  holds back **38 of 57 wrong frames (67%)** and only **1 of 40 right ones**; all 12 weak frames are
+  shown with their notes. Method and every frame:
+  [`eval/measurements/t124/`](../../eval/measurements/t124/README.md).
 
 ## What we learned
 
@@ -132,8 +139,9 @@ probing Token Factory, and several answers contradicted what the documentation s
 - Grounding has to be enforced *after* generation, in code, not asked for in the prompt. Models agree
   to "only use what's in the script" and then don't.
 - Vision models make good critics of image models: checking a frame against a spec is far easier
-  than generating it correctly the first time.
-  ⟨TBD: confirm with the audit numbers, or cut.⟩
+  than generating it correctly the first time. Ours holds back two in three wrong frames while
+  wrongly holding back one right frame in forty; its biggest gap is the judge not recognising a
+  drawn character, which is why a person drawn twice still only warns.
 
 ## What's next for Panelwise
 
