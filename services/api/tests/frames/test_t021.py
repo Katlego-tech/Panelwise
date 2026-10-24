@@ -2,6 +2,7 @@
 (verify.md §6; web.md §4.1, §6). A real Postgres, a fake renderer, a scripted audit."""
 
 import asyncio
+import threading
 import time
 import uuid
 from collections.abc import Iterator
@@ -72,6 +73,22 @@ class FakeRenderer:
 
     def record(self, shot: tuple[int, int], attempt: int) -> Record:
         return self.records[(shot, attempt)]
+
+
+class HeldRenderer(FakeRenderer):
+    """A FakeRenderer whose render waits until the test releases it, so a frame stays mid-retry
+    for as long as the test needs (the retry runs in TestClient's own thread and loop)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.release = threading.Event()
+
+    async def render(
+        self, shot: Shot, attempt: int, seed: int, width: int, height: int
+    ) -> RenderedFrame:
+        if not await asyncio.to_thread(self.release.wait, 10):
+            raise AssertionError("the test never released the renderer")
+        return await super().render(shot, attempt, seed, width, height)
 
 
 # --- the writer -------------------------------------------------------------------------------
@@ -441,9 +458,11 @@ async def test_a_repeated_request_finds_the_frame_already_moving(
 ) -> None:
     pid, shot = await withheld(sessions)
     scripted.append(Verdict.FAIL)
-    c = client_for(renderer=FakeRenderer())
+    renderer = HeldRenderer()  # held, so the frame is still moving when the second request lands
+    c = client_for(renderer=renderer)
     assert post(c, pid, shot)[0] == 202
     assert post(c, pid, shot) == (409, {"error": "not_withheld"})  # one attempt per frame at a time
+    renderer.release.set()
     await wait_for_job(sessions, pid)
     async with sessions() as s:
         jobs = (await s.scalars(select(JobRow).where(JobRow.kind == JobKind.FRAME_ATTEMPT))).all()

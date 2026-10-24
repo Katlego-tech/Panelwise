@@ -101,9 +101,9 @@ async def test_make_the_comic_then_read_it_signed_and_traceable(
     body = settle(client, pid)
     assert (body["job"]["state"], body["job"]["progress"]) == ("done", 100)
     made = body["comic"]
-    assert made["pdf_url"].startswith("https://signed/comics/") and made["pdf_url"].endswith(
-        ".pdf?e=3600"
-    )
+    assert made["pdf_url"].startswith("https://signed/comics/")
+    assert ".pdf?e=3600&download=" in made["pdf_url"]  # T126: saved under the screenplay's title
+    assert made["pdf_url"].endswith("%20comic.pdf")
     async with sessions() as s:
         row = await s.get(ProjectRow, pid)
     assert row is not None and row.screenplay is not None

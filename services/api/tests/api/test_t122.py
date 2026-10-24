@@ -132,7 +132,7 @@ async def test_the_comic_s_pages_and_pdf_are_signed_in_one_call(
     assert [p["image_url"] for p in made["pages"]] == [
         f"https://signed/{p}?e=3600" for p in paths[:-1]
     ]
-    assert made["pdf_url"] == f"https://signed/{paths[-1]}?e=3600"
+    assert made["pdf_url"].startswith(f"https://signed/{paths[-1]}?e=3600&download=")  # T126
     assert body["comic"]["pdf_url"] == made["pdf_url"]
 
 

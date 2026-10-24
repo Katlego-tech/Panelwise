@@ -14,6 +14,7 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.errors import ApiError
+from app.api.v1.downloads import download_name, with_download
 from app.api.v1.schemas import (
     ComicView,
     FrameView,
@@ -446,7 +447,8 @@ async def storyboard_pdf(
         url = await store.signed_url(path, _SIGNED_URL_S)
     except StorageError as exc:
         raise ApiError(503, "storage_unavailable") from exc
-    return StoryboardPdfView(pdf_url=url)
+    # T126: saved under the screenplay's title, not the Storage key
+    return StoryboardPdfView(pdf_url=with_download(url, download_name(project.title, "storyboard")))
 
 
 @router.get("/projects/{project_id}/comic")
@@ -477,6 +479,7 @@ async def read_comic(
             *page_urls, pdf_url = await store.signed_urls([*comic.pages, comic.pdf], _SIGNED_URL_S)
         except StorageError as exc:
             raise ApiError(503, "storage_unavailable") from exc
+        pdf_url = with_download(pdf_url, download_name(project.title, "comic"))  # T126
     can_make = (
         state.renderer_factory is not None and state.model is not None and state.store is not None
     )
