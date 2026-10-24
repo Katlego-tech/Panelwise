@@ -409,6 +409,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  bash scripts/gate.sh with the exemption removed: the vulnerability scan passes
       Done:    the exemption is gone and the gate's scan is clean; if no fix exists by 2026-10-31 the exemption expires and the gate fails, which forces this decision before submission
+      Status:  closed by T128 (`chore/deps-undici-zod`, 2026-10-24): GitHub withdrew the advisory on 2026-10-23 and osv-scanner reported the exemption unused, so the block is removed; `braces` 3.0.3 stays
 - [x] T056 [POL] CI runs once per commit, not for board-only changes, with its downloads cached. Lane `infra`.
       Design:  none (CI configuration)
       Files:   .github/workflows/ci.yml, docs/git-workflow.md
@@ -790,6 +791,12 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Contract:none
       Verify:  bash scripts/gate.sh: osv-scanner over both lockfiles reports no issues; pytest (the comic reference pages compare pixels, so Pillow 13 is checked there), pnpm lint, test, build pass
       Done:    the gate's vulnerability scan passes with no new exemption
+- [ ] T128 [POL] **Close 4 advisories in two dev-only dependencies (`undici` 8.11.2, 3, one high; `zod` 4.6.5, 1 high), and drop T055's withdrawn exemption.** Found 2026-10-24 when the pre-push gate failed #226, which changes no lockfile; `main` fails it too. Lane `infra`.
+      Design:  none (a dependency bump)
+      Files:   apps/web/pnpm-lock.yaml (`undici` 8.11.2 → 8.12.3, under jsdom; `zod` 4.6.5 → 4.6.7, under eslint-plugin-react-hooks; both transitive, so package.json is unchanged); osv-scanner.toml (GHSA-vfj7-8cjw-p6xm's block removed: withdrawn 2026-10-23, T055)
+      Contract:none
+      Verify:  bash scripts/gate.sh: osv-scanner over both lockfiles reports no issues and no unused ignore; pnpm lint, test, build pass
+      Done:    the gate's vulnerability scan passes with no exemption left
 - [x] T036 [POL] Sweep for placeholders: no `TODO`/`FIXME`/stub bodies/hard-coded sample data remain.
       Status:  done, 2026-10-20: the gate's whole-tree placeholder sweep (`gate.sh --stage repo`) is clean, and a search of services/api/app and apps/web for TODO, FIXME, XXX, HACK, NotImplementedError and stand-in data finds none (the `pass` and `...` hits are a sentinel class, an exception subclass, a match default and Protocol stubs)
 - [x] T038 [POL] Record each contributor's time zone and working hours in STATUS.md § Environment & access, with the overlap marked (PREP.md). Needs Katlego and Tumo's answers. Lane `eval+submission`.
