@@ -10,7 +10,7 @@ panelwise/
 ├── .env.example                 # key names only
 ├── docker-compose.yml           # local: postgres, api, web (+ comfyui profile, T003); deployed: docs/design/deploy.md
 ├── infra/
-│   ├── nebius/                  # GPU VM / serverless endpoint for ComfyUI
+│   ├── nebius/                  # GPU VM / serverless endpoint for ComfyUI (not set up: T003 optional)
 │   └── comfyui/workflows/       # public node graphs (JSON)
 ├── services/api/                # FastAPI
 │   ├── app/
@@ -23,7 +23,7 @@ panelwise/
 │   │   ├── verify/              # frame audit (vision model describes, Nemotron judges) + re-render loop
 │   │   ├── comic/               # page layout, panel sizing, bubbles, lettering
 │   │   ├── characters/          # reference portraits for consistent characters
-│   │   ├── images/              # provider chain + cache
+│   │   ├── images/              # provider chain + cache (planned, not built; fal renders)
 │   │   └── api/v1/              # projects, script, shots, storyboard, comic, audit log
 │   └── tests/
 ├── apps/web/                    # Next.js: upload → shots → storyboard → comic reader
@@ -48,8 +48,11 @@ panelwise/
 
 ## Run it
 
-Not runnable yet. Target: `cp .env.example .env && docker compose up`.
+See [README.md § Run it](../README.md#run-it).
 
 ## Status
 
-Scaffold only: module folders hold a README describing their responsibility and no code yet.
+What is built and what is waiting: [README.md § What works today](../README.md#what-works-today) and
+[STATUS.md](../STATUS.md). Some folders hold only a README describing their responsibility:
+`infra/` (ComfyUI on a Nebius GPU, optional since fal.ai renders, T003), `packages/shared/`, and
+`app/images/` (the renderer lives in `app/storyboard/`, storyboard.md §3.5).
