@@ -402,7 +402,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
 - [ ] T033 [POL] README: setup, how Nemotron and Token Factory are used, feedback section. Lane `eval+submission`.
       Status:  draft PR #36; feedback section drafted (Katlego), awaiting Tumo's review
 - [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
-      Status:  shooting script merged (#234, 2026-10-24); not recorded
+      Status:  shooting script merged (#234, 2026-10-24); ported-code table complete (2026-10-27: every module whose code names FrameFlow, `workflow.py`'s grayscale pass added); the video not recorded
 - [ ] T035 [POL] gitleaks over history (repo public since 2026-10-05), Devpost text, submit on Devpost by 29 Oct. Lane `eval+submission`.
       Status:  gitleaks done 2026-10-20 (v8.30.1, `git --log-opts=--all`, redacted): 574 commits on every branch, no leaks; re-run just before submitting. The Devpost text and the submission remain
 - [x] T055 [POL] **Close the `braces` advisory GHSA-vfj7-8cjw-p6xm.** Accepted in `osv-scanner.toml` on 2026-10-03 (no fixed version; dev-only, via eslint-config-next → fast-glob → micromatch). Lane `infra`.
