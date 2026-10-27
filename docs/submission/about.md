@@ -88,8 +88,9 @@ finish: at catalog prices, an estimated 0.3M tokens in and 0.15M out per screenp
 $$0.3 \times \$0.06 + 0.15 \times \$0.24 \approx \$0.05 .$$
 
 Measured (16 Oct, the-red-kite, storyboard and comic on the deployed stack): it finished, with 44
-drawings (about $0.15 at fal's $0.003–0.004 each) and about 0.34M tokens, roughly $0.20 a script end to
-end.
+drawings (about $0.13–0.18 at fal's $0.003–0.004 each) and about 0.34M tokens (about $0.15 on Token
+Factory, at most $0.19: the audit runs on Nemotron Super and Super VL, not only Lightning), roughly
+$0.30 a script end to end.
 
 **Errors that lied.** In FrameFlow, when one provider in the fallback chain hit its quota, the chain
 fell through to a local endpoint that wasn't running and reported only that last error — a 404
