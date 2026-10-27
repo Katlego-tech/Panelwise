@@ -118,7 +118,8 @@ async def recheck(
                 )
                 for f in row.found or ()
             ),
-            # T104: the stored answer; a row before 0009, or not asked, has none: both checks pass.
+            # T104: the stored answer; a row before 0009, or not asked, has none: SPLIT_PANELS
+            # and the layout's copies pass (T124's described-alike pairs need only the description).
             layout=None
             if row.layout is None
             else FrameLayout(

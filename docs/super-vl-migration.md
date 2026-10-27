@@ -29,13 +29,15 @@ NVIDIA released Nemotron 3.5 Super VL on 15 Oct and it is on Token Factory. With
   service: one setting, the same Token Factory key, and the hosted caps unchanged.
 - **The risk is small and reversible in minutes** (§ Rollback).
 
-**What doesn't carry over yet**, which is what the plan below fixes. These were tuned on
+**What didn't carry over**, which is what the plan below fixes. These were tuned on
 DeepSeek's wording, and none of them shows a wrong frame on the hosted demo:
-1. **Rooftops read as "interior"** (2 of 44): a `setting` hard fail on a right frame.
+1. **Rooftops read as "interior"** (2 of 44): a `setting` hard fail on a right frame. **Fixed
+   18 Oct (T106, #209/#210):** both rooftops pass, no other setting changed.
 2. **More lettering, less "signature"**: text entries 9 → 25, `text_in_frame` warnings 6 → 22. The
    artists' scrawled signatures read as text, which makes more warnings on the cards and never a
-   withheld frame.
-3. **Hair wording:** "pigtails" where the script says "braids tied back", so the judge refuses the
+   withheld frame. **Fixed 18 Oct (T107, #209/#210):** a `signature_text` field written before
+   `text` brings `text_in_frame` to 5 frames (findings § U8 follow-ups).
+3. **Hair wording (still open, T108, Tumo):** "pigtails" where the script says "braids tied back", so the judge refuses the
    match (`unscripted_person`). Once with thinking off (storyboard 4.1), six times with it on;
    that's why thinking stays off.
 
@@ -43,11 +45,11 @@ DeepSeek's wording, and none of them shows a wrong frame on the hosted demo:
 
 | When | Step | Who | Task |
 |---|---|---|---|
-| **17 Oct** | Switch the defaults: `NEBIUS_MODEL_VISION=nvidia/Nemotron-3.5-Super-VL`, `NEBIUS_VISION_THINKING=false`. Merge #191, then #192 (retargeted to `main`). Render redeploys the API and the hosted demo audits with Super VL | Katlego (Claude) | T105 |
-| **18–19 Oct** | **Translation on a held-out script:** your stored the-lighthouse-inspector (or the-borrowed-bicycle), DeepSeek against Super VL with thinking off, with the script in #192's comment; your table goes into § U8 beside the-red-kite's. It tells us whether the three items above are all there is | **Tumo** | T105 |
-| 18–20 Oct | A rooftop or a roof-level space open to the sky is `exterior`: the describer's setting rule, measured with `reaudit` on the stored drawings | Katlego (Claude) | T106 |
-| 18–20 Oct | Signatures against lettering, re-tuned for Super VL's wording (T077's rule), measured the same way | Katlego (Claude) | T107 |
-| **20–22 Oct** | The look match: the judge accepts a described hairstyle that is the script's under another word (pigtails, plaits, braids); this sits in your T080 look rule. Also re-measure the open agents on Super VL as they land: T102's questions, T104's layout, T097's heads | **Tumo** | T108; T102, T104 Verify |
+| **17 Oct** ✅ done | Switch the defaults: `NEBIUS_MODEL_VISION=nvidia/Nemotron-3.5-Super-VL`, `NEBIUS_VISION_THINKING=false`. Merge #191, then #192 (retargeted to `main`). Render redeploys the API and the hosted demo audits with Super VL | Katlego (Claude) | T105 |
+| **18–19 Oct** ✅ done (17 Oct, § U8 held out; #194, #200) | **Translation on a held-out script:** your stored the-lighthouse-inspector (or the-borrowed-bicycle), DeepSeek against Super VL with thinking off, with the script in #192's comment; your table goes into § U8 beside the-red-kite's. It tells us whether the three items above are all there is | **Tumo** | T105 |
+| 18–20 Oct ✅ done 18 Oct (#209, #210) | A rooftop or a roof-level space open to the sky is `exterior`: the describer's setting rule, measured with `reaudit` on the stored drawings | Katlego (Claude) | T106 |
+| 18–20 Oct ✅ done 18 Oct (#209, #210: a `signature_text` field; `text_in_frame` 22 → 5) | Signatures against lettering, re-tuned for Super VL's wording (T077's rule), measured the same way | Katlego (Claude) | T107 |
+| **20–22 Oct** (T108 open; T102, T104 and T097 merged 18 Oct) | The look match: the judge accepts a described hairstyle that is the script's under another word (pigtails, plaits, braids); this sits in your T080 look rule. Also re-measure the open agents on Super VL as they land: T102's questions, T104's layout, T097's heads | **Tumo** | T108; T102, T104 Verify |
 | **23 Oct** | The judge sample re-rendered on the hosted stack, now audited by Super VL (unchanged in the day plan) | both | T030 |
 | 24–26 Oct | The wording: README, SPEC and `docs/submission/about.md` say "Nemotron 3.5 Super VL describes each frame; Nemotron Super judges it", and the video says it too | both | T033, T034 |
 
@@ -71,5 +73,6 @@ it is fixed in code, so `render.yaml` and the code stay the source of truth.
 
 *"Every model call is Nemotron on Nebius Token Factory: Nemotron 3.5 Lightning extracts the
 characters and plans the shots, Nemotron 3.5 Super VL looks at every drawn frame, and Nemotron Super
-judges it against the script before anything is shown."* This becomes true once the 17 Oct step is
-merged and deployed.
+judges it against the script before anything is shown."* True since the 17 Oct step was merged and
+deployed. (A body drawn wrong is not checked: T111 measured Super VL on it and didn't adopt it,
+findings § U9.)

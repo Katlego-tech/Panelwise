@@ -22,15 +22,16 @@ times are already in `event.toml [time]` with their source; `./hack kickoff` is 
 ## Stack and pipeline
 
 - [x] Boilerplate scaffolded and CI running the gate: the Cultivation kit, then T002's pinned stack;
-      `.github/workflows/ci.yml` runs `scripts/gate.sh` (10 checks across 2 projects).
-- [ ] A deploy pipeline producing a live URL: the hosted demo on Vercel (web) + Render (API) + Supabase (docs/design/deploy.md), up until 15 Dec. Accounts and wiring T037 (steps in docs/deploy.md); the judge-ready demo T030.
+      `.github/workflows/ci.yml` runs `scripts/gate.sh` (11 checks across 2 projects).
+- [x] A deploy pipeline producing a live URL: the hosted demo on Vercel (web, https://panelwise.vercel.app) + Render (API, https://panelwise-api.onrender.com, since 2026-10-16) + Supabase (docs/design/deploy.md), up until 15 Dec. Accounts and wiring T037 (steps in docs/deploy.md); still to do: the judge-ready demo with its seeded account, T030.
 - [x] `event.toml [checks]` points at real commands (`bash scripts/gate.sh`, which runs every check
       itself), and the gate passes. `[checks] smoke` is set by T009.
 - [x] Keys in `.env` (never committed), names in `.env.example` (T001 settled every `NEBIUS_*` value).
 - [x] Token Factory credit: the $25 event promo (`NEBIUS-DEVPOST-GLOBAL26`) and $25 from the AI
       Builder Program (STATUS.md § Environment).
-- [ ] The cost of the ComfyUI GPU box checked against the credit, which covers Token Factory calls,
-      not a GPU VM (T003).
+- [x] ~~The cost of the ComfyUI GPU box checked against the credit, which covers Token Factory calls,
+      not a GPU VM (T003).~~ No longer needed: no GPU access came through, so FLUX.2 [klein] on fal.ai
+      draws the frames (T026, since 2026-10-11), its spend capped on the hosted demo; T003 is optional.
 
 ## Rules of the event
 

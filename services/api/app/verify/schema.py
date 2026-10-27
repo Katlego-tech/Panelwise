@@ -4,6 +4,7 @@ The describer's schema has no field for a name: it can only say what it sees. Th
 nothing but index calls and verbatim support, which code checks (verify.md §8).
 """
 
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -52,6 +53,52 @@ class FrameDescription(BaseModel):
     )
 
     model_config = ConfigDict(json_schema_extra=_require_signature_text)
+
+
+@dataclass(frozen=True)
+class DescriptionLimits:
+    """T109: how long the describer's lists and strings may run (verify.md § T109 contracts)."""
+
+    people: int
+    objects: int
+    text: int
+    text_chars: int
+    appearance_chars: int
+    object_name_chars: int
+    signature: int
+    signature_chars: int
+
+
+# Above every honest answer stored (DeepSeek: 21 people, 32 objects; Super VL: 33 text entries).
+# A loop now stops at a limit: the measured ones ended at 351-1,597 tokens of the 4,096.
+# A signature is a name or initials, never a paragraph: 5 entries of 60 (Katlego, #212).
+DESCRIPTION_LIMITS = DescriptionLimits(
+    people=24,
+    objects=40,
+    text=40,
+    text_chars=100,
+    appearance_chars=200,
+    object_name_chars=60,
+    signature=5,
+    signature_chars=60,
+)
+
+
+def description_grammar(limits: DescriptionLimits = DESCRIPTION_LIMITS) -> dict[str, Any]:
+    """T109: FrameDescription's schema with length limits, for the decoder only. Super VL can loop
+    at temperature 0 until max_tokens cuts the JSON; with these a looping list or string stops at
+    its limit. The model's own schema (the prompt's text, the validation) is left as it is."""
+    grammar = FrameDescription.model_json_schema()  # a new dict on every call
+    props, defs = grammar["properties"], grammar["$defs"]
+    props["people"]["maxItems"] = limits.people
+    props["objects"]["maxItems"] = limits.objects
+    props["text"]["maxItems"] = limits.text
+    props["text"]["items"]["maxLength"] = limits.text_chars
+    props["signature_text"]["maxItems"] = limits.signature  # T107's slot (§3)
+    props["signature_text"]["items"]["maxLength"] = limits.signature_chars
+    defs["SeenPerson"]["properties"]["appearance"]["maxLength"] = limits.appearance_chars
+    defs["SeenObject"]["properties"]["name"]["maxLength"] = limits.object_name_chars
+    return grammar
 
 
 class PersonCall(BaseModel):

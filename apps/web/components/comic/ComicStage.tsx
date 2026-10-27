@@ -5,6 +5,7 @@
 // started elsewhere, §10) only the strip or the failed note, never the button. One component owns
 // the job, so the strip appears the moment Make the comic answers. Polls the comic view every 2 s
 // while a comic job runs, moving the strip, and re-renders the page when the job settles.
+// One poll in flight at a time; sign in on the second 401, never the first (web.md §4.0, T123).
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -12,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { Meter } from "@/components/shared/Meter";
 import { Button } from "@/components/ui/button";
 import type { ComicView, Job } from "@/lib/api/types";
+import { fetchPast401, unauthorizedStreak } from "@/lib/client/signed-out";
 import { cn } from "@/lib/utils";
 
 import { COMIC_COPY } from "./comic";
@@ -88,10 +90,14 @@ export function ComicStage({
 
   useEffect(() => {
     if (!making) return;
+    const streak = unauthorizedStreak();
+    let busy = false;
     const timer = setInterval(async () => {
+      if (busy) return;
+      busy = true;
       try {
         const res = await fetch(base, { cache: "no-store" });
-        if (res.status === 401) {
+        if (streak.saw(res.status)) {
           router.push("/sign-in");
           return;
         }
@@ -107,6 +113,8 @@ export function ComicStage({
         }
       } catch {
         // The next tick tries again.
+      } finally {
+        busy = false;
       }
     }, POLL_MS);
     return () => clearInterval(timer);
@@ -116,7 +124,7 @@ export function ComicStage({
     setSending(true);
     setError(null);
     try {
-      const res = await fetch(base, { method: "POST" });
+      const res = await fetchPast401(base, { method: "POST" });
       if (res.status === 202) {
         const body = (await res.json().catch(() => null)) as { job?: Job } | null;
         if (body?.job) {

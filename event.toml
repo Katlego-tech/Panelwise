@@ -64,6 +64,7 @@ role = "Co-builder"          # AGENTS.md §1
 ai = "Claude"
 
 [demo]
+url = "https://panelwise.vercel.app"   # the hosted demo (T030); the judge account is in the Devpost testing notes
 limit_seconds = 180          # Devpost: "a 3-minute or shorter public YouTube video"
 
 # One [[sponsors]] block per sponsor technology the rules require; each must be load-bearing.

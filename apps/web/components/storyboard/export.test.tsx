@@ -80,18 +80,34 @@ describe("ExportButton (web.md §4.3; T027)", () => {
     expect(go).not.toHaveBeenCalled();
   });
 
-  it("a network error says so; a 401 goes to sign-in", async () => {
+  it("a network error says so", async () => {
     fetchMock.mockRejectedValueOnce(new Error("down"));
     const go = vi.fn();
-    const { unmount } = render(<ExportButton projectId="p1" ready go={go} />);
-    fireEvent.click(screen.getByRole("button", { name: "Export PDF" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(EXPORT_COPY.failed);
-    unmount();
-
-    fetchMock.mockResolvedValue(Response.json({ error: "unauthorized" }, { status: 401 }));
     render(<ExportButton projectId="p1" ready go={go} />);
     fireEvent.click(screen.getByRole("button", { name: "Export PDF" }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/sign-in"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(EXPORT_COPY.failed);
+  });
+
+  it("a 401 asks once more a second later, busy throughout, and opens its PDF (web.md §4.0, T123)", async () => {
+    fetchMock
+      .mockResolvedValueOnce(Response.json({ error: "unauthorized" }, { status: 401 }))
+      .mockResolvedValueOnce(Response.json({ pdf_url: "https://storage.test/sb.pdf?token=t" }));
+    const go = vi.fn();
+    render(<ExportButton projectId="p1" ready go={go} />);
+    fireEvent.click(screen.getByRole("button", { name: "Export PDF" }));
+    expect(await screen.findByRole("button", { name: EXPORT_COPY.busy })).toBeDisabled();
+    await waitFor(() => expect(go).toHaveBeenCalledWith("https://storage.test/sb.pdf?token=t"), { timeout: 3000 });
+    expect(fetchMock.mock.calls[1]).toEqual(fetchMock.mock.calls[0]);
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("a second 401 goes to sign-in and opens nothing (T123)", async () => {
+    fetchMock.mockImplementation(async () => Response.json({ error: "unauthorized" }, { status: 401 }));
+    const go = vi.fn();
+    render(<ExportButton projectId="p1" ready go={go} />);
+    fireEvent.click(screen.getByRole("button", { name: "Export PDF" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/sign-in"), { timeout: 3000 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(go).not.toHaveBeenCalled();
   });
 });

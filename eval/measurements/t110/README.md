@@ -1,6 +1,8 @@
 # T110: absent characters let through on Super VL (2026-10-17)
 
-Tumo (via Claude), on Tumo's machine. **Proposed result: no code change**; Tumo to confirm.
+Tumo (via Claude), on Tumo's machine. **Result: no code change.** Closed as measured on 2026-10-19
+(Katlego agreed on #212; Tumo decided): the levers are the extraction (L017) and drawn-twice frames, not
+the presence agent.
 
 **The question** (findings § U8, on #194): on the 109 labelled frames, `no_character` withheld 4 of
 the 8 `absent` frames on DeepSeek but 1 on Super VL. The 6 that only DeepSeek withheld were

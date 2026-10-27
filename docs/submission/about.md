@@ -25,16 +25,15 @@ tells the crew something the writer never wrote. So Panelwise is built around on
 
 ## What it does
 
-⟨TBD: each step true once US1, T005–T009, ships; on main today the Nemotron client (T004) and the screenplay parser (T005) exist; extraction onward does not⟩
 Upload a screenplay. Panelwise parses it into scenes and dialogue, extracts the characters and
 locations with **NVIDIA Nemotron on Nebius Token Factory**, plans a shot list, renders one frame per
 shot, and lays the frames out as storyboard pages or as comic pages with speech bubbles taken from
 the script's dialogue. Every panel links back to the verbatim lines it came from.
 
-Every rendered frame is audited. ⟨TBD: true once T020/T021 ship⟩ No Nemotron model on Token Factory
-accepts images, so the audit is split in two: a vision model describes the frame — who is in it,
-the framing, the time of day — and **Nemotron compares that description with the shot spec** and
-sends the frame back for a re-render when they disagree. The description and the verdict are both
+Every rendered frame is audited, in two steps: **Nemotron 3.5 Super VL** describes the frame
+without seeing the script — who is in it, the framing, the time of day — and **Nemotron Super
+compares that description with the shot spec** and sends the frame back for a re-render when they
+disagree. The description and the verdict are both
 logged, so you can see why a frame was accepted.
 
 ## How we built it
@@ -42,23 +41,23 @@ logged, so you can see why a frame was accepted.
 - **Grounded extraction.** The screenplay is split on scene boundaries and each chunk goes to
   Nemotron with a strict JSON schema. Every extracted entity must carry a verbatim quote from the
   script; a grounding filter drops anything whose quote can't be found in the source.
-  ⟨TBD: true once T006 ships; the filter is ported from FrameFlow⟩
 - **Model tiers.** Every model call goes through one client with two text tiers: the fast tier,
   **Nemotron 3.5 Lightning** with thinking switched off, and **Nemotron 3 Super** with thinking on
   for judgement calls. Every result records which model answered and how many tokens it spent
   thinking. High-volume, schema-bound work (extraction, shot planning) goes on the fast tier.
-  ⟨TBD: "goes" is true once T006/T007 call it⟩
-- **Rendering.** ComfyUI on a **Nebius AI Cloud** GPU, with character reference portraits so the same
-  person looks the same from panel to panel. ⟨TBD: true once T003 and T025 ship⟩
+- **Rendering.** **FLUX.2 [klein]** on fal.ai draws each frame, since Token Factory serves no
+  image model. A character's look comes from the script's own words, written
+  into every frame prompt they appear in.
 - **The audit loop.** Each frame may be rendered at most \(k+1\) times. If a single render passes
   the audit with probability \(p\), the expected number of renders per frame is
 
   $$\mathbb{E}[N] \;=\; \sum_{i=0}^{k} (1-p)^i \;=\; \frac{1-(1-p)^{k+1}}{p},$$
 
-  which is how we plan to budget GPU time ⟨TBD: true once T020/T021 ship⟩: at \(p = ⟨TBD⟩\) and \(k = ⟨TBD⟩\), a frame costs
-  \(⟨TBD⟩\) renders on average.
+  which is how we budget renders: with \(k = 2\) (a first render and two re-renders) and
+  \(p \approx 0.97\) (37 of 38 shots accepted at their first drawing on two held-out scripts, 17 Oct,
+  under the hosted rule ladder), a frame costs about \(1.03\) renders on average.
 - **Stack.** A Next.js app on Vercel in front of a FastAPI service on Render, with Supabase for
-  Postgres, image storage and sign-in. ⟨TBD: true once T037 deploys; today it runs in Docker locally⟩
+  Postgres, image storage and sign-in, live since 16 Oct at https://panelwise.vercel.app.
 
 ## Challenges we ran into
 
@@ -88,7 +87,9 @@ finish: at catalog prices, an estimated 0.3M tokens in and 0.15M out per screenp
 
 $$0.3 \times \$0.06 + 0.15 \times \$0.24 \approx \$0.05 .$$
 
-⟨TBD: replace the estimate with the measured cost once T006 runs a full script, and say it finished.⟩
+Measured (16 Oct, the-red-kite, storyboard and comic on the deployed stack): it finished, with 44
+drawings (about $0.15 at fal's $0.003–0.004 each) and about 0.34M tokens, roughly $0.20 a script end to
+end.
 
 **Errors that lied.** In FrameFlow, when one provider in the fallback chain hit its quota, the chain
 fell through to a local endpoint that wasn't running and reported only that last error — a 404
@@ -106,8 +107,10 @@ probing Token Factory, and several answers contradicted what the documentation s
   catch.
 - Nemotron reasons by default. For a one-number answer, thinking took Lightning from 4 output
   tokens to 271. Only two of the four switches we tried actually turned it off.
-- No Nemotron model on Token Factory accepts images, so the frame audit had to be redesigned
-  around a vision model that describes and a Nemotron model that judges.
+- No Nemotron model on Token Factory accepted images, so the frame audit had to be redesigned
+  around a vision model that describes and a Nemotron model that judges. When Nemotron 3.5 Super VL
+  arrived on Token Factory, we measured it on the same stored drawings before switching the
+  describe step to it on 17 Oct.
 
 ## Accomplishments that we're proud of
 
@@ -123,7 +126,11 @@ probing Token Factory, and several answers contradicted what the documentation s
   supply. Numbers and method:
   [`eval/`](../../eval/README.md).
 
-⟨TBD: frame-audit accuracy from `eval/` (T049, needs renders).⟩
+- **The frame audit, scored against our own eyes.** On 109 drawn frames we labelled by hand, picked
+  for their faults (re-scored 20 Oct on Nemotron 3.5 Super VL with the hosted rule ladder), the audit
+  holds back **38 of 57 wrong frames (67%)** and only **1 of 40 right ones**; all 12 weak frames are
+  shown with their notes. Method and every frame:
+  [`eval/measurements/t124/`](../../eval/measurements/t124/README.md).
 
 ## What we learned
 
@@ -132,8 +139,9 @@ probing Token Factory, and several answers contradicted what the documentation s
 - Grounding has to be enforced *after* generation, in code, not asked for in the prompt. Models agree
   to "only use what's in the script" and then don't.
 - Vision models make good critics of image models: checking a frame against a spec is far easier
-  than generating it correctly the first time.
-  ⟨TBD: confirm with the audit numbers, or cut.⟩
+  than generating it correctly the first time. Ours holds back two in three wrong frames while
+  wrongly holding back one right frame in forty; its biggest gap is the judge not recognising a
+  drawn character, which is why a person drawn twice still only warns.
 
 ## What's next for Panelwise
 

@@ -6,8 +6,10 @@ const push = vi.fn();
 const refresh = vi.fn();
 const replace = vi.fn();
 let params = new URLSearchParams();
+// One router object, as Next's useRouter() gives: a new one per render would restart the poll's effect.
+const router = { push, refresh, replace, back: vi.fn() };
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push, refresh, replace, back: vi.fn() }),
+  useRouter: () => router,
   usePathname: () => "/projects/p1/comic",
   useSearchParams: () => params,
 }));
@@ -161,7 +163,6 @@ describe("the comic page's states (comic-states.png)", () => {
     [503, { error: "renderer_unavailable" }, "disabled"],
     [500, { error: "boom" }, "failed"],
     [409, { error: "comic_running" }, "refresh"],
-    [401, { error: "unauthorized" }, "sign-in"],
   ] as const)("Make the comic answered %i", async (status, body, outcome) => {
     render(<ComicPage project={done} view={view()} />);
     fetchMock.mockResolvedValueOnce(Response.json(body, { status }));
@@ -173,11 +174,92 @@ describe("the comic page's states (comic-states.png)", () => {
     } else if (outcome === "failed") {
       expect(screen.getByRole("alert")).toHaveTextContent(COMIC_COPY.startFailed);
       expect(button).toBeEnabled();
-    } else if (outcome === "refresh") {
-      expect(refresh).toHaveBeenCalled();
     } else {
-      expect(push).toHaveBeenCalledWith("/sign-in");
+      expect(refresh).toHaveBeenCalled();
     }
+  });
+
+  describe("a 401 while still signed in (web.md §4.0, T123)", () => {
+    const unauthorized = () => Response.json({ error: "unauthorized" }, { status: 401 });
+    const making = view({ job: job({ progress: 10 }) });
+    const tick = () => act(async () => vi.advanceTimersByTimeAsync(2000));
+    beforeEach(() => vi.useFakeTimers());
+
+    it("polling: one 401 stays on the page, and the next tick asks again", async () => {
+      fetchMock.mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(Response.json(view({ job: job({ progress: 43 }) })));
+      render(<ComicPage project={done} view={making} />);
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(screen.getByText(COMIC_COPY.strip(43))).toBeInTheDocument();
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it("polling: the second 401 in a row goes to sign in", async () => {
+      fetchMock.mockImplementation(async () => unauthorized());
+      render(<ComicPage project={done} view={making} />);
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
+    });
+
+    it("polling: an answer between two 401s starts the count again", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockResolvedValueOnce(Response.json(view({ job: job({ progress: 43 }) })))
+        .mockResolvedValueOnce(unauthorized());
+      render(<ComicPage project={done} view={making} />);
+      await tick();
+      await tick();
+      expect(screen.getByText(COMIC_COPY.strip(43))).toBeInTheDocument();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it("polling: no answer neither counts nor resets: 401, network error, 401 goes to sign in", async () => {
+      fetchMock
+        .mockResolvedValueOnce(unauthorized())
+        .mockRejectedValueOnce(new TypeError("offline"))
+        .mockResolvedValueOnce(unauthorized());
+      render(<ComicPage project={done} view={making} />);
+      await tick();
+      await tick();
+      expect(push).not.toHaveBeenCalled();
+      await tick();
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
+    });
+
+    it("polling: no second poll goes while one is unanswered", async () => {
+      fetchMock.mockReturnValue(new Promise(() => {}));
+      render(<ComicPage project={done} view={making} />);
+      await tick();
+      await tick();
+      await tick();
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it("Make the comic: a 401 asks once more a second later, and its 202 starts the comic", async () => {
+      render(<ComicPage project={done} view={view()} />);
+      fetchMock.mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(Response.json({ job: job({ progress: 0 }) }, { status: 202 }));
+      fireEvent.click(screen.getByRole("button", { name: COMIC_COPY.make }));
+      await act(async () => vi.advanceTimersByTimeAsync(1000));
+      expect(fetchMock.mock.calls).toEqual([
+        ["/api/projects/p1/comic", { method: "POST" }],
+        ["/api/projects/p1/comic", { method: "POST" }],
+      ]);
+      expect(screen.getByText(COMIC_COPY.strip(0))).toBeInTheDocument();
+      expect(push).not.toHaveBeenCalled();
+    });
+
+    it("Make the comic: a second 401 goes to sign in", async () => {
+      render(<ComicPage project={done} view={view()} />);
+      fetchMock.mockImplementation(async () => unauthorized());
+      fireEvent.click(screen.getByRole("button", { name: COMIC_COPY.make }));
+      await act(async () => vi.advanceTimersByTimeAsync(1000));
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(push).toHaveBeenCalledExactlyOnceWith("/sign-in");
+    });
   });
 
   it("failed: the job's own words, the reuse line and Make the comic again", () => {

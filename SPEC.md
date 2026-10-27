@@ -13,9 +13,10 @@ source in brackets. Where the sources don't decide something, it is listed under
 
 Panelwise turns a screenplay into a shot-by-shot storyboard and then into a comic book. A person
 uploads a screenplay PDF in the web app; NVIDIA Nemotron on Nebius Token Factory extracts the
-characters, props and locations and plans the shots, ComfyUI on a Nebius AI Cloud GPU renders one
-frame per shot, and every frame is audited before anyone sees it: **a vision model describes each
-frame; Nemotron audits it against the script** and a failing frame is re-rendered. The output is a
+characters, props and locations and plans the shots, FLUX.2 [klein] on fal.ai renders one frame per
+shot (ComfyUI on a Nebius GPU is optional and not built, T003), and every frame is audited before
+anyone sees it: **Nemotron 3.5 Super VL describes each frame; Nemotron Super judges it against the
+script** and a failing frame is re-rendered. The output is a
 storyboard (in the app and as a PDF) and comic pages with speech bubbles lettered from the script's
 dialogue (in a reader and as a PDF). [PLAN.md § Summary; docs/nebius-findings.md § The vision
 decision, option A; verify.md §8]
@@ -97,15 +98,18 @@ evidence in [RUBRIC.md](RUBRIC.md)):
 
 | Criterion | What it asks of this spec |
 |---|---|
-| Technological Implementation | Nebius Token Factory and Nemotron used effectively: extraction, shot planning and the audit judge on Nemotron; rendering on a Nebius AI Cloud GPU |
+| Technological Implementation | Nebius Token Factory and Nemotron used effectively: extraction, shot planning, the frame description (Nemotron 3.5 Super VL) and the audit judge on Nemotron; rendering by FLUX.2 [klein] on fal.ai, since Token Factory serves no image model (findings U5) |
 | Design | a complete product experience, not a proof of concept: US1–US4 in the web app, both PDFs, the audit log |
 | Potential Impact | evidence it works for the persona, on public-domain or self-written scripts: faithfulness, recall and frame-audit accuracy numbers (T032, T049) |
 | Quality of the Idea | a non-obvious use of Nemotron: grounding enforced in code, Nemotron as the judge of an image-audit loop |
 
-**Honesty rule for every claim a judge reads:** no Nemotron model on Token Factory accepts images
-(findings U7), so the audit's *describe* step runs on `deepseek-ai/DeepSeek-V4.1-Flash`, a non-NVIDIA model.
-The approved wording is *"a vision model describes each frame; Nemotron audits it against the
-script."* Never "Nemotron vision auditor". [verify.md §8; RUBRIC.md]
+**Honesty rule for every claim a judge reads:** the audit is two steps on two models. Since
+2026-10-17 the *describe* step runs on `nvidia/Nemotron-3.5-Super-VL` with thinking off (T105,
+findings U8); before that no Nemotron model on Token Factory accepted images (findings U7) and it
+ran on `deepseek-ai/DeepSeek-V4.1-Flash`. The judge never sees the image. The approved wording is
+*"Nemotron 3.5 Super VL describes each frame; Nemotron Super judges it against the script."*
+Never "Nemotron vision auditor", which suggests one model does both. [verify.md §8;
+docs/super-vl-migration.md; RUBRIC.md]
 
 ---
 
@@ -223,7 +227,7 @@ Scenario: A frame that matches its shot is shown, with its audit
 - **Scenario: the audit log is visible in the app** — Given a storyboard in which a frame was
   re-rendered, when the user opens the audit log, then each attempt shows the vision model's
   description, Nemotron's verdict and each check. [DEMO.md 6; T021]
-- **Scenario: the renderer fails** — Given ComfyUI errors, when a frame is rendered, then the frame
+- **Scenario: the renderer fails** — Given the renderer errors, when a frame is rendered, then the frame
   job fails (`FAILED`); nothing is shown unaudited. [verify.md §4]
 
 **Acceptance criteria:**
@@ -327,35 +331,38 @@ Scenario: A reference portrait keeps a character consistent
 
 ### US5 — Listen to the comic (stretch)
 
-**As a** reader of the comic, **I want** to hear it read aloud, each line in its speaker's voice,
-**so that** the comic plays like a table read.
+**As a** reader of the comic, **I want** to hear it read aloud in a voice I choose, **so that** I
+can follow the comic by ear as well as by eye.
 
 [docs/design/narration.md; T113. Stretch: off without `ELEVENLABS_API_KEY`; built only after the
-submission path is safe]
+submission path is safe. Revised 2026-10-20 (Katlego): one voice of four, chosen by the reader]
 
 ```
 Scenario: The comic is read aloud in reading order
   Given a finished comic and narration turned on
-  When  the reader presses Listen
+  When  the reader chooses a voice and presses Listen
   Then  every lettered line is spoken in reading order, byte for byte as lettered
-  And   each line is in its speaker's voice and the scene captions in a narrator's
+  And   every line and every scene caption is in the chosen voice
   And   the line being read is highlighted, and the page turns when the next line is on it
 ```
 
 - **Scenario: nothing is spoken that isn't lettered** — Given any comic, when it is narrated, then
-  the spoken text is exactly the lettering's (no action lines, no summary, no audio tags), so every
-  clip traces to its line's verbatim span. [narration.md §1; PLAN.md Non-negotiable 1]
-- **Scenario: a voice comes from the script** — Given a character the script states is a woman in
-  her 60s, when the cast is chosen, then her voice is from the older-female pool; given a character
-  the script doesn't sex, then a neutral voice. Never from the drawing or the name. [narration.md §3]
+  the spoken text is exactly the lettering's (no action lines, no speaker names, no summary, no
+  audio tags, a whispered or shouted balloon's text unchanged), so every clip traces to its line's
+  verbatim span. [narration.md §1; PLAN.md Non-negotiable 1]
+- **Scenario: the reader chooses the voice** — Given narration turned on, then the reader offers
+  four voices, two female and two male; whichever is chosen reads the whole comic. Nothing about a
+  character picks a voice. Given a voice already made for this comic, then Listen plays it without
+  a new call. [narration.md §1, §3]
 - **Scenario: narration is off without its key** — Given no `ELEVENLABS_API_KEY`, then the reader
-  shows no Listen control and every other behaviour is as before. [narration.md §4]
+  shows no voices and no Listen control, and every other behaviour is as before. [narration.md §4]
 - **Scenario: the month's narration is spent** — Given the month's characters would pass
   `NARRATION_MONTHLY_CHARACTER_CAP`, when narration is asked for, then it is refused before any call.
   [narration.md §4; limits.md §4]
 
 **Acceptance criteria:**
 - [ ] Every clip's text equals its lettering's text.
+- [ ] Every clip of a narration is in the voice the reader chose, one of the four.
 - [ ] A line already spoken in a voice is never paid for again.
 - [ ] Without the key the app behaves exactly as before.
 
@@ -366,10 +373,10 @@ Scenario: The comic is read aloud in reading order
 - [ ] **Non-negotiable 1:** every storyboard frame and comic panel traces to a verbatim source span;
   every audit verdict is logged; nothing unscripted is shown. [PLAN.md]
 - [ ] **Credits:** a full script costs under about $0.10 of Token Factory credit; LLM and image spend
-  are capped in code; one frame renders in seconds on the GPU, not minutes. [PLAN.md NN2, §
+  are capped in code; one frame renders in seconds, not minutes. [PLAN.md NN2, §
   Technical Context]
-- [ ] **Honest wording** in README, the Devpost story, the video and the app: a vision model
-  describes each frame; Nemotron audits it. [verify.md §8]
+- [ ] **Honest wording** in README, the Devpost story, the video and the app: Nemotron 3.5 Super
+  VL describes each frame; Nemotron Super judges it. [verify.md §8; docs/super-vl-migration.md]
 - [ ] **Public repo runs the demo:** everything the demo shows runs from the public repo with public
   styles; the repo carries an OSI licence (Apache-2.0). [PLAN.md NN2, § Technical Context]
 - [ ] **Samples:** only public-domain or self-written screenplays in the repo, demo and video.
@@ -391,7 +398,9 @@ Undecided in PLAN.md and the design docs; listed here so no implementer decides 
    T020 lands, are US1 frames shown (labelled unaudited), or does the US1 checkpoint wait for the
    audit?
 2. **Order within P2.** PLAN.md puts US2, US3 and US4 in one phase. If time runs short, which is
-   cut or thinned first?
+   cut or thinned first? (2026-10-18: US2 and US3 are built; US4's portraits, T025, are proposed for
+   cutting, waiting on Tumo, with consistent looks carried by T079's look prompts. MILESTONES.md
+   week 3.)
 3. **Which styles stay private** (STATUS.md § Open decisions): **decided 2026-09-30 by the user**:
    none. `clean` (the default), `ink` and `pencil` are public in `styles/`; `classic` is dropped
    (storyboard.md §8, §10).
