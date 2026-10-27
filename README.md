@@ -167,9 +167,9 @@ the catalog, and the design follows the answers.
 
 Images are drawn by FLUX.2 [klein] 4B on **fal.ai**, because Token Factory serves no
 image-generation model (U5, re-checked 2026-10-08). ComfyUI on a Nebius AI Cloud GPU was the first
-plan; a GPU kept up until judging ends would cost about $2,500, so it stays an optional backend we
-don't use (T003, [docs/design/storyboard.md](docs/design/storyboard.md) §3.5). Every drawing is at
-most one megapixel, $0.003 each.
+plan; a GPU kept up until judging ends would cost about $2,500, so it was cut on 2026-10-19 and never
+built (T003, [docs/design/storyboard.md](docs/design/storyboard.md) §3.5). Every drawing is at most
+one megapixel, about $0.003–0.004 each.
 
 Details that came out of measuring rather than reading the docs:
 
