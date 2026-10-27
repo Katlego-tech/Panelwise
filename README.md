@@ -22,8 +22,8 @@ characters, props and locations and plans the shots. Code then checks every quot
 against the script, and anything it can't find is dropped. Each frame is drawn by FLUX.2 [klein] 4B
 on fal.ai, a vision model describes it, and Nemotron audits that description against the shot. A
 frame that fails a check that withholds is re-rendered, and after the last try it is withheld,
-never shown. Which checks withhold is a setting; on the hosted demo it is two of the five hard
-checks, and a frame that fails one of the other three is shown with a warning naming it
+never shown. Which checks withhold is a setting; on the hosted demo it is three of the seven hard
+checks, and a frame that fails one of the other four is shown with a warning naming it
 ([§ How it works](#architecture)).
 
 Built for the [Nebius x NVIDIA Global AI Hackathon](https://nebiusglobalaihackathon.devpost.com/)
@@ -42,7 +42,8 @@ The 3-minute video is linked here once it is recorded (T034). The live demo:
 
 - **Sign-up is off.** Judges get a shared login in Devpost's testing instructions, never in the
   repo. The account and a ready-made copy of the sample project are made by
-  `python -m app.demo.seed` (T069); seeding it on the hosted stack is T030, still to do.
+  `python -m app.demo.seed` (T069). On the hosted stack (T030, 2026-10-20) the-red-kite was drawn
+  end to end, storyboard and a 6-page comic, and copied to the judge account with `seed --from`.
 - **Limits** ([docs/design/limits.md](docs/design/limits.md), deploy.md §6): 3 uploads a day per
   account, 15 pages a script, 2,800,000 Token Factory tokens a month (`LLM_MONTHLY_TOKEN_CAP`) and
   800 drawings a month (`IMAGE_MONTHLY_GENERATION_CAP`). At a cap, new work is refused with a
@@ -58,7 +59,7 @@ Setup, step by step: [docs/deploy.md](docs/deploy.md); the design:
 ## What's real and what's mocked
 
 
-As of 2026-10-18, on `main`:
+As of 2026-10-27, on `main`:
 
 | Stage | State | Try it |
 | --- | --- | --- |
@@ -67,13 +68,13 @@ As of 2026-10-18, on `main`:
 | Shot planning on Nemotron: every action paragraph and speech in exactly one shot | built, measured | `app.shots.run` |
 | Frame prompts from the shot's own script words, names redacted | built | `app.storyboard.prompts` |
 | Rendering: FLUX.2 [klein] 4B on fal.ai, at most one megapixel a drawing (T026) | built, run live on the samples | upload a script with `FAL_KEY` set |
-| Frame audit: Nemotron 3.5 Super VL describes, Nemotron Super judges, one-question vision agents check a character's sex and presence, a frame drawn in panels or one person drawn twice, and each head's place for the bubbles; code runs the checks (T020, T094, T095, T099, T102, T104, T097, T105–T107) | built, run live on every run in [eval/runs/](eval/runs/README.md) | `app.verify.run`, `app.verify.report` |
+| Frame audit: Nemotron 3.5 Super VL describes, Nemotron Super judges, one-question vision agents check a character's sex and presence, a frame drawn in panels or one person drawn twice, and each head's place for the bubbles; code runs the checks (T020, T094, T095, T099, T102, T104, T097, T105–T107, T109, T124) | built, run live on every run in [eval/runs/](eval/runs/README.md), scored on 109 hand-labelled frames | `app.verify.run`, `app.verify.report` |
 | The re-render loop: up to 3 drawings a frame, withheld after the last; every attempt and its audit kept (T021) | built, run live | the storyboard's frame sheet |
-| The storyboard PDF (T027) | built | *Export PDF* on the storyboard |
+| The storyboard PDF, each line of dialogue under its speaker's name, the file named after the screenplay (T027, T103, T126) | built | *Export PDF* on the storyboard |
 | The comic: panels drawn and audited at their own size, laid out by shot, dialogue lettered verbatim, a reader and a PDF (T022, T023, T064, T024); a speech tail aims at the speaker's mouth and never crosses another tail, a bubble or a face; balloons take the script's voice (thought, whisper, shout, distress, radio) and one speaker's lines link (T098, T112, T114–T121) | built, run live on real renders | *Make the comic* on a project's comic tab |
-| Web app: sign-in, the projects list with upload and each job's live state, the script page (every entity with its quotes and spans, faithfulness and recall), the storyboard (the script with a line over each shot's span beside a board of frame cards), the frame sheet with the audit log of every attempt and "Try another render", the comic reader | built, run live on Supabase (T040–T042, T045, T061, T024) | `docker compose up --build --wait`, then `localhost:3000` ([§ Run it](#how-to-run-it)) |
-| The hosted demo: web on Vercel, API on Render, Supabase for Postgres, Storage and Auth | up since 2026-10-16, health checks green; still to do: the judge account and the first storyboard drawn on the hosted stack (T030, T037) | [§ The hosted demo](#demo) |
-| Not built: reference portraits for consistent characters (T025, cut proposed; a character's look comes from the script's words, T079); ComfyUI on a Nebius GPU (T003, optional since fal.ai); the audit's precision and recall on a labelled set (T049); a check for bodies drawn wrong (T111: measured on Super VL, not adopted, findings § U9) | — | — |
+| Web app: sign-in, the projects list with upload and each job's live state, the script page (every entity with its quotes and spans, faithfulness and recall), the storyboard (the script with a line over each shot's span beside a board of frame cards), the frame sheet with the audit log of every attempt and "Try another render", the comic reader; a page's image links signed in one request, and a slow session refresh doesn't sign the reader out | built, run live on Supabase (T040–T042, T045, T061, T024, T122, T123, T125) | `docker compose up --build --wait`, then `localhost:3000` ([§ Run it](#how-to-run-it)) |
+| The hosted demo: web on Vercel, API on Render, Supabase for Postgres, Storage and Auth | up since 2026-10-16, health checks green; the-red-kite drawn on it end to end and seeded to the judge account on 2026-10-20 (T030, T037) | [§ The hosted demo](#demo) |
+| Not built: reference portraits for consistent characters (T025, cut; a character's look comes from the script's words, T079); ComfyUI on a Nebius GPU (T003, cut: fal.ai draws every frame); a check for bodies drawn wrong (T111: measured on Super VL, not adopted, findings § U9); the comic read aloud by ElevenLabs (T113, designed in [docs/design/narration.md](docs/design/narration.md), a stretch not started) | — | — |
 
 [STATUS.md](STATUS.md) is the live board. The order of what's left is in its *Next action* section.
 
@@ -93,7 +94,7 @@ flowchart LR
   F -- no --> X[Dropped, reported]
   F -- yes --> S[Shot planning<br/>Nemotron 3.5 Lightning]
   S --> R[Render frame<br/>FLUX.2 klein 4B on fal.ai]
-  R --> D[Describe frame<br/>vision model, blind to the shot]
+  R --> D[Describe frame<br/>Nemotron 3.5 Super VL, blind to the shot]
   D --> V{Audit<br/>Nemotron 3 Super judges,<br/>code runs the checks}
   V -- withheld check failed --> R
   V -- pass or warn --> B[Storyboard PDF]
@@ -117,24 +118,28 @@ a verbatim source span.** It is enforced in code after each model call, not aske
   script's own words give it (a pronoun, a title such as MR or MAMA, a noun such as "a boy")
   ([docs/design/storyboard.md](docs/design/storyboard.md) §3.1).
 - **Frame audit.** The vision model describes the frame without seeing the shot. Nemotron matches
-  that description to the shot, and code runs eleven checks
-  ([docs/design/verify.md](docs/design/verify.md) §3). Five are hard: a person the script doesn't
+  that description to the shot, and code runs thirteen checks
+  ([docs/design/verify.md](docs/design/verify.md) §3). Seven are hard: a person the script doesn't
   have, an animal or weapon it doesn't have, the wrong interior or exterior, none of the shot's
-  characters drawn, and a character drawn as the other sex. The last two use the same vision model
-  for one narrow question each: the sex agent asks about one matched person, and the presence agent
-  asks which drawn person, if any, is a character the judge left unmatched. Six are soft and only
+  characters drawn, a character drawn as the other sex, a frame drawn as several panels, and one
+  person drawn twice. Several use the same vision model for one narrow question each: the sex
+  agent asks about one matched person, the presence agent asks which drawn person, if any, is a
+  character the judge left unmatched, and the layout agent asks whether the frame is split or
+  repeats a person. Six are soft and only
   warn: a missing character, the wrong light or framing, lettering or a signature in the frame, an
   everyday object the script didn't mention. An audit that errors never passes.
 - **Which checks withhold.** A failed hard check withholds the frame only when it is on the rule
   ladder, `AUDIT_WITHHOLD_CHECKS` (T094). The code default is every hard check; the hosted demo
-  withholds on `drawn_sex,no_character`. A frame that fails another hard check is shown, marked as
+  withholds on `drawn_sex,no_character,split_panels`. A frame that fails another hard check is shown, marked as
   warned, with the failed check named on its card and in its audit log, never presented as passing.
   So today Non-negotiable I's "never shown" holds for the checks on the ladder, and the rest are
   shown and named. Why: with every hard check withholding, the held-out script market-day showed 0
   of 15 shots though about 12 of the 15 final drawings were right (klein fills a market with
   shoppers, and each one failed as an unscripted person); with none withholding it showed 16 of 17
   ([eval/runs/](eval/runs/README.md), [docs/learning-log.md](docs/learning-log.md) L020). Each rule
-  comes back on the ladder after it is measured.
+  comes back on the ladder after it is measured: `split_panels` did (on the labelled set, all 22 of its flags are wrong frames), and
+  `drawn_twice` was tried and taken off again, because 6 of the 7 right frames it withheld were the
+  judge failing to recognise a drawn character ([§ Measured results](#measured-results)).
 - **Comic.** Every bubble is a line of dialogue from the shot, verbatim, carrying its span. Each
   panel is drawn and audited at its own size. A withheld frame is drawn as a card naming the failed
   checks, never as its pixels ([docs/design/comic.md](docs/design/comic.md)).
@@ -214,7 +219,9 @@ most:
 | 2026-10-13 | market-day (held out) | every hard check | 0 of 15 shown, 44 drawings; about 12 of the 15 final drawings were right (L020) |
 | 2026-10-13 | market-day, second run | none | 16 of 17 shown, 17 drawings: 9 right, 5 weak, 2 split panels, none of the wrong sex or age |
 | 2026-10-14 | the-lighthouse-inspector (held out) | `drawn_sex,no_character` | 26 of 26 shown, 26 drawings: 14 right, 11 weak, 1 wrong (a man drawn as a woman: L022) |
-| 2026-10-14 | the-borrowed-bicycle (held out) | `drawn_sex,no_character` | 18 of 18 shown, 19 drawings; the girl NALEDI drawn as a boy in about 11 frames, because her sex is only in a "Her" the code didn't read then (L023; T100 reads it now, not yet measured live); one frame shows an unscripted adult, warned |
+| 2026-10-14 | the-borrowed-bicycle (held out) | `drawn_sex,no_character` | 18 of 18 shown, 19 drawings; the girl NALEDI drawn as a boy in about 11 frames, because her sex is only in a "Her" the code didn't read then (L023; T100 reads it now); one frame shows an unscripted adult, warned |
+| 2026-10-17 | rooftop-tomatoes (held out), Super VL describing | `drawn_sex,no_character` | 21 of 21 shown, 21 drawings: 11 right, 6 weak, 4 wrong (a character drawn twice, or an unscripted old man) |
+| 2026-10-17 | gogos-recipe (held out), with the layout agent | `drawn_sex,no_character,split_panels` | 17 of 17 shown, 18 drawings: 8 right, 4 weak, 5 wrong (each one person drawn twice or an extra child); none of the wrong sex |
 
 The two agents, measured on stored drawings with Token Factory before they were switched on
 ([docs/design/verify.md](docs/design/verify.md) §3):
@@ -225,9 +232,18 @@ The two agents, measured on stored drawings with Token Factory before they were 
   the character plainly drawn. The agent found the character in 17 of those 23, and wrongly found
   one in 3 of the other 7.
 
-Not measured: the audit's precision and recall on a labelled set (T049). Its labelled set was built
-on a renderer we dropped; the run reports and `python -m app.verify.recheck` (today's checks re-run
-on stored audits, free) measure it for now.
+**The audit against our own eyes.** 109 drawn frames from the runs above, labelled by hand as right,
+weak or wrong and picked for their faults, were re-audited on 2026-10-20 with Super VL and the
+hosted ladder ([eval/measurements/t124/](eval/measurements/t124/README.md)):
+
+| Label | Frames | Withheld | Shown |
+| --- | --- | --- | --- |
+| wrong | 57 | **38 (67%)** | 19, each with its failed checks named |
+| right | 40 | **1** | 39 |
+| weak | 12 | 0 | 12 |
+
+Its biggest gap is the judge not recognising a drawn character, which is also why `drawn_twice`
+only warns. `python -m app.verify.recheck` re-runs today's checks on stored audits, free.
 
 ## How to run it
 
@@ -299,9 +315,9 @@ private project, is disclosed file by file in [CHANGES-FROM-FRAMEFLOW.md](CHANGE
 | Piece | Version / service |
 | --- | --- |
 | API | Python 3.14 (`python:3.14.7-slim-trixie`), FastAPI, SQLAlchemy 2 async, Alembic, Pillow; uv 0.11.32 |
-| Web | Node 24.21.0 LTS, Next.js 16.3.8, shadcn/ui; pnpm 11.10.0 |
+| Web | Node 24.21.0 LTS, Next.js 16.4.1, shadcn/ui; pnpm 11.10.0 |
 | Database | Postgres 17.11 (Supabase in production, `postgres:17.11-trixie` locally and in the gate) |
-| Models | NVIDIA Nemotron and a vision model on Nebius Token Factory ([§ Sponsor Technologies Deployed](#sponsor-technologies-deployed)) |
+| Models | NVIDIA Nemotron 3.5 Lightning, Nemotron 3 Super and Nemotron 3.5 Super VL on Nebius Token Factory ([§ Sponsor Technologies Deployed](#sponsor-technologies-deployed)) |
 | Images | FLUX.2 [klein] 4B on fal.ai |
 | Hosting | Vercel (web), Render (API), Supabase (Postgres, Storage, Auth) |
 
