@@ -8,7 +8,7 @@ Railway (T037's deploy check was still blocked on accounts), so the change is co
 docs only: no data, domain or running service moves. **Render plan changed 2026-10-11 by Katlego:
 Free → `0.5c-512mb`** (paid, called Starter before Render's 26 Aug 2026 rename; §8, §11). **Plan
 changed 2026-10-16 by Katlego: `0.5c-512mb` → `1c-2g`** (the memory check, §9: 506 MiB at its peak);
-the API is created on Render as soon as both money caps have figures (§6); Render bills at the end
+the API went live on Render on 2026-10-16 (https://panelwise-api.onrender.com), once both money caps had figures (§6); Render bills at the end
 of the month for the seconds a service ran (~$13 for the rest of October)
 
 ---
@@ -17,19 +17,19 @@ of the month for the seconds a service ran (~$13 for the rest of October)
 
 Where Panelwise runs once it leaves a laptop, and what each hosted service is for. It replaces
 PLAN.md's earlier target ("API + web on Nebius; Postgres + Redis self-hosted"). **Not covered:**
-the image renderer: FLUX.2 [klein] 4B on fal.ai (storyboard.md §3.5; fal.ai decided 2026-10-09, klein 2026-10-11), with
-ComfyUI on a Nebius GPU kept as an optional backend (T003).
+the image renderer: FLUX.2 [klein] 4B on fal.ai (storyboard.md §3.5; fal.ai decided 2026-10-09, klein 2026-10-11).
+ComfyUI on a Nebius GPU (T003) was kept as an optional backend until it was cut on 2026-10-19, never built.
 
 | Piece | Runs on | Why |
 |---|---|---|
 | Web app (`apps/web`, Next.js 16) | **Vercel** | Next.js's native host; preview deploy per PR |
 | API (`services/api`, FastAPI) | **Render** (a Docker web service, plan `1c-2g`, Frankfurt), from `services/api/Dockerfile` | extraction runs for minutes; it needs a real container, not a serverless function |
 | Database | **Supabase Postgres** | hosted Postgres; the SQLAlchemy + asyncpg code is unchanged |
-| Images (frames, portraits, comic pages) | **Supabase Storage** | PLAN's "content-addressed file store", hosted |
+| Images (frames, comic pages, PDFs) | **Supabase Storage** | PLAN's "content-addressed file store", hosted |
 | Sign-in, seeded judge account | **Supabase Auth** | T030 needs a judge login in the testing instructions |
 | Job status and progress | **a Postgres table** | replaces Redis: one fewer service to host and pay for |
 | Models | Nebius Token Factory | unchanged; this call is what satisfies "runs on Nebius" |
-| Rendering | FLUX.2 [klein] 4B on **fal.ai** (storyboard.md §3.5; ComfyUI on a Nebius GPU optional, T003) | changed 2026-10-09: Token Factory has no image model, a GPU kept up to 15 Dec costs ≈ $2,500, Cloudflare's FLUX takes no seed or size |
+| Rendering | FLUX.2 [klein] 4B on **fal.ai** (storyboard.md §3.5; ComfyUI on a Nebius GPU, T003, cut 2026-10-19) | changed 2026-10-09: Token Factory has no image model, a GPU kept up to 15 Dec costs ≈ $2,500, Cloudflare's FLUX takes no seed or size |
 
 **Hackathon rules still hold:** "runs on Nebius" means a runtime Token Factory call *or* Nebius
 compute. Every Nemotron call is a Token Factory call; rendering on fal.ai doesn't change that. Hosting the app elsewhere is allowed
@@ -43,7 +43,7 @@ compute. Every Nemotron call is a Token Factory call; rendering on fal.ai doesn'
 | Render (checked 2026-10-08) | render.com/docs: `blueprint-spec` (the `render.yaml` fields), `deploys` (pre-deploy command: paid instances only, a separate instance, a failure stops the deploy), `health-checks` (5 s timeout; a deploy not healthy in 15 min is cancelled; a running instance failing 60 s is restarted), `web-services` (`PORT` defaults to 10000, bind `0.0.0.0`), `free` (spins down after 15 min idle, ~1 min to wake, 750 instance hours a month per workspace, no pre-deploy command, "Render might restart a Free web service at any time"), `monorepo-support` (`dockerfilePath`/`dockerContext` relative to `rootDir`; build filters relative to the repo root), `cli` (`render blueprints validate`); the schema at render.com/schema/render.yaml.json; re-checked 2026-10-11: `compute-plans` (Render renamed its plans on 26 Aug 2026: `0.5c-512mb` was `starter`, 0.5 CPU and 512 MB; `1c-2g` was `standard`, 1 CPU and 2 GB; "Legacy plan names remain valid across all Render tooling", Blueprints included; no price change); third-party reviews put `0.5c-512mb` at ~$7/month and `1c-2g` at ~$25/month (Render's pricing page didn't load: confirm in the dashboard) |
 | Vercel regions | vercel.com/docs/functions/configuring-functions/region (checked 2026-10-11): functions run in `iad1` (Washington, D.C.) by default for new projects; `"regions"` in `vercel.json` changes it; Hobby allows a single region |
 | Supabase connections | supabase.com/docs/guides/database/connecting-to-postgres (checked 2026-09-29): for a long-running server on IPv4, the **shared pooler, session mode**, port 5432 — IPv4 on every plan; transaction mode (6543) doesn't support prepared statements, which asyncpg uses |
-| Current code | `services/api/app/main.py` (health checks Postgres **and Redis** today), `docker-compose.yml`, `.env.example` |
+| Current code | `services/api/app/main.py` (health checks Postgres only; Redis until T037), `docker-compose.yml`, `.env.example` |
 
 ## 3. Domain model
 
@@ -82,7 +82,7 @@ sequenceDiagram
     participant W as Next.js on Vercel
     participant A as FastAPI on Render
     participant S as Supabase (Postgres, Storage, Auth)
-    participant N as Token Factory / ComfyUI
+    participant N as Token Factory / fal.ai
     B->>W: page, sign-in (Supabase Auth cookies via @supabase/ssr)
     W->>A: server-side fetch, API_URL, with the user's access token
     A->>S: SQL over the session pooler; Storage with the secret key
@@ -145,7 +145,7 @@ No transition out of `DONE` or `FAILED`: a retry is a new job.
 | `FAL_MODEL`, `FAL_TIMEOUT_S`, `FAL_CONCURRENCY` | API | default `fal-ai/flux-2/klein/4b` (2026-10-11), 60 s, 2 (storyboard.md §3.5) |
 | `LLM_MONTHLY_TOKEN_CAP`, `UPLOADS_PER_DAY`, `UPLOAD_MAX_PAGES` | API only | the hosted demo's limits (limits.md, T069); unset or blank: off |
 | `IMAGE_MONTHLY_GENERATION_CAP` | API only | drawings a month (limits.md §4, T030); unset or blank: off |
-| `AUDIT_WITHHOLD_CHECKS` | API | which failed hard checks withhold a frame (verify.md §3, T094): `all` (the code default), empty, or a comma list; **hosted: `drawn_sex,no_character`** (Tumo, 2026-10-15; T030); **`split_panels` joins it with T104's code** (Katlego, 2026-10-17: `drawn_sex,no_character,split_panels`), and `drawn_twice` stays off the list, so it warns. Not before T104 is on `main`: a name the code doesn't know stops the API starting (`withholding`, config.py). T104 merged on 2026-10-18 (#187), and `render.yaml` carries the three |
+| `AUDIT_WITHHOLD_CHECKS` | API | which failed hard checks withhold a frame (verify.md §3, T094): `all` (the code default), empty, or a comma list; **hosted: `drawn_sex,no_character,split_panels`** (`render.yaml`): `drawn_sex,no_character` from Tumo, 2026-10-15 (T030), `split_panels` joined with T104's code (Katlego, 2026-10-17; T104 merged 2026-10-18, #187); `drawn_twice` stays off the list, so it warns. A name the code doesn't know stops the API starting (`withholding`, config.py) |
 | `RENDER_MAX_ATTEMPTS`, `UPLOAD_MAX_BYTES` | API | drawings per frame, 1–3 (default 3); the upload size in bytes (default 4,000,000) |
 | `JUDGE_EMAIL`, `JUDGE_PASSWORD` | local only | the judge seed (`python -m app.demo.seed`, limits.md §4); never the hosted API's environment |
 | `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget, default 55 (storyboard.md §3.1, T008) |
@@ -227,7 +227,7 @@ Validated against render.com/schema/render.yaml.json on 2026-10-08 (`1c-2g` is i
   (limits.md §10): `LLM_MONTHLY_TOKEN_CAP` = **2,800,000** (Katlego, 2026-10-16: 30% of the $18 left
   on Token Factory, $5.40, over the three months the cap counts, Oct to Dec, is $1.80 a month; a
   storyboard and its comic measured 339,000 tokens, at most $0.19 at DeepSeek-V4.1-Flash's
-  $0.30/$1.20 per million, the dearest model the API calls; less one job's room; with T104's layout
+  $0.30/$1.20 per million, the dearest model the API called then; less one job's room; with T104's layout
   question about 370,000–387,000, so about 7 a month instead of 8, verify.md §3),
   `IMAGE_MONTHLY_GENERATION_CAP` = **800** (Katlego, 2026-10-16, from Tumo's fal balance: $5.35
   left, $10 loaded at the end of October for November and $5 at the end of November for December;
@@ -258,7 +258,7 @@ jobs:
           API_HEALTH_URL: ${{ vars.API_HEALTH_URL }}
         run: |
           if [ -z "$API_HEALTH_URL" ]; then
-            echo "::notice::API_HEALTH_URL is not set; nothing to ping until T037 deploys the API"
+            echo "::notice::API_HEALTH_URL is not set; nothing to ping until it is set"
             exit 0
           fi
           curl --fail --silent --show-error --max-time 90 --retry 2 "$API_HEALTH_URL"
@@ -269,8 +269,8 @@ jobs:
   GitHub emails the failure), and while Supabase is on its free plan the health check's Postgres
   query is the activity that stops the project being paused. Every 10 minutes; GitHub may delay a
   scheduled run, which only delays an alert.
-- `API_HEALTH_URL` is a repository *variable* (not a secret: the URL is public), set to
-  `https://<render-domain>/api/v1/health` after T037's deploy.
+- `API_HEALTH_URL` is a repository *variable* (not a secret: the URL is public), set (2026-10-16)
+  to `https://panelwise-api.onrender.com/api/v1/health`.
 - GitHub turns off scheduled workflows in a public repository after 60 days with no activity.
   The last planned commit is around 30 Oct, which is 60 days before 29 Dec, after the demo ends on
   15 Dec.
@@ -346,10 +346,10 @@ has Docker; `ci.yml` needs no service of its own):
   `exit 1`s.
 
 **Public styles in the image (T063).** The renderer loads the public styles at start-up
-(storyboard.md §3.2, §3.5), but they live in the repo-root `styles/`, outside the API image's build
-context (`services/api`), so today only compose has them, through a `./styles:/styles` mount; on
-Render the hosted API would start with no styles and render nothing. They move into the build
-context:
+(storyboard.md §3.2, §3.5), but until T063 they lived in the repo-root `styles/`, outside the API
+image's build context (`services/api`), so only compose had them, through a `./styles:/styles`
+mount; on Render the hosted API would have started with no styles and rendered nothing. T063 moved
+them into the build context:
 - `styles/*` moves to `services/api/styles/` (`git mv`, history kept), and the repo-root `styles`
   becomes a symlink to `services/api/styles`, so every `styles/…` path in the docs still resolves.
 - `PUBLIC_STYLES = Path(__file__).resolve().parents[2] / "styles"` in
@@ -442,14 +442,15 @@ message broker, as before.
   held one job at a time, but a storyboard beside a comic would not fit.
 - T037 done means deployed: the Render URL answers `/api/v1/health` `ok` against Supabase, the
   service log shows `alembic upgrade head` before uvicorn starts, the Vercel URL's `/api/health`
-  answers 200 through it, and with `API_HEALTH_URL` set a manual run of `keep-alive` passes. That needs Katlego's Render and Vercel accounts, so the task is **blocked on accounts** until
-  they exist, and says so.
+  answers 200 through it, and with `API_HEALTH_URL` set a manual run of `keep-alive` passes. Done
+  2026-10-16: https://panelwise-api.onrender.com and https://panelwise.vercel.app, keep-alive
+  passed by hand (STATUS.md).
 - **T030:** `render.yaml` still validates with the new `envVars`; before the first hosted upload,
   Render's dashboard shows both money caps set to the figures recorded in §6 (nothing checks this in
   code: a blank cap is off, so it is a step in the deploy, read back by eye);
   the judge seed run once against the hosted Supabase (Tumo's go-ahead), the judge signed in on
   the Vercel URL, the copied storyboard open; one upload as the judge runs to its storyboard on the
-  hosted stack with `drawn_sex,no_character`; `event.toml`'s `demo` set to the Vercel URL.
+  hosted stack with `drawn_sex,no_character,split_panels`; `event.toml`'s `demo` set to the Vercel URL.
 
 ## 10. Open questions
 

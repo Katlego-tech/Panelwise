@@ -58,7 +58,7 @@ export function checkLines(a: AuditView): { failed: { name: string; detail: stri
   return { failed, rest };
 }
 
-/** "Described by DeepSeek-V4.1-Flash · judged by Nemotron 3 Super"; null without both models. */
+/** "Described by Nemotron-3.5-Super-VL · judged by Nemotron 3 Super"; null without both models. */
 export function modelsWords(a: AuditView): string | null {
   const [describer, judge] = a.models;
   if (!describer) return null;

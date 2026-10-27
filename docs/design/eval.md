@@ -1,13 +1,14 @@
 # Design — `eval` (the numbers in the README)
 
-**Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T032, T049 · **Spec:** [SPEC.md](../../SPEC.md)
+**Status:** built (T032: #33 design, #34 code); T049 deferred 2026-10-12 · **Owner:** Katlego (Claude) · **Tasks:** T032, T049 · **Spec:** [SPEC.md](../../SPEC.md)
 § Success criteria ("Measured: faithfulness, recall and frame-audit accuracy numbers in the README")
 
 ---
 
 ## 1. What this covers
 
-Repeatable measurements on the three self-written samples (`samples/`, T031), run on the real
+Repeatable measurements on three of the self-written samples (`lost-property`,
+`sipho-and-siphokazi`, `the-red-kite`, T031; `samples/` holds 13 since T090), run on the real
 Token Factory account and committed with the date, the model and the command that produced them:
 
 - **Extraction and shot planning (T032):** grounding faithfulness and recall (grounding.md §4), and
@@ -16,8 +17,10 @@ Token Factory account and committed with the date, the model and the command tha
   at temperature 0 still varies run to run (samples/README.md).
 - **Frame-audit accuracy (T049):** the audit's precision and recall on a labelled set of rendered
   frames, including frames with a deliberately injected extra person or object (verify.md §8, §9).
-  **Blocked on T026** (no image model on Token Factory, T001; renders need T003's GPU). Only its
-  contract is fixed here, so T049 doesn't have to redesign the report.
+  Was blocked on T026 (renders were to need T003's GPU); fal.ai draws them since 2026-10-09.
+  **Deferred 2026-10-12** (TASKS T049): #106/#107 built it on the Workers AI renderer, since dropped.
+  The audit is scored instead on 109 hand-labelled fal frames ([eval/audit-mistakes.md](../../eval/audit-mistakes.md),
+  `eval/tools/score_labels.py`). Only T049's contract is kept here.
 
 **Not covered:** the README's prose (T033); costs in dollars (tokens are recorded; prices change);
 any copyrighted script, ever.
@@ -152,7 +155,7 @@ overwrites).
 Pooled faithfulness is entities grounded ÷ entities proposed over every run (micro), not a mean of
 means; same for recall over cues.
 
-**T049 (blocked) report shape:** per frame `{frame, shot, label: "correct" | "injected_person" |
+**T049 (deferred) report shape:** per frame `{frame, shot, label: "correct" | "injected_person" |
 "injected_object", verdict, failed_checks}`; precision and recall of FAIL against the injected
 labels, and the false-FAIL rate on correct frames (verify.md §10). Same file and table conventions,
 `eval/results/audit-<date>.json`.

@@ -12,7 +12,7 @@ and lines it came from**. This is the foundation of Non-negotiable I: a panel ca
 a verbatim span if the parser kept one. Also here: resolving a scene's clock when the heading
 borrows it (`CONTINUOUS`), and matching a dialogue cue to an extracted character name.
 
-**Not covered:** storage (no DB models yet, so everything here is a pure function over values),
+**Not covered:** storage (the projects lane's; everything here is a pure function over values),
 entity extraction and the grounding filter (T006, `docs/design/grounding.md`), shots (T007).
 
 ## 2. Reference material

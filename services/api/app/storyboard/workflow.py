@@ -1,7 +1,7 @@
 """Render helpers shared by every backend (storyboard.md §3.3, §6 `workflow.py`): fitting a drawing
 to the exact size asked for, the style's post-processing, and the render key that addresses a
-stored frame. Pure. ComfyUI's graph helpers (`Workflow`, `load_workflow`, `substitute`) belong to
-the optional ComfyUI backend (T003) and land with it."""
+stored frame. Pure. ComfyUI's graph helpers (`Workflow`, `load_workflow`, `substitute`) were
+never built: the ComfyUI backend (T003) was cut 2026-10-19."""
 
 import hashlib
 import io

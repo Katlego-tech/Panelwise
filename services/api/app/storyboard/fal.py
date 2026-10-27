@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 
 MAX_PIXELS = 1_000_000  # fal bills each started megapixel: a drawing never starts a second
 FAL_URL = "https://fal.run/{model}"
-STEPS = 4  # FLUX.1 [schnell] is distilled for 1-4 steps
+STEPS = 4  # FLUX.1 [schnell] is distilled for 1-4 steps; klein runs at the same 4 (§3.5)
 TRIES = 3  # one call and two retries on a 429, a 5xx or a network error
 REDRAWS = 3  # the seed, then two derived seeds when the safety checker blacks a drawing out
 GOLDEN = 0x9E3779B1  # spreads the derived seeds across the 32-bit range

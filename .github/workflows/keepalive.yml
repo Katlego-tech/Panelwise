@@ -16,7 +16,7 @@ jobs:
           API_HEALTH_URL: ${{ vars.API_HEALTH_URL }}
         run: |
           if [ -z "$API_HEALTH_URL" ]; then
-            echo "::notice::API_HEALTH_URL is not set; nothing to ping until T037 deploys the API"
+            echo "::notice::API_HEALTH_URL is not set; nothing to ping until it is set"
             exit 0
           fi
           curl --fail --silent --show-error --max-time 90 --retry 2 "$API_HEALTH_URL"

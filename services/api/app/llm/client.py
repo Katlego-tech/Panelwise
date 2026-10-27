@@ -36,7 +36,8 @@ class Tier(StrEnum):
 
 
 # findings U2: thinking off costs nothing on the fast tier and saves ~68x output tokens there.
-# The toggle was only measured on Nemotron, so the vision model gets nothing by default.
+# VISION's default is the client's `vision_thinking` (NEBIUS_VISION_THINKING, false since T105),
+# not this table's None; None there still sends nothing.
 _THINKING_DEFAULT: dict[Tier, bool | None] = {
     Tier.FAST: False,
     Tier.REASONING: True,

@@ -149,7 +149,7 @@ done, because by the letter of the task it was.
     in the STATUS.md Log *before* the merge, and the fresh AI review is still required.
   - The other contributor reads fallback-merged PRs when they're back; anything they object to gets
     a follow-up PR, not a revert war.
-  - `main` has no server-side branch protection (private repo on GitHub Free; decided 2026-09-28),
+  - `main` has no server-side branch protection (decided 2026-09-28 while the repo was private on GitHub Free; public since 2026-10-05, turning it on is the team's call),
     so this rule and the pre-push hook are the only guards. Don't merge a PR whose `gate` check is
     red or missing.
 - Commit format ties work back to a task ID: `type(lane): T0xx short description`

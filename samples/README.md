@@ -105,8 +105,10 @@ spec screenplay, so the pipeline sees the shape it will see from real writers, n
 
 Every place name (Bree Street, Orlando East, Hillbrow) is a real place; every character and event
 is invented. Each script is one location-light story with clear, drawable props and at most seven
-speakers, so a full storyboard run costs about what `the-red-kite` does. None has had a live run
-yet; their faithfulness and recall numbers belong here once one has.
+speakers, so a full storyboard run costs about what `the-red-kite` does. Nine of the ten (all but
+`the-choir`) have had live runs as held-out scripts for the frame audit, 13–17 Oct
+([eval/runs/](../eval/runs/README.md)); their faithfulness and recall numbers belong here once
+measured.
 
 ## Parser findings
 

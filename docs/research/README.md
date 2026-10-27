@@ -17,12 +17,12 @@ What it says, against what we do (comic.md §4 steps 7–8):
 
 | The report says | We do | Where it goes |
 |---|---|---|
-| The tail aims at the speaker's **mouth**, as if a line ran on from its tip to the face (§3, from Evan Waterman's lettering guide) | T098 aims at the nearest point of the head box | **T114** (Katlego, 2026-10-18): aim at the centre of the head box's lower third, stopping at the grown head rect |
+| The tail aims at the speaker's **mouth**, as if a line ran on from its tip to the face (§3, from Evan Waterman's lettering guide) | T114 aims at the centre of the head box's lower third, stopping at the grown head rect (was T098's nearest point of the head box) | **T114** (Katlego, 2026-10-18): done |
 | The tail stops at about 50–60% of the way from the balloon to the head, never touching the figure (§3, the tail table) | stops 12 px outside the head box (T098's `HEAD_MARGIN`) | comic.md §10: a shorter tail is a later choice, judged by eye |
 | Tails never cross one another (§3, from Graphixly) | T112 | done |
-| A tail never crosses another character's face, throat or line of sight (§3) | not checked | comic.md §10, with the hidden-tail rule |
+| A tail never crosses another character's face, throat or line of sight (§3) | T116: no tail across another head rect | done for faces; throat and sightline aren't known |
 | Faces are never covered (§2) | T098: a box over any head costs 2.0 | done; soft, as designed |
-| Hands doing something stay visible (§2) | not known: no check sees hands | comic.md §10: only if T111 gives hand boxes |
+| Hands doing something stay visible (§2) | not known: no check sees hands | not planned: T111 wasn't adopted (findings § U9), so no check gives hand boxes |
 | The tail leaves the balloon near its middle, not its far edge (§3, from Blambot) | from the point of the box, shrunk by its corner radius, nearest the tip | comic.md §10 |
 | The first speaker sits left; when the art has them right, link balloons or re-stage (§3) | the reading order is hard (T023); T112 keeps tails from crossing | no change: we can't re-stage a drawn frame |
 | 20–25 words a balloon, 35 a panel; a long speech is split into linked balloons at its breaks (§3, §5) | one balloon per dialogue element, never cut (Non-negotiable I) | comic.md §10: splitting at sentence ends keeps every word, in order |
@@ -79,10 +79,10 @@ Comicraft) before the pitch quotes it. First the notes, then what they mean for 
 | The notes say | We do | Where it goes |
 |---|---|---|
 | Joined balloons share one tail | T118: a chain has one tail | done |
-| The tail leaves the balloon **closest to the head** | T118: the tail is on the chain's **first** balloon | comic.md §10: move the tail to whichever linked box is nearest the speaker's head (a placement-free change: same boxes, the tail moves) |
+| The tail leaves the balloon **closest to the head** | T119: the tail is on the linked box nearest the speaker (was the chain's **first** balloon, T118) | done |
 | Bridges are short, straight, stroke-width channels | T118: a straight 22 px neck, at most 120 px | done; the width is a look to judge, and 22 px is wider than a stroke on purpose (it reads as the balloon stretching, Katlego's ask) |
-| Abutted balloons for rapid speech | not drawn: boxes on the grid rarely touch | comic.md §10: draw two linked boxes whose gap is under about 16 px as one merged outline |
-| Unlinked for a deliberate pause; a tail each | T118 links every consecutive pair it can | comic.md §10, a choice from the script's own words: a `(beat)` or `(pause)` parenthetical on the second line, or an action line between the two in the script, is a pause, so they stay unlinked with a tail each. A screenplay rarely gives one speaker two blocks with nothing between, so this rule would unlink most pairs; it needs a look at real pages before it's adopted |
+| Abutted balloons for rapid speech | T120: two linked boxes under 16 px apart merge into one outline | done |
+| Unlinked for a deliberate pause; a tail each | T121: a `(beat)` or `(pause)` parenthetical on the second line unlinks; an action line between does not (built, then dropped 2026-10-18: it unlinked almost every pair) | done |
 | No join across another speaker (A → B → A) | T118 links only consecutive lines, so A's two lines stay unlinked with a tail each | done |
 | No tail across another face or sightline | T116: faces (head rects) | done for faces; sightlines aren't known (no gaze direction in the audit) |
 | Split an A → B → A panel that can't fit | one panel per shot (comic.md §3) | no change: the shot planner, not lettering, decides panels |
@@ -105,7 +105,8 @@ What it says, for the limb agent (limb-agent.md):
   the prototype's prompt (§8).
 - **How common it is:** the report says about half of human figures from current models have a
   measurable fault, citing Distortion-5K. That is not our rate: Tumo's 109 labelled frames have no
-  anatomy fault (#194). T111's labels measure our own.
+  anatomy label (#194: they were about the script); Katlego's T111 labels found 16 defects in them
+  (findings § U9).
 - **Small hands are where it goes wrong.** At 512 px a hand gets about 6 × 6 latent tokens. Faults
   should cluster in wide shots, where the vision model also sees least. So T111 reports recall by
   framing.
@@ -126,4 +127,4 @@ What it says, for the limb agent (limb-agent.md):
   - Negative prompts and negative embeddings: the report finds them unreliable for counts, and our
     fal klein request sends none (storyboard.md §3.5).
   - Pose or depth ControlNets (DWPose, DensePose, SMPL-X): these need the ComfyUI GPU path, which
-    is blocked (T003).
+    was cut (T003, 2026-10-19).

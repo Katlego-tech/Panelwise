@@ -44,8 +44,8 @@ storyboard pipeline needs, and drops scheduling, compliance, auditions, voice an
 | Models | NVIDIA Nemotron on Nebius Token Factory for every model call, with fast, reasoning and vision tiers (Nemotron 3.5 Super VL sees the frames since 17 Oct) |
 | Frame audit | Nemotron 3.5 Super VL describes each frame without seeing the shot, Nemotron Super audits the description against its shot spec, the frame is re-rendered on mismatch, and every verdict is logged |
 | Comic mode | Panel layout by story beat, speech bubbles from linked dialogue, lettering, comic page export |
-| Character consistency | Each character's look drawn from the script's own words in every frame prompt (T079); reference portraits planned, not built (T025) |
-| Rendering | FLUX.2 [klein] 4B on fal.ai (FrameFlow rendered on CPU); ComfyUI on a Nebius GPU planned, optional, not built (T003) |
+| Character consistency | Each character's look drawn from the script's own words in every frame prompt (T079); reference portraits cut 2026-10-19, never built (T025) |
+| Rendering | FLUX.2 [klein] 4B on fal.ai (FrameFlow rendered on CPU); ComfyUI on a Nebius GPU cut 2026-10-19, never built (T003) |
 | Evaluation | Benchmarks for faithfulness and frame-audit accuracy |
 
 ## Code ported from FrameFlow

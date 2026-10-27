@@ -23,15 +23,15 @@ baseline = "7d5277d760b799a927fbb6acdfce386dc33435c2"
 # osv-scanner, jscpd). These entries say which command covers each kind of check.
 lint = "bash scripts/gate.sh"
 test = "bash scripts/gate.sh"
-smoke = ""                   # open item, set by T009: one screenplay through upload -> shots -> storyboard. Today's nearest: cd services/api && uv run python -m app.grounding.run <script.pdf>
+smoke = ""                   # open item: no single smoke command is declared (T009 is done and did not set one). Today's nearest: cd services/api && uv run python -m app.grounding.run <script.pdf>
 
 [links]
 devpost = "https://nebiusglobalaihackathon.devpost.com/"
 rules = "https://nebiusglobalaihackathon.devpost.com/rules"
 resources = "https://nebiusglobalaihackathon.devpost.com/resources"
-repo = "https://github.com/Katlego-tech/Panelwise"   # private until T035 makes it public
+repo = "https://github.com/Katlego-tech/Panelwise"   # public since 2026-10-05
 track = "Best Apps and Agents"
-demo = ""                    # open item, set by T030: the Vercel URL (web; API on Render), up until 15 Dec 2026
+demo = "https://panelwise.vercel.app"   # web on Vercel, API on Render (live since 2026-10-16); up until 15 Dec 2026
 video = ""                   # open item, set by T034: the public YouTube video, 3 minutes or shorter
 judging = "2026-12-01 to 2026-12-15"   # the demo must stay up, free and unrestricted, until 15 Dec
 
@@ -46,9 +46,9 @@ quality_of_the_idea = 25
 source = "Devpost overview page, Judging Criteria (the four criteria); equal weights per /rules, as recorded in frameflow-nebius-hackathon/PLAN.md §0"
 
 [scope]
-# The core differentiator (grounding + the audit loop). Never mocked. services/api/app/verify
-# joins this list when T020 creates it. Note: Panelwise's gate does not check mock imports (MOCKS.md).
-core = ["services/api/app/script", "services/api/app/grounding", "services/api/app/llm"]
+# The core differentiator (grounding + the audit loop). Never mocked.
+# Note: Panelwise's gate does not check mock imports (MOCKS.md).
+core = ["services/api/app/script", "services/api/app/grounding", "services/api/app/llm", "services/api/app/verify"]
 
 [team]
 presenter = ""               # open item, set by T034: whoever narrates the video presents
@@ -73,10 +73,10 @@ limit_seconds = 180          # Devpost: "a 3-minute or shorter public YouTube vi
 name = "Nebius Token Factory"
 sdk = "OpenAI-compatible HTTP API over httpx (no SDK)"
 bounty = "Best Apps and Agents track: must make a runtime call to the Token Factory inference API"
-used_in = ["services/api/app/core/config.py:21", "services/api/app/llm/client.py:160"]
+used_in = ["services/api/app/core/config.py:27", "services/api/app/llm/client.py:185"]
 
 [[sponsors]]
 name = "NVIDIA Nemotron"
-sdk = "nvidia/Nemotron-3_5-Lightning (fast tier), nvidia/nemotron-3-super-120b-a12b (reasoning tier)"
+sdk = "nvidia/Nemotron-3_5-Lightning (fast tier), nvidia/nemotron-3-super-120b-a12b (reasoning tier), nvidia/Nemotron-3.5-Super-VL (vision tier, since 2026-10-17)"
 bounty = "rules: use at least one NVIDIA open source model; two judging criteria name Nemotron"
-used_in = ["services/api/app/core/config.py:22", "services/api/app/core/config.py:23", "services/api/app/grounding/extract.py:92"]
+used_in = ["services/api/app/core/config.py:28", "services/api/app/core/config.py:29", "services/api/app/core/config.py:32", "services/api/app/grounding/extract.py:104"]

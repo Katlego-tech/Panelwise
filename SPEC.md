@@ -14,7 +14,7 @@ source in brackets. Where the sources don't decide something, it is listed under
 Panelwise turns a screenplay into a shot-by-shot storyboard and then into a comic book. A person
 uploads a screenplay PDF in the web app; NVIDIA Nemotron on Nebius Token Factory extracts the
 characters, props and locations and plans the shots, FLUX.2 [klein] on fal.ai renders one frame per
-shot (ComfyUI on a Nebius GPU is optional and not built, T003), and every frame is audited before
+shot (ComfyUI on a Nebius GPU was cut on 2026-10-19, never built, T003), and every frame is audited before
 anyone sees it: **Nemotron 3.5 Super VL describes each frame; Nemotron Super judges it against the
 script** and a failing frame is re-rendered. The output is a
 storyboard (in the app and as a PDF) and comic pages with speech bubbles lettered from the script's
@@ -23,7 +23,10 @@ decision, option A; verify.md §8]
 
 **The rule everything below serves (PLAN.md Non-negotiable 1):** a storyboard frame or comic panel
 never shows a character, prop, line of dialogue or event that is not in the screenplay. Every panel
-traces back to a verbatim source span, and every audit verdict is logged.
+traces back to a verbatim source span, and every audit verdict is logged. A failed hard check
+withholds the frame only when it is on the rule ladder, `AUDIT_WITHHOLD_CHECKS` (code default: every
+hard check; hosted: `drawn_sex,no_character,split_panels`); a frame that fails any other hard check
+is shown marked warned, with the check named, never as passing. [verify.md §4; T094]
 
 ### Goals
 
@@ -38,8 +41,9 @@ traces back to a verbatim source span, and every audit verdict is logged.
 - **Comic pages** whose every letter is verbatim script text with its span. [comic.md §1]
 - **Consistent characters** across panels, drawn only from the script's own words about them.
   [characters.md §1, §3]
-- **Stay inside the credits:** a full script under about $0.10 of Token Factory credit; LLM and image
-  spend capped in code. [PLAN.md Non-negotiable 2, § Technical Context]
+- **Stay inside the credits:** a full script under about $0.10 of Token Factory credit (measured on
+  the-red-kite, 2026-10-16: about $0.15, at most $0.19; about $0.30 with fal); LLM and image spend
+  capped in code. [PLAN.md Non-negotiable 2, § Technical Context]
 - **Nemotron visibly load-bearing:** extraction, shot planning and the audit's judgement (which described
   person is which character, whether an object is scripted) run on Nemotron on Token Factory; the
   countable checks and the verdict are code. [RUBRIC.md; verify.md §3, §8]
@@ -50,8 +54,9 @@ Out of scope for this event; written down so nobody quietly builds them. [SCOPE.
 
 - Editable panels (redraw one frame with a note), animatics with scratch audio, exporting shot lists
   to scheduling tools.
-- Self-hosting an NVIDIA vision model on the Nebius GPU (vision option B): a stretch, never on the
-  critical path. [docs/nebius-findings.md § The vision decision]
+- Self-hosting an NVIDIA vision model on the Nebius GPU (vision option B): not needed since
+  Nemotron 3.5 Super VL on Token Factory describes the frames (T105), and there is no Nebius GPU
+  (T003 cut). [docs/nebius-findings.md § The vision decision]
 - A multi-provider LLM fallback chain: Token Factory only.
 - Private style packs in the demo: the public repo runs everything the demo shows. [PLAN.md
   Non-negotiable 2]
@@ -99,8 +104,8 @@ evidence in [RUBRIC.md](RUBRIC.md)):
 | Criterion | What it asks of this spec |
 |---|---|
 | Technological Implementation | Nebius Token Factory and Nemotron used effectively: extraction, shot planning, the frame description (Nemotron 3.5 Super VL) and the audit judge on Nemotron; rendering by FLUX.2 [klein] on fal.ai, since Token Factory serves no image model (findings U5) |
-| Design | a complete product experience, not a proof of concept: US1–US4 in the web app, both PDFs, the audit log |
-| Potential Impact | evidence it works for the persona, on public-domain or self-written scripts: faithfulness, recall and frame-audit accuracy numbers (T032, T049) |
+| Design | a complete product experience, not a proof of concept: US1–US3 in the web app, both PDFs, the audit log |
+| Potential Impact | evidence it works for the persona, on public-domain or self-written scripts: faithfulness, recall and frame-audit accuracy numbers (T032; the audit on 109 hand-labelled frames, T124) |
 | Quality of the Idea | a non-obvious use of Nemotron: grounding enforced in code, Nemotron as the judge of an image-audit loop |
 
 **Honesty rule for every claim a judge reads:** the audit is two steps on two models. Since
@@ -116,9 +121,9 @@ docs/super-vl-migration.md; RUBRIC.md]
 ## User stories
 
 Priorities follow PLAN.md § Build phases: US1 is Phase 3 on its own and is the MVP (**P1**); US2,
-US3 and US4 are all Phase 4 (**P2**). US5 is a **stretch** (Katlego, 2026-10-17): built only after
-the submission path is safe, never on it. Within P2, STATUS.md's timeline builds US2 and US4 in week 3
-and US3 in week 4; PLAN.md doesn't rank them further (see Open questions).
+US3 and US4 are all Phase 4 (**P2**); US4 was cut on 2026-10-19 (T025). US5 is a **stretch**
+(Katlego, 2026-10-17): built only after the submission path is safe, never on it. Within P2,
+STATUS.md's timeline built US2 in week 3 and US3 in week 4 (see Open questions).
 
 Each scenario becomes an acceptance test ([docs/testing-strategy.md](docs/testing-strategy.md));
 a task's `Verify:` line names the scenario it satisfies.
@@ -201,10 +206,10 @@ Scenario: A frame that matches its shot is shown, with its audit
   when it is audited, then the verdict is `FAIL` (`unscripted_person`) and the shot is re-rendered
   with a new deterministic seed. Two people called as the same character count the same way.
   [verify.md §3 checks, §4]
-- **Scenario: an unscripted object, visible text, or the wrong setting fails** — Given a frame
-  showing an object the judge calls unscripted (or a held object, an animal, vehicle, weapon, screen
-  or sign, or food passed off as set dressing), or any letters or text, or an exterior in an `INT`
-  scene, when it is audited, then the verdict is `FAIL`. [verify.md §3]
+- **Scenario: an unscripted animal or weapon, or the wrong setting, fails** — Given a frame
+  showing an unscripted animal or weapon, or an exterior in an `INT` scene, when it is audited, then
+  the verdict is `FAIL` (`unscripted_object`, `setting`). Any other unscripted object, and any
+  letters or text, only warn (`background_object`, `text_in_frame`; T083, T089). [verify.md §3]
 - **Scenario: "supported by the script" needs a verbatim quote** — Given the judge says an unnamed
   person or object is supported but its `support` quote is not found in the shot's source or
   entities' quotes (or, for set dressing, the scene heading), when checks run, then it counts as
@@ -214,7 +219,8 @@ Scenario: A frame that matches its shot is shown, with its audit
   verdict is `WARN`, the frame is shown, and the soft checks are logged and visible. Transitional
   times (dawn, dusk) and `unclear` always pass. [verify.md §3]
 - **Scenario: a frame that keeps failing is withheld, shown as a text card** — Given a shot whose
-  three renders (the first plus two re-renders) all fail, when the loop ends, then no frame is
+  three renders (the first plus two re-renders) all fail a hard check on the withhold ladder
+  (`AUDIT_WITHHOLD_CHECKS`), when the loop ends, then no frame is
   shown; the storyboard shows a text card with the shot's verbatim source, its span and "Frame
   withheld: failed audit (unscripted person)" (naming the failed check), and the user can ask for
   another attempt, audited the same way. [verify.md §4–§5]
@@ -231,11 +237,13 @@ Scenario: A frame that matches its shot is shown, with its audit
   job fails (`FAILED`); nothing is shown unaudited. [verify.md §4]
 
 **Acceptance criteria:**
-- [ ] No frame is displayed unless its audit is `PASS` or `WARN`; no state transition skips the audit.
+- [ ] No frame is displayed unless its audit is `PASS` or `WARN`, or it failed only hard checks off
+  the withhold ladder (shown marked warned, the checks named); no state transition skips the audit.
 - [ ] At most 3 renders per frame by default; every attempt, pass or fail, is a row in the audit log.
 - [ ] Every audit decision is Nemotron's or code's; the vision model only describes.
-- [ ] Frame-audit precision and recall are measured on a labelled set with injected extra people and
-  objects, and reported in the README. [verify.md §9; T049]
+- [ ] Frame-audit accuracy is measured on a labelled set and reported in the README: 109 frames
+  labelled by hand (T124, `eval/measurements/t124/`); T049's injected set was closed 2026-10-12.
+  [verify.md §9]
 
 ### US3 — Lay the script out as comic pages with speech bubbles (P2)
 
@@ -285,7 +293,10 @@ Scenario: A shot plan becomes comic pages
 - [ ] Panels are rendered through the same audit as US2; a withheld frame is never drawn.
 - [ ] Pages are 1988 × 3075 px; the reader, the PDF and the layout JSON agree. [comic.md §2, §6]
 
-### US4 — Keep each character looking the same from panel to panel (P2)
+### US4 — Keep each character looking the same from panel to panel (P2; cut 2026-10-19, T025)
+
+**Not built.** A character's look comes from the script's own words in every frame prompt (T079);
+T012's design (characters.md) stays, unbuilt. The story below is kept as designed.
 
 **As a** writer-director, **I want** a character to look the same in every frame and panel, **so
 that** the crew and the reader can follow who is who.
@@ -372,8 +383,8 @@ Scenario: The comic is read aloud in reading order
 
 - [ ] **Non-negotiable 1:** every storyboard frame and comic panel traces to a verbatim source span;
   every audit verdict is logged; nothing unscripted is shown. [PLAN.md]
-- [ ] **Credits:** a full script costs under about $0.10 of Token Factory credit; LLM and image spend
-  are capped in code; one frame renders in seconds, not minutes. [PLAN.md NN2, §
+- [ ] **Credits:** a full script costs under about $0.10 of Token Factory credit (measured: about
+  $0.15, at most $0.19); LLM and image spend are capped in code; one frame renders in seconds, not minutes. [PLAN.md NN2, §
   Technical Context]
 - [ ] **Honest wording** in README, the Devpost story, the video and the app: Nemotron 3.5 Super
   VL describes each frame; Nemotron Super judges it. [verify.md §8; docs/super-vl-migration.md]
@@ -383,7 +394,7 @@ Scenario: The comic is read aloud in reading order
   [PLAN.md § Technical Context; SCOPE.md]
 - [ ] **Hosted demo** on Vercel + Render + Supabase, with a seeded judge account whose project is
   pre-rendered, spend caps and upload limits, up until 15 Dec 2026. [deploy.md; DEMO.md; T030]
-- [ ] **Measured:** faithfulness, recall and frame-audit accuracy numbers in the README. [T032 extraction, T049 audit]
+- [ ] **Measured:** faithfulness, recall and frame-audit accuracy numbers in the README. [T032 extraction, T124 audit]
 - [ ] **Submission:** a video of 3 minutes or less, submitted on Devpost by 29 Oct 2026 (deadline
   30 Oct 10:00 PDT). [PLAN.md § Summary; event.toml]
 
@@ -396,21 +407,25 @@ Undecided in PLAN.md and the design docs; listed here so no implementer decides 
 1. **Unaudited frames at the US1 checkpoint.** PLAN.md makes US1 (storyboard) demoable before US2
    (the audit), but verify.md says a frame is never shown without a `PASS` or `WARN` audit. Until
    T020 lands, are US1 frames shown (labelled unaudited), or does the US1 checkpoint wait for the
-   audit?
+   audit? **Moot:** T020 is built; every frame is audited.
 2. **Order within P2.** PLAN.md puts US2, US3 and US4 in one phase. If time runs short, which is
    cut or thinned first? (2026-10-18: US2 and US3 are built; US4's portraits, T025, are proposed for
    cutting, waiting on Tumo, with consistent looks carried by T079's look prompts. MILESTONES.md
-   week 3.)
+   week 3.) **Decided 2026-10-19:** T025 is cut; T079's look prompts carry the looks.
 3. **Which styles stay private** (STATUS.md § Open decisions): **decided 2026-09-30 by the user**:
    none. `clean` (the default), `ink` and `pencil` are public in `styles/`; `classic` is dropped
    (storyboard.md §8, §10).
 4. **Spend cap and upload limit values** for the hosted demo: PLAN.md sets the goal (about $0.10 a
    script) but not the caps, nor how many extra attempts a user may ask for on a withheld frame or
-   portrait. Decide in T030.
-5. **Frame-audit accuracy bar.** T049 measures precision and recall, but no target is agreed. (If
-   recall is poor, the remedy is decided: a new describer prompt or model, or option B; verify.md §8.)
-6. **Who can see a project.** Row-level security for projects, Storage and the `Job` table is
-   undecided (deploy.md §10): decide with Auth in T009.
+   portrait. **Decided** (Tumo, 2026-10-10; limits.md): one judge account, 3 uploads a day, 15
+   pages a script, `LLM_MONTHLY_TOKEN_CAP` 2,800,000 tokens and `IMAGE_MONTHLY_GENERATION_CAP` 800
+   drawings a month; "Try another render" spends from the same caps.
+5. **Frame-audit accuracy bar.** No target is agreed. T049 was closed 2026-10-12; the audit is
+   scored on 109 hand-labelled frames (T124): 38 of 57 wrong frames withheld, 1 of 40 right ones.
+   (If recall is poor, the remedy is decided: a new describer prompt or model, or option B; verify.md §8.)
+6. **Who can see a project.** Row-level security for projects, Storage and the `Job` table:
+   **decided in T009** (deploy.md § Row-level security): RLS on with no policies, a private bucket,
+   and the API enforces ownership.
 7. **Sound effects** from all-caps action ("DOORS SLAM."): a styling choice, decided with a sample
    page in hand (comic.md §10, T023). Until then, none.
 8. **Dual dialogue** isn't parsed, so simultaneous speeches read as sequential bubbles (script.md

@@ -1,6 +1,6 @@
 # Design — `narration` (stretch): the comic read aloud, by ElevenLabs
 
-**Status:** draft, **stretch** · **Owner:** Katlego (Claude); the reader's controls with Tumo
+**Status:** draft, **stretch**; not built, so out of the submission (no code by 27 Oct) · **Owner:** Katlego (Claude); the reader's controls with Tumo
 (`web`) · **Tasks:** T113 · **Spec:** [SPEC.md](../../SPEC.md) US5 (stretch) · **Raised:**
 2026-10-17 by Katlego · **Revised:** 2026-10-20 by Katlego: one voice for the whole comic, chosen
 by the reader from four (two female, two male), instead of a voice per character; brought up to
@@ -248,4 +248,5 @@ stays on the page, so the narration adds a way in and takes nothing away.
    parenthetical or extension, so `[whispers]` on a `WHISPER` balloon would be grounded; but a tag is
    text the lettering doesn't have, and only some models read tags. Later, and only for what the
    script states.
-5. **The hosted demo:** narration on the hosted demo or only in the video, decided by 27 Oct.
+5. ~~**The hosted demo:** narration on the hosted demo or only in the video, decided by 27 Oct.~~
+   Moot: not built by 27 Oct, so out of the submission and the video (the stretch rule above).

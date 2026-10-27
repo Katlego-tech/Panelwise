@@ -88,8 +88,9 @@ finish: at catalog prices, an estimated 0.3M tokens in and 0.15M out per screenp
 $$0.3 \times \$0.06 + 0.15 \times \$0.24 \approx \$0.05 .$$
 
 Measured (16 Oct, the-red-kite, storyboard and comic on the deployed stack): it finished, with 44
-drawings (about $0.15 at fal's $0.003–0.004 each) and about 0.34M tokens, roughly $0.20 a script end to
-end.
+drawings (about $0.13–0.18 at fal's $0.003–0.004 each) and about 0.34M tokens (about $0.15 on Token
+Factory, at most $0.19: the audit runs on Nemotron Super and Super VL, not only Lightning), roughly
+$0.30 a script end to end.
 
 **Errors that lied.** In FrameFlow, when one provider in the fallback chain hit its quota, the chain
 fell through to a local endpoint that wasn't running and reported only that last error — a 404
@@ -118,7 +119,7 @@ probing Token Factory, and several answers contradicted what the documentation s
   citation survived into the shot plan**: every kept quote and every shot's cited text was re-checked
   in code against the script lines it names, and all 15 runs came back at 0. Every action paragraph
   and speech landed in exactly one shot, in every run. (That is the text side; whether a rendered
-  image shows only what the shot says is the frame audit's job, measured once frames render.)
+  image shows only what the shot says is the frame audit's job, measured below.)
 - Nemotron 3.5 Lightning's own proposals were 89.8% faithful (246 of 274 entities fully grounded);
   the filter dropped what didn't ground (the unlocated quotes, or the whole entity). It found 85 of
   the 90 speaking-character appearances itself; the only miss was the same one in each run of

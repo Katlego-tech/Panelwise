@@ -232,6 +232,9 @@ then the scorer on Tumo's 109 frames, asked of Tumo first (#194's rule).
 
 ## 10. Open questions
 
+**Closed by the 2026-10-18 decision** (§8, findings § U9): no check, so no code task; the
+questions below are kept as asked.
+
 1. **The bar's numbers** (§8): Katlego's call, before the run.
 2. **Who labels:** Katlego by eye. Tumo is asked for a second look on the disputed drawings only.
 3. **Order with T106 and T107** (also Katlego's, 18–20 Oct): proposed T098 → T111's labels and run

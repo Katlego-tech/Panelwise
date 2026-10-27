@@ -146,7 +146,9 @@ class NebiusChatModel:
                  timeout_s: float = 120.0, connect_timeout_s: float = 10.0,  # T075
                  max_attempts: int = 5,                                    # T075: was 3
                  transport: httpx2.AsyncBaseTransport | None = None,
-                 sleep: Callable[[float], Awaitable[None]] = asyncio.sleep) -> None: ...
+                 sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+                 on_usage: Callable[[ChatResult], Awaitable[None]] | None = None,  # T069: counts the month's tokens
+                 vision_thinking: bool | None = None) -> None: ...         # T105: VISION's thinking default
     @classmethod
     def from_settings(cls, settings: Settings) -> "NebiusChatModel": ...
     def model_for(self, tier: Tier) -> str: ...
@@ -168,8 +170,9 @@ async def structured_chat[T: BaseModel](model: NebiusChatModel, messages: Sequen
 #   prompt's schema text and the validation stay response_model's. None (the default): as before
 ```
 
-**Thinking defaults** (findings U2): `FAST` → `False`; `REASONING` → `True`; `VISION` → nothing
-sent (the toggle was only measured on Nemotron). `False` sends
+**Thinking defaults** (findings U2): `FAST` → `False`; `REASONING` → `True`; `VISION` →
+`NEBIUS_VISION_THINKING` (default `false` since T105, findings § U8; blank sends nothing, as
+before T105, when the toggle was only measured on Nemotron). `False` sends
 `chat_template_kwargs: {"enable_thinking": false}`; `True` sends `{"enable_thinking": true}`.
 
 **Request body** (exactly these keys; absent ones are omitted):
@@ -185,7 +188,7 @@ if there is none. Never a second system message: some chat templates accept only
 
 **Settings** (`app/core/config.py`, env names in `.env.example`): `nebius_api_key`,
 `nebius_base_url`, `nebius_model_fast`, `nebius_model_reasoning`, `nebius_model_vision`,
-`llm_request_timeout_s` (120), `llm_connect_timeout_s` (10, T075), `llm_max_attempts` (5, T075:
+`nebius_vision_thinking` (false, T105), `llm_request_timeout_s` (120), `llm_connect_timeout_s` (10, T075), `llm_max_attempts` (5, T075:
 was 3).
 
 ## 7. Structure
@@ -213,7 +216,7 @@ was 3).
 | How long a call rides out an outage (T075) | 5 attempts, waits 2, 4, 8, 16 s, a 10 s connect timeout: a dropped connection is retried for about 80 s | 3 attempts, waits 1 s and 2 s, no connect timeout of its own (before T075): on 2026-10-10 Token Factory dropped connections on and off from 21:28 to 21:38, each `ConnectError` took about 20 s, and three of them ended a call in 45 s; 3 of sipho-and-siphokazi's 31 audits were withheld as `audit_error` for it |
 | A read timeout (T075) | at most 2 per call | retried like a dropped connection: five waits of 120 s on a hung model |
 | Limits only the decoder sees (T109) | `structured_chat(grammar=)`: one optional schema for `response_format` | `Field(max_length=…)` on the response model: the prompt's schema text changes with it, and on Super VL that changed 7 of 10 answers that reached no limit (verify.md §9 T109); a vision-only client method: two paths to the same request |
-| Re-audit an `audit_error` later in the job (T075) | not now: a follow-up in the storyboard and comic jobs | here: the client can't know a drawing exists. Those jobs sit on the renderer PRs (#91, #98), which wait on the renderer decision |
+| Re-audit an `audit_error` later in the job (T075) | not now: a follow-up in the storyboard and comic jobs | here: the client can't know a drawing exists. Those jobs are built (T026, T064): an `ERROR` audit withholds and the loop redraws; a later re-audit was not added |
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none.
 

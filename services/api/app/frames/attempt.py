@@ -26,7 +26,7 @@ from app.verify.model import Check, FrameState, RecordingRenderer
 log = logging.getLogger(__name__)
 
 # A fresh renderer per attempt, for that project's screenplay and extraction, in the default style
-# (web.md §6). None in the app until T026 builds ComfyUI's.
+# (web.md §6). `fal_factory` (T026) when FAL_KEY is set; else None.
 type RendererFactory = Callable[[Screenplay, Extraction], RecordingRenderer]
 
 RENDER_FAILED = "The renderer failed on this frame."

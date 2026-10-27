@@ -5,7 +5,7 @@ to the judges' favourite question: "Which part of what we just saw is real, and 
 
 **Mock peripheral services only:** payments, email, identity, third-party data you can't rely on
 during judging. **Never the core differentiator:** nothing under `event.toml [scope] core`
-(`services/api/app/script`, `app/grounding`, `app/llm`, and `app/verify` once T020 creates it) may
+(`services/api/app/script`, `app/grounding`, `app/llm`, `app/verify`) may
 import from `mocks/`.
 
 **Today `mocks/` is empty, and Panelwise plans no mocks.** Every model call in the demo is a live

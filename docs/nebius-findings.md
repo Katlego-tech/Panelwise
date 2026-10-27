@@ -14,10 +14,10 @@ Questions U1–U6 come from the FrameFlow Nebius plan (§3); U7 is Panelwise's o
 | U1 | Is `response_format: json_schema` enforced on Nemotron? | **Yes.** Schema-valid output even with no schema in the prompt. `json_object` gives valid JSON in the wrong shape; `guided_json` is ignored | T004 sends `json_schema` (strict) and keeps the schema in the prompt too; the repair retry stays as a backstop, not the plan |
 | U2 | Can thinking be switched off? | **Yes**, two ways: `chat_template_kwargs: {enable_thinking: false}` or `reasoning_effort: "none"`. `"low"` and a `/no_think` system prompt do **not** switch it off | Fast tier defaults to thinking off. Reasoning arrives in a separate `reasoning_content` field, not as `<think>` in `content` — but `content` can start with `\n`, so strip it |
 | U3 | Which host serves which model? | **All four Nemotron models answer on the default host** (`api.tokenfactory.nebius.com`) | One base URL. `NEBIUS_REASONING_BASE_URL` is not needed |
-| U4 | Rate limits | Per model, from the catalog and confirmed by response headers. Lightning: **600 RPM / 400K TPM**. A burst of 20 concurrent calls: 20 × 200 | 17 extraction chunks in a burst is far inside the limit. Re-check once the paid credit lands (trial tier today) |
-| U5 | Is an image-generation model served? | **No.** No model in either host's catalog has an image output modality | Rendering stays on ComfyUI on a Nebius GPU (T003). FrameFlow plan item N8 is dropped |
-| U6 | Sampling for grounded extraction | **Not settled by this probe** — 3 runs at each setting on one short scene all grounded their evidence verbatim | Decide on the full-script baseline in T006. The one failure seen was a *shape* failure under `json_object` (see U1), not a sampling one |
-| U7 | Is a vision model served, and does it take an image in a chat message? | **Yes — but none is NVIDIA.** Every Nemotron model is `text->text` and rejects images. Five non-NVIDIA models accept images and all five read our test image correctly on 2026-09-28; **on 2026-09-30 GLM-5.3-Flash no longer received images** ([re-check](#u7-re-check-2026-09-30)), so the describer is DeepSeek-V4.1-Flash | **Decided 2026-09-28: option A now, B as a stretch** — see [§ The vision decision](#the-vision-decision) |
+| U4 | Rate limits | Per model, from the catalog and confirmed by response headers. Lightning: **600 RPM / 400K TPM**. A burst of 20 concurrent calls: 20 × 200 | 17 extraction chunks in a burst is far inside the limit. Measured on the trial tier (2026-09-28); not re-read since the Builder Program credit landed |
+| U5 | Is an image-generation model served? | **No.** No model in either host's catalog has an image output modality | ~~Rendering stays on ComfyUI on a Nebius GPU (T003)~~ **Superseded 2026-10-09:** FLUX on fal.ai draws every frame (FLUX.2 [klein] 4B today); re-checked 2026-10-08, still no image model ([§ U5](#u5--image-generation)). T003 cut 2026-10-19. FrameFlow plan item N8 is dropped |
+| U6 | Sampling for grounded extraction | **Not settled by this probe** — 3 runs at each setting on one short scene all grounded their evidence verbatim | Still open: T006 shipped `temperature` 0.0 without settling it (grounding.md §10). The one failure seen was a *shape* failure under `json_object` (see U1), not a sampling one |
+| U7 | Is a vision model served, and does it take an image in a chat message? | **Yes — but none is NVIDIA.** Every Nemotron model is `text->text` and rejects images. Five non-NVIDIA models accept images and all five read our test image correctly on 2026-09-28; **on 2026-09-30 GLM-5.3-Flash no longer received images** ([re-check](#u7-re-check-2026-09-30)), so the describer was DeepSeek-V4.1-Flash (Super VL since 2026-10-17: U8) | **Decided 2026-09-28: option A now, B as a stretch** — see [§ The vision decision](#the-vision-decision) |
 | U8 | Is there an NVIDIA vision model now? (2026-10-17) | **Yes: `nvidia/Nemotron-3.5-Super-VL`** (`text+image->text`, listed 12 Oct, released 15 Oct). One probe read a comic page correctly | **Adopted 2026-10-17 (Katlego):** every vision call is Super VL with thinking off (T105). Measured on the-red-kite: it fits (0 errors, 0.95× tokens, 1.43× median time) and most of the audit carries over; T106–T108 adapt the rest ([§ U8](#u8--an-nvidia-vision-model-2026-10-17)) |
 
 ## Settled configuration
@@ -29,7 +29,7 @@ These are the values in [`.env.example`](../.env.example).
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1` | U3: every Nemotron model answers here |
 | `NEBIUS_MODEL_FAST` | `nvidia/Nemotron-3_5-Lightning` | 1M context, $0.06 / $0.24 per 1M tokens, 600 RPM; `json_schema` enforced (U1) |
 | `NEBIUS_MODEL_REASONING` | `nvidia/nemotron-3-super-120b-a12b` | 262K context, $0.30 / $0.90, 300 RPM |
-| `NEBIUS_MODEL_VISION` | `nvidia/Nemotron-3.5-Super-VL`, with `NEBIUS_VISION_THINKING=false` | Since 2026-10-17 (T105, § U8; [super-vl-migration.md](super-vl-migration.md)): the first NVIDIA model on Token Factory that takes an image. Before it, `deepseek-ai/DeepSeek-V4.1-Flash`, which was `zai-org/GLM-5.3-Flash` (cheapest correct VLM on 2026-09-28) until the [U7 re-check](#u7-re-check-2026-09-30) found it no longer receives images. DeepSeek read real storyboard frames correctly, 3000 RPM. It *describes* frames; Nemotron judges |
+| `NEBIUS_MODEL_VISION` | `nvidia/Nemotron-3.5-Super-VL`, with `NEBIUS_VISION_THINKING=false` | Since 2026-10-17 (T105, § U8; [super-vl-migration.md](super-vl-migration.md)): the first NVIDIA model on Token Factory that takes an image. Before it, `deepseek-ai/DeepSeek-V4.1-Flash`, which was `zai-org/GLM-5.3-Flash` (cheapest correct VLM on 2026-09-28) until the [U7 re-check](#u7-re-check-2026-09-30) found it no longer receives images. DeepSeek read real storyboard frames correctly, 3000 RPM. The vision model *describes* frames; Nemotron judges |
 | `NEBIUS_REASONING_BASE_URL` | removed | U3 |
 
 Other Nemotron models, both served on the default host: `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`
@@ -173,8 +173,17 @@ than fixed backoff. TPM, not RPM, is the binding limit for extraction (17 chunks
 ## U5 — Image generation
 
 No model on either host has an image output modality (`architecture.modality` is `text->text` or
-`text+image->text` for all 25). `flux-schnell` and `sdxl` are gone. **Consequence:** images render on
-ComfyUI on a Nebius AI Cloud GPU (T003), which still satisfies "runs on Nebius AI Cloud".
+`text+image->text` for all 25). `flux-schnell` and `sdxl` are gone. ~~**Consequence:** images render on
+ComfyUI on a Nebius AI Cloud GPU (T003), which still satisfies "runs on Nebius AI Cloud".~~
+
+**Superseded (2026-10-09, Tumo; Katlego approved).** Re-checked on 2026-10-08: Token Factory still
+serves no image model (`flux-schnell`, `flux-dev` and `sdxl` answer 404). A Nebius L40S kept up
+until judging ends (15 Dec) would cost about $2,500, and started per session it would meet judges
+with cold starts, so every frame is drawn on **fal.ai**: FLUX.1 [schnell] from 2026-10-09, FLUX.2
+[klein] 4B since (at most one megapixel, $0.003 a drawing). ComfyUI on a Nebius GPU stayed an
+optional backend until **T003 was cut on 2026-10-19** (Tumo; Katlego's proposal: no money for a
+GPU VM). Every model call Panelwise makes still goes to Token Factory; only the drawing doesn't.
+The research and sources: [design/storyboard.md](design/storyboard.md) §3.5.
 
 ## U6 — Sampling for grounded extraction
 
@@ -212,8 +221,8 @@ as a base64 `data:` URL in an OpenAI-style content part:
 | `moonshotai/Kimi-K2.6` | Moonshot | 0.95 · 4.00 | 200 | ✅ "Red square: top-left. Blue circle: bottom-right." |
 | `moonshotai/Kimi-K3` | Moonshot | 3.00 · 15.00 | 1000 | ✅ correct ("bottom-right (right of center)") |
 
-All four Nemotron models are `text->text` in the catalog. **No NVIDIA vision model is served on
-Token Factory.** A two-shape test proves the plumbing works, not that a model can audit a storyboard
+All four Nemotron models are `text->text` in the catalog. **On 2026-09-28 no NVIDIA vision model
+was served on Token Factory** (Super VL was listed 12 Oct: § U8). A two-shape test proves the plumbing works, not that a model can audit a storyboard
 frame — frame-audit accuracy is measured in T049.
 
 ### U7 re-check (2026-09-30)
@@ -235,15 +244,15 @@ frame that shows two adults and a child in a kitchen. The same request shape as 
 a text-only prompt's token count, and a confident invented description. No error is returned, so
 nothing upstream can tell. The audit would have judged made-up frames.
 
-**Consequence:** `NEBIUS_MODEL_VISION` is now `deepseek-ai/DeepSeek-V4.1-Flash` ($0.30 · $1.20,
-3000 RPM), the cheapest model that read both the U7 image and a real storyboard frame correctly.
+**Consequence:** `NEBIUS_MODEL_VISION` became `deepseek-ai/DeepSeek-V4.1-Flash` ($0.30 · $1.20,
+3000 RPM; until 2026-10-17, § U8), the cheapest model that read both the U7 image and a real storyboard frame correctly.
 Its structured output held on every describer call in T020's live runs (`json_schema`, no repair
 needed). Option A is unchanged: only the describer's model moved. T049 should re-check whichever
 describer is configured, since this changed silently between two dates.
 
 ### The vision decision
 
-SPEC, README and the pitch say "a **Nemotron** vision auditor". That can't be true on Token Factory
+SPEC, README and the pitch said "a **Nemotron** vision auditor". That couldn't be true on Token Factory
 as-is. Options, for the team to decide before T010 (`docs/design/verify.md`):
 
 | | Option | Nemotron's role in the audit | Cost / effort | Risk |
@@ -265,7 +274,7 @@ active, text and images, 1M context), **Bolt 74B-A9B** and **Bolt E4B** (due 23 
 is on Token Factory; the two Bolts are for local and edge hardware, so they don't fit a project
 whose model calls must be Token Factory's.
 
-| | `nvidia/Nemotron-3.5-Super-VL` | `deepseek-ai/DeepSeek-V4.1-Flash` (today's describer) |
+| | `nvidia/Nemotron-3.5-Super-VL` | `deepseek-ai/DeepSeek-V4.1-Flash` (the describer until 17 Oct) |
 |---|---|---|
 | Modality | `text+image->text` | `text+image->text` |
 | Context | 1,048,576 | 1,048,000 |
@@ -292,7 +301,7 @@ project `28a0476c` (2026-10-16, klein, 22 storyboard frames and 22 comic panels,
 The vision model and its thinking toggle are the only change between runs; the judge is the same
 Nemotron Super. Four attempts at a time. About $0.5 of Token Factory for the three runs._
 
-| | DeepSeek-V4.1-Flash (today) | Super VL, thinking default | Super VL, `NEBIUS_VISION_THINKING=false` |
+| | DeepSeek-V4.1-Flash (the describer then) | Super VL, thinking default | Super VL, `NEBIUS_VISION_THINKING=false` |
 |---|---|---|---|
 | Attempts, `ERROR`s | 44, 0 | 44, 0 (one schema answer repaired) | 44, 0 |
 | Raw verdicts (pass / warn / fail) | 4 / 34 / 6 | 3 / 30 / 11 | 8 / 28 / 8 |
@@ -351,10 +360,11 @@ beats DeepSeek):
   there is nothing else. Pitch and plan: [super-vl-migration.md](super-vl-migration.md).
 
 **What this changes:** option B of [§ The vision decision](#the-vision-decision) (an NVIDIA model
-that sees the frame) no longer needs a GPU of our own. **What it doesn't change yet:** the describer
-stays DeepSeek-V4.1-Flash until T105 ([docs/design/vision-model.md](design/vision-model.md))
-measures Super VL on stored drawings with `python -m app.verify.reaudit`: the verdicts it changes,
-looked at; schema failures; tokens and seconds an attempt, with thinking on and off.
+that sees the frame) no longer needs a GPU of our own. **What T105 settled:** the describer was
+DeepSeek-V4.1-Flash until T105 ([docs/design/vision-model.md](design/vision-model.md)) measured
+Super VL on stored drawings with `python -m app.verify.reaudit` (above: the verdicts it changes,
+looked at; schema failures; tokens and seconds an attempt, with thinking on and off), and the
+defaults moved to Super VL on 2026-10-17 (#192).
 
 ### U8 held out: the-lighthouse-inspector (2026-10-17, T105's translation run)
 
@@ -437,8 +447,8 @@ run; T101–T104 are not on main yet), both with thinking off, the hosted ladder
    DeepSeek. Each withholds the frame (on the hosted demo, a redraw), and most land on right frames.
 2. **Absent characters let through:** `no_character` withholds 1 of the 8 absent-character frames
    on Super VL against 4 on DeepSeek. The presence agent (T099) finds people more readily on Super
-   VL, or the judge matches them; worth a look at those six frames' `found` answers before T102
-   and T104 land, since both build on the presence agent.
+   VL, or the judge matches them; worth a look at those six frames' `found` answers, since T102
+   and T104 (merged 18 Oct) build on the presence agent.
 3. **The sex agent holds up:** 10 of 15 sex faults withheld against 9.
 
 **One run is noisy at the level of a frame:** lighthouse 7.5 on DeepSeek was shown in the
@@ -539,10 +549,10 @@ Raw: `eval/measurements/2026-10-18-limbs/` (both runs' answers per drawing, and 
 
 ## Follow-ups this creates
 
-- T004: `json_schema` strict by default; thinking off by default on the fast tier; trace
+- ✅ T004: `json_schema` strict by default; thinking off by default on the fast tier; trace
   `reasoning_tokens`; honour `Retry-After` and the ratelimit headers; one base URL.
-- T006: settle U6 on the full-script baseline.
-- T010: build `verify.md` on option A (perceive with `NEBIUS_MODEL_VISION`, judge with Nemotron).
-- SPEC, README and `docs/submission/about.md` say "Nemotron vision auditor": correct them to the
+- U6: still open (T006 shipped `temperature` 0.0; grounding.md §10).
+- ✅ T010: build `verify.md` on option A (perceive with `NEBIUS_MODEL_VISION`, judge with Nemotron).
+- ✅ (done 2026-09-30) SPEC, README and `docs/submission/about.md` say "Nemotron vision auditor": correct them to the
   option A wording, in their own PR.
-- U4: re-read the limits once the Builder Program credit lands.
+- U4: re-read the limits now the Builder Program credit has landed (not done).

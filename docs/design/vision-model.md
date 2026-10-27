@@ -15,11 +15,12 @@ that don't are adapted to Super VL
 Which model answers the audit's **vision** calls, and how we decide. Every call on `Tier.VISION`
 uses one model, `NEBIUS_MODEL_VISION`: the describer (`FrameDescription`), the sex agent
 (`PersonCheck`, T095) and the presence agent (`Presence`, T099). The same holds for the open agents
-(T102's questions, T104's layout, T097's heads) and for any later one (limbs, bubbles). Today that
-model is `deepseek-ai/DeepSeek-V4.1-Flash`, because until 12 Oct Token Factory served no NVIDIA
-model that takes images (findings § U7). T105 measures `nvidia/Nemotron-3.5-Super-VL` on drawings
-we already have: whether it fits, and which parts of the audit (prompts, schemas, checks, agents)
-carry over as they are and which need adapting to it (§8).
+(T102's questions, T104's layout, T097's heads) and for any later one (limbs, bubbles). Since
+2026-10-17 that model is `nvidia/Nemotron-3.5-Super-VL`, thinking off (T105). Until then it was
+`deepseek-ai/DeepSeek-V4.1-Flash`, because until 12 Oct Token Factory served no NVIDIA model that
+takes images (findings § U7). T105 measured Super VL on drawings we already had: whether it fits,
+and which parts of the audit (prompts, schemas, checks, agents) carry over as they are and which
+need adapting to it (§8).
 
 **Not covered:** the judge (`Tier.REASONING`, Nemotron Super, unchanged); the prompts, schemas,
 checks and the rule ladder (verify.md, unchanged: a model swap that needs a prompt change is a
@@ -43,13 +44,13 @@ storyboard.md §3.5).
 No new entity, table or migration. One setting:
 
 - `NEBIUS_VISION_THINKING` (`Settings.nebius_vision_thinking: bool | None`): the thinking toggle
-  sent on `Tier.VISION` calls. **Unset or blank → `None` → nothing sent**, which is today's
-  behaviour, so DeepSeek's calls are byte for byte unchanged. `false` or `true` sends
-  `chat_template_kwargs: {"enable_thinking": …}` on every vision call. A caller's explicit
-  `thinking=` still wins, as on the other tiers.
+  sent on `Tier.VISION` calls. **Default `false` since T105** (`config.py`), so every vision call
+  sends `chat_template_kwargs: {"enable_thinking": false}`; `true` sends `true`. **Blank → `None` →
+  nothing sent** (the default before T105, so DeepSeek's calls were byte for byte unchanged). A
+  caller's explicit `thinking=` still wins, as on the other tiers.
 
-`NEBIUS_MODEL_VISION` already exists. T105 changes its **default** only after the measurement, and
-`NEBIUS_VISION_THINKING`'s default with it, to whatever the measurement settles.
+`NEBIUS_MODEL_VISION` already exists. T105 changed its **default** on 2026-10-17, after the
+measurement, and `NEBIUS_VISION_THINKING`'s with it (findings § U8).
 
 ## 4. Flow
 
@@ -91,7 +92,7 @@ in the log. Tokens and seconds per attempt come from there.
 
 ```python
 # app/core/config.py
-nebius_vision_thinking: bool | None = None   # NEBIUS_VISION_THINKING; unset or blank: None, nothing sent
+nebius_vision_thinking: bool | None = False  # NEBIUS_VISION_THINKING; False since T105 (None before); blank: None, nothing sent
 #   joins _blank_is_off's field list, so "NEBIUS_VISION_THINKING=" in .env means None, not an error
 
 # app/llm/client.py
@@ -108,7 +109,7 @@ class NebiusChatModel:
 ```bash
 # .env.example (beside NEBIUS_MODEL_VISION)
 # The vision model's thinking toggle (docs/design/vision-model.md, T105): blank sends nothing.
-NEBIUS_VISION_THINKING=
+NEBIUS_VISION_THINKING=false   # since T105's defaults; blank before
 ```
 
 **If and only if §8's bar is met**, the same PR (or a follow-up, the measurement recorded first)
@@ -164,11 +165,17 @@ Katlego's go-ahead before each batch):
 
 ## 10. Open questions
 
-- [ ] **Does Super VL honour strict `json_schema`?** `supported_features` doesn't list
+- [x] **Does Super VL honour strict `json_schema`?** `supported_features` doesn't list
   `structured_outputs` (nor does DeepSeek's, which honours it). The first run answers this.
-- [ ] **Image tokens per frame.** The probe's page cost 3,314 image tokens. A 1280 × 720 frame's
-  count on each model decides (3) of §8's bar more than the text does.
-- [ ] **Which held-out projects** Tumo can re-audit on his machine (`eval/runs/`), so the bar isn't
-  judged on the-red-kite alone, the script the prompts were developed on.
-- [ ] If adopted, whether the pitch line changes to "Nemotron sees and judges every frame": it
-  would, but that is the team's wording, decided with the README (T033).
+  **Yes:** 44 of 44 on the-red-kite, 0 repairs; 25 of 26 on the-lighthouse-inspector (8.1 looped:
+  T109) (nebius-findings.md § U8 measured, § U8 held out).
+- [x] **Image tokens per frame.** The probe's page cost 3,314 image tokens. A 1280 × 720 frame's
+  count on each model decides (3) of §8's bar more than the text does. **Answered by the bar
+  itself:** 0.95× DeepSeek's tokens and 1.43× its median time per attempt (findings § U8).
+- [x] **Which held-out projects** Tumo can re-audit on his machine (`eval/runs/`), so the bar isn't
+  judged on the-red-kite alone, the script the prompts were developed on. **The-lighthouse-inspector**
+  (findings § U8 held out), and the 109 labelled frames across 11 scripts (§ U8 on the labelled
+  frames; eval/audit-mistakes.md).
+- [x] If adopted, whether the pitch line changes to "Nemotron sees and judges every frame": it
+  would, but that is the team's wording, decided with the README (T033). **Decided:** "Nemotron 3.5
+  Super VL describes each frame; Nemotron Super judges it against the script." (SPEC.md).

@@ -3,6 +3,10 @@
 > Earlier handoffs (2026-10-03 Katlego → Tumo, 2026-10-11 Tumo → Katlego, 2026-10-17 Tumo →
 > Katlego) are in git history: `git log -- docs/HANDOFF.md`.
 
+**Closed 2026-10-20:** picked up by Tumo; §4.1–4.2 and §5 steps 1–3 done the same day (T030's
+seed and hosted run, the bookkeeping, T036, gitleaks: STATUS log 2026-10-20). §1's "Not started"
+list is as of writing.
+
 **Written:** 2026-10-20 (SAST) · **By:** Tumo (via Claude), for Katlego · **Why:** Tumo hands the
 work to Katlego, who takes it forward and hands back to Tumo for the rest. Every change below is
 **merged on main (`7ef94d3`)**; no PR of Tumo's is open. **Branch of this note:**

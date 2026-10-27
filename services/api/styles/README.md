@@ -2,7 +2,7 @@
 
 Public storyboard and comic styles: **how** a frame is drawn, never **what** is in it
 ([docs/design/storyboard.md](../docs/design/storyboard.md) §3.2). The hosted demo uses only the
-styles in this folder.
+styles in this folder, and draws every frame in the default, `clean`: there is no style picker.
 
 | Key | Label | Medium | Emphasis |
 | --- | --- | --- | --- |
@@ -19,13 +19,13 @@ the user); FrameFlow's `classic` is dropped (storyboard.md §8), and the private
 One TOML file per style; the file stem is the key (`[a-z0-9-]+`).
 
 ```toml
-label = "Clean sketch"                            # required: shown in the style picker
+label = "Clean sketch"                            # required: printed in the PDF's footer
 description = "Pencil storyboard. ..."            # required
 medium = "storyboard sketch, pencil drawing"      # required: leads every frame prompt
 finish = "grayscale, monochrome, loose linework"  # required: straight after the medium
 grayscale = true                                  # required: the pixel pass after rendering
-emphasis = 1.3                                    # optional: the renderer's weight on `medium`
-negative = ""                                     # optional: the negative prompt (subtractive only)
+emphasis = 1.3                                    # optional: a weight on `medium`; not applied on fal.ai
+negative = ""                                     # optional: a negative prompt; not sent to fal.ai
 default = true                                    # optional: exactly one public style sets it
 ```
 

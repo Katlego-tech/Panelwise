@@ -1,6 +1,7 @@
 # What each model got wrong, what fixed it, and how to check it again
 
-**For:** Katlego, and anyone changing a model (the Super VL migration, T105) · **From:** Tumo (via
+**For:** Katlego, and anyone changing a model (the Super VL migration, T105, done 2026-10-17; its
+re-score is under *The baseline*) · **From:** Tumo (via
 Claude), 2026-10-17 · **The full record:** [docs/learning-log.md](../docs/learning-log.md) (L001–L023,
 one entry per lesson, with its numbers) and the run reports in [eval/runs/](runs/README.md).
 
@@ -35,10 +36,16 @@ A re-run costs one description, one judgement and the agents' questions per fram
 `--script <title>` runs one script. Then look at every frame whose result differs (the scorer prints
 one line per frame; pull a drawing with [measurements/2026-10-16/fetch_shots.py](measurements/2026-10-16/fetch_shots.py)).
 
-**The baseline** (2026-10-17, `--stored`, today's hosted ladder `drawn_sex,no_character`): of 57
+**The baseline** (2026-10-17, `--stored`, the ladder `drawn_sex,no_character`): of 57
 wrong frames 15 are withheld, of 40 right frames 14 are withheld. Most stored audits predate the
 agents (T095–T104), so this is the audit of the day each frame was drawn, not today's: a re-run with
 DeepSeek is the fair "before" for Super VL.
+
+**After** (2026-10-20, the T109 re-score on Super VL,
+[measurements/t124/rescore-2026-10-20/](measurements/t124/rescore-2026-10-20/)): run with
+`drawn_twice` on the ladder, 43 of 57 wrong and 7 of 40 right withheld; on today's hosted ladder
+`drawn_sex,no_character,split_panels` (`drawn_twice` warns since 2026-10-20), **38 of 57 wrong
+withheld, 1 of 40 right, 0 of 12 weak**.
 
 ## The mistakes, by the model that made them
 
