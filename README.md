@@ -324,7 +324,59 @@ private project, is disclosed file by file in [CHANGES-FROM-FRAMEFLOW.md](CHANGE
 ## Feedback on Nebius Token Factory and NVIDIA Nemotron
 
 
-⟨TBD: written by the team.⟩
+### 1. What worked exceptionally well
+
+- **Undocumented structured decoding saved our pipeline (U1):** The Token Factory catalog listed no
+  `json_mode` or `structured_outputs` for Nemotron, but strict `json_schema` decoding worked cleanly
+  out of the box. Even with a bare user prompt containing no mention of schemas or evidence fields,
+  Nemotron steered generation into the exact JSON schema requested. For a system whose core premise
+  is deterministic grounding back to screenplay lines, schema-level enforcement was far more
+  reliable than prompt-based formatting or `json_object` (which produced malformed shapes or
+  invented narrative details).
+- **Transparent rate limits and clean backoff headers (U4):** Getting per-model rate limits
+  (`x-ratelimit-limit-*`, `x-ratelimit-remaining-*`, `x-ratelimit-reset-*`) echoed directly on every
+  HTTP response, combined with an API that honours `Retry-After`, made implementing resilient client
+  retries straightforward. Bursting 20 concurrent extraction calls on Lightning returned 20 × 200
+  without a hitch.
+- **Radical cost-efficiency for multi-stage pipelines:** Running a complete script end-to-end
+  (parsing, grounded extraction, shot planning, 44 rendered frames, and multi-agent audit loops)
+  consumed ~340k tokens and cost roughly $0.20 total (with ~$0.05 on Token Factory and ~$0.15 for
+  image generation). Token Factory solved the infrastructure wall where free-tier or local small
+  models timed out or hit arbitrary daily request caps.
+- **Nemotron 3.5 Super VL landing mid-hackathon (U8):** When we started, Token Factory served no
+  NVIDIA vision model, forcing us into a split architecture (DeepSeek describing, Nemotron judging).
+  The arrival of `nvidia/Nemotron-3.5-Super-VL` on 12–15 October allowed us to migrate every vision
+  call to an NVIDIA model without running a separate self-hosted GPU VM. With thinking disabled, it
+  matched the previous describer's accuracy, dropped total token usage by 5%, and processed 44
+  verification runs with zero schema errors.
+
+### 2. What surprised us & friction points (constructive feedback)
+
+- **Catalog metadata does not reflect model reality:**
+  - Strict `json_schema` works, but the catalog didn't advertise it. Builders relying solely on
+    `supported_features` would assume Nemotron cannot do structured outputs and look elsewhere.
+  - Conversely, `json_object` silently degraded into invalid structures or echoed JSON schema
+    definitions as data wrappers.
+- **Reasoning token overhead and confusing toggle switches (U2):**
+  - On fast-tier Nemotron Lightning, thinking is enabled by default. For a single-number arithmetic
+    probe, reasoning expanded token usage from 4 tokens to 271 (a ~68× cost multiplier). Left
+    unmanaged on bulk extraction tasks, this would chew through budgets rapidly.
+  - Standard ways of turning off reasoning (`reasoning_effort: "low"` or system directives like
+    `/no_think`) were ignored and still emitted reasoning tokens. Only explicit
+    `chat_template_kwargs: {"enable_thinking": false}` or `reasoning_effort: "none"` reliably
+    silenced it. Clearer documentation on how to control thinking behavior would save teams
+    significant trial-and-error.
+- **Silent degradation on multimodal endpoints (U7):**
+  - When `zai-org/GLM-5.3-Flash` stopped receiving images between 28 and 30 September, it returned
+    HTTP 200 with text-only token counts (~31 prompt tokens) and fabricated plausible descriptions
+    of nonexistent scenes rather than throwing a 400 or 500 error. For an automated critic
+    pipeline, a model failing silently and hallucinating audit descriptions is much more dangerous
+    than a hard error.
+- **Lack of image generation on Token Factory (U5):**
+  - Token Factory is strictly text->text and text+image->text. Because there is no image
+    generation model (e.g. FLUX or SDXL) available on the serverless API, we had to route frame
+    generation to fal.ai. Having serverless image generation on Token Factory would have allowed
+    the entire pipeline to run within a single provider boundary.
 
 ## Team
 
