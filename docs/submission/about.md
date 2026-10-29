@@ -11,17 +11,24 @@
 
 ## Inspiration
 
-⟨TBD — replace with your real story. Draft:⟩ A storyboard is how a director shows everyone what
-the film will look like before a single day is shot, and for small productions it is often the
-first thing cut: it takes an artist, time and money. We had already built **FrameFlow**, a
-pre-production assistant that reads a screenplay and breaks it down into characters, locations and
-shots. The obvious next step was to *draw* those shots — and then to go one step further and turn
-the same script into a comic book.
+A storyboard is how a director shows everyone what the film will look like before a single day is
+shot. For small productions (a student film, a community play, a short shot on a phone) it is
+usually the first thing cut: it takes an artist, time and money that nobody has. We had already
+built **FrameFlow**, a pre-production assistant that reads a screenplay and breaks it down into
+characters, locations and shots. But a list of shots is still not a picture. We wanted to *draw*
+them, and once the frames existed, the same script could become a comic book, with its own
+dialogue in the speech bubbles.
 
-The catch is that image models love to invent. Ask for "a kitchen at night" and you get a cat, a
-third person, a window that isn't in the scene. For a storyboard that is worse than useless: it
-tells the crew something the writer never wrote. So Panelwise is built around one rule —
-**no panel may show a character, prop, line or event that is not in the screenplay.**
+Our first renders showed us the real problem: image models invent. They add a third person to a
+two-person scene, a prop the script never mentions, the wrong character in the wrong place. For a
+storyboard that is worse than no picture at all, because it tells the crew something the writer
+never wrote. So Panelwise is built around one rule:
+**no panel may show a character, prop, line or event that is not in the screenplay.** A second
+model looks at every frame, checks it against the script and redraws it when they disagree.
+
+We also wrote our test scripts about the places we know: load-shedding, a gogo's recipe, market
+day, a borrowed bicycle. A tool that only works on the examples it was tuned on is not one we
+would trust, so we measured Panelwise on scripts it had never seen.
 
 ## What it does
 
