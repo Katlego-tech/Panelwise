@@ -7,6 +7,14 @@
 > demo actually does. FrameFlow figures come from FrameFlow's STATUS.md; the ~6% recall is an upper
 > bound computed from those counts (FrameFlow lists both 202 and 170 locations; we use the lower).
 
+**Elevator pitch** (Devpost's own field, not part of the story below; chosen 2026-10-29 by Katlego):
+
+> Panelwise turns a screenplay into a storyboard and a comic book. NVIDIA Nemotron checks every
+> frame against the script, so nothing appears that the writer didn't write.
+
+**Thumbnail** (3:2, 1500×1000; made 2026-10-29, not committed): the-red-kite's opening lines beside
+the panel drawn from them, a local trial frame from 9 Oct.
+
 ---
 
 ## Inspiration
@@ -132,13 +140,13 @@ probing Token Factory, and several answers contradicted what the documentation s
   the 90 speaking-character appearances itself; the only miss was the same one in each run of
   the largest script, a station announcer heard in voice-over, whom the script's dialogue cues
   supply. Numbers and method:
-  [`eval/`](../../eval/README.md).
+  [`eval/`](https://github.com/Katlego-tech/Panelwise/blob/main/eval/README.md).
 
 - **The frame audit, scored against our own eyes.** On 109 drawn frames we labelled by hand, picked
   for their faults (re-scored 20 Oct on Nemotron 3.5 Super VL with the hosted rule ladder), the audit
   holds back **38 of 57 wrong frames (67%)** and only **1 of 40 right ones**; all 12 weak frames are
   shown with their notes. Method and every frame:
-  [`eval/measurements/t124/`](../../eval/measurements/t124/README.md).
+  [`eval/measurements/t124/`](https://github.com/Katlego-tech/Panelwise/blob/main/eval/measurements/t124/README.md).
 
 ## What we learned
 
