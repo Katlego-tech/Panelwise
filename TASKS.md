@@ -407,6 +407,7 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Verify:  every command in § Run it exists (`python -m` targets under services/api); every number matches eval/results/extraction-2026-10-01.json or docs/nebius-findings.md; no claim of rendering, a web UI or a hosted demo before it exists; an independent review of the claims
       Done:    a judge reading only the README knows what runs today, can run it on a sample, sees where Nemotron and Token Factory carry the load and why, and reads the measured numbers; the feedback section is the team's own words (until then T033 stays open)
 - [ ] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
+      Status (29 Oct, Tumo via Claude): video made, 173 s, on Google Drive (`event.toml [links] video`; narration as recorded in docs/submission/video.md). Left: upload it to YouTube as Public and swap the link in; Devpost asks for YouTube.
       Status:  shooting script merged (#234, 2026-10-24); ported-code table complete (2026-10-27: every module whose code names FrameFlow, `workflow.py`'s grayscale pass added); the video not recorded
 - [ ] T035 [POL] gitleaks over history (repo public since 2026-10-05), Devpost text, submit on Devpost by 29 Oct. Lane `eval+submission`.
       Status:  gitleaks done 2026-10-20 (v8.30.1, `git --log-opts=--all`, redacted): 574 commits on every branch, no leaks; re-run 2026-10-29 (v8.30.1, same options): 583 commits, no leaks. The Devpost text and the submission remain
