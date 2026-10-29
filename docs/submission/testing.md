@@ -24,7 +24,7 @@ see the whole product:
 
 **To try your own upload**, drop a screenplay PDF of up to 15 pages on *Board your script* on the
 projects page. Any PDF in the repo's [`samples/`](https://github.com/Katlego-tech/Panelwise/tree/main/samples)
-folder works (all self-written, 3 to 9 pages). A storyboard takes a few minutes, and you can watch
+folder works (all self-written, 4 to 10 pages). A storyboard takes a few minutes, and you can watch
 its frames arrive one by one. Then press *Make the comic* on its comic tab.
 
 **Why the demo has limits.** We're two students building this on our own money: we pay for the
