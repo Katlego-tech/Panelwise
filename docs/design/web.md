@@ -1,6 +1,6 @@
 # Design — `web` (sign-in, projects, script, storyboard, frame detail)
 
-**Status:** proposed · **Owner:** Katlego (Claude) · **Tasks:** T009, T053, T043, T046, T044, T047 (API: projects
+**Status:** built and live · **Owner:** Katlego (Claude) · **Tasks:** T009, T053, T043, T046, T044, T047 (API: projects
 and upload, the pipeline core, the pipeline as a job, the response schemas and view builders, the
 read endpoints), T040–T042, T045 (the screens), T021 (frame state, the audit rows and the retry,
 in the API), T061 (the frame sheet's audit section, "Try another render"), T062 (the architecture check), T026 (the rendering stage), T027 (the storyboard PDF) ·
@@ -41,10 +41,10 @@ code, and `tokens.css` is the token source every value below comes from.
 | Storyboard | [web/storyboard.png](web/storyboard.png) (full page) | [web/mockups/storyboard.html](web/mockups/storyboard.html) |
 | Frame detail (sheet) | [web/storyboard-frame.png](web/storyboard-frame.png) | [web/mockups/storyboard-frame.html](web/mockups/storyboard-frame.html) |
 | Storyboard on a phone | [web/storyboard-phone.png](web/storyboard-phone.png) (390 px) | same file, narrow viewport |
-| Storyboard: before any frame (today's real state), still reading, failed (§4.3) | [web/storyboard-states.png](web/storyboard-states.png) | [web/mockups/storyboard-states.html](web/mockups/storyboard-states.html) |
+| Storyboard: before any frame (the state before T026), still reading, failed (§4.3) | [web/storyboard-states.png](web/storyboard-states.png) | [web/mockups/storyboard-states.html](web/mockups/storyboard-states.html) |
 | Comic reader (§4.5) | [web/comic.png](web/comic.png) (1440 px) | [web/mockups/comic.html](web/mockups/comic.html) |
 | Comic on a phone | [web/comic-phone.png](web/comic-phone.png) (390 px) | same file, narrow viewport |
-| Comic: plan not ready; planned but the storyboard still running; no comic, without a renderer (today's real state) and with; being made; failed, with and without a renderer (§4.5) | [web/comic-states.png](web/comic-states.png) | [web/mockups/comic-states.html](web/mockups/comic-states.html) |
+| Comic: plan not ready; planned but the storyboard still running; no comic, without a renderer (the state before T026) and with; being made; failed, with and without a renderer (§4.5) | [web/comic-states.png](web/comic-states.png) | [web/mockups/comic-states.html](web/mockups/comic-states.html) |
 
 - Content in the mockups is the self-written lighthouse script from
   `services/api/tests/script/conftest.py`: its real lines, line numbers and page break. The frame
@@ -133,7 +133,7 @@ classDiagram
   job, so a page never sees a half-written stage. `title` is what the user typed at upload,
   defaulting to the file name without `.pdf`.
 - **`Job`** (deploy.md §3) gains `project_id` and `stage`. `kind` is `"storyboard"` (the upload's
-  job) or `"frame_attempt"` (one "Try another render"). `progress` is 0–100 over the whole job:
+  job), `"frame_attempt"` (one "Try another render") or `"comic"` (T064). `progress` is 0–100 over the whole job:
   parsing 0–5, extracting 5–40, planning 40–60, rendering 60–100 (by frames settled). The bands
   are `BANDS` in `app/projects/pipeline.py` (§6); a stage reports its band's start when it begins,
   and a job that stops after planning ends `DONE` at 60 until the rendering stage exists (T026).
@@ -402,8 +402,8 @@ columns stack: intro, report, entities, scenes.
   `rendering` "Rendering frames". Then a 220 px meter: settled ÷ total while rendering with `frames`
   set, else `job.progress`. Then, while rendering with `frames` set only: "{settled} of {total}
   frames settled · {withheld} withheld" (the withheld part only when above 0).
-- **Bar:** the project's title and tabs, Script current, Comic disabled with the tooltip "Comic
-  pages aren't built yet" (§6, Web routes), who is signed in (script.png; no sign-out on project
+- **Bar:** the project's title and tabs (Script current; Storyboard and Comic links; the Comic tab
+  was disabled, "Comic pages aren't built yet", until T024), who is signed in (script.png; no sign-out on project
   pages).
 - **Intro:** eyebrow "Read from the script", the title, then "{pages} pages · {scenes} scenes ·
   every name below quotes the line it came from" (singular for 1).
@@ -594,7 +594,7 @@ A right-hand sheet over the board (Radix Dialog, focus trapped, Esc and × close
 5. **Audit · {n} attempts** (T061, from T021's rows): one block per attempt, newest last: attempt number, verdict,
    seed; "Seen" (the describer's people, setting, light and shot size, in words); "Judged" (who
    each person was called); the failed checks with their details, then "{k} other checks passed"
-   (or "All 7 checks passed"); finally "Described by {vision model} · judged by {judge model}".
+   (or "All {n} checks passed"); finally "Described by {vision model} · judged by {judge model}".
    Before T061 lands this section is absent, not empty. (T045 builds steps 1–4.)
    **T061's rules for step 5** (storyboard-frame.png, `.attempts`): shown only when `audits` is not
    empty; the eyebrow "Audit · {n} attempts" ("1 attempt"). Each attempt, oldest first (newest
@@ -799,15 +799,15 @@ verified against Supabase Auth; a project belongs to its `owner`, anyone else ge
 
 | Method, path | Body | Response | Task |
 |---|---|---|---|
-| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 400 `{error: "no_file" \| "bad_form"}` · 411 `{error: "length_required"}` · 413 `{error: "too_large"}` · 413 `{error: "too_many_pages", max_pages: number}` (T069) · 429 `{error: "llm_budget_spent"}` · 429 `{error: "upload_limit", per_day: number}` (T069; limits.md §4 gives the order) · 401 `{error: "unauthorized"}` · 503 `{error: "auth_unavailable" \| "storage_unavailable"}` (§6 *API internals*) | T053, T069 |
+| `POST /projects` | multipart: `file` (PDF), `title` | 202 `{project: ProjectSummary, job: Job}` · 400 `{error: "not_a_pdf"}` (no `%PDF` header) · 400 `{error: "no_file" \| "bad_form"}` · 411 `{error: "length_required"}` · 413 `{error: "too_large"}` · 413 `{error: "too_many_pages", max_pages: number}` (T069) · 429 `{error: "llm_budget_spent"}` · 429 `{error: "image_budget_spent"}` (T030) · 429 `{error: "upload_limit", per_day: number}` (T069; limits.md §4 gives the order) · 401 `{error: "unauthorized"}` · 503 `{error: "auth_unavailable" \| "storage_unavailable"}` (§6 *API internals*) | T053, T069, T030 |
 | `GET /projects` | — | 200 `ProjectSummary[]`, newest first · 401 · 503 `auth_unavailable` | T053 |
 | `GET /projects/{id}` | — | 200 `Project` | T047 |
 | `GET /projects/{id}/lines` | — | 200 `LinesView` · 409 while parsing | T047 |
 | `GET /projects/{id}/shots` | — | 200 `ShotView[]` in script order · 409 before planning ends | T047 |
 | `GET /projects/{id}/frames` | — | 200 `FrameView[]`, one per `frames` row (no rows exist until T021 writes them) | T047 (creates and reads `frames`) |
 | `GET /projects/{id}/storyboard/pdf` | — | 200 `{"pdf_url": str}`, a signed URL (an hour) to the PDF, saved as `"{title} storyboard.pdf"` (T126, `download=` below), built on demand and stored by its document key (storyboard.md §3.4, §6 `export_pdf`) · 404 `not_found` · 409 `{"error": "not_ready"}` unless the upload's job is `done`, every plan shot has a `frames` row and none is `rendering` or `auditing` · 503 `storage_unavailable` · 503 `{"error": "styles_unavailable"}` when the styles didn't load · 401/503 as every route | T027 |
-| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` or `failed` → `rendering`, under a new `frame_attempt` job; `failed` since T066) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state (the code keeps its T021 name) · 409 `{"error": "not_ready"}` without a plan or that shot · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
-| `POST /projects/{id}/comic` | — | 202 `{job: Job}` (kind `comic`, `RUNNING`) · 404 `not_found` · 409 `{"error": "not_ready"}` (no plan, or the upload's job not `done`) · 409 `{"error": "comic_running"}` · 503 `renderer_unavailable` · 503 `storage_unavailable`, each before anything is written, in comic.md §4a's order · 401/503 as every route | T064 |
+| `POST /projects/{id}/frames/{scene_index}/{number}/attempts` | — | 202 `FrameView` (`withheld` or `failed` → `rendering`, under a new `frame_attempt` job; `failed` since T066) · 404 `not_found` (no such frame row, or not the owner's) · 409 `{"error": "not_withheld"}` in any other state (the code keeps its T021 name) · 409 `{"error": "not_ready"}` without a plan or that shot · 429 `llm_budget_spent` · 429 `image_budget_spent` (T069, T030; after the 409s, before the 503s) · 503 `{"error": "renderer_unavailable"}` with no renderer factory or no model (every deployment before T026) · 503 `{"error": "storage_unavailable"}` with no store · 401/503 as every route ("Try another render, in order") | T021 |
+| `POST /projects/{id}/comic` | — | 202 `{job: Job}` (kind `comic`, `RUNNING`) · 404 `not_found` · 409 `{"error": "not_ready"}` (no plan, or the upload's job not `done`) · 409 `{"error": "comic_running"}` · 429 `llm_budget_spent` · 429 `image_budget_spent` (T069, T030) · 503 `renderer_unavailable` · 503 `storage_unavailable`, each before anything is written, in comic.md §4a's order · 401/503 as every route | T064 |
 | `GET /projects/{id}/comic` | — | 200 `ComicView` (every URL signed for 3600 s) · 409 `not_ready` before the plan · 404 · 503 `storage_unavailable` when signing fails | T064 |
 
 **The pipeline core** (T043; no database: T046 runs it as a job and writes what it reports, T026
@@ -902,7 +902,7 @@ async def current_caller(request: Request) -> Caller: ...   # FastAPI dependency
 
 # app/projects/model.py, app/jobs/model.py (T009): SQLAlchemy rows for deploy.md §6's tables
 class JobState(StrEnum): QUEUED = "queued"; RUNNING = "running"; DONE = "done"; FAILED = "failed"
-class JobKind(StrEnum): STORYBOARD = "storyboard"; FRAME_ATTEMPT = "frame_attempt"
+class JobKind(StrEnum): STORYBOARD = "storyboard"; FRAME_ATTEMPT = "frame_attempt"; COMIC = "comic"  # T064
 RESTARTED: str   # §4.1, verbatim: "The server restarted while this ran. Upload the script again."
 
 # app/projects/repo.py, app/jobs/repo.py (T009); every function takes an AsyncSession and doesn't commit
@@ -914,9 +914,8 @@ async def fail_interrupted(session) -> int: ...   # every QUEUED or RUNNING job 
 
 - **`ProjectSummary.job` is the project's latest `storyboard` job.** A `frame_attempt` job ("Try
   another render", T021) never replaces it: that frame shows its own state (§4.3), so a failed
-  re-render can't make a read script look failed. Today every job is a storyboard job;
-  `list_summaries`' latest-job query gains `kind = 'storyboard'` in T021, which creates the other
-  kind, with a test.
+  re-render can't make a read script look failed. `list_summaries`' latest-job query filters
+  `kind = 'storyboard'` (T021), so a `frame_attempt` or `comic` job never replaces it.
 - **`ProjectSummary` before T046.** `pages`, `scenes` and `shots` are `null` until T046 writes the
   stage columns and makes `list_summaries` read them (`codec.py`; T046's Files and Done), and
   `frames` is `null` until T047/T021 add the `frames` table. That is the real state of a project
@@ -1266,7 +1265,7 @@ character", `light` "light", `framing` "framing", `signature` "artist's signatur
 | Images | Supabase Storage signed URLs, only for passed or warned frames | public bucket URLs: a withheld frame's file would be one guess away |
 | Theme | light only | dark mode: the paper-on-a-light-table metaphor doesn't survive inversion, and the deadline is 2026-10-30 |
 | Script text | always Courier Prime | the body face: quotes would look like our words |
-| A 401 on a poll or an action (T123) | `/sign-in` on the second 401 in a row; an action repeats once after 1 s | a Supabase client in the browser refreshing the session itself: a second refresher racing the proxy's, and auth-js in the client bundle; the route handler retrying `getClaims()`: holds a request already up to ~50 s into auth-js's retries; redirecting on the first 401 (today): signs out a judge whose session is alive (measured, `eval/measurements/t123/`) |
+| A 401 on a poll or an action (T123) | `/sign-in` on the second 401 in a row; an action repeats once after 1 s | a Supabase client in the browser refreshing the session itself: a second refresher racing the proxy's, and auth-js in the client bundle; the route handler retrying `getClaims()`: holds a request already up to ~50 s into auth-js's retries; redirecting on the first 401 (before T123): signs out a judge whose session is alive (measured, `eval/measurements/t123/`) |
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none (shadcn/ui,
 restyled).
@@ -1324,7 +1323,7 @@ restyled).
   (a comic re-run: no drawings, no tokens): the session cookie's `expires_at` set in the past from
   the console, Supabase made unreachable from the web container (`/etc/hosts`) for one poll, then
   restored, with no stage change during the outage (the known limit, §4.0). The page stays and
-  keeps updating (today: `/sign-in`).
+  keeps updating (before T123: `/sign-in`).
 - **Visual:** each screen side by side with its PNG in §2 at 1440 px (and the storyboard and the comic at 390 px),
   layout, tokens and copy matching; a difference is fixed in the code or, if the reference is
   wrong, in this doc first.
@@ -1337,7 +1336,8 @@ restyled).
   `router.refresh()` goes to `/sign-in` though the cookie survives. A fix lets such a request
   through as "unknown" (the page renders its unavailable state) and must keep a refused session
   redirecting.
-- [ ] Upload limits (bytes, pages) and the extraction budget message's page figure: T030 sets them.
+- [x] Upload limits (bytes, pages) and the extraction budget message's page figure: T030 set them:
+  4,000,000 bytes (the default), 15 pages and 3 uploads a day per account (`render.yaml`).
 - [ ] How many extra attempts "Try another render" may start per frame (SPEC open question 4).
 - [ ] Who can see a project beyond its owner (SPEC open question 6); this doc assumes owner only.
 - [ ] Remaking a finished comic (after a new upload or a changed plan): the API allows a second
@@ -1348,5 +1348,5 @@ restyled).
   creates users. Accounts: the contributors' (dashboard), the dev-check user, and the judge
   account(s), seeded by T030's script and given to judges in Devpost's testing instructions, never
   in the repo. The app is unchanged: it has a sign-in page only (§4). Judges sharing one account see
-  each other's uploads; T030 may seed several (`judge1`…) instead. Privacy rests on the API's owner
+  each other's uploads; T030 seeded one shared judge account (limits.md §1). Privacy rests on the API's owner
   check (§6), backed by row-level security with no policies (deploy.md §6, decided in T009's design).

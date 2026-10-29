@@ -9,7 +9,7 @@
 
 A FastAPI service and a Next.js web app. The screenplay is parsed, entities and shots are
 extracted by NVIDIA Nemotron on Nebius Token Factory with verbatim source spans, frames are rendered
-by FLUX.2 [klein] 4B on fal.ai (FLUX.1 [schnell] before 2026-10-11) (ComfyUI on a Nebius GPU optional; storyboard.md §3.5), and every frame is audited before it reaches a storyboard or comic
+by FLUX.2 [klein] 4B on fal.ai (FLUX.1 [schnell] before 2026-10-11) (ComfyUI on a Nebius GPU cut 2026-10-19, T003; storyboard.md §3.5), and every frame is audited before it reaches a storyboard or comic
 page: Nemotron 3.5 Super VL describes it (since 2026-10-17, T105) and Nemotron judges it against its
 shot spec. The key bet:
 **grounding plus an auditor loop** makes generated panels trustworthy, which is what the judges
@@ -25,9 +25,6 @@ These are the values every change is held to. If you're also running Spec-Kit or
 this list is the "constitution" in plain language — keep both in sync, or drop the formal
 constitution and let this section be the single copy (see
 [docs/planning-workflow.md](docs/planning-workflow.md)).
-
-> 📝 **Customize:** every project needs its own list, but these categories are close to universal —
-> fill in the real content, don't leave the placeholder text.
 
 1. **Grounded panels.** A frame or panel never shows a character, prop, line or event that is not in the screenplay. Every panel traces to a verbatim source span, and every audit verdict is logged.
 2. **Stay inside the credits.** LLM and image spend are capped in code; fast-tier Nemotron by default, the reasoning tier only where it earns it. **The public repo runs everything the demo shows**: private style packs are optional and never needed for the demo.
@@ -59,17 +56,17 @@ constitution and let this section be the single copy (see
 | **Messaging / async** | `none (job status and progress in a Postgres table; Redis removed 2026-09-29)` |
 | **Frontend** | `Next.js + shadcn/ui (Radix + Tailwind + CVA)` |
 | **Containerization** | `Docker per service + one docker-compose.yml for local dev` |
-| **Runtime/deploy target** | Web on **Vercel**, API on **Render** (`render.yaml`), data/storage/auth on **Supabase**; images by FLUX.2 [klein] 4B on **fal.ai** (FLUX.1 [schnell] before 2026-10-11) (changed 2026-10-09 from ComfyUI on a Nebius GPU, now optional: storyboard.md §3.5). Changed 2026-09-29 from "API + web on Nebius" to the Hackathon kit's stack; API host changed 2026-10-08 by Katlego from Railway (never deployed) to Render: [docs/design/deploy.md](docs/design/deploy.md) §8, §11 |
+| **Runtime/deploy target** | Web on **Vercel**, API on **Render** (`render.yaml`), data/storage/auth on **Supabase**; images by FLUX.2 [klein] 4B on **fal.ai** (FLUX.1 [schnell] before 2026-10-11) (changed 2026-10-09 from ComfyUI on a Nebius GPU, cut 2026-10-19: a GPU kept up to 15 Dec would cost about $2,500; storyboard.md §3.5). Changed 2026-09-29 from "API + web on Nebius" to the Hackathon kit's stack; API host changed 2026-10-08 by Katlego from Railway (never deployed) to Render: [docs/design/deploy.md](docs/design/deploy.md) §8, §11 |
 | **Data layer** | Supabase Postgres via the session pooler (SQLAlchemy 2 async + Alembic; compose Postgres locally), Supabase Storage for images, Supabase Auth |
 | **Key external services/models** | Nebius Token Factory: Nemotron fast tier (Lightning), reasoning tier (Nemotron Super), vision model Nemotron 3.5 Super VL with thinking off since 2026-10-17 (T105; IDs in .env.example) · **stretch (US5, T113):** ElevenLabs text-to-speech for narrating the comic, off without `ELEVENLABS_API_KEY`, capped by `NARRATION_MONTHLY_CHARACTER_CAP` ([narration.md](docs/design/narration.md)) |
 | **Testing** | pytest + ruff + pyright; Vitest + Playwright; eval/ benchmarks |
-| **Perf/cost goals** | Full script under ~$0.10 of Token Factory credit; one frame in seconds, not minutes, at $0.003 per frame on fal.ai (≤ 1 MP drawn) |
+| **Perf/cost goals** | Full script under ~$0.10 of Token Factory credit (measured on the-red-kite, 2026-10-16: about $0.15, at most $0.19; about $0.30 with fal); one frame in seconds, not minutes, at $0.003 per frame on fal.ai (≤ 1 MP drawn) |
 | **Constraints** | OSI licence, public repo, 3-minute video, no copyrighted scripts in repo/demo/video |
 | **Scale** | Judges plus a demo account; tens of concurrent users at most |
 
 ---
 
-## Project structure (as scaffolded)
+## Project structure
 
 The long version, with why each module exists, is in [docs/project-structure.md](docs/project-structure.md).
 
@@ -79,26 +76,27 @@ panelwise/
 ├── README.md                    # setup, Nemotron + Token Factory usage, demo link
 ├── CHANGES-FROM-FRAMEFLOW.md    # the "what was significantly updated" disclosure
 ├── .env.example                 # key names only
-├── docker-compose.yml           # local: postgres, api, web (a comfyui profile only if T003, optional, is built); deployed: Vercel/Render/Supabase
-├── infra/
-│   ├── nebius/                  # GPU VM / serverless endpoint for ComfyUI
-│   └── comfyui/workflows/       # public node graphs (JSON)
+├── docker-compose.yml           # local: postgres, api, web; deployed: Vercel/Render/Supabase
+├── render.yaml                  # the hosted API on Render
+├── infra/                       # README only: ComfyUI on a Nebius GPU (T003, cut 2026-10-19)
 ├── services/api/                # FastAPI
 │   ├── app/
 │   │   ├── core/                # config, auth, budget (+ LLM spend cap), tracing
 │   │   ├── llm/                 # nebius provider, model tiers, structured_chat
-│   │   ├── script/              # parser, scene_time, dialogue_linker
+│   │   ├── script/              # parser, scene_time, speakers
 │   │   ├── grounding/           # extraction, grounding filter, faithfulness
 │   │   ├── shots/               # shot planner
 │   │   ├── storyboard/          # frame gen, styles registry, PDF        (headline)
 │   │   ├── verify/              # frame audit (vision model describes, Nemotron judges) + re-render loop
 │   │   ├── comic/               # page layout, panel sizing, bubbles, lettering
-│   │   ├── characters/          # reference portraits for consistent characters
-│   │   ├── images/              # provider chain + cache
+│   │   ├── projects/ jobs/ frames/ storage/ limits/ demo/   # uploads, job state, frame rows, Storage, spend caps, the judge seed
+│   │   ├── characters/          # name redaction, labels, sex from the script's words (portraits cut, T025)
+│   │   ├── images/              # README only (planned, not built; fal renders from storyboard/fal.py)
 │   │   └── api/v1/              # projects, script, shots, storyboard, comic, audit log
-│   └── tests/
+│   ├── tests/
+│   └── tools/                   # build_samples, build_comic_reference, evaluate
 ├── apps/web/                    # Next.js: upload → shots → storyboard → comic reader
-├── packages/shared/             # types + api client
+├── packages/shared/             # types + api client (README only)
 ├── styles/                      # public storyboard + comic styles
 ├── samples/                     # public-domain / self-written screenplays ONLY
 ├── eval/                        # faithfulness + frame-audit benchmarks
@@ -115,7 +113,18 @@ that lane's implementation tasks are written — see
 
 | Lane | Design doc | Covers |
 | --- | --- | --- |
-| `<lane>` | [docs/design/`<lane>`.md](docs/design/) | `<class / sequence / state / contracts>` |
+| `llm` | [llm.md](docs/design/llm.md) | the Token Factory client, tiers, `structured_chat` |
+| `script` | [script.md](docs/design/script.md) | the parser and its spans |
+| `grounding` | [grounding.md](docs/design/grounding.md) | extraction, the grounding filter, faithfulness and recall |
+| `shots` | [shots.md](docs/design/shots.md) | the shot planner |
+| `storyboard` | [storyboard.md](docs/design/storyboard.md) | styles, frame prompts, rendering on fal.ai, the PDF |
+| `verify` | [verify.md](docs/design/verify.md), [vision-model.md](docs/design/vision-model.md), [limb-agent.md](docs/design/limb-agent.md) | the frame audit, the re-render loop, the vision model; the limb agent (measured, not adopted) |
+| `comic` | [comic.md](docs/design/comic.md) | page layout, bubbles, lettering, the reader |
+| `characters` | [characters.md](docs/design/characters.md) | reference portraits (not built: T025 cut) |
+| `web` | [web.md](docs/design/web.md) | the web app and the API it calls |
+| `deploy` | [deploy.md](docs/design/deploy.md), [limits.md](docs/design/limits.md) | Vercel + Render + Supabase; spend caps and upload limits |
+| `eval` | [eval.md](docs/design/eval.md), [learning.md](docs/design/learning.md) | the measured numbers; run reports and the learning log |
+| `narration` | [narration.md](docs/design/narration.md) | US5 stretch, not built |
 
 ---
 
@@ -127,7 +136,7 @@ Mirrors [TASKS.md](TASKS.md). Each phase should be independently demoable at its
 1. **Setup** — repo skeleton, CI, lint/test config, schemas/contracts.
 2. **Foundational (blocking)** — the pieces every user story depends on.
 3. **US1** — upload a script and get a grounded storyboard (one frame per shot, public style, PDF).
-4. **US2** — frame audit with re-render and a visible audit log. **US3** — comic pages with speech bubbles. **US4** — consistent characters via reference portraits.
+4. **US2** — frame audit with re-render and a visible audit log. **US3** — comic pages with speech bubbles. **US4** — consistent characters via reference portraits (cut 2026-10-19, T025).
 5. **Hardening** — validation, budget/latency enforcement, edge cases.
 6. **Polish / submission** — docs, checklist, release.
 

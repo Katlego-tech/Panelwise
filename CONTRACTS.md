@@ -26,14 +26,16 @@ Status:   built (T005)
 
 ### `app/grounding`: `Entity`, `Quote`, `GroundingReport`, `Extraction`, `extract`, `ground`, `locate`
 Where:    [docs/design/grounding.md](docs/design/grounding.md) §6
-Owner:    `script+grounding` · Consumers: shots (T007), storyboard (T008, T026), verify (T020), characters (T025)
+Owner:    `script+grounding` · Consumers: shots (T007), storyboard (T008, T026), verify (T020); characters (T025, cut)
 Status:   built (T006)
 
-## Not yet written
+## Written in their design docs, not yet indexed here
 
-Each lands with its design doc, before its code, and then gets its own `###` heading above.
-- `shots`: the shot spec the renderer and the auditor both read. T007: whoever claims it writes the design doc first (PLAN.md Non-negotiable 4).
-- `verify`: the verdict schema, re-render limit and audit-log entry. T010.
-- `comic`: page model, panel sizing and bubble placement. T011.
-- `characters`: reference portraits and how they feed ComfyUI. T012.
-- `web` ↔ API: the upload, shots, storyboard and comic endpoints the app calls. T009 (with T027's storyboard JSON), T024.
+Each contract is §6 of its design doc; a `###` heading above is still to be added for each.
+- `shots`: [docs/design/shots.md](docs/design/shots.md) §6 (built, T007).
+- `storyboard`: [docs/design/storyboard.md](docs/design/storyboard.md) §6 (built, T008, T026, T027).
+- `verify`: [docs/design/verify.md](docs/design/verify.md) §6 (built, T020, T021); the vision tier in [docs/design/vision-model.md](docs/design/vision-model.md).
+- `comic`: [docs/design/comic.md](docs/design/comic.md) §6 (built, T022–T024).
+- `web` ↔ API: [docs/design/web.md](docs/design/web.md) §6 (built).
+- `limits`: [docs/design/limits.md](docs/design/limits.md) §6 (built, T069, T030).
+- `characters`: [docs/design/characters.md](docs/design/characters.md) §6 (designed, T012; not built: T025 cut 2026-10-19).

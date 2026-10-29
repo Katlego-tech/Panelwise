@@ -3,7 +3,8 @@
     python -m app.verify.reaudit <project-id> [--target storyboard|comic] [--limit N]
 
 It writes nothing, no row and no Storage object, and draws nothing: the only spend is the audit's
-two Token Factory calls per logged attempt. So a change to the audit is measured on the very
+Token Factory calls per logged attempt (the describer, the judge and the agents' questions). So a
+change to the audit is measured on the very
 drawings the old audit judged.
 """
 

@@ -1,6 +1,6 @@
 # Design — `comic` (page layout, panels, speech bubbles, export)
 
-**Status:** agreed; §4a, the comic job, proposed (T064) · **Owner:** Katlego (Claude); §4a Tumo (Claude) · **Tasks:** T022 (layout), T023 (bubbles, lettering,
+**Status:** agreed; §4a, the comic job, built (T064) · **Owner:** Katlego (Claude); §4a Tumo (Claude) · **Tasks:** T022 (layout), T023 (bubbles, lettering,
 export), T064 (the comic job, storage, the API), T098 (bubbles placed by the speaker's head; Katlego), T112 (tails never cross; Katlego), T114 (the tail aims at the mouth; Katlego), T115 (a lone unnamed head is the speaker's; Katlego), T116 (tails clear of bubbles and faces; Katlego), T117 (balloon voices: thought, whisper, shout, distress, radio; Katlego), T118 (one speaker's lines linked; Katlego), T119–T121 (the linked tail nearest the head, merged balloons, pauses unlinked; Katlego), T024 consumes it (reader) · **Spec:** [SPEC.md](../../SPEC.md) US3 (script →
 comic)
 
@@ -25,7 +25,7 @@ invented sound effects.
 
 | Kind | Where |
 | --- | --- |
-| Visual reference | [`docs/design/comic/the-red-kite-page-*.png`](comic/): the self-written sample `samples/the-red-kite.pdf` rendered by T023's `render_pages`, built by `services/api/tools/build_comic_reference.py` from the real parser, a hand-planned shot list (every element in one shot) and **fixture frames** drawn with Pillow, each marked `TEST FIXTURE - not a render` (the real frames wait on T026). Six pages, 20 panels; one panel (scene 3, shot 3) is withheld, to show the card. The gate re-renders it and compares pixels (`tests/comic/test_reference.py`). T022's geometry test pins the rects |
+| Visual reference | [`docs/design/comic/the-red-kite-page-*.png`](comic/): the self-written sample `samples/the-red-kite.pdf` rendered by T023's `render_pages`, built by `services/api/tools/build_comic_reference.py` from the real parser, a hand-planned shot list (every element in one shot) and **fixture frames** drawn with Pillow, each marked `TEST FIXTURE - not a render` (fixtures, so the gate's pixel comparison is deterministic). Six pages, 20 panels; one panel (scene 3, shot 3) is withheld, to show the card. The gate re-renders it and compares pixels (`tests/comic/test_reference.py`). T022's geometry test pins the rects |
 | Inputs | `ShotPlan`, `Shot` (shots.md §6); `Screenplay`, `Scene`, `Dialogue`, `Span` (script.md §6); the frame renderer and audit (verify.md §6: `Renderer`, `render_until_accepted`, `Audit.positions`, and from T097 `Audit.heads`: each described person's head box on a comic panel's accepted frame). **Depends on verify.md's `Renderer.render` and `render_until_accepted` taking `width`/`height`** (added in PR #17, T010), so this doc lands after it |
 | Prior art in FrameFlow | none: FrameFlow made storyboard PDFs, never comics (its `storyboard_document.py` hand-wrote a PDF with base-14 fonts, two 16:9 panels per A4 page) |
 | Font | **Comic Neue Regular** (`ComicNeue-Regular.ttf`, SIL Open Font License 1.1), committed with its licence under `services/api/assets/fonts/` by T022, because step 5's budget measures text with the same file the renderer letters with |
@@ -396,9 +396,9 @@ a failed job.
 ### 4a. The comic job (T064)
 
 The steps above, run for one project as a job, stored, and served to the web reader (web.md §4.5).
-Until T026 sets `app.state.renderer_factory`, the app answers `POST …/comic` with 503
-`renderer_unavailable`; the comic is made locally by the architecture check's sketch renderer
-(below), the same way T062 proved the frame loop.
+Without a renderer (no `FAL_KEY`, so no `app.state.renderer_factory`) or a model, the app answers
+`POST …/comic` with 503 `renderer_unavailable` (before T026 it always did); the local check below
+makes a comic with the architecture check's sketch renderer, the same way T062 proved the frame loop.
 
 ```mermaid
 sequenceDiagram
@@ -462,8 +462,8 @@ sequenceDiagram
   5. **Progress** `round(90 × k / n)` once k of the n panels have settled, in its own short
      transaction, written under one lock so it only rises.
 - **Concurrency (T073).** Panels start in plan order, at most `concurrency` at once: the
-  renderer's own limit, which the route passes (`FAL_CONCURRENCY` for fal.ai, storyboard.md
-  §3.5; whichever renderer wins brings its own), default 1 (one at a time, as before T073). Steps
+  renderer's own limit, which the route passes (`FAL_CONCURRENCY`, default 2, storyboard.md
+  §3.5), the function's default 1 (one at a time, as before T073). Steps
   1–4 are per panel and unchanged; `frames` and `paths` are keyed by shot, so the order panels
   settle in changes nothing on the page. The renderer-looks-down count below is shared. The
   first panel that fails the job (any message below) **cancels the panels still in flight**,
@@ -508,8 +508,8 @@ sequenceDiagram
   The restart sweep's `RESTARTED` ("…Upload the script again.") is read back by `GET …/comic` as
   `COMIC_RESTARTED` "The server restarted while the comic was being made. Make it again.", since a
   comic is remade, not re-uploaded.
-- **Cost**: two audit calls per attempt (verify.md), one to three attempts per panel, plus the
-  renderer's. the-red-kite has 21 shots: 42–126 audit calls for the first comic. A re-run reuses
+- **Cost**: the audit's calls per attempt (the describer, the judge and the agents' questions,
+  verify.md; two before the agents), one to three attempts per panel, plus the renderer's. A re-run reuses
   every panel already accepted (step 1), so a job that fails late (lettering, storage) costs only the
   panels that were never accepted when it is made again; a withheld panel is tried three more times.
 
@@ -638,8 +638,9 @@ class ComicRow(Base): ...   # the table above
 COMIC_RENDERER_DOWN: str; COMIC_RENDER_FAILED: str; COMIC_LAYOUT_FAILED: str; COMIC_LAYOUT_FAILED_ANY: str; COMIC_UNEXPECTED: str; COMIC_RESTARTED: str   # §4a, verbatim; COMIC_LAYOUT_FAILED takes .format(shot_id=...)
 async def run_comic_job(job_id: uuid.UUID, *, sessions: async_sessionmaker[AsyncSession], store: AssetStore,
                         model: NebiusChatModel, factory: RendererFactory, max_renders: int = MAX_RENDERS,
-                        concurrency: int = 1) -> None: ...
+                        withholding: frozenset[Check] | None = None, concurrency: int = 1) -> None: ...
 #   max_renders (T071): each rendered panel's attempts; the route passes Settings.render_max_attempts
+#   withholding: the rule ladder (verify.md §4, AUDIT_WITHHOLD_CHECKS); the route passes withholding(settings)
 #   concurrency (T073): panels in flight at once, ≥ 1 (ValueError otherwise); the route passes the
 #   renderer's limit
 #   §4a end to end for the job's project, per panel exactly as §4a's steps 1–5; never raises: every
@@ -647,7 +648,7 @@ async def run_comic_job(job_id: uuid.UUID, *, sessions: async_sessionmaker[Async
 #   app/frames/attempt.py's; the factory is called once per job. Hooks: comic's own (§4a step 2),
 #   never frame_hooks.
 class ComicRefused(RuntimeError):
-    code: Literal["not_found", "not_ready", "comic_running", "renderer_unavailable", "storage_unavailable"]
+    code: Literal["not_found", "not_ready", "comic_running", "llm_budget_spent", "image_budget_spent", "renderer_unavailable", "storage_unavailable"]
 async def start_comic(session: AsyncSession, project_id: uuid.UUID, owner: uuid.UUID, *,
                       renderer: bool, store: bool) -> JobRow: ...
 #   §4a's checks in order, in the caller's transaction (the route's `session.begin()`): selects the
@@ -848,4 +849,5 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   - a long speech (over about 25 words) split at sentence ends into linked balloons. Every word is
     kept, in order, so Non-negotiable I holds, but the layout JSON gains a link;
   - lines stacked as an oval (short, long, short) instead of a greedy wrap;
-  - hands that are doing something kept clear, if T111 ever gives hand boxes.
+  - hands that are doing something kept clear: not planned, since T111 wasn't adopted (findings
+    § U9) and no check gives hand boxes.

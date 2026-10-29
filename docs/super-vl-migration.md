@@ -50,8 +50,8 @@ DeepSeek's wording, and none of them shows a wrong frame on the hosted demo:
 | 18–20 Oct ✅ done 18 Oct (#209, #210) | A rooftop or a roof-level space open to the sky is `exterior`: the describer's setting rule, measured with `reaudit` on the stored drawings | Katlego (Claude) | T106 |
 | 18–20 Oct ✅ done 18 Oct (#209, #210: a `signature_text` field; `text_in_frame` 22 → 5) | Signatures against lettering, re-tuned for Super VL's wording (T077's rule), measured the same way | Katlego (Claude) | T107 |
 | **20–22 Oct** (T108 open; T102, T104 and T097 merged 18 Oct) | The look match: the judge accepts a described hairstyle that is the script's under another word (pigtails, plaits, braids); this sits in your T080 look rule. Also re-measure the open agents on Super VL as they land: T102's questions, T104's layout, T097's heads | **Tumo** | T108; T102, T104 Verify |
-| **23 Oct** | The judge sample re-rendered on the hosted stack, now audited by Super VL (unchanged in the day plan) | both | T030 |
-| 24–26 Oct | The wording: README, SPEC and `docs/submission/about.md` say "Nemotron 3.5 Super VL describes each frame; Nemotron Super judges it", and the video says it too | both | T033, T034 |
+| **20 Oct** ✅ done (planned 23 Oct) | The judge sample drawn on the hosted stack, audited by Super VL, and copied to the judge account (`seed --from`) | both | T030 |
+| 24–26 Oct (SPEC and about.md done; README pending, T033; the video not recorded, T034) | The wording: README, SPEC and `docs/submission/about.md` say "Nemotron 3.5 Super VL describes each frame; Nemotron Super judges it", and the video says it too | both | T033, T034 |
 
 **What it costs:** about $0.15 of Token Factory credit a measuring run (40-odd stored attempts),
 and nothing on fal (no drawings). The monthly token cap stays 2,800,000, since Super VL uses 0.95×
@@ -59,7 +59,7 @@ DeepSeek's tokens.
 
 **Limits:** Super VL allows 300 requests and 2M tokens a minute on Token Factory (DeepSeek: 3,000
 and 1M). A storyboard makes roughly 50–150 vision calls (a description and the agents' questions
-for each of 22-odd frames, up to 3 attempts each) over several minutes, so 300 a minute is ample. Watch for 429s in the hosted logs during the 23 Oct judge sample.
+for each of 22-odd frames, up to 3 attempts each) over several minutes, so 300 a minute is ample. The hosted judge sample ran on it on 20 Oct.
 
 ## Rollback
 

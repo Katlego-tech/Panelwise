@@ -1,15 +1,15 @@
 # Design — `storyboard` (frames, styles, the image chain, the storyboard PDF)
 
-**Status:** draft · **Owner:** Katlego (Claude) · **Tasks:** T008 (styles, redaction, prompts and a
-prompt-printing CLI: buildable now), T026 (the fal.ai renderer, Storage, the storyboard job: §3.5;
+**Status:** built (T003 and T025 cut 2026-10-19) · **Owner:** Katlego (Claude) · **Tasks:** T008 (styles, redaction, prompts and a
+prompt-printing CLI), T026 (the fal.ai renderer, Storage, the storyboard job: §3.5;
 T021's loop is merged), T027 (the PDF and JSON, after T026) · **Spec:** [SPEC.md](../../SPEC.md) US1 (script → grounded storyboard)
 
 ---
 
 ## 1. What this covers
 
-Turning a `ShotPlan` (shots.md) into a **storyboard**: one frame per shot, rendered by FLUX.1 [schnell] on
-fal.ai (§3.5; ComfyUI on a Nebius GPU is an optional backend) in a chosen **style**, audited by verify.md's loop before anyone sees it, stored in
+Turning a `ShotPlan` (shots.md) into a **storyboard**: one frame per shot, rendered by FLUX.2 [klein] 4B on
+fal.ai (§3.5; FLUX.1 [schnell] before 2026-10-11; ComfyUI on a Nebius GPU, T003, cut 2026-10-19) in a **style**, audited by verify.md's loop before anyone sees it, stored in
 **Supabase Storage**, and exported as one **PDF**. It owns four things:
 
 1. **The frame prompt**: built only from the shot's grounded fields (§3.1). This is where
@@ -17,15 +17,14 @@ fal.ai (§3.5; ComfyUI on a Nebius GPU is an optional backend) in a chosen **sty
    output.
 2. **The style registry**: public styles in `styles/`, an optional private pack from
    `PANELWISE_PRIVATE_STYLES`, the same validation for both.
-3. **The renderer**: verify.md's `Renderer` Protocol, implemented on fal.ai (§3.5, the default) and,
-   optionally, against a committed ComfyUI workflow graph (T003); each render stored by a content
+3. **The renderer**: verify.md's `RecordingRenderer` Protocol, implemented on fal.ai (§3.5; the only
+   renderer: ComfyUI, T003, was cut 2026-10-19); each render stored by a content
    address, which is also the render cache.
 4. **The storyboard document**: the page layout and the PDF, with the withheld-frame text card.
 
 **Not covered:** the audit, the re-render loop, the frame state machine and the `frame_audits`
-table (verify.md, T020/T021); reference portraits and IP-Adapter (characters.md, T025, which
-extends this renderer); comic pages (comic.md, which calls this renderer at panel size); the ComfyUI
-box itself (T003, `infra/nebius/`); the `Job` table, the `frames` table and the web screens
+table (verify.md, T020/T021); reference portraits and IP-Adapter (characters.md, T025: cut
+2026-10-19); comic pages (comic.md, which calls this renderer at panel size); the `Job` table, the `frames` table and the web screens
 (docs/design/web.md: T009, T053, T043, T044, T046, T047, T040–T045); spend caps (T030).
 
 ## 2. Reference material
@@ -39,8 +38,8 @@ box itself (T003, `infra/nebius/`); the `Job` table, the `frames` table and the 
 | Contract this calls | verify.md §6 `render_until_accepted`, `seed_for`, `Audit`, `FrameOutcome`, `FrameState`, `Check`, `Verdict` |
 | Character rules | characters.md §3 rules 1–3 (no names in prompts; only the script's words; undescribed stays undescribed) and its redaction |
 | Hosting | deploy.md §1 (Supabase Storage for images), §6 (env), §10 (local Storage: decided here, §8) |
-| ComfyUI | `infra/comfyui/workflows/` (committed API-format JSON, inputs set by node title: characters.md §6) |
-| Visual reference | none yet. The first live Export PDF of the-red-kite on the local stack (T027) commits its PDF pages as PNGs under `docs/design/reference/storyboard/`, the reference later changes are compared against (T027 Done) |
+| ComfyUI | none (T003: cut 2026-10-19; never built) |
+| Visual reference | none committed: T027 shipped without committing its PDF pages as PNGs (`docs/design/reference/storyboard/` doesn't exist) |
 | Fonts | **Courier Prime** Regular and Bold (SIL OFL 1.1), committed under `services/api/assets/fonts/` with their licence: the screenplay's own typeface, and the PDF prints script text verbatim |
 
 ## 3. Domain model
@@ -75,18 +74,16 @@ classDiagram
         +str text
         +Span|None span
     }
-    class ComfyRenderer {
+    class FalRenderer {
         +Style style
-        +Workflow workflow
         +AssetStore store
+        +Screenplay screenplay
+        +Extraction extraction
+        +str model
+        +int max_words
+        +float timeout_s
         +render(Shot, int, int, int, int) RenderedFrame
         +record(tuple~int,int~, int) RenderRecord
-    }
-    class Workflow {
-        +str name
-        +dict graph
-        +int native_area
-        +int max_words
     }
     class RenderRecord {
         +tuple~int,int~ shot
@@ -139,16 +136,15 @@ classDiagram
     }
     StyleRegistry --> Style
     FramePrompt --> PromptPart
-    ComfyRenderer --> Style
-    ComfyRenderer --> Workflow
-    ComfyRenderer --> AssetStore
-    ComfyRenderer --> RenderRecord
+    FalRenderer --> Style
+    FalRenderer --> AssetStore
+    FalRenderer --> RenderRecord
     RenderRecord --> FramePrompt
     Storyboard --> StoryboardFrame
     StoryboardPage --> Block
 ```
 
-`ComfyRenderer` implements verify.md's `Renderer`; `RenderedFrame` is verify.md's, unchanged.
+`FalRenderer` (§3.5) implements verify.md's `RecordingRenderer`; `RenderedFrame` is verify.md's, unchanged.
 `FrameState`, `Verdict` and `Check` are verify.md's. `Rect` is `(x, y, w, h)` in page pixels.
 
 ### 3.1 The frame prompt (Non-negotiable I on the input)
@@ -176,7 +172,7 @@ truncates drops the tail.
 | `COUNT` | code, from `visible_characters(shot, screenplay, extraction)` (below) | 1 → "one figure", 2 → "two figures", 3 → "three figures", 4 → "four figures", ≥ 5 → "a group of figures"; omitted at 0 | `None` |
 | `AGE` (T074, T079) | `introduced_age(character, screenplay)` for each `visible_characters` member, in their order; one part per character whose introduction gives an age | `(10)` → "a 10-year-old", `(70s)` → "a person in their 70s"; **T079:** with the sex the introduction's pronouns give (`introduced_sex`, below; **T082:** `character_sex`, which adds a sex title and the extraction's grounded `sex_word`, all agreeing; and when the script gives a sex but no age, a `SEX` part in its place: "a female person" or "a male person", which claim no age (an unaged character may be a baby: `(5 months)` gives no age); cited with `Entity.sex_quote`'s span, or, for a title, the span of the character's first located quote, where the script names them): "a 10-year-old girl" / "boy" under 18, "a 30-year-old woman" / "man" from 18, "a woman in her 70s" / "a man in his 70s" (the first number in the parenthesis after the character's name where an `Action` line introduces it: `LERATO (10), braids…`, `NANDI (60s, oilskin coat)`); omitted when the script gives none | that `Action` element's span |
 | `LOOK` (T079) | `introduced_look(character, screenplay)` for each `visible_characters` member, right after its `AGE` | the introduction's own description, verbatim, redacted: the parenthesis's items after the age (`NANDI (60s, oilskin coat)` → "oilskin coat") and the comma phrase right after the parenthesis (`LERATO (10), braids tied back, grips…` → "braids tied back"; `MOKGOSI (70s), reading glasses pushed up on his forehead, solders…` → that phrase), joined by ", "; a phrase over 8 words, or one with no comma closing it before the sentence ends, is left out (it is an action, not a look: `AMAHLE (8), who is wearing pyjamas … crying.`); omitted when nothing is left, and when the shot covers that introducing line (its `ACTION` part already says it, word for word). **Not a fixed part:** looks give way to the budget (Word budget, below) | that `Action` element's span |
-| `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`), and is accepted only when `visible_characters` has exactly two members (else `ValueError`), so it can never contradict `COUNT` | the phrase; T026's renderer passes `None`, T025 passes it | `None` |
+| `PLACEMENT` | characters.md `FrameReferences.placement`, which must be one of `PLACEMENT_PHRASES` (a closed set owned here: `{"one figure on the left, one on the right"}`; anything else is a `ValueError`), and is accepted only when `visible_characters` has exactly two members (else `ValueError`), so it can never contradict `COUNT` | the phrase; never emitted: T026's renderer passes `None` (T025, which would pass it, was cut 2026-10-19) | `None` |
 | `ACTION` | a covered `Action` element's text | verbatim, whitespace collapsed, redacted | the element's span |
 
 - **The heading span** of a scene is `Span(scene.span.page, scene.span.line_start,
@@ -310,9 +306,9 @@ truncates drops the tail.
   it into another shot draws an event this shot doesn't have. A quote located *inside* a covered
   element is already in the prompt as that element's `ACTION` text. (T082: a `SEX` part cites a
   quote that may lie outside the shot, but only its keyed sex enters the prompt, never its words.)
-  A character's appearance reaches
-  the frame through T025's reference portrait (characters.md), which is built from those quotes and
-  audited on its own.
+  A character's look reaches
+  the frame through the introduction's `AGE`/`SEX` and `LOOK` parts (above); T025's reference
+  portraits (characters.md) were cut 2026-10-19.
 
 **The invariant** (tested, §9): for every part whose `span` is not `None`, that span is this scene's
 heading span, the heading span of `time_source`'s scene (only for `TIME`), the span of the `Action`
@@ -343,7 +339,7 @@ none of which names a person, prop or event.
   to the span a prompt part cites.
 - **Dialogue text never enters a prompt.** Speech isn't visible, and words in a prompt are how
   letters appear in the art (verify.md's hard `TEXT_IN_FRAME`). The speakers are drawn because they
-  are counted (`COUNT`) and, with T025, as reference figures.
+  are counted (`COUNT`).
 - **Movement never enters a prompt.** A still can't show a pan; FrameFlow's movement words
   ("handheld", "tracking with the subject") read as motion blur. Movement is printed under the frame.
 - **Names never enter a prompt** (characters.md rule 1). Every script-derived part is redacted
@@ -448,15 +444,14 @@ none of which names a person, prop or event.
   checks it against the unredacted heading and the vocabulary.
 - **Undescribed stays undescribed** (characters.md rule 3): nothing about how anyone looks is added
   unless the covered text says it.
-- **Parentheses are escaped.** ComfyUI reads `(words)` as a weight, and screenplays are full of
-  them ("NANDI (60s, oilskin coat)"). The renderer escapes `(` and `)` as `\(` and `\)` in every part
-  but `STYLE` (whose weight it adds itself), so script text is never re-weighted.
+- **Parentheses are sent as written.** FLUX reads no weight syntax, so a screenplay's parentheses
+  ("NANDI (60s, oilskin coat)") are never re-weighted and nothing is escaped (§3.5).
 - **No negations** (FrameFlow's finding: "no borders" drew borders). What must not appear is kept
   out by not being said, and caught by the audit. The style's `negative` goes to the negative prompt,
   which only subtracts.
 - **Word budget.** `max_words` (the workflow's, §6) counts **whitespace-separated words** of
   `text()`, a deliberately conservative proxy for the encoder's token limit (the default 55 for
-  CLIP's 77 tokens; T003 sets it for the real encoder). The **fixed parts** (`STYLE`, `FRAMING`,
+  CLIP's 77 tokens, kept for klein: §10). The **fixed parts** (`STYLE`, `FRAMING`,
   `SETTING`, `TIME`, `COUNT`, `AGE`, `SEX` (T082), `PLACEMENT`) are never dropped; **`LOOK` parts (T079)** are kept
   only while the fixed parts and the kept looks leave at least 12 words (`_ACTION_FLOOR`) for the
   `ACTION` parts, dropped from the last character back, so a look never fails a render (at 55 words
@@ -480,7 +475,7 @@ label = "Clean sketch"
 description = "Pencil storyboard at full size. Keeps a wide shot as one panel inside the location."
 medium = "storyboard sketch, pencil drawing"
 finish = "grayscale, monochrome, loose linework, plain background"   # T074: "plain background"
-# emphasis = 1.3     # optional: ComfyUI weight on `medium` (FrameFlow's `ink` and `pencil` used 1.3)
+# emphasis = 1.3     # optional: a weight on `medium`, not applied on fal.ai (FrameFlow's `ink` and `pencil` used 1.3)
 negative = ""         # optional: negative prompt (subtractive only)
 grayscale = true      # the pixel pass after rendering (FrameFlow's image_postprocess)
 default = true        # exactly one PUBLIC style sets this
@@ -506,35 +501,33 @@ default = true        # exactly one PUBLIC style sets this
 
 - **Storyboard frame size**: **1280 × 720** (16:9: a storyboard frame is a frame of the film). Comic
   panels call the same renderer at their rect's size (comic.md §4 step 6).
-- **Draw size.** A diffusion model draws near its native pixel area in multiples of 64. `draw_size`
-  scales the requested width × height to the workflow's `native_area` (the committed graph's latent
-  width × height), rounding each side to a multiple of 64. The drawn image is scaled to **cover** the
+- **Draw size.** `fal_draw_size` (§3.5) scales the requested width × height down (never up) to at
+  most 1,000,000 px, each side floored to a multiple of 16. The drawn image is scaled to **cover** the
   requested size and centre-cropped by at most the rounding excess (never a composition crop), so
   `RenderedFrame.width × height` is exactly what was asked.
 - **Post-processing**, after the resize: the style's grayscale pass (`ImageOps.grayscale` then
   `autocontrast(cutoff=0.5)`, FrameFlow's), and PNG encoding. **The audit sees exactly the pixels
   that are shown and stored**; nothing touches a frame after it is audited.
-- **The render key** is `sha256` of the canonical JSON (sorted keys, no whitespace) of the **fully
-  substituted API graph** that is submitted, then, each after a `"\x1f"`: the **requested**
+- **The render key** is `sha256` of the canonical JSON (sorted keys, no whitespace) of `{"model":
+  FAL_MODEL, "request": <the fal body>}` (§3.5), then, each after a `"\x1f"`: the **requested**
   `<width>x<height>`, `RENDER_VERSION` (a constant bumped whenever `fit` or a post-processing pass
   changes), and the post-processing step (`grayscale` or `none`). The requested size is in the key because two
   requests can round to one draw size (a comic rect and 1280 × 720), and the stored PNG is the
-  fitted one. Prompt, negative, seed, draw size, checkpoint, sampler, steps, cfg and, with T025, the
-  IP-Adapter model and reference image names are all inputs of that graph, so every input that
-  changes the pixels is in the key (characters.md §6, which this makes exact).
+  fitted one. Model, prompt, seed, draw size and steps are all in that body, so every input that
+  changes the pixels is in the key.
 - **Storage paths**: `frames/<render key>.png` for every rendered attempt (the `frame_audits.frame_asset`
   column, verify.md §6, points at it, including attempts that failed their audit);
   `storyboards/<document key>.pdf` for an export (built on demand by T027's
   `GET /projects/{id}/storyboard/pdf`, web.md §6; the key is §3.4's). Paths are content addresses:
   the same inputs always land at the same path, so a `put` is idempotent.
-- **The store is the render cache.** Before submitting a graph, the renderer checks `exists(frames/<key>.png)`;
-  a hit is read back and returned without touching the GPU (`RenderRecord.cached`). A failed job's
+- **The store is the render cache.** Before calling fal.ai, the renderer checks `exists(frames/<key>.png)`;
+  a hit is read back and returned with no fal call (`RenderRecord.cached`). A failed job's
   already-rendered frames therefore cost nothing when the job is run again. There is no other image
   cache (no Redis, no disk cache: §8).
 - **`StoryboardFrame`** is the storyboard's view of verify.md's `FrameOutcome`, built by `frame_of`
   from the outcome and the `RenderRecord` of its **last** attempt (`outcome.audits[-1].attempt`;
   `None` only when no audit exists, i.e. the renderer failed on the first attempt): `asset` is the accepted
-  frame's storage path (`None` unless `PASSED` or `WARNED`); `prompt` (the text actually sent, as in `RenderedFrame.prompt`: weighted and escaped; the
+  frame's storage path (`None` unless `PASSED` or `WARNED`); `prompt` (the text actually sent, as in `RenderedFrame.prompt`: `FramePrompt.text()`, plain, §3.5; the
   record keeps the tagged `FramePrompt`) and `seed` are the last attempt's, which
   for a `PASSED` or `WARNED` frame is the accepted one; `attempts` = `len(outcome.audits)`;
   `verdict` is the last audit's; `noted_checks` are the last audit's failed checks: the failed
@@ -653,12 +646,12 @@ default = true        # exactly one PUBLIC style sets this
   limit is about 4.5 MB; a 20-shot storyboard is several MB). Not a `307`: the button fetches the
   route, and a fetch can't follow a redirect to Storage's origin.
 
-### 3.5 The renderer: FLUX.1 [schnell] on fal.ai (T026; decided 2026-10-09)
+### 3.5 The renderer: FLUX.2 [klein] 4B on fal.ai (T026; fal decided 2026-10-09, klein 2026-10-11)
 
-**Decided by Tumo, 2026-10-09; Katlego approves with this PR.** The default renderer is FLUX.1
-[schnell] (Apache-2.0) on **fal.ai**, behind verify.md's `RecordingRenderer`. ComfyUI on a Nebius
-GPU (T003, `ComfyRenderer` below) stays an **optional** backend, for a demo session or the video,
-not the default. Why (the research, 2026-10-09, sources in §8):
+**Decided by Tumo, 2026-10-09; Katlego approves with this PR.** The default renderer was FLUX.1
+[schnell] (Apache-2.0) on **fal.ai** (klein since 2026-10-11, below), behind verify.md's `RecordingRenderer`. ComfyUI on a Nebius
+GPU (T003) stayed an **optional** backend, for a demo session or the video,
+not the default (cut 2026-10-19; never built). Why (the research, 2026-10-09, sources in §8):
 
 - **Nebius Token Factory serves no image model** (re-checked 2026-10-08: `flux-schnell`, `flux-dev`,
   `sdxl` answer 404).
@@ -693,12 +686,12 @@ not the default. Why (the research, 2026-10-09, sources in §8):
   rounded **down** to a multiple of 16. 1280 × 720 draws as is (921,600 px), and a 1748 × 986 comic
   panel draws at 1328 × 736. The PNG is then fitted to exactly the requested size by §3.3's `fit`
   (cover, centre-crop by at most the rounding excess) and post-processed (the style's grayscale).
-  **Every frame and every panel costs $0.003.**
+  **Every drawing costs about $0.003–0.004.**
 - **The prompt sent** is `FramePrompt.text()`, plain: FLUX reads no ComfyUI weight syntax, so nothing
-  is escaped and the style's `emphasis` is not applied. FLUX.1 [schnell] has no negative prompt, so
+  is escaped and the style's `emphasis` is not applied. The request has no negative prompt, so
   the style's `negative` is not sent (§3.1's "no negations" already keeps what must not appear out of
   the prompt; the audit catches the rest). `RenderedFrame.prompt` is exactly this text. The word
-  budget stays `COMFYUI_MAX_WORDS` (55), whatever its name says: raising it for FLUX's T5 encoder is
+  budget stays `COMFYUI_MAX_WORDS` (55), whatever its name says: raising it for FLUX's text encoder is
   §10's open question, not this change.
 - **The render key** (§3.3) is the sha256 of the canonical JSON of `{"model": FAL_MODEL, "request":
   <the body above>}`, then the requested `<width>x<height>`, `RENDER_VERSION` and the post-processing
@@ -758,8 +751,9 @@ the frame shows its failed card with "Try another render" (web.md §4.3).
 `app.state.renderer_factory` when `FAL_KEY` and the store are set and the public styles load (the
 image ships them since T063: `services/api/styles`, with the repo-root `styles` a symlink to it, deploy.md §6;
 a key set with styles that don't load is logged as an error at start-up and the app runs with no
-renderer, never half-configured): `lambda screenplay, extraction: FalRenderer(style=<the registry's default>, store=…,
-screenplay=…, extraction=…, client=<the app's shared httpx2 client>, settings=…)`, a fresh renderer
+renderer, never half-configured): `fal_factory`'s `lambda screenplay, extraction: FalRenderer(style=<the registry's default>, store=…,
+screenplay=…, extraction=…, client=<the app's shared httpx2 client>, key=FAL_KEY, model=FAL_MODEL,
+max_words=COMFYUI_MAX_WORDS, timeout_s=FAL_TIMEOUT_S)`, a fresh renderer
 per job or attempt, as verify.md §6 says. Without `FAL_KEY` it stays `None`: "Try another render"
 and "Make the comic" answer 503 `renderer_unavailable`, as today, and the storyboard job skips the
 RENDERING stage (planned is done, as before T026).
@@ -769,30 +763,27 @@ RENDERING stage (planned is done, as before T026).
 ```mermaid
 sequenceDiagram
     participant J as Storyboard job
-    participant S as StyleRegistry
     participant V as render_until_accepted (verify.md)
-    participant R as ComfyRenderer
+    participant R as FalRenderer
     participant P as build_frame_prompt
     participant T as AssetStore (Supabase Storage)
-    participant C as ComfyUI (Nebius GPU)
+    participant F as fal.ai (FAL_MODEL)
     participant L as frame_audits log (T021)
-    J->>S: get(style key)
-    J->>R: ComfyRenderer(style, workflow, store, screenplay, extraction, client)
-    R->>C: check_workflow: node titles present, checkpoint installed
+    J->>R: factory(screenplay, extraction), in the registry's default style
     par each shot in plan order (≤ concurrency at once)
         J->>V: shot, width 1280, height 720, log = _log
         loop attempt 1 .. max_renders
             V->>R: render(shot, attempt, seed_for(shot, attempt), 1280, 720)
             R->>P: shot, screenplay, extraction, style, max_words
             P-->>R: FramePrompt
-            R->>R: substitute graph by node title; render key
-            R->>T: exists(frames/key.png)?
+            R->>R: fal_request per redraw seed; render key of each
+            R->>T: exists(frames/key.png)? (each redraw's key, in order)
             alt cached
                 T-->>R: PNG
             else not cached
-                R->>C: POST /prompt; poll /history; GET /view
-                C-->>R: image
-                R->>R: cover-resize to 1280×720; grayscale; PNG
+                R->>F: POST fal.run/{FAL_MODEL}; GET images[0].url
+                F-->>R: image (flagged or black → the next derived seed)
+                R->>R: fit to 1280×720; grayscale; PNG
                 R->>T: put(frames/key.png)
             end
             R-->>V: RenderedFrame (prompt = the text sent)
@@ -806,9 +797,8 @@ sequenceDiagram
     J-->>J: Storyboard (the PDF is built on demand by T027's endpoint, not here)
 ```
 
-- **With fal.ai** (§3.5, the default): `R` is `FalRenderer` and `C` is fal.ai's synchronous endpoint.
-  There is no `check_workflow` step, and one call per drawing replaces the submit/poll/view. The job
-  calls `build_storyboard(…, concurrency=settings.fal_concurrency)`. The diagram's ComfyUI path is the optional backend (T003).
+- **The job** calls `build_storyboard(…, concurrency=settings.fal_concurrency)`; one synchronous fal call per
+  drawing (§3.5).
 - **The writer and its hooks** (T021). `build_storyboard` takes T021's `FrameWriter` (verify.md
   §6) and, for each shot, calls `frame_hooks(writer, renderer, shot)` to get the `(log, on_state)`
   pair it passes to `render_until_accepted`: `log` writes each attempt's `frame_audits` row with the
@@ -819,19 +809,15 @@ sequenceDiagram
 - **Seeds** are verify.md's `seed_for(shot, attempt)`; the renderer never picks one. FrameFlow's
   random regenerate seed is gone: an attempt is reproducible, and "another attempt" is the next
   attempt number.
-- **Concurrency** defaults to 2: one GPU renders one graph at a time (ComfyUI queues the rest), so
-  more than two only lengthens the queue; two lets shot *n + 1* render while shot *n* is audited.
+- **Concurrency** defaults to 2 (`FAL_CONCURRENCY`): fal.ai's limit for a new account (§3.5); two lets
+  shot *n + 1* render while shot *n* is audited.
 - **Frame state** is verify.md §5's state machine, unchanged; this design adds no states. Only a
   `PASSED` or `WARNED` frame's image appears in the storyboard, the JSON or the PDF.
-- **ComfyUI calls** (ported from FrameFlow): `POST /prompt` with the graph and a client id; poll `GET
-  /history/<id>` every second (an absent entry means still running); at `COMFYUI_TIMEOUT_S`, ask
-  `/queue`: still queued or running → extend by the same again, up to 3× in total; then cancel it
-  (`/interrupt` if running, `/queue` delete if pending) and fail. A history `status_str` of `error`
-  fails with ComfyUI's message. The first image output is fetched from `GET /view`.
+- **ComfyUI calls** (T003): cut 2026-10-19; never built.
 
 **Failure paths:**
 
-- **A renderer error** (fal.ai or ComfyUI unreachable, a rejected request, a render error, a timeout,
+- **A renderer error** (fal.ai unreachable, a rejected request, a render error, a timeout,
   a drawing the safety checker blocked) → `RendererError` → verify.md's `FAILED` for **that frame**
   (`failure` `render`), logged with the renderer's message; **the storyboard goes on** with the
   other shots, and the job ends `DONE` with the failed frame on the board, its card offering "Try
@@ -847,8 +833,6 @@ sequenceDiagram
 - **A prompt whose fixed parts exceed the word budget** → `PromptError`, raised by the renderer as
   `RendererError` → `FAILED`, naming the shot: a configuration error (style or budget), never a
   truncated prompt.
-- **A workflow missing a titled node, or a checkpoint ComfyUI doesn't have** → `RendererError` from
-  `check_workflow` before any shot is rendered.
 - **An audit error or the last attempt failing** → `WITHHELD` (verify.md): the block shows the card;
   the job succeeds. A withheld frame is information, not a failure.
 - **Storage answers 429 or a 5xx (Cloudflare's 520–524 included), or the connection drops** →
@@ -884,7 +868,7 @@ SUBJECT_WORDS: frozenset[str]                           # §3.2's list
 PUBLIC_STYLES: Path                                     # services/api/styles, in the API image (T063; deploy.md §6)
 def load_styles(public_dir: Path, private_dir: Path | None) -> StyleRegistry: ...
 
-# app/characters/redact.py  (built by T008; T025 uses it: characters.md §6)
+# app/characters/redact.py  (built by T008)
 NAME_STOP_WORDS: frozenset[str]                                # §3.1's list
 def name_tokens(names: Sequence[str]) -> frozenset[str]: ...   # words of normalise(name), for each name, minus NAME_STOP_WORDS
 NAME_PARTICLES: frozenset[str]                                 # T092, §3.1: van der de du da von le la del dos den ter bin (lower case)
@@ -967,26 +951,22 @@ def pronoun_figure(shot: Shot, screenplay: Screenplay, extraction: Extraction) -
 # app/grounding/__init__.py, T093: SENTENCE_END (filter.py's _SENTENCE_END, renamed and exported; _pronoun_pieces uses it)
 def build_frame_prompt(shot: Shot, screenplay: Screenplay, extraction: Extraction, style: Style, *,
                        max_words: int, placement: str | None = None) -> FramePrompt: ...
-#   placement must be in PLACEMENT_PHRASES (else ValueError); T026 passes None, T025 passes
-#   characters.md FrameReferences.placement; a placement with len(visible_characters) != 2 is a ValueError;
+#   placement must be in PLACEMENT_PHRASES (else ValueError); T026 passes None (T025, which would pass
+#   characters.md FrameReferences.placement, was cut 2026-10-19); a placement with len(visible_characters) != 2 is a ValueError;
 #   a shot.time_of_day that isn't the absolute time of time_source's heading is a ValueError (the
 #   planner copies resolve_times, so any other clock is one the headings don't give)
 
 # app/storyboard/prompts.py — T008's live check (python -m app.storyboard.prompts <script.pdf> [--style KEY])
 async def main(argv: list[str]) -> int: ...             # parse, extract, plan; print each shot's parts, kinds and spans
 #   run as `sys.exit(asyncio.run(main(sys.argv[1:])))` under `if __name__ == "__main__"`, like app/shots/run.py;
-#   max_words = Settings().comfyui_max_words (COMFYUI_MAX_WORDS, T008), the same value T026's load_workflow receives
+#   max_words = Settings().comfyui_max_words (COMFYUI_MAX_WORDS, T008), the same value fal_factory passes FalRenderer
 
-# app/storyboard/workflow.py — pure
-@dataclass(frozen=True) class Workflow: name: str; graph: Mapping[str, Any]; native_area: int; max_words: int
-REQUIRED_TITLES: tuple[str, ...] = ("checkpoint", "positive", "negative", "seed", "latent", "save")
-def load_workflow(path: Path, max_words: int) -> Workflow: ...     # WorkflowError if a title is missing or repeated
-def draw_size(width: int, height: int, native_area: int) -> tuple[int, int]: ...   # multiples of 64
-def substitute(workflow: Workflow, *, positive: str, negative: str, seed: int, width: int, height: int) -> dict[str, Any]: ...
+# app/storyboard/workflow.py — pure (ComfyUI's graph helpers, T003: cut 2026-10-19; never built)
 RENDER_VERSION: int = 1
-def render_key(graph: Mapping[str, Any], width: int, height: int, postprocess: str) -> str: ...   # sha256 hex, §3.3 (requested size, RENDER_VERSION)
 def fit(png: bytes, width: int, height: int) -> Image.Image: ...                  # cover + centre-crop, exact size
-def weighted(text: str, phrase: str, emphasis: float | None) -> str: ...          # "(phrase:1.3)" on its first occurrence
+def postprocess(image: Image.Image, grayscale: bool) -> Image.Image: ...          # the style's pass: grayscale, then autocontrast(cutoff=0.5)
+def png_bytes(image: Image.Image) -> bytes: ...
+def render_key(graph: Mapping[str, Any], width: int, height: int, postprocess: str) -> str: ...   # sha256 hex, §3.3; graph is {"model", "request"} (§3.5)
 
 # app/storyboard/render.py
 class RendererError(RuntimeError): ...
@@ -995,14 +975,7 @@ class RenderRecorder(RecordingRenderer, Protocol):     # what build_storyboard n
     style: Style
     def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...
 RENDER_STAGE_FAILED: str = "No frame could be drawn, so the storyboard stopped. Try again in a few minutes by uploading the script again."
-class ComfyRenderer:                                    # implements app.verify.Renderer
-    def __init__(self, *, style: Style, workflow: Workflow, store: AssetStore, screenplay: Screenplay,
-                 extraction: Extraction, client: httpx2.AsyncClient, base_url: str,
-                 timeout_s: float, poll_interval_s: float = 1.0) -> None: ...
-    async def check_workflow(self) -> None: ...         # GET /object_info: titled nodes' classes exist, checkpoint installed
-    async def render(self, shot: Shot, attempt: int, seed: int, width: int, height: int) -> RenderedFrame: ...
-    def record(self, shot: tuple[int, int], attempt: int) -> RenderRecord: ...     # KeyError if not rendered
-#   ComfyRenderer is the optional backend (T003, §3.5); FalRenderer is the default.
+# ComfyRenderer (T003): cut 2026-10-19; never built. FalRenderer is the only renderer.
 
 # app/storyboard/fal.py (T026, §3.5)
 MAX_PIXELS: int = 1_000_000                              # fal bills each started megapixel
@@ -1113,7 +1086,7 @@ The shape is kept here for a later export:
 `frame_url` is present only for `passed` and `warned`; a `withheld` frame has none. `source` and
 `span` are the shot's, so the web app shows "from page 1, lines 5–9" on every frame (SPEC US1).
 
-**Environment** (added to `.env.example` and deploy.md §6: `PANELWISE_PRIVATE_STYLES` and `COMFYUI_MAX_WORDS` by T008, the other `COMFYUI_*` and Storage by T026):
+**Environment** (added to `.env.example` and deploy.md §6: `PANELWISE_PRIVATE_STYLES` and `COMFYUI_MAX_WORDS` by T008, `FAL_*` and Storage by T026):
 
 | Variable | Where | What |
 |---|---|---|
@@ -1121,36 +1094,30 @@ The shape is kept here for a later export:
 | `FAL_MODEL` | API | the fal model id, default `fal-ai/flux-2/klein/4b` (2026-10-11; `fal-ai/flux/schnell` before) |
 | `FAL_TIMEOUT_S` | API | per-call deadline, default 60 |
 | `FAL_CONCURRENCY` | API | frames drawn at once, default 2 (fal.ai's limit for a new account); at least 1, or the API refuses to start |
-| `COMFYUI_URL` | API, optional | ComfyUI's base URL on a Nebius GPU, for the optional backend (T003; already in `.env.example`) |
-| `COMFYUI_TIMEOUT_S` | API | per-render deadline before the queue-aware extension, default 300 |
-| `COMFYUI_MAX_WORDS` | API | the workflow's prompt word budget (§3.1), set with the T003 model; default 55 (CLIP's 77 tokens) |
+| `COMFYUI_MAX_WORDS` | API | the frame prompt's word budget (§3.1), default 55 (CLIP's 77 tokens; the name predates fal; raising it for FLUX is §10's open question) |
 | `SUPABASE_STORAGE_BUCKET` | API | the private bucket for frames and PDFs, default `panelwise` |
 | `PANELWISE_PRIVATE_STYLES` | API, optional | a directory of private style TOMLs outside the repo (already in `.env.example`); never set on the hosted demo |
 
-**Workflow**: `infra/comfyui/workflows/frame.json` (T026; `portrait.json`, `frame_ref1.json`,
-`frame_ref2.json` stay T025's). Nodes by title: `checkpoint` (its checkpoint name is fixed in the
-file: no "first available checkpoint" fallback), `positive`, `negative` (text encodes), `seed` and
-the sampler settings on the sampler, `latent` (width, height; its committed size is `native_area`),
-`save`.
+**Workflow**: none (ComfyUI, T003: cut 2026-10-19; never built).
 
 ## 7. Structure
 
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
-| `services/api/app/storyboard/{__init__,styles,prompt,prompts}.py` | new | §3.1–§3.2, §6; `prompts.py`: `python -m app.storyboard.prompts <script.pdf> [--style KEY]` parses, extracts and plans on the real account and prints every shot's prompt parts with their spans, so the team can read the prompts before any GPU exists | T008 |
+| `services/api/app/storyboard/{__init__,styles,prompt,prompts}.py` | new | §3.1–§3.2, §6; `prompts.py`: `python -m app.storyboard.prompts <script.pdf> [--style KEY]` parses, extracts and plans on the real account and prints every shot's prompt parts with their spans, so the team can read the prompts before any frame is drawn | T008 |
 | `services/api/app/storyboard/{model,workflow,render,build}.py` | new | §3.3, §4, §6: `fit`, the render key and post-processing, `RenderRecord`, `build_storyboard`. No separate run CLI: `build_storyboard` writes through T021's writer, so the live check is an upload through the local stack (§9) | T026 |
 | `services/api/app/storyboard/document.py` | new | §3.4, §6: `frames_from_rows`, the layout, the PDF, the document key, `export_pdf` (no JSON, no `run`: §6) | T027 |
 | `services/api/app/api/v1/projects.py`, `schemas.py`, `app/main.py` | changed | `GET /projects/{id}/storyboard/pdf` (web.md §6); `app.state.styles` loaded at startup (§3.4 Style) | T027 |
 | `services/api/app/characters/{__init__,redact}.py` | new | `NAME_STOP_WORDS`, `name_tokens`, `redact_names`, `redact_all` (moved here from characters.md's `portraits.py` so frames can use them before T025) | T008 |
 | `services/api/app/storage/{__init__,store}.py` | new | `AssetStore`, `SupabaseStore` (§6 contract; deploy.md §7), built with its first consumer, the upload (web.md §4.1); T026 uses it for frames; T070 retries a transient failure | T053, T070 |
 | `services/api/app/storage/store.py`, `app/api/v1/projects.py`, `tests/fakes.py` | changed | `signed_urls` (one batch request per 100 links); `read_frames` and `read_comic` sign in one call | T122 |
-| `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, `COMFYUI_MAX_WORDS`), T026 (`COMFYUI_URL`, `COMFYUI_TIMEOUT_S`, `SUPABASE_STORAGE_BUCKET`) |
+| `services/api/app/core/config.py`, `.env.example`, `docs/design/deploy.md` §6 | changed | §6's environment | T008 (`PANELWISE_PRIVATE_STYLES`, `COMFYUI_MAX_WORDS`), T026 (`FAL_KEY`, `FAL_MODEL`, `FAL_TIMEOUT_S`, `FAL_CONCURRENCY`, `SUPABASE_STORAGE_BUCKET`) |
 | `styles/*.toml`, `styles/README.md` | new / changed | the styles the team keeps public (§10); the file format | T008 |
 | `services/api/app/storyboard/fal.py` | new | §3.5: `FalRenderer`, `fal_draw_size`, `fal_request`, `fal_factory` | T026 |
 | `services/api/app/projects/job.py`, `app/main.py` | changed | the RENDERING stage in `run_job` (`factory`), `renderer_factory` from `fal_factory` when `FAL_KEY` is set | T026 |
-| `infra/comfyui/workflows/frame.json` | new | the frame graph, on T003's model (the optional backend) | T003 |
+| `infra/comfyui/workflows/frame.json` | not built | (ComfyUI, T003: cut 2026-10-19; never built) | T003 |
 | `services/api/assets/fonts/{CourierPrime-Regular,CourierPrime-Bold}.ttf`, `CourierPrime-OFL.txt` | new | the document's font and its licence | T027 |
-| `services/api/app/images/README.md` | removed | the provider chain and cache it described are not built (§8); the renderer lives in `storyboard/` | T026 |
+| `services/api/app/images/README.md` | kept, marked not built | the provider chain and cache it described are not built (§8); the renderer lives in `storyboard/` | T026 |
 | `docs/design/reference/storyboard/*.png` | new | the sample's rendered pages, the visual reference | T027 |
 | `services/api/tests/{storyboard,storage,characters}/` | new | §9 | T008, T026, T027 |
 | `CHANGES-FROM-FRAMEFLOW.md` | changed | a row per ported file | T008, T026, T027 |
@@ -1167,9 +1134,9 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | A line heard off screen (T079) | its listeners are the planner's other characters | no one (before T079): the prompt asked for nothing and the frame was an empty roof |
 | A plain background (T074) | `plain background` in the clean style's `finish` | the scene as it comes: schnell fills a workshop with jugs, books, pots and frames, and the judge withholds the frame for them (13 of 19 withheld frames failed on such objects on 2026-10-10); a per-shot phrase: the style is how every frame is drawn |
 | What a frame prompt is made of | tagged parts from the shot's grounded fields, each script part carrying its span (§3.1) | FrameFlow's `storyboard_description` (free text: shots.md dropped it) or its fallback to the scene's first 400 characters of action (a cut mid-sentence, and other shots' events); a model writing the prompt: invention with extra steps |
-| Dialogue in the prompt | never; speakers enter as the `COUNT` and, with T025, as references | the speech text: not visible, and the surest way to get letters in the art (hard `TEXT_IN_FRAME`) |
+| Dialogue in the prompt | never; speakers enter as the `COUNT` | the speech text: not visible, and the surest way to get letters in the art (hard `TEXT_IN_FRAME`) |
 | Camera movement in the prompt | never; printed under the frame | FrameFlow's movement words: a still can't pan, and "handheld" reads as blur |
-| Entity quotes | only as the covered elements' own text; nothing from outside the shot; appearance comes from T025's reference portrait | a character's first descriptive quote or a prop's first mention: each is an introduction that carries its own moment's event ("pours tea") into a shot that doesn't have it, which the audit then fails (`UNSCRIPTED_OBJECT`). **Cost:** until T025, a dialogue-only shot is drawn from its setting, time and figure count alone |
+| Entity quotes | only as the covered elements' own text; nothing from outside the shot; appearance comes from the introduction's `AGE`/`SEX` and `LOOK` parts (T074, T079; T025's portraits were cut 2026-10-19) | a character's first descriptive quote or a prop's first mention: each is an introduction that carries its own moment's event ("pours tea") into a shot that doesn't have it, which the audit then fails (`UNSCRIPTED_OBJECT`). **Cost:** a dialogue-only shot is drawn from its setting, time, figure count and its speakers' age, sex and look alone |
 | A sentence whose subject is only He or She (T093; Tumo, 2026-10-13) | drawn on the one cast person of that sex when no one else is on screen; left out when no drawn figure has that sex; every sex known, else nothing changes. **Consequence:** the pronoun figure is on screen for the audit, so `NO_CHARACTER` (hard) now applies to those shots | dropping every pronoun-subject sentence: 44 of the 52 measured are about the drawn figure, and the shot's action would go; resolving a pronoun across dialogue to its speaker or listener: "Keep it. You earned it." / "He looks at the ball." needs who is spoken to, which the script doesn't mark (L016's T088 note); asking the describer or judge who did what: an audit can't see a salute |
 | Figure count | `visible_characters`: planner characters the covered elements show on screen. Loose on shared name tokens ("JOHN SMITH"/"JOHN DOE") and possessives ("reads NANDI's letter"); both only change the count word | `len(shot.characters)`: the planner lists who it thinks fits, and `V.O.`/`O.S.` speakers aren't in the frame. **Known effect:** verify.md's soft `MISSING_CHARACTER` checks `shot.characters`, so a shot with an off-screen speaker ends `WARNED` with a `missing_character` note; accepted (it's soft and true), see §10 |
 | Unextracted names | accepted residual risk, pinned by a test | redacting every ALL-CAPS word: sound effects and emphasis ("SLAM", "NOW") are written the same way and would become "a person" |
@@ -1178,12 +1145,12 @@ the sampler settings on the sampler, `latent` (width, height; its committed size
 | Style format | one TOML per style, stdlib `tomllib`, validated at start-up | FrameFlow's Python dict: a private pack would have to be code, imported from outside the repo |
 | Public / private split | two directories, same validation, private can't shadow or be default | a `private = true` flag in the file: one directory, so a private file could land in the public repo by accident |
 | FrameFlow's `classic` style | dropped | it kept a pre-styles cache key and its prompt used the negations CLIP can't read ("no borders", "Do not add characters") |
-| FrameFlow's `fast` draft (draw small, upscale) | dropped | a CPU-time saving measured on SDXL-Turbo on a laptop; its other effect, stopping a close subject being drawn twice on an off-native canvas, is what `draw_size` now does for every render |
-| Image providers | ComfyUI only | FrameFlow's chain: A1111 WebUI (not deployed), Gemini (paid, not Nebius), and the labelled mock image (a placeholder, AGENTS.md §2a: a job without a GPU fails loudly instead) |
+| FrameFlow's `fast` draft (draw small, upscale) | dropped | a CPU-time saving measured on SDXL-Turbo on a laptop; its other effect, stopping a close subject being drawn twice on an off-native canvas, was to be ComfyUI's `draw_size`'s job (T003: cut 2026-10-19) |
+| Image providers | one: fal.ai (§3.5) | FrameFlow's chain: A1111 WebUI (not deployed), Gemini (paid, not Nebius), and the labelled mock image (a placeholder, AGENTS.md §2a: a job without a renderer fails loudly instead) |
 | Image cache | the content-addressed Storage path is the cache | FrameFlow's disk record/replay cache (a dev tool whose key named a Gemini model even for ComfyUI images) and Redis (gone: deploy.md); tests use a fake renderer, so replay mode has no job left |
-| Checkpoint choice | fixed in the committed `frame.json` | FrameFlow's "first checkpoint ComfyUI lists": changes the pixels without changing any key |
+| Model choice | `FAL_MODEL`, in the render key (§3.5) | FrameFlow's "first checkpoint ComfyUI lists": changes the pixels without changing any key |
 | Seeds | verify.md's `seed_for(shot, attempt)` | FrameFlow's per-subject hash plus a random regenerate seed: not reproducible |
-| Size mismatch between request and model | draw near native area in multiples of 64, cover-resize, crop only the rounding | drawing at the requested size (off-native sizes duplicate subjects: FrameFlow saw a close subject drawn twice) |
+| Size mismatch between request and model | draw at ≤ 1 MP in multiples of 16 (`fal_draw_size`, §3.5), cover-resize, crop only the rounding | drawing at the requested size (off-native sizes duplicate subjects: FrameFlow saw a close subject drawn twice) |
 | Grayscale | a pixel pass before the audit, per style | in the prompt (SDXL-Turbo ignores it); after the audit (the audit would judge different pixels than are shown) |
 | PDF | Pillow page images, one PDF with `save_all` (comic.md's choice) | FrameFlow's hand-written PDF writer (base-14 fonts, so it folded em dashes and curly quotes: not verbatim); reportlab: a second PDF library. **Cost:** the PDF's text isn't selectable |
 | What prints under a frame | the shot's verbatim `source`, never truncated, plus its span | FrameFlow's frame description cut at four lines: a storyboard block must show exactly the lines it cites |
@@ -1265,12 +1232,9 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
 - **`load_styles`**: the repo's `styles/` loads with exactly one public default; each §3.2 failure
   raises `StyleError` naming the file (a private key shadowing a public one, a private default, a
   subject word in `medium`, weight syntax, a missing field, an unknown field).
-- **Workflow** (T026): on a fixture graph, and then on the committed `frame.json`, every
-  `REQUIRED_TITLES` node exists once; `substitute` sets
-  inputs by title and leaves every other input untouched; `render_key` changes when any substituted
-  input or the post-process changes and is stable across dict ordering; `draw_size` returns multiples
-  of 64 near the native area for 16:9 and for comic.md's tall and wide panel rects; `fit` returns
-  exactly the requested size.
+- **`render_key` and `fit`** (T026): the key changes with the model, the request, the requested size and
+  the post-process, and is stable across dict ordering; `fit` returns exactly the requested size.
+  (ComfyUI's workflow tests, T003: cut 2026-10-19; never built.)
 - **`FalRenderer`** (T026) with `httpx2.MockTransport` and an in-memory `AssetStore`: the request body
   is §3.5's exactly (no negative, no weights, no escapes; `Authorization: Key …`); `fal_draw_size`
   keeps every size ≤ 1,000,000 px in multiples of 16 (1280 × 720 as is, 1748 × 986 → 1328 × 736) and
@@ -1281,12 +1245,7 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   frame and key carry the seed drawn, and three flags are `RendererError`; the factory exists only
   with `FAL_KEY`. `run_job` with a factory advances RENDERING at 60, writes every frame through
   T021's writer and ends DONE at 100; without one it ends DONE at 60 as before.
-- **`ComfyRenderer`** (optional, T003) with `httpx2.MockTransport` and an in-memory `AssetStore`: submit → poll
-  (absent, then present) → view → resize → grayscale → `put` at `frames/<key>.png`; a store hit makes
-  **no** ComfyUI call; the queue-aware extension then cancel; a history error, a 4xx on submit and no
-  image output each raise `RendererError`; `check_workflow` fails on a missing checkpoint; one
-  graph requested at two sizes that round to one draw size gets two keys and two correctly sized PNGs;
-  `RenderedFrame.prompt` is the weighted, escaped text actually sent; parentheses in script parts escaped; `record` returns the asset.
+- **`ComfyRenderer`** (T003): cut 2026-10-19; never built.
 - **`SupabaseStore`** with `MockTransport`: the Storage REST paths, the secret key header, a 409 on `put`
   treated as success, errors raised as `StorageError`, no key in any error message.
   T070, with a recording `sleep`: a 520 then a 200 on `put` succeeds on the second attempt after
@@ -1343,8 +1302,8 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   as before, comparing the lines' `text`. The PDF of a stored run, exported locally and looked at.
 - **Live** (T026/T027; needs `FAL_KEY`, T021): an upload of the self-written sample on the local stack, in the default
   public style: every shot ends `PASSED`, `WARNED` or `WITHHELD`; the PDF and frames are in Storage;
-  seconds per frame, renders per frame and fal's cost are recorded in `docs/rendering.md` (render cost; T049 uses the same renders); the
-  pages are committed as the visual reference.
+  seconds per frame, renders per frame and fal's cost are recorded in deploy.md §9 and verify.md (the hosted run of 2026-10-16: 339,000 tokens, 44
+  drawings); the pages were not committed as a visual reference (§2).
 - **T092** (`tests/characters/test_t092.py`, tests first): particles: "Mr. Van der Merwe climbs
   down" → "a person climbs down", "MR. VAN DER MERWE (50s)" → "a person (50s)", "Jan van der Merwe"
   (two particles) → "a person"; with `LE ROUX`, "the house of le Roux" → "the house of le a person";
@@ -1416,29 +1375,17 @@ Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): no
   2026-09-30 by the user:** all three of FrameFlow's drawn styles (`clean`, `ink`, `pencil`) are
   public in `styles/`, `clean` is the default, `classic` is dropped (§8), and the private pack is
   empty. Built by T008.
-- [ ] **A longer word budget for FLUX** (§3.5): FLUX.1's T5 encoder reads far more than CLIP's 77
+- [ ] **A longer word budget for FLUX** (§3.5): FLUX's text encoder reads far more than CLIP's 77
   tokens, so `COMFYUI_MAX_WORDS` (55) could rise and fewer script words would be cut. Decide with
   real fal renders in hand; it changes T008's budget and its tests.
-- [ ] **The ComfyUI model and graph** (T003, the optional backend): which checkpoint, sampler, steps and cfg go in
-  `frame.json`, its native size, and its licence (recorded in `infra/nebius/README.md`). The model
-  decides `COMFYUI_MAX_WORDS` (CLIP's 77 tokens vs a T5 encoder's few hundred), whether comma phrases
-  or sentences prompt it better, whether a negative prompt does anything (cfg 1 models ignore it:
-  verify.md §8), and which IP-Adapter family T025 can use (characters.md §10).
-- [ ] **GPU cost** (STATUS.md: the $50 credit covers Token Factory, not a GPU VM): cost per hour and
-  seconds per frame from T003 decide whether the box runs always-on for the demo to 15 Dec or is
-  started on demand, and what T030's image cap (`IMAGE_MONTHLY_GENERATION_CAP`) is set to. A
-  storyboard costs at most shots × 3 renders (verify.md's `max_renders`), fewer with cache hits.
-- [ ] **How ComfyUI is exposed** (T003): a private network between Render and Nebius isn't
-  available, so the endpoint needs authentication (a reverse proxy with a token, or a Nebius-managed
-  endpoint). If a header is needed, `COMFYUI_*` gains a secret; T003 names it and this doc's §6
-  changes with it.
-- [ ] **Unaudited frames at the US1 checkpoint** (SPEC.md open question 1): this design follows the
-  agreed verify.md (no frame shown without `PASS` or `WARN`), so T026 depends on T021's loop. Confirm
-  the US1 checkpoint waits for T021 rather than showing unaudited frames.
-- [ ] **Dialogue-only shots before T025**: with no entity quotes (§8), such a shot is drawn from its
-  setting, time and figure count. If T049's renders of the samples show these frames are too generic, the team
-  decides between waiting for T025's references and allowing a narrowly defined descriptive phrase
-  (never a whole sentence) from a character's introduction.
+- [x] **The ComfyUI model and graph, GPU cost, how ComfyUI is exposed** (T003): moot. T003 was cut
+  2026-10-19 (no money for a GPU VM); fal.ai is the only renderer, and T030 set
+  `IMAGE_MONTHLY_GENERATION_CAP` to 800.
+- [x] **Unaudited frames at the US1 checkpoint** (SPEC.md open question 1): resolved; T026 renders
+  through T021's loop, so no frame is shown without `PASS` or `WARN`.
+- [x] **Dialogue-only shots before T025**: moot; T025 was cut 2026-10-19 (and T049 closed 2026-10-12).
+  Such a shot is drawn from its setting, time, figure count and its speakers' `AGE`/`SEX`/`LOOK` (T074,
+  T079).
 - [ ] **Off-screen speakers and `MISSING_CHARACTER`** (§8): every shot with a `V.O.`/`O.S.` speaker
   will end `WARNED`. Accepted here; if the notes are noise, verify.md could skip characters whose
   only covered speech is off-screen (a verify.md change, its own PR).

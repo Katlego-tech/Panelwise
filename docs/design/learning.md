@@ -1,6 +1,6 @@
 # Design — `learning` (run reports and the learning log)
 
-**Status:** proposed · **Owner:** Tumo (Claude) · **Tasks:** T081 · **Spec:** [SPEC.md](../../SPEC.md)
+**Status:** built (T081: #135 design, #136 code) · **Owner:** Tumo (Claude) · **Tasks:** T081 · **Spec:** [SPEC.md](../../SPEC.md)
 US2 (frame audit)
 
 ---
@@ -167,7 +167,7 @@ at most 5, each once.
   when that fails. Examples: the `shot` labels it appeared in (`6.4`), in plan order, each once.
 
 The other checks (`setting`, `missing_character`, `light`, `framing`, `signature`,
-`no_character`) have no cause table: `## Checks` counts them, and their details show per shot.
+`no_character`, and since T095/T104 `drawn_sex`, `split_panels`, `drawn_twice`) have no cause table: `## Checks` counts them, and their details show per shot.
 
 **CharacterLine**, one per extracted character (`EntityKind.CHARACTER`, extraction order):
 `introduced_age`'s text, `character_sex`'s sex (since T082; `introduced_sex` before), `introduced_look`'s text, each `None` when the script

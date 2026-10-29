@@ -1,13 +1,14 @@
 # `eval`
 
-Measured numbers for the README and the Devpost story, on the three self-written samples in
-[`samples/`](../samples/README.md) (never a copyrighted script). Design:
+Measured numbers for the README and the Devpost story, on self-written samples in
+[`samples/`](../samples/README.md) (never a copyrighted script): the extraction on three of them,
+the frame audit on 109 labelled drawings of 11 scripts. Design:
 [docs/design/eval.md](../docs/design/eval.md).
 
 | Measure | Task | Status |
 | --- | --- | --- |
 | Extraction faithfulness and recall, shot-plan partition, grounding re-checked in code | T032 | below |
-| Frame-audit accuracy (precision, recall, false-FAIL rate on labelled renders) | T049 | blocked on T026 (renders need T003's GPU) |
+| Frame-audit accuracy (precision, recall, false-FAIL rate on labelled renders) | T049 | deferred 2026-10-12; the 109 labelled frames score the audit instead: [audit-mistakes.md](audit-mistakes.md), [measurements/t124/rescore-2026-10-20/](measurements/t124/rescore-2026-10-20/) (Super VL, today's hosted ladder: wrong 38 of 57 withheld, right 1 of 40) |
 
 ## Extraction and shot planning (T032)
 

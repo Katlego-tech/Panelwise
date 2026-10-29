@@ -12,8 +12,8 @@ later stage draws from — **where every entity and every description is a verba
 back to a page and line span**, and anything the model says that can't be located is dropped.
 Plus the two numbers that say how well it worked: **faithfulness** (precision) and **recall**.
 
-**Not covered:** storage, shots (T007), frame prompts (T008). Portraits use these entities later
-(T025).
+**Not covered:** storage, shots (T007), frame prompts (T008). Reference portraits from these
+entities (T025) were cut 2026-10-19; a character's look comes from their quotes (T079).
 
 ## 2. Reference material
 
@@ -620,8 +620,9 @@ the parser, so a faithful quote is always locatable.
 
 ## 10. Open questions
 
-- [ ] U6 (sampling): `temperature` defaults to 0.0. Compare 0.0 vs 1.0/0.95 on a full-length sample
-  once one exists (T031).
-- [ ] The sample is tiny; recall on a feature-length public-domain script needs T031's samples.
+- [ ] U6 (sampling): `temperature` defaults to 0.0. Compare 0.0 vs 1.0/0.95 on the T031/T090
+  samples.
+- [ ] Recall on a feature-length script is unmeasured: the samples are short and self-written
+  (T031, T090).
 - [ ] Usage undercounts a repaired chunk: `StructuredResult.chat` is the final call only. Fine
   while repairs are rare (U1); revisit if the trace shows them.

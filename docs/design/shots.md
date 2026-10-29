@@ -1,6 +1,6 @@
 # Design — `shots` (the shot planner)
 
-**Status:** agreed (T092 proposed) · **Owner:** Katlego (Claude; Tumo for T092) · **Tasks:** T007, T092 · **Spec:** [SPEC.md](../../SPEC.md) US1 (script →
+**Status:** agreed; built (T007, T092) · **Owner:** Katlego (Claude; Tumo for T092) · **Tasks:** T007, T092 · **Spec:** [SPEC.md](../../SPEC.md) US1 (script →
 grounded storyboard)
 
 ---

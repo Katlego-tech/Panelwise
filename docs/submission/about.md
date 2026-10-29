@@ -119,7 +119,7 @@ probing Token Factory, and several answers contradicted what the documentation s
   citation survived into the shot plan**: every kept quote and every shot's cited text was re-checked
   in code against the script lines it names, and all 15 runs came back at 0. Every action paragraph
   and speech landed in exactly one shot, in every run. (That is the text side; whether a rendered
-  image shows only what the shot says is the frame audit's job, measured once frames render.)
+  image shows only what the shot says is the frame audit's job, measured below.)
 - Nemotron 3.5 Lightning's own proposals were 89.8% faithful (246 of 274 entities fully grounded);
   the filter dropped what didn't ground (the unlocated quotes, or the whole entity). It found 85 of
   the 90 speaking-character appearances itself; the only miss was the same one in each run of

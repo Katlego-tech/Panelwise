@@ -1,7 +1,7 @@
 # Design — `limits` (the hosted demo's caps and its judge account)
 
-**Status:** proposed · **Owner:** Tumo (Claude) · **Tasks:** T069 (split from T030 on 2026-10-10:
-T030 keeps the hosting itself and the image-spend cap, which waits on the renderer decision) ·
+**Status:** built and live (T069; T030's image cap) · **Owner:** Tumo (Claude) · **Tasks:** T069 (split from T030 on 2026-10-10:
+T030 keeps the hosting itself and the image-spend cap, §4) ·
 **Spec:** [SPEC.md](../../SPEC.md) US1, US3
 
 ---
@@ -9,8 +9,8 @@ T030 keeps the hosting itself and the image-spend cap, which waits on the render
 ## 1. What this covers
 
 What keeps the hosted demo standing from submission to the end of judging (15 Dec 2026) on a
-project with no cash: Token Factory's $25 credit pays every model call, and every upload, "Try
-another render" and "Make the comic" spends it.
+project with little money: Token Factory's $25 credit pays every model call, fal top-ups pay the
+drawings, and every upload, "Try another render" and "Make the comic" spends both.
 
 - **A monthly token budget** for every Token Factory call the API makes, counted per calendar month
   (UTC); at the budget, new work that would call a model is refused with a clear message.
@@ -130,7 +130,8 @@ and drew again (`REDRAWS`, up to 3 requests for one drawing, storyboard.md §3.5
 process that dies between the drawing and its log (a restart mid-job) leaves no row; and a
 request fal failed costs nothing; so the count is a floor, and the cap is set with room for that and
 for one job finishing over it. **Measured** (2026-10-15, the stored runs of 11 scripts on the local
-stack): a storyboard under today's ladder (`drawn_sex,no_character`) is **17–26 drawings** (the
+stack): a storyboard under the ladder of the time (`drawn_sex,no_character`; hosted now adds
+`split_panels`) is **17–26 drawings** (the
 held-out runs of 13–14 Oct), about $0.07–0.10; under the old strict audit up to 134 (lost-property, 49
 shots). Its audit is 130,000–175,000 tokens (up to 390,000 under the old audit; T104's layout
 question adds about 15,000–24,000 to it and as much to its comic, verify.md §3; T102 lets every sex
@@ -285,7 +286,7 @@ now read (`.env.example`'s "read by no code yet" goes), off when unset or blank 
   `LLM_MONTHLY_TOKEN_CAP` = 2,800,000** (30% of the $18 left; the arithmetic in deploy.md §6).
   **Drawings decided 2026-10-16 by Katlego, from Tumo's fal balance and top-up plan:
   `IMAGE_MONTHLY_GENERATION_CAP` = 800** (the arithmetic in deploy.md §6). A storyboard is about 130,000–175,000
-  audit tokens and 17–26 drawings today (§4, measured); `LLM_MONTHLY_TOKEN_CAP` leaves one job's
+  audit tokens and 17–26 drawings (§4, measured 2026-10-15); `LLM_MONTHLY_TOKEN_CAP` leaves one job's
   room under the credit, `IMAGE_MONTHLY_GENERATION_CAP` one job's (about 150 drawings) under the fal
   allowance. They are entered in Render's dashboard (deploy.md §6, `sync: false`), so the code
   doesn't wait on them; the deploy does.

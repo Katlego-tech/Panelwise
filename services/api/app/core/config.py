@@ -47,10 +47,11 @@ class Settings(BaseSettings):
     audit_withhold_checks: str = "all"
 
     # Frames (docs/design/storyboard.md §6). The prompt's word budget, a conservative proxy for the
-    # text encoder's token limit: 55 words for CLIP's 77 tokens until T003 picks the model.
+    # text encoder's token limit: 55 words for CLIP's 77 tokens, kept for klein (storyboard.md §10).
     comfyui_max_words: int = 55
-    # The renderer: FLUX.1 [schnell] on fal.ai (storyboard.md §3.5). No key, no renderer: "Try
-    # another render" and "Make the comic" answer 503 and the storyboard job ends at planning.
+    # The renderer: FLUX.2 [klein] 4B on fal.ai (storyboard.md §3.5; FLUX.1 [schnell] before
+    # 2026-10-11). No key, no renderer: "Try another render" and "Make the comic" answer 503 and
+    # the storyboard job ends at planning.
     fal_key: str = ""
     fal_model: str = "fal-ai/flux-2/klein/4b"  # storyboard.md §3.5 (2026-10-11)
     fal_timeout_s: float = 60.0

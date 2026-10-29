@@ -6,11 +6,11 @@ the repo. Each step ends with a check; don't start the next until it passes.
 
 | Order | Service | Runs | Needs |
 |---|---|---|---|
-| 1 | Supabase | Postgres (+ Storage and Auth later) | an account |
+| 1 | Supabase | Postgres, Storage and Auth | an account |
 | 2 | Render | the API (`services/api`, from `render.yaml`) | the GitHub repo, step 1's connection string and keys, the Nebius key |
 | 3 | Vercel | the web app (`apps/web`) | the GitHub repo, step 2's domain |
 
-**Since 2026-10-11 (Tumo):** the API goes on **Render** (a paid plan), not Railway (T063, #80/#81).
+**Since 2026-10-08 (Katlego; a paid plan since 2026-10-11):** the API runs on **Render**, not Railway (T063, #80/#81).
 The web can go first, before any API: see **Web first** in step 3.
 
 ## 1. Supabase — the database

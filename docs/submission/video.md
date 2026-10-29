@@ -72,13 +72,13 @@
 
 > We scored the audit against frames we labelled by hand: it holds back two in three wrong frames
 > while wrongly holding back one right frame in forty. A whole screenplay, storyboard and comic,
-> costs about twenty cents. Panelwise: every panel traced to the script. Try it at
+> costs about thirty cents. Panelwise: every panel traced to the script. Try it at
 > panelwise.vercel.app.
 
 **Slide text:**
 - 38 of 57 wrong frames held back · 1 of 40 right frames held back (109 frames labelled by hand)
 - 97% of shots accepted at the first drawing (two held-out scripts)
-- About $0.20 a screenplay, storyboard and comic
+- About $0.30 a screenplay, storyboard and comic
 - panelwise.vercel.app · the GitHub repo link
 
 ---

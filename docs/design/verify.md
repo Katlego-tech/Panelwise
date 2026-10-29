@@ -1,7 +1,7 @@
 # Design — `verify` (the frame audit and re-render loop)
 
 **Status:** agreed · **Owner:** Katlego (Claude) · **Tasks:** T020 (audit), T021 (re-render loop, audit
-log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn), T094 (the rule ladder), T095 (the sex agent), T097 (the head agent: where each person's head is, for the comic's bubbles), T099 (the presence agent), T106 (a rooftop is exterior), T107 (a signature's letters aren't text) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
+log: the API), T061 (the log and the retry in the web app), T062 (the architecture check), T077 (a signature warns), T078 (a prop's parts; no drawing marks), T080 (sex and look; no one in frame), T082 (the judge is told each person's sex), T083 (things the scene names; background objects warn; `recheck`), T084 (a person's support is an action line), T086 (a matched person's age; a vehicle's parts inside it; unheld food warns), T089 (objects, but animals and weapons, and lettering warn), T094 (the rule ladder), T095 (the sex agent), T097 (the head agent: where each person's head is, for the comic's bubbles), T099 (the presence agent), T106 (a rooftop is exterior), T107 (a signature's letters aren't text), T102 (a found person's sex), T104 (the layout agent), T109 (the describer's answer capped), T124 (described alike) · **Spec:** [SPEC.md](../../SPEC.md) US2 (frame audit)
 
 ---
 
@@ -13,7 +13,7 @@ that shows a person, prop or event the script doesn't put in that shot is never 
 grounding is enforced on text; this is the first check on images.
 
 **Not covered:** rendering (T026 provides the renderer this calls: storyboard.md), comic layout (comic.md reads
-the audit's speaker positions), portraits (characters.md).
+the audit's speaker positions), portraits (characters.md; T025 cut 2026-10-19).
 
 ## 2. Reference material
 
@@ -458,8 +458,8 @@ weak, 2 split panels (L015), none of the wrong sex or age, in 17 drawings instea
 **Non-negotiable I (PLAN.md):** an empty or partial ladder shows frames that fail a hard check, so §1's
 "never shown" holds only for the checks on the ladder. This is Tumo's call (2026-10-13), labelled:
 such a frame is always WARNED and its card names the failed check, never presented as passing. The
-code default stays `all`; the hosted demo's value is set at deploy (deploy.md, not changed here) and
-is Tumo's to choose.
+code default stays `all`; the hosted demo's value is set at deploy (render.yaml, deploy.md §6):
+`drawn_sex,no_character,split_panels` since 2026-10-17 (Katlego, #190; T104 below).
 
 **The sex agent (T095).** After the judge, for each described person accepted as a character whose
 sex the script gives, one more vision call asks about that person alone. **Who:** `matched_people`,
@@ -601,7 +601,8 @@ as before. **Fails:** `run_checks` fails `DRAWN_SEX` for an answer about a perso
 character (`found_people(...)[character] == person`) that is the other sex, with T095's detail;
 `unclear` passes. A found person still counts for `NO_CHARACTER` (T099 is unchanged), but the
 frame fails `DRAWN_SEX`: withheld and redrawn when `drawn_sex` is on the ladder
-(`AUDIT_WITHHOLD_CHECKS`, T094; the local runs and render.yaml set `drawn_sex,no_character`), else
+(`AUDIT_WITHHOLD_CHECKS`, T094; render.yaml sets `drawn_sex,no_character,split_panels`, §3 T104 and
+§6 T124; `drawn_sex,no_character` until 2026-10-17), else
 `WARN`, the card naming the check.
 Nothing else changes: the found person stays unmatched for `UNSCRIPTED_PERSON` and
 `MISSING_CHARACTER`. **Never an ERROR:** as T095, a failed question checks nothing for that person
@@ -672,8 +673,7 @@ for its comic: about 30,000–48,000 a storyboard and comic, +9–14% on the 339
 sizes `LLM_MONTHLY_TOKEN_CAP` by (about 370,000–387,000 each, about 7 a month instead of 8); and, when on the ladder, each withheld frame is one
 more attempt, a drawing (the image budget, T030) and its audit. **Old rows:** a row from before T104
 has no `layout`, so `recheck` can't measure `SPLIT_PANELS` or the layout's copies on it (they pass),
-as for a sex found later; T124's described-alike pairs need only the description, so they are checked. **Migration:** 0009, unless Katlego's T097 (#170, design only, which was to take 0009) lands
-first: whichever of the two merges second renumbers its migration (revision and down_revision).
+as for a sex found later; T124's described-alike pairs need only the description, so they are checked. **Migration:** `0009_audit_layout` (T097's heads are `0010_audit_heads`, down_revision 0009).
 **Described alike (T124; 2026-10-19, `eval/measurements/t124/`).** The layout agent argues copies apart:
 on gogos-recipe 2.1 the describer gave both children the same words ("a child in a short-sleeved shirt
 and shorts") and the agent answered "different faces, hair, and clothing details"; 1.4's second
@@ -759,7 +759,7 @@ sequenceDiagram
 
 - **Seeds** are deterministic: `seed(shot, attempt)`, so an attempt can be reproduced.
 - **`max_renders` = 3** (the first render plus two re-renders, `k = 2`). With a pass rate `p = 0.6`
-  that's `E[N] ≈ 1.56` renders per frame; the real `p` comes from T049's measurement.
+  that's `E[N] ≈ 1.56` renders per frame; the real `p` is in the run reports (`eval/runs/`).
   **T071:** it is the setting `RENDER_MAX_ATTEMPTS` (`Settings.render_max_attempts`, 1 to 3,
   default 3). Every full loop passes it: the storyboard's rendering stage (T026's
   `build_storyboard`) and the comic job (T064); "Try another render" still passes 1. The
@@ -853,8 +853,8 @@ class Renderer(Protocol):
 
 # app/verify/audit.py (T020)
 async def describe_frame(model: NebiusChatModel, png: bytes) -> tuple[FrameDescription, ChatResult]: ...
-#   the blind describer on its own (Tier.VISION, no shot details); audit_frame calls it, and so do
-#   portraits (characters.md), which need only people and has_text
+#   the blind describer on its own (Tier.VISION, no shot details); audit_frame is its only caller
+#   (portraits, characters.md, were to call it too: T025, cut 2026-10-19)
 def seed_for(shot: Shot, attempt: int) -> int: ...          # int.from_bytes(sha256(f"{scene_index}:{number}:{attempt}").digest()[:4], "big")  (unsigned)
 def part_of_prop(name: str, category: ObjectCategory, shot: Shot, extraction: Extraction) -> str | None: ...   # T078, pure:
 #   the shot prop whose part `name` is (§3, A part of a prop), or None; the first such prop in
@@ -946,8 +946,8 @@ class SupportsAsset(Protocol):
     def asset(self) -> str: ...                   # the attempt's Storage path, frames/<…>.png (read-only: a frozen dataclass fits)
 class RecordingRenderer(Renderer, Protocol):
     def record(self, shot: tuple[int, int], attempt: int) -> SupportsAsset: ...
-    # recorded before render() returns, so a lookup after it never misses; storyboard.md §6's
-    # ComfyRenderer (its RenderRecord has .asset) and T062's SketchRenderer are both one
+    # recorded before render() returns, so a lookup after it never misses; FalRenderer
+    # (app/storyboard/fal.py, its RenderRecord has .asset) and T062's SketchRenderer are both one
 ```
 
 **Audit log table** (`frame_audits`, T021, migration `0004`, `lock_down` like every table, deploy.md
@@ -1042,7 +1042,8 @@ def summary(rows: Sequence[Reaudit]) -> str: ...   # pure: before → after coun
   `frame_audits` rows (one `target`, or both; in `(target, scene_index, shot_number, attempt)` order;
   the first `limit`), reads each row's `frame_asset` from Storage, and calls `audit_frame` with that
   PNG (its width and height from the image, the row's seed) against the row's shot.
-- **The only spend** is the audit's two Token Factory calls per row; nothing is drawn.
+- **The only spend** is the audit's Token Factory calls per row (the describer and the judge, and
+  since T095–T104 the agents' vision questions); nothing is drawn.
   `python -m app.verify.reaudit <project-id> [--target storyboard|comic] [--limit N]` prints one
   line per row (`6.4 a1 comic: fail → pass`) and `summary`. A row whose asset is gone is reported
   and skipped, never a crash.
@@ -1317,7 +1318,7 @@ limit rule above names it. A looping string arrives cut to 100 characters, which
 
 | Path | New? | Responsibility | Task |
 | --- | --- | --- | --- |
-| `services/api/app/verify/{__init__,model,schema,prompts,audit}.py` | new | `describe_frame` (also used by portraits), judge, checks, verdict | T020 |
+| `services/api/app/verify/{__init__,model,schema,prompts,audit}.py` | new | `describe_frame`, judge, checks, verdict | T020 |
 | `services/api/app/verify/run.py` | new | live check: audit one PNG against one planned shot on the real account | T020 |
 | `services/api/app/verify/loop.py` | new | render → audit → retry → state | T021 |
 | `services/api/app/frames/{model,writer}.py` + migrations `0003` (`frames.failure`), `0004` (`frame_audits`) | new | `FrameAuditRow`, `FrameWriter`, `frame_hooks` | T021 |
@@ -1342,28 +1343,28 @@ limit rule above names it. A looping string arrives cut to 100 characters, which
 
 | Decision | Chosen | Rejected, and why |
 |---|---|---|
-| Which failures withhold (T094; Tumo, 2026-10-13) | a ladder setting, empty on the hosted demo until each rule is measured back in; `all` stays the code default | every hard check (before): market-day 0 of 15 with most drawings right; dropping the audit: the card's notes and `recheck` are how the rules come back |
+| Which failures withhold (T094; Tumo, 2026-10-13) | a ladder setting, measured back in rule by rule (empty on the hosted demo at first); the hosted demo withholds `drawn_sex,no_character,split_panels` (render.yaml), every other hard check warns; `all` stays the code default | every hard check (before): market-day 0 of 15 with most drawings right; dropping the audit: the card's notes and `recheck` are how the rules come back |
 | A drawn character's sex (T095) | a vision question about the one matched person, only when the script gives a sex, `unclear` passing | the judge alone (T082 tells it the sex; it still matched the girls drawn as boys); asking the describer for every person's sex (more tokens on people nobody checks, and a describer told to look for sex starts guessing it); age bands from the same answer (15 of 175 called men in their 50s old) |
 | Where a head is (T097) | one vision question per comic panel, on the accepted attempt only, boxes as fractions, never a verdict | face detection (another model and dependency for a box the vision model already gives, measured on the drawings); the describer giving boxes (it is blind and general; a longer schema on every attempt, storyboard frames too); asking on every attempt (tokens on frames thrown away); an anatomy rule from the same question (it missed a three-armed man twice and miscounted limbs: §3) |
 | A character the judge didn't match (T099) | a vision question per drawn character, only when the judge matched none of them; it counts for `NO_CHARACTER` alone | a judge sentence (the judge already gets the same lines and cites them while calling the person no one; and it can't be measured free); code taking a stranger's support that names a drawn character as a match (free, but by the stored supports it finds about 8 of the 23, and none where the judge cited nothing); making the found person a full match (it would excuse `UNSCRIPTED_PERSON` and start `DRAWN_SEX` questions on a second opinion's say-so; measured only for presence). **T102** adds only the `DRAWN_SEX` question, measured: 36 found people asked, 2 flagged, both real, 0 false alarms |
 | A frame in panels, or one person drawn twice (T104; L015, L022, 2026-10-16) | one vision question on a frame with two or more people; `SPLIT_PANELS` on panels > 1; `DRAWN_TWICE` on a copy pair in one picture unless the two are accepted as two different characters | rewording every style's positive words (fal's klein takes no negative prompt; L015 parked it: it changes every drawing); a code test on the describer's text (it describes the copies differently: "short dark hair" against "shoulder-length wavy hair" for lighthouse 4.2's two women); asking the describer (a describer told to look for copies starts finding them, as T095 found for sex); copies in a split frame (the split's own figures; `SPLIT_PANELS` already names it) |
 | A copy the layout agent argues apart (T124; 2026-10-19) | the describer's own words: a pair described alike (word overlap ≥ 0.5), not both known, fails `DRAWN_TWICE`; it warns (on the hosted ladder for one night, off again 2026-10-20: it withheld right frames) | withholding on `UNSCRIPTED_PERSON` (it catches 9 of 10 copies, but flags 11 of 40 right frames on the 109 labelled: a judge that misses a drawn cast); a stricter layout prompt (another paid question, and it already sees the matching words); a threshold of 0.8 (no false flag anywhere, but 3 of 10 copies) |
 | A found person's sex (T102; L022, 2026-10-16) | T095's question on each person `found_people` gives for a character the script sexes; `DRAWN_SEX` fails on the other sex | the presence agent's own answer refusing a person of the other sex (its prompt already says "their sex if the script gives it", and it still found an old woman for Mr. Fortuin); a full match (excuses `UNSCRIPTED_PERSON`, T099's reason) |
-| Who sees the image | a vision model, blind to the shot | Nemotron directly: no Token Factory Nemotron accepts images (U7); telling the describer what to expect: it would agree |
-| Who judges | Nemotron (reasoning tier) + code | the vision model judging itself: not NVIDIA, and it already saw the image without the spec, which is the point |
+| Who sees the image | a vision model, blind to the shot | the judge looking at the image itself: no Token Factory Nemotron accepted images until Super VL (U7, U8), and since T105 the split stays because a describer blind to the shot can't simply agree; telling the describer what to expect: it would agree |
+| Who judges | Nemotron (reasoning tier) + code | the vision model judging itself: it already saw the image without the spec, which is the point (it was also not NVIDIA's until T105) |
 | Countable checks | code | the judge counting: code is exact and free |
 | Where a comic panel's attempts are logged (T064) | `frame_audits` with a `target` column | a second `comic_audits` table: the same columns twice, and two writers to keep in step; logging nothing: every attempt is kept (§4), a comic panel's too |
 | "Supported by the script" | only with a verbatim quote, verified in code | trusting the judge's say-so: the same failure the grounding filter exists to stop |
 | After the last failed attempt | withhold the frame | show the "best" failed frame: that shows something unscripted |
 | Audit error | withhold | pass unaudited: the one outcome this module exists to prevent |
-| Re-render feedback | a new seed | feeding the failed checks into the prompt: SDXL-Turbo at cfg 1 ignores negative prompts (FrameFlow's own config note); revisit with the T003 model |
+| Re-render feedback | a new seed | feeding the failed checks into the prompt: SDXL-Turbo at cfg 1 ignored negative prompts (FrameFlow's own config note), and fal's FLUX.2 [klein] takes no negative prompt (L015) |
 | Hard vs soft | hard = would show something unscripted; soft = quality | failing on every soft miss: burns renders on lighting a storyboard can live with |
 | Text in the frame (T071; Tumo, 2026-10-10) | fail only legible words that aren't the script's own (the shot's `source` or the scene's location) | any writing-like mark fails (before T071): 237 of 249 failed audits on 2026-10-10 had text, a sign naming the very office the scene is in among them, so almost nothing could pass; ignoring only unreadable marks: the office's own sign would still fail; counting the time of day as script words: a painted "NIGHT" would pass |
 | Costume and the place's structure (T071) | never an unscripted object when not held, and the describer stops listing them | trusting the judge on each jacket and chimney: on 2026-10-10 it called a chest pocket, a hat and jackets unscripted; a held one is still checked (a held object is a story choice) |
 | Attempts per frame (T071) | the setting `RENDER_MAX_ATTEMPTS`, 1 to 3, default 3 | a constant 3: when failures are systematic, two of every three drawings buy another FAIL; more than 3: the same spend, faster |
 | A wrong sex or look (T080) | the judge refuses the match, as for a wrong age | a code check on the describer's words ("a boy"): the describer's phrases vary, and matching them to "she" or "braids" is guessing |
 | No one in frame (T080) | the hard `NO_CHARACTER`, against the people the prompt drew | `MISSING_CHARACTER` made hard: a shot of two where one is drawn would be withheld for a framing choice; against `shot.characters`: a planner character no covered line puts on screen was never drawn, so every attempt would fail |
-| A child drawn as an adult (T072) | the judge refuses the match when the apparent age plainly contradicts the character's quoted age, so the person is unscripted | a new `AGE` check in code: the describer's age is a phrase, and matching it to `(10)`, `(70s)` or "old" in code is guessing; leaving it to portraits (T025): T025 waits on the renderer, and 14 of 27 labelled frames (eval.md §6a.2) drew the wrong age |
+| A child drawn as an adult (T072) | the judge refuses the match when the apparent age plainly contradicts the character's quoted age, so the person is unscripted | a new `AGE` check in code: the describer's age is a phrase, and matching it to `(10)`, `(70s)` or "old" in code is guessing; leaving it to portraits (T025): T025 waited on the renderer (and was cut 2026-10-19), and 14 of 27 labelled frames (eval.md §6a.2) drew the wrong age |
 | A rooftop (T106) | the describer's rule: open to the sky is `exterior`, even with the sky left blank; `interior` only when walls and a ceiling close it in; else `unclear` | a code exception for `ROOF` in the heading (it would pass a roof drawn indoors); dropping `SETTING` to soft (it catches real INT/EXT swaps: verify.md §8, T071) |
 | A signature (T072, T077, T107; Tumo, 2026-10-11) | the soft `SIGNATURE` check (T077): logged and shown, the frame `WARN`; since T107 its letters are never `text`, readable or not (both checks are soft, so a frame's verdict is the same either way; what changes is that a scrawl isn't reported as unscripted lettering). On eval.md §6a's 27 labelled frames this passes 2 that Katlego labelled bad for their signature (one also had a second kite the describer missed): by this decision a signature is no grounding failure, so those labels count the signature as a note | a hard fail (T072): on 2026-10-11, re-judging the same stored drawings, it withheld 4 more of the-red-kite's 22 klein frames (6 accepted with T077, 2 without) and 1 of its 21 schnell frames, each otherwise right, and a mark in a corner is no character, prop, line or event; T071's rule alone (no flag): the flag stays, so a reviewer sees the mark; cropping the border to remove it: halved signatures in a 2026-10-10 experiment, and is renderer post-processing, after the renderer decision |
 | A part of a prop (T078) | code: the prop's head noun right before the part's own word, a prop of this shot, no copy word, never an animal, vehicle, weapon or food; the judge's call doesn't matter | the judge alone (it called a kite string unscripted 3 times in 27 labelled frames); a shared word (my first draft matched `coil of wire` to `SPOOL OF BLUE STRING` through `of`, and `second kite` to `RED KITE`); a judge prompt saying everyday things are set dressing (2026-10-11: no labelled good frame gained, and a grown man for Lerato passed). Measured on the saved judgements of three runs over the 27 labelled frames: 0, 1 and 2 good frames gained, no labelled-bad frame passing |
@@ -1383,12 +1384,15 @@ limit rule above names it. A looping string arrives cut to 100 characters, which
 **Accepted residual risk:** the audit can only judge what the describer reports. A person or object
 the describer misses passes unseen. And since T072 the judge, not code, decides what a place
 would hold: an object the script never names, called `set_dressing` with the heading's words,
-passes (weather called dressing included). Code only stops a named prop and an unsupported one. T049 measures exactly this (recall on frames with a deliberately
-injected extra person or object); if it's poor, the describer prompt or model changes, or option B.
+passes (weather called dressing included). Code only stops a named prop and an unsupported one. T049
+was to measure exactly this (recall on frames with a deliberately injected extra person or object);
+it was deferred 2026-10-12, and the 109 hand-labelled frames measure it instead
+(`eval/tools/score_labels.py`; the 2026-10-20 rescore, read on today's hosted ladder: 38 of 57 wrong frames
+withheld, 1 of 40 right).
 
 Deviations from [docs/architecture-defaults.md](../architecture-defaults.md): none. Wording for the
-pitch and README (per the vision decision): *"a vision model describes each frame; Nemotron audits
-it against the script."*
+pitch and README (SPEC.md): *"Nemotron 3.5 Super VL describes each frame; Nemotron Super judges it
+against the script."*
 
 ## 9. How this is verified
 
@@ -1516,8 +1520,10 @@ it against the script."*
   Free: the comparison on every stored audit gives the numbers in §3, every newly accepted drawing looked at
   and listed in the PR. Live: after T088, on the held-out script.
 - **T089:** `run_checks`: an unheld pen called `unscripted` with no prop of that name and a held pen called `set_dressing` each fail `BACKGROUND_OBJECT` (soft, `WARN`) with details `object N (pen, other): not in the script` and `object N (pen, other): held, so not set dressing`; a held bun (food) and a car (vehicle) called never-set-dressing warn too, with their own details; a `scripted_prop` mug without a found support warns `prop without support`; a knife (weapon) called `unscripted` and a dog (animal) called `set_dressing` still fail `UNSCRIPTED_OBJECT` (hard); painted text 'LOST POVERTY' in a shot whose source says LOST PROPERTY fails `TEXT_IN_FRAME` with severity soft and the verdict `WARN`; with an unscripted person as well, the verdict is `FAIL`; painted text alone (no other fault) gives `WARN`. Also: an animal `scripted_prop` without support still fails `UNSCRIPTED_OBJECT` "prop without support"; a held knife (weapon) called `set_dressing` still fails it "held, so not set dressing"; a held `clothing` object (a scarf in a hand) now warns. `_filed`: animal and weapon → `UNSCRIPTED_OBJECT`; other, nature, furniture, screen_or_sign, clothing, architecture, vehicle, food → `BACKGROUND_OBJECT`. **Existing tests that change** (their hard object or text failure is now a warning): `test_checks.py` (the `hard` set loses `TEXT_IN_FRAME`; the verdict asserts on held, unsupported and never-dressing objects and on text), `test_t083.py` (a vehicle expected `FAIL`; `test_the_rest_stays_hard`'s held pen, named prop and unsupported prop, its animal case stays), `test_t086.py` (held food and a food `scripted_prop` without support), `test_t078.py` (an `UNSCRIPTED_OBJECT` assert); each is changed to the new routing, not deleted. Free: `recheck` on every stored project gives the numbers in §3, every newly accepted drawing looked at and listed in the PR. Live: the next run.
-- **Accuracy (T049, eval.md):** a labelled set of frames, including ones rendered with a deliberately
-  injected extra person or object, gives the audit's precision and recall for the README.
+- **Accuracy:** T049's injected-frame set (eval.md) was deferred 2026-10-12. The 109 hand-labelled
+  frames (`eval/frame-labels.json`) scored by `eval/tools/score_labels.py` give the audit's numbers
+  ([eval/audit-mistakes.md](../../eval/audit-mistakes.md); the rescore in
+  `eval/measurements/t124/rescore-2026-10-20/`).
 
 - **T094** (`tests/verify/test_loop.py`, `tests/verify/test_t095.py`): a failed check off the
   ladder is accepted as WARN on that attempt, logged as WARN with that check now soft; one on the
@@ -1656,13 +1662,17 @@ it against the script."*
   of dialogue, add one judge sentence and measure it with `reaudit` (Token Factory), not `recheck`.
 
 - [x] Does the describer honour `json_schema`? **Answered 2026-09-30 (T020):** GLM-5.3-Flash turned out
-  not to receive images at all (findings § U7 re-check), so the describer is now DeepSeek-V4.1-Flash,
-  which returned schema-valid descriptions on every live call, no repair needed.
+  not to receive images at all (findings § U7 re-check), so the describer became DeepSeek-V4.1-Flash
+  (2026-09-30 → 10-17), which returned schema-valid descriptions on every live call, no repair needed.
+  Since T105 it is Nemotron 3.5 Super VL: 44 of 44 schema-valid, 0 repairs (findings § U8).
 - [ ] How reliable is the describer's `shot_size`? If noisy, `FRAMING` stays soft (it is) or is
   dropped. In T020's three live runs it matched what the frames show.
-- [ ] **Precision on correct frames (for T049).** Live, the describer filed plates and bowls under
+- [x] **Precision on correct frames (for T049).** Live, the describer filed plates and bowls under
   `food`, which can never be set dressing, and set `has_text` on two of three frames whose only candidates are papers and plans on a table. Both
-  push a frame toward FAIL, the safe side, but a good frame could burn its renders. T049 measures the
+  push a frame toward FAIL, the safe side, but a good frame could burn its renders. T049 was to measure the
   false-FAIL rate; if it's high, the category list or the describer prompt changes, not the rule.
-- [ ] Option B (a self-hosted NVIDIA VLM on the ComfyUI GPU) would let Nemotron-family models see
-  the image directly; revisit once T003's GPU exists.
+  **Measured on the labelled set instead** (T049 deferred): 1 of 40 right frames withheld on today's
+  hosted ladder (2026-10-20 rescore); food and lettering warn since T086 and T089.
+- [x] Option B (a self-hosted NVIDIA VLM on the ComfyUI GPU) would let Nemotron-family models see
+  the image directly. **Answered 2026-10-17 without a GPU:** Nemotron 3.5 Super VL on Token Factory
+  sees the image (T105, findings § U8); T003 was cut 2026-10-19.

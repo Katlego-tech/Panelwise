@@ -20,9 +20,12 @@ Every step below names the task that makes it real; nothing is shown before that
 | 0:50–1:10 | The solution: what it does, before how | the README flow diagram |
 | 1:10–2:20 | Live demo: the golden path below, from upload to the audit log | the hosted app (T030) |
 | 2:20–2:40 | Architecture, in the audio: Nemotron 3.5 Lightning on Token Factory extracts and plans; FLUX.2 [klein] on fal.ai renders; Nemotron 3.5 Super VL describes each frame and Nemotron Super judges it | the README diagram, corrected for the describe/judge split |
-| 2:40–3:00 | Close: the measured faithfulness, recall and audit numbers (T032, T049), the repo link | one slide |
+| 2:40–3:00 | Close: the measured faithfulness, recall and audit numbers (T032, T124), the repo link | one slide |
 
 ## Golden path script
+
+The recorded path is [docs/submission/video.md](docs/submission/video.md): pre-opened tabs on the
+judge account, no upload on camera. It wins wherever the steps below differ.
 
 Pre-fill every input. Never click an unrehearsed path on camera.
 
@@ -30,7 +33,7 @@ Pre-fill every input. Never click an unrehearsed path on camera.
 2. Upload the demo screenplay, `samples/the-red-kite.pdf` (T031; self-written, see `samples/README.md`).
 3. The scenes, characters and locations appear, each with its verbatim quote and page/line span (T006 builds it; T009 shows it in the app).
 4. The shot list appears, planned on Nemotron (T007, T009).
-5. Frames render, one per shot, in a public style (T003, T008, T026).
+5. Frames render, one per shot, in a public style (T008, T026).
 6. Open the audit log: one frame was re-rendered, with the vision model's description and Nemotron's verdict shown (T020, T021).
 7. Export the storyboard PDF (T027).
 8. Switch to the comic: pages with speech bubbles taken from the script's dialogue, in the reader (T022–T024).
@@ -38,8 +41,8 @@ Pre-fill every input. Never click an unrehearsed path on camera.
 
 ## Fallbacks
 
-- [ ] The seeded judge project is already rendered, so a judge sees a full storyboard and comic without spending credit or waiting on a GPU (T030).
-- [ ] LLM and image spend caps and upload limits on the hosted demo, so a judge can't drain the credit before 15 Dec (T030).
+- [x] The seeded judge project is already rendered, so a judge sees a full storyboard and comic without spending credit or waiting on a GPU (T030).
+- [x] LLM and image spend caps and upload limits on the hosted demo, so a judge can't drain the credit before 15 Dec (T030).
 - [ ] The video itself is the offline recording of the whole walkthrough, made during the freeze (Wed 28 – Thu 29 Oct): link in `event.toml [links] video` (T034).
 - [ ] Appendix material for judges who read further ([DEFENSE.md](DEFENSE.md)).
 
