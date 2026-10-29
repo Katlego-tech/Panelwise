@@ -8,26 +8,29 @@ panelwise/
 ├── README.md                    # setup, Nemotron + Token Factory usage, demo link
 ├── CHANGES-FROM-FRAMEFLOW.md    # the "what was significantly updated" disclosure
 ├── .env.example                 # key names only
-├── docker-compose.yml           # local: postgres, api, web (+ comfyui profile, T003); deployed: docs/design/deploy.md
+├── docker-compose.yml           # local: postgres, api, web; deployed: docs/design/deploy.md
+├── render.yaml                  # the hosted API on Render (the web app: apps/web/vercel.json)
 ├── infra/
-│   ├── nebius/                  # GPU VM / serverless endpoint for ComfyUI
-│   └── comfyui/workflows/       # public node graphs (JSON)
+│   ├── nebius/                  # README only: ComfyUI on a Nebius GPU (T003, cut 2026-10-19)
+│   └── comfyui/workflows/       # README only (T003 cut)
 ├── services/api/                # FastAPI
 │   ├── app/
 │   │   ├── core/                # config, auth, budget (+ LLM spend cap), tracing
 │   │   ├── llm/                 # nebius provider, model tiers, structured_chat
-│   │   ├── script/              # parser, scene_time, dialogue_linker
+│   │   ├── script/              # parser, scene_time, speakers
 │   │   ├── grounding/           # extraction, grounding filter, faithfulness
 │   │   ├── shots/               # shot planner
 │   │   ├── storyboard/          # frame gen, styles registry, PDF        (headline)
 │   │   ├── verify/              # frame audit (vision model describes, Nemotron judges) + re-render loop
 │   │   ├── comic/               # page layout, panel sizing, bubbles, lettering
-│   │   ├── characters/          # reference portraits for consistent characters
-│   │   ├── images/              # provider chain + cache
+│   │   ├── projects/ jobs/ frames/ storage/ limits/ demo/   # uploads, job state, frame rows, Supabase Storage, spend caps, the judge seed
+│   │   ├── characters/          # name redaction, labels, sex from the script's words (portraits cut, T025)
+│   │   ├── images/              # provider chain + cache (planned, not built; fal renders)
 │   │   └── api/v1/              # projects, script, shots, storyboard, comic, audit log
-│   └── tests/
+│   ├── tests/
+│   └── tools/                   # build_samples, build_comic_reference, evaluate
 ├── apps/web/                    # Next.js: upload → shots → storyboard → comic reader
-├── packages/shared/             # types + api client
+├── packages/shared/             # types + api client (README only)
 ├── styles/                      # public storyboard + comic styles
 ├── samples/                     # public-domain / self-written screenplays ONLY
 ├── eval/                        # faithfulness + frame-audit benchmarks
@@ -48,8 +51,11 @@ panelwise/
 
 ## Run it
 
-Not runnable yet. Target: `cp .env.example .env && docker compose up`.
+See [README.md § Run it](../README.md#run-it).
 
 ## Status
 
-Scaffold only: module folders hold a README describing their responsibility and no code yet.
+What is built and what is waiting: [README.md § What works today](../README.md#what-works-today) and
+[STATUS.md](../STATUS.md). Some folders hold only a README describing their responsibility:
+`infra/` (ComfyUI on a Nebius GPU, T003, cut 2026-10-19: fal.ai renders), `packages/shared/`, and
+`app/images/` (the renderer lives in `app/storyboard/`, storyboard.md §3.5).
