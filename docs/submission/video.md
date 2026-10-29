@@ -92,3 +92,62 @@
 - Only self-written or public-domain scripts on screen (DEMO.md; the-red-kite is self-written).
 - The numbers on the slide match `docs/submission/about.md` and `eval/measurements/t124/`.
 - Upload the video to YouTube as **public**, then put the link in `event.toml [links] video`.
+
+---
+
+## As recorded (2026-10-29, Tumo via Claude)
+
+The video is **173 s** (2:53), 1080p: [Google Drive](https://drive.google.com/file/d/1uWQ2O0QnYzZ5JYWu65rGe5hB-MMMXBPi/view?usp=sharing). **Devpost asks for a public YouTube
+video**, so it still has to go on YouTube (Public), with that link in `event.toml [links] video`.
+
+How it was made: screenshots of the hosted app signed in as the judge account (the-red-kite), five
+slides in the app's colours, and narration by an ElevenLabs voice (Jedediah) on Tumo's account. The
+recorded cut has music: the "Universal Intro 4K" fanfare under the opening and "Movie Intro - Pawns
+(SHORT FILM)" under the rest, both third-party tracks Tumo chose. YouTube's Content ID may claim
+or mute them, which would mute the narration too; a cut without music exists (Tumo has it,
+`Panelwise-demo.mp4`) if that happens.
+
+Changes from the script above, each checked against the screen:
+- The hook is a trailer cold open ("Every film begins as words on a page… 22 shots").
+- Frame 1.1 shows two children and no Lerato, so the storyboard line points at frame 1.2 (Lerato
+  and the kite), and the audit line reads frame 1.1's card: two unscripted children, Lerato not seen.
+- The cost is about $0.30 a screenplay (deploy.md §6), not $0.20.
+- The export is mentioned over the storyboard; the PDF itself isn't opened on screen.
+
+The narration as recorded:
+
+**0:00 Hook (trailer cold open: letterbox cards, then the title)**
+
+> Every film begins as words on a page. Before a single scene is shot, someone has to see it. One screenplay. Twenty-two shots. Not one invented detail. This... is Panelwise.
+
+**0:15 The problem**
+
+> A storyboard takes an artist, time, and money that most small productions just don't have. Image models draw fast, but they invent: extra people, props the script never mentions, the wrong character. For a storyboard, that's worse than no picture at all.
+
+**0:36 What Panelwise does (projects page)**
+
+> You upload a screenplay. Panelwise plans the shots, draws one frame per shot, and checks every frame against the script before you ever see it. If a frame doesn't hold up, it draws it again. Then it lays them out as a comic, with the script's own dialogue in the bubbles.
+
+**0:55 Script page**
+
+> Nemotron, on Nebius Token Factory, reads the script and pulls out every scene, character, and place, each with the exact line it came from. Anything it can't point to in the script is thrown away, in code.
+
+**1:11 Storyboard (frame 1.2: Lerato and the kite)**
+
+> Each frame sits right beside the lines it draws, with the page and line it came from. Here's Lerato, with her red kite, up on the roof. And the whole storyboard exports as a PDF.
+
+**1:26 The audit (frame 1.1's card)**
+
+> Every frame is audited. Nemotron three point five Super VL describes what was actually drawn, without ever seeing the script. Then Nemotron Super, the judge, compares it with the shot. Here, the audit caught two children the script never asked for, and Lerato missing, and it says so, right on the card.
+
+**1:49 Comic (Mokgosi's bubble, p.2 l.93–94)**
+
+> And the comic. The bubbles are the script's own words. Click any one of them, and you see the exact line it came from.
+
+**1:57 How it works**
+
+> Under the hood: Nemotron three point five Lightning, on Token Factory, extracts and plans the shots. FLUX two klein, on fal dot ai, draws. Nemotron Super VL describes each frame, and Nemotron Super judges it, with small agents asking follow-up questions. Is that character really there? Drawn twice? It all runs on Token Factory's OpenAI-compatible API.
+
+**2:25 Numbers and close**
+
+> We scored the audit against frames we labelled by hand. It holds back two in three wrong frames, and wrongly holds back just one right frame in forty. A whole screenplay, storyboard and comic, costs about thirty cents. Panelwise. Every panel, traced to the script. Try it at panelwise dot vercel dot app.
