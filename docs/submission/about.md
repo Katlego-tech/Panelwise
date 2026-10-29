@@ -12,8 +12,9 @@
 > Panelwise turns a screenplay into a storyboard and a comic book. NVIDIA Nemotron checks every
 > frame against the script, so nothing appears that the writer didn't write.
 
-**Thumbnail** (3:2, 1500×1000; made 2026-10-29, not committed): the-red-kite's opening lines beside
-the panel drawn from them, a local trial frame from 9 Oct.
+**Thumbnail and gallery** (3:2; made 2026-10-29, not committed): the thumbnail sets the-red-kite's
+scene 3 lines beside shot 3.1, drawn on the hosted stack on 20 Oct (audit: pass); the gallery is
+screenshots of the hosted app and pages from its storyboard and comic PDFs.
 
 ---
 
