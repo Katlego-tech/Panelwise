@@ -51,7 +51,7 @@ source = "Devpost overview page, Judging Criteria (the four criteria); equal wei
 core = ["services/api/app/script", "services/api/app/grounding", "services/api/app/llm", "services/api/app/verify"]
 
 [team]
-presenter = ""               # open item, set by T034: whoever narrates the video presents
+presenter = "ElevenLabs voice"   # T034: the video's narration is the team's script voiced through the ElevenLabs API
 
 [[team.members]]
 name = "Katlego Thapelo Tlhapiso"

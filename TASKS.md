@@ -408,8 +408,8 @@ Each user-story phase is ordered **Design → Tests FIRST (must FAIL) → Implem
       Done:    a judge reading only the README knows what runs today, can run it on a sample, sees where Nemotron and Token Factory carry the load and why, and reads the measured numbers; the feedback section is the team's own words (until then T033 stays open)
 - [x] T034 [POL] 3-minute video on YouTube; fill the ported-code table in CHANGES-FROM-FRAMEFLOW.md. Lane `eval+submission`.
       Status:  shooting script merged (#234, 2026-10-24); ported-code table complete (2026-10-27: every module whose code names FrameFlow, `workflow.py`'s grayscale pass added); the video on YouTube, public, without music: https://youtu.be/vIjz9RHnLPM (2026-10-30)
-- [ ] T035 [POL] gitleaks over history (repo public since 2026-10-05), Devpost text, submit on Devpost by 29 Oct. Lane `eval+submission`.
-      Status:  gitleaks done 2026-10-20 (v8.30.1, `git --log-opts=--all`, redacted): 574 commits on every branch, no leaks; re-run 2026-10-29 (v8.30.1, same options): 583 commits, no leaks. The Devpost text and the submission remain
+- [x] T035 [POL] gitleaks over history (repo public since 2026-10-05), Devpost text, submit on Devpost by 29 Oct. Lane `eval+submission`.
+      Status:  gitleaks done 2026-10-20 (v8.30.1, `git --log-opts=--all`, redacted): 574 commits on every branch, no leaks; re-run 2026-10-29 (v8.30.1, same options): 583 commits, no leaks. Submitted on Devpost 2026-10-30, before the deadline
 - [x] T055 [POL] **Close the `braces` advisory GHSA-vfj7-8cjw-p6xm.** Accepted in `osv-scanner.toml` on 2026-10-03 (no fixed version; dev-only, via eslint-config-next → fast-glob → micromatch). Lane `infra`.
       Design:  none (a dependency bump)
       Files:   apps/web/package.json / pnpm-lock.yaml (a fixed `braces`, or an `overrides` entry, or a newer eslint-config-next that drops it); osv-scanner.toml (remove the block)

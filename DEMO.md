@@ -3,7 +3,7 @@
 The demo is the release. This event has no live pitch: judges score the **video** (a public
 YouTube video, 3 minutes or shorter, "with audio covering how you used Nebius Token Factory and
 NVIDIA Nemotron") and the **hosted demo**, which must stay up, free and unrestricted, until
-15 Dec. One person narrates (`event.toml [team] presenter`, decided in T034). The limit is
+15 Dec. The narration is the team's script voiced through the ElevenLabs API (`event.toml [team] presenter`, decided in T034). The limit is
 `event.toml [demo] limit_seconds` = 180.
 
 Only public-domain or self-written screenplays appear anywhere in the video or the demo (T031).
