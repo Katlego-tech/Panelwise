@@ -43,7 +43,7 @@ Pre-fill every input. Never click an unrehearsed path on camera.
 
 - [x] The seeded judge project is already rendered, so a judge sees a full storyboard and comic without spending credit or waiting on a GPU (T030).
 - [x] LLM and image spend caps and upload limits on the hosted demo, so a judge can't drain the credit before 15 Dec (T030).
-- [ ] The video itself is the offline recording of the whole walkthrough, made during the freeze (Wed 28 – Thu 29 Oct): link in `event.toml [links] video` (T034).
+- [x] The video itself is the offline recording of the whole walkthrough, made during the freeze (Wed 28 – Thu 29 Oct): link in `event.toml [links] video` (T034).
 - [ ] Appendix material for judges who read further ([DEFENSE.md](DEFENSE.md)).
 
 ## Rehearsal log

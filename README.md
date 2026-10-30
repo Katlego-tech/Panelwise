@@ -32,7 +32,7 @@ team: [CHANGES-FROM-FRAMEFLOW.md](CHANGES-FROM-FRAMEFLOW.md) says what was porte
 
 ## Demo
 
-The 3-minute video is linked here once it is recorded (T034). The live demo:
+The 3-minute video: https://youtu.be/vIjz9RHnLPM. The live demo:
 
 | Piece | Where |
 | --- | --- |
