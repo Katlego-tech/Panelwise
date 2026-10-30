@@ -51,7 +51,7 @@ source = "Devpost overview page, Judging Criteria (the four criteria); equal wei
 core = ["services/api/app/script", "services/api/app/grounding", "services/api/app/llm", "services/api/app/verify"]
 
 [team]
-presenter = "ElevenLabs voice"   # T034: the video's narration is the team's script voiced through the ElevenLabs API
+presenter = "ElevenLabs voice"   # T034: the team's script voiced through the ElevenLabs API (Jedediah); Tumo Mogame produced the video
 
 [[team.members]]
 name = "Katlego Thapelo Tlhapiso"

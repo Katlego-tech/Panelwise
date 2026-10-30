@@ -49,8 +49,10 @@ Pre-fill every input. Never click an unrehearsed path on camera.
 ## Rehearsal log
 
 At least five timed takes within 180 s, one of them recorded with the network off (playing the
-pre-rendered seeded project). `./hack preflight` counts these rows. The takes are recorded in T034;
-none has been made yet.
+pre-rendered seeded project). `./hack preflight` counts these rows. The takes are recorded in T034.
+On 29 Oct the video was produced rather than performed live: screenshots of the hosted app (judge
+account) with an ElevenLabs narration, so there were no live takes; the row below is that video.
 
 | When | Seconds | Offline? | Notes |
 |---|---|---|---|
+| 2026-10-29 | 173 | yes (a video file) | Produced, not a live take: hosted app screenshots, ElevenLabs narration (Jedediah); the submitted cut has no music (YouTube, 30 Oct); Tumo (via Claude) |
