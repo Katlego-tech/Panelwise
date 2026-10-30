@@ -11,20 +11,20 @@
 
 ⟨judge email and password: pasted on Devpost only⟩
 
-Sign-up is off, so this account is the way in. It already holds **the-red-kite**, a four-page
+Sign-up is off, so this account is the way in. It already holds **the-red-kite**, a five-page
 sample screenplay we wrote, drawn end to end on the hosted stack. Nothing needs to run for you to
 see the whole product:
 
 1. **Script:** every character, prop and location the model found, each with the exact script
    lines it came from.
 2. **Storyboard:** one frame per shot beside the script. Click a frame for its audit log: what the
-   vision model saw, what Nemotron judged, every check, and every redraw.
+   vision model saw, what Nemotron judged, every check, and every redraw. *Export PDF* gives the storyboard as a PDF.
 3. **Comic:** the same script as comic pages, every speech bubble lettered word for word from the
-   script. *Export PDF* gives the storyboard as a PDF.
+   script. Click any bubble to see the line it came from. *Download PDF* gives the comic as a PDF.
 
 **To try your own upload**, drop a screenplay PDF of up to 15 pages on *Board your script* on the
 projects page. Any PDF in the repo's [`samples/`](https://github.com/Katlego-tech/Panelwise/tree/main/samples)
-folder works (all self-written, 3 to 9 pages). A storyboard takes a few minutes, and you can watch
+folder works (all self-written, 4 to 10 pages). A storyboard takes a few minutes, and you can watch
 its frames arrive one by one. Then press *Make the comic* on its comic tab.
 
 **Why the demo has limits.** We're two students building this on our own money: we pay for the

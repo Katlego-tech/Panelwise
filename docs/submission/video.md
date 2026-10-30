@@ -97,15 +97,14 @@
 
 ## As recorded (2026-10-29, Tumo via Claude)
 
-The video is **173 s** (2:53), 1080p: [Google Drive](https://drive.google.com/file/d/1uWQ2O0QnYzZ5JYWu65rGe5hB-MMMXBPi/view?usp=sharing). **Devpost asks for a public YouTube
-video**, so it still has to go on YouTube (Public), with that link in `event.toml [links] video`.
+The video is **173 s** (2:53), 1080p, public on YouTube without music: https://youtu.be/vIjz9RHnLPM
+(`event.toml [links] video`). A first upload with music went to Google Drive on 29 Oct; it is not the submission.
 
 How it was made: screenshots of the hosted app signed in as the judge account (the-red-kite), five
 slides in the app's colours, and narration by an ElevenLabs voice (Jedediah) on Tumo's account. The
-recorded cut has music: the "Universal Intro 4K" fanfare under the opening and "Movie Intro - Pawns
-(SHORT FILM)" under the rest, both third-party tracks Tumo chose. YouTube's Content ID may claim
-or mute them, which would mute the narration too; a cut without music exists (Tumo has it,
-`Panelwise-demo.mp4`) if that happens.
+submitted cut has no music. A cut with music was made first (the "Universal Intro 4K" fanfare
+under the opening and "Movie Intro - Pawns (SHORT FILM)" under the rest, from
+https://youtu.be/PvKiWRTSAzg); it was dropped because Content ID could mute the narration with it.
 
 Changes from the script above, each checked against the screen:
 - The hook is a trailer cold open ("Every film begins as words on a page… 22 shots").

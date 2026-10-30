@@ -3,7 +3,7 @@
 The demo is the release. This event has no live pitch: judges score the **video** (a public
 YouTube video, 3 minutes or shorter, "with audio covering how you used Nebius Token Factory and
 NVIDIA Nemotron") and the **hosted demo**, which must stay up, free and unrestricted, until
-15 Dec. One person narrates (`event.toml [team] presenter`, decided in T034). The limit is
+15 Dec. The narration is the team's script voiced through the ElevenLabs API (`event.toml [team] presenter`, decided in T034). The limit is
 `event.toml [demo] limit_seconds` = 180.
 
 Only public-domain or self-written screenplays appear anywhere in the video or the demo (T031).
@@ -43,7 +43,7 @@ Pre-fill every input. Never click an unrehearsed path on camera.
 
 - [x] The seeded judge project is already rendered, so a judge sees a full storyboard and comic without spending credit or waiting on a GPU (T030).
 - [x] LLM and image spend caps and upload limits on the hosted demo, so a judge can't drain the credit before 15 Dec (T030).
-- [ ] The video itself is the offline recording of the whole walkthrough, made during the freeze (Wed 28 – Thu 29 Oct): link in `event.toml [links] video` (T034).
+- [x] The video itself is the offline recording of the whole walkthrough, made during the freeze (Wed 28 – Thu 29 Oct): link in `event.toml [links] video` (T034).
 - [ ] Appendix material for judges who read further ([DEFENSE.md](DEFENSE.md)).
 
 ## Rehearsal log
@@ -55,4 +55,4 @@ account) with an ElevenLabs narration, so there were no live takes; the row belo
 
 | When | Seconds | Offline? | Notes |
 |---|---|---|---|
-| 2026-10-29 | 173 | yes (a video file) | Produced, not a live take: hosted app screenshots, ElevenLabs narration (Jedediah), music under it; Tumo (via Claude) |
+| 2026-10-29 | 173 | yes (a video file) | Produced, not a live take: hosted app screenshots, ElevenLabs narration (Jedediah); the submitted cut has no music (YouTube, 30 Oct); Tumo (via Claude) |

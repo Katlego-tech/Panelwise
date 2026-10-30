@@ -32,7 +32,7 @@ resources = "https://nebiusglobalaihackathon.devpost.com/resources"
 repo = "https://github.com/Katlego-tech/Panelwise"   # public since 2026-10-05
 track = "Best Apps and Agents"
 demo = "https://panelwise.vercel.app"   # web on Vercel, API on Render (live since 2026-10-16); up until 15 Dec 2026
-video = "https://drive.google.com/file/d/1uWQ2O0QnYzZ5JYWu65rGe5hB-MMMXBPi/view?usp=sharing"   # T034, 29 Oct: Google Drive. Devpost asks for a public YouTube video: upload it there and replace this link
+video = "https://youtu.be/vIjz9RHnLPM"   # T034: the public YouTube video, 3 minutes or shorter (no music; uploaded 2026-10-30)
 judging = "2026-12-01 to 2026-12-15"   # the demo must stay up, free and unrestricted, until 15 Dec
 
 [rubric]
@@ -51,7 +51,7 @@ source = "Devpost overview page, Judging Criteria (the four criteria); equal wei
 core = ["services/api/app/script", "services/api/app/grounding", "services/api/app/llm", "services/api/app/verify"]
 
 [team]
-presenter = "Tumo Mogame"   # T034: Tumo made the video; the narration is an ElevenLabs voice (Jedediah) on his account
+presenter = "ElevenLabs voice"   # T034: the team's script voiced through the ElevenLabs API (Jedediah); Tumo Mogame produced the video
 
 [[team.members]]
 name = "Katlego Thapelo Tlhapiso"
